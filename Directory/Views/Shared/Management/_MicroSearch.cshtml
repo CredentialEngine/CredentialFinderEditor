@@ -1,0 +1,56 @@
+﻿@model Models.Search.MicroSearchSettings
+<div 
+     class="microSearch" 
+     data-type="microSearch" 
+     data-property="@Model.Property" 
+     data-searchtype="@Model.SearchType" 
+     data-searchid="@Model.SearchId" 
+     data-previous="@Model.Previous" 
+     data-pagesize="@Model.PageSize" 
+     data-pagenumber="@Model.PageNumber" 
+     data-resultrendermethod="@Model.ResultRenderMethod" 
+     data-savedrendermethod="@Model.SavedRenderMethod" 
+     data-resulttemplate="@Model.ResultTemplate" 
+     data-savedtemplate="@Model.SavedTemplate" 
+     data-parentID="@Model.ParentId" 
+     data-parentType="@Model.ParentType" 
+     data-usesRecursiveSave="@Html.Raw( Model.UsesRecursiveSave ? "true" : "false" )" 
+     data-extractionMethod="@Model.ExtractionMethod" 
+     @foreach ( var item in Model.Attributes ) { @Html.Raw( item.Key + "=\"" + item.Value + "\" " ) }>
+    <div class="microSearchWrapper">
+        <h3>@Model.SavedItemsHeader</h3>
+        <div class="microSearchSelectedItems"></div>
+    </div>
+    <div class="microSearchWrapper">
+        <h3>@Model.SearchHeader</h3>
+        <input type="button" class="microSearchResetButton" value="Reset/Clear" onclick="resetMicroSearch('@Model.SearchId');" />
+        @foreach ( var item in Model.Filters )
+        {
+            var attributes = "";
+            foreach ( var attribute in item.Attributes )
+            {
+                attributes = attributes + attribute.Key + "=\"" + attribute.Value + "\" ";
+            }
+            switch ( item.Type )
+            {
+                case "select":
+                    <select class="microSearchFilter" data-type="select" data-filtername="@item.FilterName" @attributes>
+                        @foreach ( var option in item.Items )
+                        {
+                            <option value="@option.Key">@option.Value</option>
+                        }
+                    </select>
+                        break;
+                case "text":
+                <input type="text" class="microSearchFilter" data-type="text" data-filtername="@item.FilterName" placeholder="@item.Placeholder" @attributes />
+                        break;
+                default: break;
+            }
+        }
+        <div class="microSearchStatus"></div>
+        <div class="microSearchResults"></div>
+        <div class="microSearchPaging"></div>
+    </div>
+</div>
+
+

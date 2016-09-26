@@ -1,0 +1,18 @@
+﻿@using CTIDirectory.Models
+@model UserProfileEdit
+@{
+    ViewBag.Title = "UserProfile";
+}
+
+<h2>User Profile</h2>
+
+
+@using ( Html.BeginForm( "UserProfile", "Account" ) )
+{
+    @Html.EditorFor( model => model.FirstName )
+    @Html.EditorFor( model => model.LastName )
+    @Html.EditorFor( model => model.Email )
+
+    <input type="submit" value="Save" />
+}
+

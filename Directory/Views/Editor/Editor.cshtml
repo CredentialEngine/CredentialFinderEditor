@@ -1,0 +1,2698 @@
+﻿@model Models.Node.Interface.EditorSettings
+@using Models.Node.Interface;
+@using Models.Common;
+@{
+    ViewBag.Title = "Profile Manager";
+
+    var enumServices = new EnumerationServices();
+
+    var mainProfileType = "";
+    var roles = new Enumeration();
+    var qaRoles = new Enumeration();
+    switch ( Model.Editor )
+    {
+        case EditorSettings.EditorType.CREDENTIAL:
+            mainProfileType = "Credential";
+            roles = enumServices.GetCredentialAgentRoles( EnumerationType.CUSTOM );
+            qaRoles = enumServices.GetCredentialAgentQAActions( EnumerationType.CUSTOM, "Credential" );
+            break;
+        case EditorSettings.EditorType.ORGANIZATION:
+            mainProfileType = "Organization";
+            roles = enumServices.GetAllOrgAgentRoles( EnumerationType.CUSTOM );
+            qaRoles = enumServices.GetCredentialAgentQAActions( EnumerationType.CUSTOM, "Organization" );
+            break;
+        case EditorSettings.EditorType.LEARNINGOPPORTUNITY:
+            mainProfileType = "LearningOpportunity";
+            roles = enumServices.GetLearningOppAgentRoles( EnumerationType.CUSTOM );
+            qaRoles = enumServices.GetCredentialAgentQAActions( EnumerationType.CUSTOM );
+            break;
+        case EditorSettings.EditorType.ASSESSMENT:
+            mainProfileType = "Assessment";
+            roles = enumServices.GetAssessmentAgentRoles( EnumerationType.CUSTOM );
+            qaRoles = enumServices.GetCredentialAgentQAActions( EnumerationType.CUSTOM );
+            break;
+        default: break;
+    };
+
+    var queryParams = Request.QueryString.Keys.Cast<string>().ToDictionary( k => k, v => Request.QueryString[ v ] );
+}
+
+@*
+@// May revive this later
+<link rel="stylesheet" type="text/css" href="~/Content/themes/base/jquery-ui.css" />
+<link rel="stylesheet" type="text/css" href="~/Content/themes/base/jquery.ui.datepicker.css" />
+<script type="text/javascript">
+    $(document).ready(function () {
+        // Set up date pickers
+        $("[data-type=date]").datepicker({
+            dateFormat: 'm/d/yy',
+            changeMonth: true,
+            changeYear: true,
+            minDate: new Date(1950, 1 - 1, 1)
+        });
+
+    });
+</script>
+*@
+
+<script type="text/javascript">
+    /* Server and global variables */
+    var initialData = @Html.Raw(  Newtonsoft.Json.JsonConvert.SerializeObject( Model.Data ) );
+    var mainProfileType = "@mainProfileType";
+    var mainProfileId = @Model.MainProfile.Id;
+    var mainProfileRowId = "@Model.MainProfile.RowId";
+    var repeaterID = 1;
+    var editZIndex = 100;
+
+</script>
+<script type="text/javascript">
+    /* Initialization */
+    $(document).ready(function() {
+        doInitialLoad();
+        initializeProfiles();
+        loadLinkedTab();
+    });
+
+    //Load initial data
+    function doInitialLoad(){
+        console.log( initialData );
+        //injectProfile();
+        writeProfile($(".mainProfile"), initialData);
+    }
+    //
+
+    //Called every time a new profile is added
+    function initializeProfiles(){
+        setupTabs();
+        setupRadioSelectors();
+    }
+    //
+
+    //If a particular profile was linked to, attempt to display it
+    function loadLinkedTab(){
+        var tab = "@Request.QueryString[ "tab" ]";
+
+        if(tab != ""){
+            $(".mainProfile > .tabs input[data-properties*=" + tab + "]").first().trigger("click");
+        }
+    }
+    //
+
+    //Setup tabs
+    function setupTabs(){
+        $(".hasTabs").not(".hasTabsInitialized").each(function() {
+            var box = $(this);
+            box.addClass("hasTabsInitialized");
+            var buttons = box.find(".tabs input");
+            var items = box.find(".tabItem");
+            buttons.each(function() {
+                var button = $(this);
+                button.on("click", function() {
+                    buttons.removeClass("selected");
+                    button.addClass("selected");
+                    var targets = button.attr("data-properties").split(",");
+                    items.removeClass("selected");
+                    for(var i in targets){
+                        items.filter("[data-property=" + targets[i] + "]").addClass("selected");
+                    }
+                })
+            });
+            buttons.first().trigger("click");
+        });
+    }
+    //
+
+    function setupRadioSelectors(){
+        $(".radioSelector").not(".radioSelectorInitialized").each(function(){
+            var selector = $(this);
+            selector.addClass("radioSelectorInitialized");
+            var sections = selector.find(".radioSection");
+            sections.each(function() {
+                var section = $(this);
+                section.find(".radioButton input[type=radio]").on("change", function() {
+                    sections.removeClass("selected");
+                    section.addClass("selected");
+                });
+            });
+        });
+    }
+    //
+
+</script>
+
+<script type="text/javascript">
+    /* Functions that vary based on the main object */
+    function doGlobalSave(button){
+
+        var profileData = readProperties($(".mainProfile"));
+
+        profileData.LinkTest = { Test: "Success" };
+
+        //Assemble object to send to the server
+        var data = {
+            Context: getProfileContext(0),
+            Profile: JSON.stringify(profileData)
+        };
+
+        //Do save
+        doAjax("Editor", "SaveProfile", data, success_doGlobalSave, $(button), null, true);
+    }
+    //
+
+    function doGlobalPreview(){
+        window.open("@Url.Content( "~/detail/" )" + mainProfileType + "/" + mainProfileId);
+        @*
+        switch(mainProfileType){
+            case "Credential":
+            case "Organization":
+                window.open("@Url.Content( "~/" )" + mainProfileType + "management/detail2/" + mainProfileId);
+                break;
+            case "Assessment":
+            case "LearningOpportunity":
+                window.open("@Url.Content( "~/profile/" )" + mainProfileType + "/" + mainProfileId );
+                break;
+            default: break;
+        }
+        *@
+    }
+    //
+
+    function doGlobalDelete(button){
+        $(".mainProfile").addClass("aboutToDelete");
+        modal.confirm("Delete All Data", "Are you sure you want to delete <b>all</b> data about @( string.IsNullOrWhiteSpace( Model.MainProfile.Name ) ? "this " + Model.MainProfile.TypeName : Model.MainProfile.Name )? This action cannot be undone!",
+            function() {
+                var context = getProfileContext(0);
+                doAjax("Editor", "DeleteProfile", context, success_doGlobalDelete, $(button), null, true);
+            },
+            function() {
+                $(".mainProfile").removeClass("aboutToDelete");
+            }
+        );
+    }
+    //
+
+</script>
+<script type="text/javascript">
+    /* Profile functions */
+    //Select a profile box via what is effectively a concatenated ID
+    function getProfileBox(editorRepeaterID, profileProperty){
+        var profile = getProfile(editorRepeaterID);
+        return profile.find(".profileBox[data-property=" + profileProperty + "]");
+    }
+    //
+
+    function getProfile(targetRepeaterID){
+        return $(".profile[data-repeaterID=" + targetRepeaterID + "]");
+    }
+    //
+
+    function getProfileContext(targetRepeaterID){
+        var profile = getProfile(targetRepeaterID);
+        var parentEditor = getProfile(profile.attr("data-parentRepeaterID"));
+        return {
+            IsTopLevel: profile.hasClass("mainProfile"),
+            Main: { Id: mainProfileId, RowId: mainProfileRowId, TypeName: mainProfileType },
+            Parent: { Id: parseInt(parentEditor.attr("data-recordID")), RowId: parentEditor.attr("data-recordRowID"), TypeName: parentEditor.attr("data-profile") },
+            Profile: { Id: parseInt(profile.attr("data-recordID")), RowId: profile.attr("data-recordRowID"), TypeName: profile.attr("data-profile"), Property: profile.attr("data-property") }
+        };
+    }
+    //
+
+    function getProfileListItem(targetRepeaterID){
+        return $(".profileList .profileItem[data-repeaterID=" + targetRepeaterID + "]");
+    }
+    //
+
+    //Add a new profile
+    function addNewProfile(parentRepeaterID, property, button){
+        var profileBox = getProfileBox(parentRepeaterID, property);
+
+        //Don't add to an unsaved profile
+        var parentEditor = getProfile(parentRepeaterID);
+        if(parentEditor.attr("data-recordID") == "0"){
+            consoleMessage.addErrorMessage("You must save the profile before adding or editing this item.");
+            return;
+        }
+
+        var profile = addProfile(parentRepeaterID, property, 0, "@Guid.Empty.ToString()", "New Unsaved Profile");
+        consoleMessage.addSuccessMessage("Creating new profile...", "", 1000);
+        editProfile(profile.attr("data-repeaterID"), button);
+
+        return profile;
+    }
+    //
+
+    //Add a profile (new or existing) via parameters
+    function addProfile(editorRepeaterID, profileProperty, profileRecordID, profileRecordRowID, profileName ){
+        try {
+            var box = getProfileBox(editorRepeaterID, profileProperty);
+            var profileType = box.attr("data-profile");
+            var list = box.find(".profileList"); //List of references to existing profiles
+            var profiles = $("#profiles"); //Global list of profile editors
+            var editorTemplate = $("#template_" + profileType).html();
+            var listTemplate = $("#template_profileListItem").html();
+
+            //Add the editor to the profiles list
+            var profile = $(editorTemplate
+                .replace(/{parentRepeaterID}/g, editorRepeaterID)
+                .replace(/{Property}/g, profileProperty)
+                .replace(/{RecordId}/g, profileRecordID)
+                .replace(/{RecordRowId}/g, profileRecordRowID)
+                .replace(/{parentEditorName}/g, box.attr("data-parentEditor"))
+                .replace(/{editorName}/g, box.attr("data-property") + "_" + repeaterID)
+                .replace(/{repeaterID}/g, repeaterID)
+                .replace(/{profileTitle}/g, box.attr("data-profileTitle"))
+            ).appendTo(profiles);
+
+            //Add a reference to the references list
+            list.append(listTemplate
+                .replace(/{Name}/g, profileName)
+                .replace(/{repeaterID}/g, repeaterID)
+                .replace(/{RecordId}/g, profileRecordID)
+                .replace(/{RecordRowId}/g, profileRecordRowID)
+            );
+
+            //Update repeater ID
+            repeaterID++;
+
+            //Do basic initialization
+            initializeProfiles();
+            profile.find(".microSearchBox").each(function() {
+                initializeMicroSearch($(this));
+            });
+
+            //Return the profile
+            return profile;
+        }
+        catch(e){
+            console.log("Failed to add profile!", e);
+        }
+    }
+    //
+
+    function editProfile(targetRepeaterID, button){
+        //Identify the target
+        var context = getProfileContext(targetRepeaterID);
+
+        //Don't allow saving a profile if the parent isn't saved yet
+        if(context.Parent.Id == 0){
+            consoleMessage.addErrorMessage("You must save the profile before adding or editing this item.");
+            return;
+        }
+
+        //Get the data - server handles immediate saves of certain new profiles
+        doAjax("Editor", "GetProfile", context, success_getProfile, $(button), targetRepeaterID, true);
+
+    }
+    //
+
+    //Show a profile editor
+    function showProfile(targetRepeaterID){
+        var profiles = $("#profiles");
+        var profile = profiles.find(".profile[data-repeaterID=" + targetRepeaterID + "]");
+        $("#overlay").attr("data-visible", "true");
+        profile.attr("data-visible", "true").css("z-index", editZIndex);
+        editZIndex++;
+        if(editZIndex > 9000){
+            editZIndex = 100;
+            profiles.find(".profile").each(function() {
+                $(this).css("z-index", 100);
+            });
+        }
+    }
+    //
+
+    //Save changes to a profile
+    function saveProfile(targetRepeaterID, button, postAutoSaveFunction, closeProfile){
+        var editor = getProfile(targetRepeaterID);
+        var profileData = readProperties(editor);
+
+        //Assemble object to send to the server
+        var data = {
+            Context: getProfileContext(targetRepeaterID),
+            Profile: JSON.stringify(profileData)
+        };
+
+        //Do save
+        doAjax("Editor", "SaveProfile", data, success_saveProfile, $(button), { targetRepeaterID: targetRepeaterID, postAutoSaveFunction: postAutoSaveFunction, closeProfile: closeProfile }, true);
+    }
+    //
+
+    //Cancel editing a profile
+    function cancelProfile(targetRepeaterID){
+        modal.confirm("Cancel Changes", "Really cancel changes? You will lose any unsaved data!",
+            function() {
+                var profiles = $("#profiles");
+                var profile = profiles.find(".profile[data-repeaterID=" + targetRepeaterID + "]");
+
+                //Remove the profile if its ID was zero
+                if(profile.attr("data-recordID") == "0"){
+                    profile.remove();
+                    $(".profileList .profileItem[data-repeaterID=" + targetRepeaterID + "]").remove();
+                }
+
+                closeProfile(targetRepeaterID);
+
+                //TODO: re-render this profile from loaded data
+
+            }
+            ,
+            function() {
+                return;
+            }
+        );
+    }
+    //
+
+    //Close an open profile after saving or cancelling
+    function closeProfile(targetRepeaterID){
+        var profiles = $("#profiles");
+        var profile = profiles.find(".profile[data-repeaterID=" + targetRepeaterID + "]");
+
+        //Hide the profile
+        profile.attr("data-visible", "false");
+
+        //Hide the overlay if no more profiles are being edited
+        var stillEditing = false;
+        profiles.find(".profile").each(function() {
+            if($(this).attr("data-visible") == "true"){
+                stillEditing = true;
+            }
+        });
+        if(!stillEditing){
+            $("#overlay").attr("data-visible", "false");
+        }
+
+    }
+    //
+
+    //Delete a profile
+    function deleteProfile(targetRepeaterID, button){
+        var profile = $("#profiles .profile[data-repeaterID=" + targetRepeaterID + "]");
+        var listItem = getProfileListItem(targetRepeaterID);
+        profile.addClass("aboutToDelete");
+        listItem.addClass("aboutToDelete");
+        modal.confirm("Delete Profile", "Really delete " + listItem.find(".name").text() + "? This cannot be undone!",
+            function() {
+                //Get context
+                var context = getProfileContext(targetRepeaterID);
+
+                //Do the delete
+                doAjax("Editor", "DeleteProfile", context, success_deleteProfile, $(button), targetRepeaterID, true);
+            }
+            ,
+            function() {
+                profile.removeClass("aboutToDelete");
+                listItem.removeClass("aboutToDelete");
+            }
+        );
+    }
+    //
+</script>
+<script type="text/javascript">
+    /* AJAX Functions */
+
+    function showSpinner(){
+        $("#waitWrapper").stop().fadeIn(250);
+    }
+    //
+
+    function hideSpinner() {
+        $("#waitWrapper").stop().fadeOut(250);
+    }
+    //
+
+    function doAjax(controller, method, data, success, button, passThrough, useSpinner) { 
+        //Disable the button
+        if(button){ 
+            button.attr("data-originalValue", button.attr("value")).attr("value", "Working...").prop("disabled", true);
+        }
+
+        //Show spinner if appropriate
+        if(useSpinner){
+            showSpinner();
+        }
+
+        //Make the request
+        $.ajax({
+            url: "@Url.Content( "~/" )" + controller + "/" + method,
+            async: true,
+            headers: { "Accept": "application/json", "Content-type": "application/json; charset=utf-8" },
+            dataType: "json",
+            type: "POST",
+            data: JSON.stringify(data),
+            success: function (message) {
+                console.log("Response: ", message);
+                if (typeof (success) == "function") {
+                    success(message, passThrough);
+                }
+            }
+        }).always(function() {
+            //Reenable the button
+            if(button){
+                button.attr("value", button.attr("data-originalValue")).prop("disabled", false);
+            }
+            hideSpinner();
+        });
+    }
+    //
+
+    function success_doGlobalSave(message, passThrough){
+        if(message.valid){
+            //Update Editor
+            mainProfileId = message.extra.Id;
+            mainProfileRowId = message.extra.RowId;
+            var editor = $("#editor .mainProfile");
+            editor.attr("data-recordID", message.extra.Id);
+            editor.attr("data-recordRowID", message.extra.RowId);
+            writeProfile(editor, message.data);
+
+            //Inform user
+            consoleMessage.addSuccessMessage("Save successful", "", 2000);
+
+            //Update progress
+            updateProgress();
+        }
+        else {
+            consoleMessage.addErrorMessage(message.status, "", 5000);
+        }
+    }
+    //
+
+    function success_doGlobalDelete(message, passThrough){
+        if(message.valid){
+            consoleMessage.addSuccessMessage("This data has been deleted");
+            modal.alert("Data Deleted", "The data has been deleted. You will now be taken back to the search page.", function() { window.location.href = "@Url.Content("~/Search/V2")"; });
+        }
+        else {
+            consoleMessage.addErrorMessage(message.status, "", 5000);
+        }
+    }
+    //
+
+    function success_getProfile(message, passThrough){
+        if(message.valid){
+            var profile = getProfile(passThrough);
+
+            try {
+                writeProfile(profile, message.data);
+            }
+            catch(e){
+                console.log("Error injecting data into profile!", e);
+                consoleMessage.addErrorMessage("Error getting profile data.");
+            }
+
+            showProfile(passThrough);
+        }
+        else{
+            consoleMessage.addErrorMessage(message.status, "", 5000);
+        }
+    }
+    //
+
+    function success_saveProfile(message, passThrough){
+        if(message.valid){
+            //Update Editor
+            var editor = getProfile(passThrough.targetRepeaterID);
+            editor.attr("data-recordID", message.extra.Id);
+            editor.attr("data-recordRowID", message.extra.RowId);
+
+            //Write data to the profile
+            writeProfile(editor, message.data, true);
+
+            //Update list item
+            var listItem = getProfileListItem(passThrough.targetRepeaterID);
+            listItem.find(".name").text(message.extra.Name);
+
+            //If the save was the result of an auto save, perform the next action
+            if(passThrough.postAutoSaveFunction){
+                passThrough.postAutoSaveFunction();
+            }
+            //Otherwise...
+            else {
+                //Inform user
+                consoleMessage.addSuccessMessage("Save successful", "", 2000);
+            }
+
+
+            //Optionally, close the editor
+            if(passThrough.closeProfile){
+                closeProfile(passThrough.targetRepeaterID);
+            }
+
+            //Update progress
+            updateProgress();
+        }
+        else {
+            consoleMessage.addErrorMessage(message.status, "", 5000);
+        }
+    }
+    //
+
+    function success_deleteProfile(message, passThrough){
+        if(message.valid){
+            var editor = getProfile(passThrough);
+            var listItem = getProfileListItem(passThrough);
+
+            //Inform user
+            consoleMessage.addSuccessMessage("Delete successful", "", 2000);
+            
+            //Close the editor if it's open
+            closeProfile(passThrough);
+
+            //Remove the HTML
+            editor.remove();
+            listItem.remove();
+        }
+        else {
+            consoleMessage.addErrorMessage(message.status, "", 5000);
+        }
+    }
+    //
+
+    function success_addInitialMicrosearchResults(message, passThrough){
+        if(message.valid){
+            renderMicroSearchResults(message.data, passThrough, true, true);
+        }
+        else {
+            console.log("Error updating micro search: ", message.status)
+        }
+    }
+    //
+</script>
+<script type="text/javascript">
+    /* Read functions */
+    function readProperties(profile){
+        //Get properties
+        var properties = profile.find(".propertyInput");
+        var data = {
+            Id: parseInt(profile.attr("data-recordID")),
+            RowId: profile.attr("data-recordRowID")
+        };
+        properties.each(function() {
+            var property = $(this);
+            data[property.attr("data-property")] = readProperty(property);
+        });
+        console.log("Data", data);
+
+        //Get "other" boxes
+        var others = profile.find(".otherInput");
+        var otherData = {};
+        var hasOtherData = false;
+        others.each(function(){
+            var other = $(this);
+            otherData[other.attr("data-otherproperty")] = other.val();
+            hasOtherData = true;
+        });
+        if(hasOtherData){
+            data.Other = otherData;
+        }
+
+        //Get MicroSearches that don't do immediate saves
+        var searches = profile.find(".microSearchBox[data-doAjaxSave=false]").each(function() {
+            var search = $(this);
+            data[search.attr("data-property")] = readMicroSearch(search.attr("data-microsearchname"));
+        });
+
+        //Special handling for TextValueProfiles
+        var textValues = profile.find(".textValueBox").each(function() {
+            var textValue = $(this);
+            data[textValue.attr("data-property")] = readTextValues(textValue.attr("data-textValueName"));
+        });
+
+        //Special handling for selectors (used with durations)
+        var selectors = profile.find(".radioSelector");
+        selectors.each(function() {
+            var selector = $(this);
+            data[selector.attr("data-sectionProperty")] = selector.find(".radioSection [data-sectionValue]:checked").attr("data-sectionValue");
+        });
+
+        //Return data
+        return data;
+    }
+    //
+
+    function readProperty(property){
+        switch(property.attr("data-type")){
+            case "text":
+            case "url":
+            case "date":
+                return property.val();
+            case "number":
+                return readNumber(property.val());
+            case "boolean":
+                return property.prop("checked");
+            case "select":
+                return readSelect(property);
+            case "checkboxlist":
+                return readCheckboxlist(property);
+            case "duration":
+                return readDuration(property);
+            default: 
+                console.log("Unable to read property: ", property);
+                return null;
+        }
+    }
+    //
+
+    function readNumber(text){
+        try {
+            //Strip all non-numeric characters
+            var numbers = "1234567890.";
+            var cleaned = [];
+            for(var i in text){
+                if(numbers.indexOf(text[i]) > -1){
+                    cleaned.push(text[i]);
+                }
+            }
+            text = cleaned.join("");
+            //Parse the value and return it
+            var data = parseFloat(text);
+            if(isNaN(data)){
+                return 0;
+            }
+            return data;
+        }
+        catch (e) { 
+            return 0;
+        }
+    }
+    //
+
+    function readSelect(property){
+        var value = property.find("option:selected").attr("value");
+        if(property.attr("data-valuetype") == "number"){
+            return readNumber(value);
+        }
+        else {
+            return value;
+        }
+    }
+    //
+
+    function readCheckboxlist(property){
+        var items = [];
+        property.find("input[type=checkbox]:checked").each(function(){
+            switch(property.attr("data-valuetype")){
+                case "number":
+                    items.push(parseInt($(this).val()));
+                    break;
+                default:
+                    items.push($(this).val());
+                    break;
+            }
+        });
+        return items;
+    }
+    //
+
+    function readDuration(property){
+        var data = {};
+        property.find("[data-subproperty]").each(function() {
+            var subproperty = $(this);
+            var value = subproperty.val().trim();
+            data[subproperty.attr("data-subproperty")] = value.length == 0 ? 0 : isNaN(parseInt(value)) ? 0 : parseInt(value);
+        });
+        return data;
+    }
+    //
+
+</script>
+<script type="text/javascript">
+    /* Write functions */
+    function writeProfile(editor, properties, skipTextValues){
+        //Write attributes
+        editor.attr("data-RecordID", properties.Id);
+        editor.attr("data-RecordRowID", properties.RowId);
+        //Write properties
+        writeProperties(editor, properties);
+        //Write profile links
+        writeProfileLinks(editor, properties);
+        //Write MicroSearches
+        writeMicroProfiles(editor, properties);
+        //Handle TextValueProfiles
+        writeTextValues(editor, properties);
+        //Handle special conditions
+        writeProfileConditions(editor, properties);
+    }
+    //
+
+    function writeProfileLinks(editor, properties){
+        var profiles = editor.find(".profileBox");
+        profiles.each(function() {
+            var profile = $(this);
+
+            //Remove existing html
+            var existing = profile.find(".profileItem");
+            existing.each(function() {
+                var exist = $(this);
+                getProfile(exist.attr("data-repeaterID")).remove();
+                exist.remove();
+            });
+
+            //Replace with new html
+            var matchingData = properties[profile.attr("data-property")];
+            if(typeof(matchingData) != "undefined" && matchingData != null){
+                for(var i in matchingData){
+                    addProfile(editor.attr("data-repeaterID"), profile.attr("data-property"), matchingData[i].Id, matchingData[i].RowId, matchingData[i].Name );
+                }
+            }
+        });
+    }
+    //
+
+    function writeProperties(editor, properties){
+        //Write inputs
+        var inputs = editor.find(".propertyInput");
+        inputs.each(function() {
+            var input = $(this);
+            var matchingData = properties[input.attr("data-property")];
+            if(typeof(matchingData) != "undefined" && matchingData != null){
+                writeProperty(input, matchingData);
+            }
+            else {
+                //Clear input
+                try { input.prop("checked", false); } catch(e){}
+                try { input.val("").trigger("change"); } catch(e){}
+                try { input.find("option[value=0]").prop("selected",true).parent().trigger("change"); } catch(e){}
+                try { input.find("input[type=checkbox]").prop("checked", false); } catch(e){}
+            }
+        });
+        
+        //Write "other" fields
+        var others = editor.find(".otherInput");
+        others.each(function() {
+            var other = $(this);
+            try {
+                other.val(properties.Other[other.attr("data-otherproperty")]);
+            }
+            catch(e) {
+                console.log("Unable to write \"Other\" property:");
+                console.log("Input:", other);
+                console.log("Data:", properties);
+            }
+        });
+    }
+    //
+
+    function writeProperty(input, data){
+        switch(input.attr("data-type")){
+            case "text":
+            case "url":
+            case "date":
+            case "number":
+                input.val(data);
+                break;
+            case "boolean":
+                input.prop("checked", data);
+                if(data && input.attr("data-enableuncheck") == "false"){
+                    input.prop("disabled", true);
+                }
+                break;
+            case "select":
+                input.find("option[value=" + data + "]").prop("selected", true);
+                break;
+            case "checkboxlist":
+                writeCheckboxlist(input, data);
+                break;
+            case "duration":
+                writeDuration(input, data);
+                break;
+            default:
+                console.log("Unable to write property:");
+                console.log("Input:", input);
+                console.log("Data:", data);
+                break;
+        }
+    }
+    //
+
+    function writeCheckboxlist(input, data){
+        for(var i in data){
+            input.find("input[type=checkbox][value=" + data[i] + "]").prop("checked", true);
+        }
+    }
+    //
+
+    function writeDuration(input, data){
+        for(var i in data){
+            input.find("[data-subproperty=" + i + "]").val(data[i]);
+        }
+        
+    }
+    //
+
+    function writeMicroProfiles(editor, properties){
+        var searches = editor.find(".microSearchBox");
+        searches.each(function() {
+            var box = $(this);
+            //Initialize the search if it isn't already
+            initializeMicroSearch(box);
+            //Continue
+            var matchingData = properties[box.attr("data-property")];
+            if(typeof(matchingData) == "object"){
+                //Ensure data is an array
+                matchingData = typeof(matchingData.length) == "undefined" ? [matchingData] : matchingData;
+                if(matchingData.length > 0){
+                    //Filter out any empty objects
+                    var finalData = [];
+                    for(var i in matchingData){
+                        if(matchingData[i].Id != 0 || matchingData[i].RowId != "@Guid.Empty.ToString()"){
+                            finalData.push(matchingData[i]);
+                        }
+                    }
+                    //If there are any legitimate objects, continue
+                    if(finalData.length > 0){
+                        //Setup the context
+                        var data = {
+                            context: getProfileContext(editor.attr("data-repeaterID")),
+                            searchType: box.attr("data-searchType"),
+                            items: finalData
+                        };
+                        //Get the data
+                        doAjax("Editor", "GetMicroProfiles", data, success_addInitialMicrosearchResults, null, box.attr("data-microsearchName"), false);
+                    }
+                }
+            }
+        });
+    }
+    //
+
+    function writeProfileConditions(editor, properties){
+        switch(editor.attr("data-profile")){
+            case "DurationProfile":
+                editor.find("[data-sectionProperty=IsRange] [data-sectionValue=" + properties.IsRange + "]").prop("checked", true).trigger("change");
+                break;
+            default: break;
+        }
+    }
+    //
+</script>
+<script type="text/javascript">
+    /* Page functions */
+
+    //Update the progress gauge
+    function updateProgress(){
+        //Detect profile progress
+
+        //Update gauge
+
+    }
+    //
+
+</script>
+<script type="text/javascript">
+    /* Rendering functions */
+</script>
+<script type="text/javascript">
+    /* MicroSearch V2 Functions */
+    var microSearchTimeouts = [];
+    var resultID = 0;
+
+    //Initialize MicroSearch
+    function initializeMicroSearch(box){
+        if(!box.hasClass("microSearchInitialized")){
+            box.addClass("microSearchInitialized");
+
+            box.find(".microSearchFilter").not("[type=text]").on("change", function() {
+                updateMicroSearch(box.attr("data-microSearchName"), null);
+            })
+            box.find(".microSearchFilter[data-type=text]").on("keyup", function(e){
+                updateMicroSearch(box.attr("data-microSearchName"), e); 
+            });
+        }
+    }
+    //
+
+    //Reset timeout
+    function updateMicroSearch(name, event){
+        clearTimeout(microSearchTimeouts[name]);
+        microSearchTimeouts[name] = setTimeout(function() {
+            doMicroSearch(name);
+        }, 800);
+    }
+    //
+
+    //Get a MicroSearch Box
+    function getMicroSearchBox(name){
+        return $(".microSearchBox[data-microsearchname='" + name + "']");
+    }
+    //
+
+    //Set a MicroSearch status
+    function setMicroSearchStatus(name, message, status){
+        getMicroSearchBox(name).find(".microSearchStatus").attr("data-status", status).html(message);
+    }
+    //
+
+    //Do a MicroSearch
+    function doMicroSearch(name, isPaging){
+        var box = getMicroSearchBox(name);
+        var searchType = box.attr("data-searchType");
+        var filters = [];
+
+        //Get filters
+        box.find(".microSearchFilter").each(function() {
+            var filter = $(this);
+            var item = { Name: filter.attr("data-filterName") };
+            switch(filter.attr("data-type")){
+                case "text":
+                    item.Value = filter.val().trim();
+                    break;
+                case "select":
+                    item.Value = filter.find("option:selected").attr("value");
+                    break;
+                default: break;
+            }
+
+            filters.push(item);
+        });
+
+        //Reset paging unless the search is happening because another page was selected
+        var pageNumber = isPaging ? parseInt(box.attr("data-pageNumber")) : 1;
+
+        //Construct the query
+        var query = { SearchType: searchType, Filters: filters, PageNumber: pageNumber, pageSize: parseInt(box.attr("data-pageSize")) };
+
+        //Check for identical query to avoid duplicate searches
+        var stringified = JSON.stringify(query);
+        if(stringified == box.attr("data-previous")){
+            console.log("Skipping identical MicroSearch:", query);
+            return;
+        }
+
+        //Update previous query data
+        box.attr("data-previous, stringified");
+
+        //Update paging in the box if it was reset
+        if(!isPaging){
+            box.attr("data-pageNumber", pageNumber);
+        }
+
+        //Do the search
+        console.log("Doing MicroSearch:", query);
+        setMicroSearchStatus(name, "Searching...", "searching");
+        doAjax("Editor", "DoMicroSearch", query, success_doMicroSearch, null, name, false);
+    }
+    //
+
+    //Successfully complete a MicroSearch
+    function success_doMicroSearch(message, name){
+        console.log("MicroSearch complete:", message);
+        if(message.valid){
+            renderMicroSearchResults(message.data, name, false, true);
+            renderMicroSearchPaging(name, message.extra);
+            setMicroSearchStatus(name, "Found " + message.extra + " Results", "success");
+        }
+        else {
+            consoleMessage.addErrorMessage("Error performing Search: " + message.status, "", 5000);
+            setMicroSearchStatus(name, "Error: " + message.status, "error");
+        }
+    }
+    //
+
+    //Render MicroSearch results
+    function renderMicroSearchResults(data, name, isSaved, isOverwrite){
+        var box = getMicroSearchBox(name);
+
+        //Get the template and the box it goes in
+        var templateName = box.attr("data-profileTemplate");
+        var template = $("#template_MicroProfile_" + templateName).html();
+        var resultsBox = box.find(".microSearchResults");
+        var savedBox = box.find(".microSearchSavedItemsList");
+
+        var targetBox = isSaved ? savedBox : resultsBox;
+
+        //Empty the template if necessary
+        if(isOverwrite){
+            targetBox.html("");
+        }
+
+        //Render the properties
+        for(var i in data){
+            var item = data[i];
+            var html = template
+                .replace(/{rawData}/g, JSON.stringify(item))
+                .replace(/{resultID}/g, resultID)
+                .replace(/{Selectors}/g, JSON.stringify(item.Selectors))
+                .replace(/{Id}/g, item.Id)
+                .replace(/{Name}/g, item.Name)
+                .replace(/{Description}/g, (item.Description || "").toLowerCase() == (item.Name || "").toLowerCase() ? "" : (item.Description || ""))
+                .replace(/{microSearchName}/g, box.attr("data-microsearchName"))
+                .replace(/{profileType}/g, box.attr("data-profileType"))
+                .replace(/{Properties}/g, renderMicrosearchProperties(item.Properties));
+
+            for(var j in item.Properties){
+                html = html.replace(new RegExp("{" + j + "}", "g"), item.Properties[j]);
+            }
+
+            //Update the box
+            targetBox.append(html);
+
+            //Show/hide the "no saved items" message
+            if(isSaved){
+                if(targetBox.find(".microProfile").length > 0){
+                    box.find(".microSearchNoItems").hide();
+                }
+                else {
+                    box.find(".microSearchNoItems").show();
+                }
+            }
+
+            //Update the result ID
+            resultID++;
+        }
+    }
+    //
+
+    //Render MicroSearch Paging
+    function renderMicroSearchPaging(name, totalResults){
+        console.log(totalResults);
+        var box = getMicroSearchBox(name);
+        var pagingBox = box.find(".microSearchPaging");
+        var pageButtonTemplate = $("#template_MicroSearch_PageButton").html();
+        var pageSize = parseInt(box.attr("data-pageSize"));
+        var currentPage = parseInt(box.attr("data-pageNumber"));
+        var totalPages = totalResults == 0 ? 0 : Math.ceil(totalResults / pageSize);
+        var skips = [1, 5, 10, 20, 30, 40, 50, 75, 100, 1000, totalPages];
+        var minRange = currentPage - 2;
+        var maxRange = currentPage + 2;
+
+        pagingBox.html("");
+        for(var i = 1; i <= totalPages; i++){
+            if(skips.indexOf(i) > -1 || (i >= minRange && i <= maxRange)){ 
+                pagingBox.append(pageButtonTemplate
+                    .replace(/{microSearchName}/g, name)
+                    .replace(/{pageNumber}/g, i)
+                    .replace(/{current}/g, i == currentPage ? "current" : "")
+                );
+            }
+        }
+    }
+    //
+
+    //Set MicroSearch Page
+    function setMicroSearchPage(name, pageNumber){
+        var box = getMicroSearchBox(name);
+        box.attr("data-pageNumber", pageNumber);
+        doMicroSearch(name, true);
+    }
+    //
+
+    //Render MicroSearch properties
+    function renderMicrosearchProperties(properties){
+        var result = "";
+        for(var i in properties){
+            result = result + "<div data-microproperty=\"" + i + "\">" + properties[i] + "</div>";
+        }
+        return result;
+    }
+    //
+
+    //Get selected items from a MicroSearch
+    function readMicroSearch(name){
+        var box = getMicroSearchBox(name);
+        var results = box.find(".microSearchSavedItems .microProfile");
+        var staticValues = JSON.parse(box.find(".staticSelectorValues").text());
+        var multiple = box.attr("allowMultipleSavedItems") == "true";
+        var data = [];
+        
+        results.each(function() {
+            var selectors = JSON.parse( $(this).find(".selectors").text());
+            
+            //Add/overwrite static values
+            for(var i in staticValues){
+                selectors[i] = staticValues[i];
+            }
+            
+            data.push(selectors);
+        });
+
+        if(multiple){
+            return data;
+        }
+        else {
+            return data[0];
+        }
+    }
+    //
+
+    //Save a MicroSearch Result
+    function saveMicroProfile(name, resultID, button){
+        var box = getMicroSearchBox(name);
+        var result = box.find("[data-resultID=" + resultID + "]");
+        var selectors = JSON.parse(result.find(".selectors").text());
+        var staticValues = JSON.parse(box.find(".staticSelectorValues").text());
+        var context = getProfileContext(box.attr("data-parentRepeaterID"));
+        var searchType = box.attr("data-searchType");
+        var property = box.attr("data-property");
+        var allowMultipleSavedItems = box.attr("data-allowMultipleSavedItems") == "true";
+
+        //Only continue if immediate save is enabled
+        if(box.attr("data-doAjaxSave") != "true"){
+            var rawData = JSON.parse(result.find(".rawData").text());
+            renderMicroSearchResults([rawData], name, true, !allowMultipleSavedItems);
+            return;
+        }
+
+        //Add/overwrite static values
+        for(var i in staticValues){
+            selectors[i] = staticValues[i];
+        }
+
+        if(context.Profile.Id == 0 && box.attr("data-autoSaveNewParentProfile") == "true"){
+            console.log("Auto-saving parent profile");
+            saveProfile(box.attr("data-parentRepeaterID"), button, function() {
+                saveMicroProfile(name, resultID, button);   
+            }, false);
+        }
+        else {
+            doAjax("Editor", "SaveMicroProfile", { context: context, selectors: selectors, searchType: searchType, property: property }, success_saveMicroProfile, button, { name: name, resultID: resultID }, false);
+        }
+
+    }
+    //
+
+    //Successfully save a MicroSearch Result
+    function success_saveMicroProfile(message, passThrough){
+        var box = getMicroSearchBox(passThrough.name);
+        var result = box.find("[data-resultID=" + resultID + "]");
+        console.log(message);
+
+        if(message.valid){
+            consoleMessage.addSuccessMessage("Selection saved", "", 2000);
+            renderMicroSearchResults([message.data], passThrough.name, true, box.attr("data-allowmultiplesaveditems") != "true");
+        }
+        else {
+            consoleMessage.addErrorMessage(message.status);
+        }
+
+    }
+    //
+
+    //Delete a MicroSearch Result
+    function deleteMicroProfile(name, resultID, button){
+        var box = getMicroSearchBox(name);
+        var result = box.find("[data-resultID=" + resultID + "]");
+        var selectors = JSON.parse(result.find(".selectors").text());
+        var staticValues = JSON.parse(box.find(".staticSelectorValues").text());
+        var context = getProfileContext(box.attr("data-parentRepeaterID"));
+        var searchType = box.attr("data-searchType");
+        var property = box.attr("data-property");
+
+        //Add/overwrite static values
+        for(var i in staticValues){
+            selectors[i] = staticValues[i];
+        }
+
+        result.addClass("aboutToDelete");
+        modal.confirm("Delete Selection", "Really remove this item?",
+            function() {
+                doAjax("Editor", "DeleteMicroProfile", { context: context, selectors: selectors, searchType: searchType, property: property }, success_deleteMicroProfile, button, { name: name, resultID: resultID }, false);
+            },
+            function() {
+                result.removeClass("aboutToDelete");
+            }
+        );
+    }
+    //
+
+    //Successfully delete a MicroSearch Result
+    function success_deleteMicroProfile(message, passThrough){
+        var box = getMicroSearchBox(passThrough.name);
+        var result = box.find("[data-resultID=" + passThrough.resultID + "]");
+        console.log(message);
+
+        if(message.valid){
+            consoleMessage.addSuccessMessage("Item deleted", "", 2000);
+            result.remove();
+        }
+        else {
+            consoleMessage.addErrorMessage(message.status);
+        }
+    }
+    //
+
+    //Reset a MicroSearch query, results, and paging
+    function resetMicroSearch(name){
+        var box = getMicroSearchBox(name);
+        box.find(".microSearchFilter").each(function() {
+            try { $(this).val(""); } catch(e) { }
+            try { $(this).find("option").first().prop("selected", true); } catch (e) { }
+        });
+        box.find(".microSearchResults").html("");
+        box.find(".microSearchPaging").html("");
+        box.attr("data-pageNumber", "1");
+        box.attr("data-previous", "");
+
+        setMicroSearchStatus(name, "", "");
+    }
+    //
+
+    //Create a starter profile and immediately associate it as a result
+    function createStarterProfile(name){
+        var box = getMicroSearchBox(name);
+        var parentRepeaterID = box.attr("data-parentRepeaterID");
+        var property = box.attr("data-property");
+        var profileTitle = box.attr("data-createProfileTitle");
+        var profileType = box.attr("data-profileType");
+        var editorTemplate = $("#template_StarterProfile").html();
+        var profiles = $("#profiles");
+        var searchType = box.attr("data-searchType");
+
+        var profile = $(editorTemplate
+            .replace(/{parentRepeaterID}/g, parentRepeaterID)
+            .replace(/{Property}/g, property)
+            .replace(/{repeaterID}/g, repeaterID)
+            .replace(/{RecordId}/g, 0)
+            .replace(/{RecordRowId}/g, "@Guid.Empty")
+            .replace(/{profileTitle}/g, profileTitle)
+            .replace(/{profileType}/g, profileType)
+            .replace(/saveProfile/g, "saveStarterProfile")
+        ).appendTo(profiles);
+
+        repeaterID++;
+
+        profile.find("[data-property=ProfileType]").val(profileType);
+        profile.find("[data-property=SearchType]").val(searchType);
+
+        showProfile(profile.attr("data-repeaterID"));
+    }
+    //
+
+    //Save a starter profile
+    function saveStarterProfile(targetRepeaterID, button, postAutoSaveFunction, closeProfile){
+        var profile = getProfile(targetRepeaterID);
+        var context = getProfileContext(targetRepeaterID);
+        var data = readProperties(profile);
+        console.log(data);
+
+        doAjax("Editor", "SaveStarterProfile", { context: context, profile: data }, success_saveStarterProfile, $(button), {targetRepeaterID: targetRepeaterID, property: profile.attr("data-property")}, true);
+    }
+    //
+
+    //Successfully save a starter profile
+    function success_saveStarterProfile(message, passThrough){
+        if(message.valid){
+            var profile = getProfile(passThrough.targetRepeaterID);
+            var parentEditor = getProfile(profile.attr("data-parentRepeaterID"))
+            var parentSearch = parentEditor.find(".microSearchBox[data-property=" + passThrough.property + "]");
+
+            var data = {};
+            data[passThrough.property] = message.data;
+
+            renderMicroSearchResults(data, parentSearch.attr("data-microSearchName"), true, parentSearch.attr("data-allowmultiplesaveditems") == "false");
+
+            closeProfile(passThrough.targetRepeaterID);
+        }
+        else {
+            consoleMessage.addErrorMessage(message.status, "", 5000);
+        }
+    }
+    //
+</script>
+<script type="text/javascript">
+    /* Text Value Functions */
+    var textValueID = 0;
+
+    function getTextValueBox(textValueName){
+        return $(".textValueBox[data-textValueName=" + textValueName + "]");
+    }
+    //
+
+    function addTextValueProfile(textValueName, button){
+        var newItem = {
+            CodeId: 0,
+            CodeOther: "",
+            Value: "",
+            Id: 0,
+            RowId: "@Guid.Empty.ToString()"
+        };
+        renderTextValueProfiles(textValueName, [newItem], false);
+    }
+    //
+
+    function readTextValues(textValueName){
+        var box = getTextValueBox(textValueName);
+        var items = box.find(".textValueProfile");
+        var hasSelector = box.attr("data-hasSelector") == "true";
+        var hasOther = box.attr("data-hasOther") == "true";
+        var requireValue = box.attr("data-requireValue") == "true";
+        var requireOther = box.attr("data-requireOther") == "true";
+        var data = [];
+        
+        items.each(function() {
+            var item = $(this);
+            var value = item.find(".textValueValue").val().trim();
+            var other = hasOther ? item.find(".textValueOther").val().trim() : "";
+            
+            var valid = (requireValue ? value.length > 0 : true) && (requireOther ? other.length > 0 : true) && (value.length > 0 || other.length > 0);
+
+            if(valid){
+                data.push({
+                    Id: parseInt(item.attr("data-recordID")),
+                    RowId: item.attr("data-rowID"),
+                    CategoryId: parseInt(box.attr("data-categoryID")),
+                    CodeId: hasSelector ? parseInt(item.find(".textValueSelector option:selected").attr("value")) : 0,
+                    CodeOther: other,
+                    Value: value
+                });
+            }
+        });
+
+        return data;
+    }
+    //
+
+    function writeTextValues(editor, properties) {
+        var profiles = editor.find(".textValueBox");
+        profiles.each(function() {
+            var box = $(this);
+            var matchingData = properties[box.attr("data-property")];
+
+            //If a match is found, wipe the box and rewrite it
+            if(typeof(matchingData) != "undefined"){
+                if(matchingData == null){
+                    matchingData = [];
+                }
+                renderTextValueProfiles(box.attr("data-textValueName"), matchingData, true);
+            }
+        });
+    }
+    //
+
+    function renderTextValueProfiles(textValueName, items, overwrite){
+        var box = getTextValueBox(textValueName);
+        var hasSelector = box.attr("data-hasSelector");
+        var hasOther = box.attr("data-hasOther");
+        var valueType = box.attr("data-valueType");
+        var valuePlaceholder = box.attr("data-valuePlaceholder");
+        var otherPlaceholder = box.attr("data-otherPlaceholder");
+        var template = $("#template_TextValueProfile").html();
+        var list = box.find(".textValueList");
+        var requireValue = box.attr("data-requireValue");
+        var requireOther = box.attr("data-requireOther");
+
+        if(overwrite){
+            list.html("");
+        }
+
+        for(var i in items){
+            var item = items[i];
+            var profile = $(template
+                    .replace(/{textValueName}/g, textValueName)
+                    .replace(/{textValueID}/g, textValueID)
+                    .replace(/{HasSelector}/g, hasSelector)
+                    .replace(/{HasOther}/g, hasOther)
+                    .replace(/{ValueType}/g, valueType)
+                    .replace(/{ValuePlaceholder}/g, valuePlaceholder)
+                    .replace(/{OtherPlaceholder}/g, otherPlaceholder)
+                    .replace(/{RequireValue}/g, requireValue)
+                    .replace(/{RequireOther}/g, requireOther)
+                    .replace(/{RecordId}/g, item.Id)
+                    .replace(/{RowId}/g, item.RowId)
+                ).appendTo(box.find(".textValueList"));
+
+            if(hasSelector){
+                var selectorData = JSON.parse(box.find(".codeValues").text());
+                var selector = profile.find(".textValueSelector");
+                for(var j in selectorData){
+                    selector.append("<option value=\"" + j + "\">" + selectorData[j] + "</option>");
+                }
+                selector.find("option[value=" + item.CodeId + "]").prop("selected", true);
+            }
+
+            if(hasOther){
+                profile.find(".textValueOther").val(item.CodeOther);
+            }
+
+            profile.find(".textValueValue").val(item.Value);
+
+            textValueID++;
+        }
+    }
+    //
+
+    function deleteTextValueProfile(textValueName, textValueID, button) {
+        var box = getTextValueBox(textValueName);
+        var item = box.find("[data-textvalueid=" + textValueID + "]");
+        var id = parseInt(item.attr("data-recordID"));
+        var rowID = item.attr("data-rowID");
+        if( id == 0 && rowID == "@Guid.Empty"){
+            item.remove();
+        }
+        else {
+            item.addClass("aboutToDelete");
+            modal.confirm("Delete Item", "Really delete this item? This action cannot be undone!",
+                function() {
+                    var context = getProfileContext(box.attr("data-parentRepeaterID"));
+                    context.Parent = context.Profile;
+                    context.Profile = {
+                        Id: id,
+                        RowId: rowID,
+                        TypeName: "TextValueProfile"
+                    };
+                    doAjax("Editor", "DeleteProfile", { context: context }, success_deleteTextValueProfile, $(button), { textValueName: textValueName, textValueID: textValueID }, true);
+                },
+                function() {
+                    item.removeClass("aboutToDelete");
+                }
+            );
+        }
+    }
+    //
+
+    function success_deleteTextValueProfile(message, passThrough){
+        if(message.valid){
+            var box = getTextValueBox(passThrough.textValueName);
+            var item = box.find("[data-textValueID=" + passThrough.textValueID + "]");
+            item.remove();
+        }
+        else {
+            consoleMessage.addErrorMessage(message.status, "", 5000);
+        }
+    }
+    //
+</script>
+
+<style type="text/css">
+    /* Big Stuff */
+    #content { padding-bottom: 100px; }
+    #mainSiteFooter { display: none; }
+    h1 { margin: 0; padding: 10px 5px 15px 5px; font-size: 32px; }
+    h2 { margin: 0; padding: 0 5px 15px 5px; }
+    .guidance { font-style: italic; opacity: 0.7; font-size: 16px; padding: 5px; }
+    .guidance:empty { padding: 0; }
+    input[type=text], select { padding: 0 5px; height: 25px; }
+    #waitWrapper { position: fixed; top: 0; bottom: 0; left: 0; right: 0; background-color: rgba(0,0,0,0.5); z-index: 999999; transition: none; display: none; }
+    #wait { width: 200px; margin: calc(50vh - 200px) auto; text-align: center; color: #FFF; }
+    #waitSpinner { width: 100%; display: block; font-size: 100px; line-height: 100px; }
+    #waitTitle { font-size: 26px; padding: 20px 5px 20px 20px; }
+
+    /* Property Boxes */
+    .propertyBox { margin-bottom: 15px; font-size: 0; }
+    .propertyBox input[type=text], .propertyBox select, .propertyBox textarea { display: block; width: 100%; }
+    .propertyBox textarea { resize: vertical; min-height: 8em; max-height: 20em; }
+    .propertyBox .label, .propertyBox .data { display: inline-block; vertical-align: top; }
+    .propertyBox .label { width: 175px; font-weight: bold; padding: 3px 10px 0 0; text-align: right; }
+    .propertyBox .data { width: calc(100% - 175px); }
+    .propertyBox .data .list label { display: inline-block; vertical-align: top; width: 100%; padding: 2px 5px 2px 22px; position: relative; }
+    .propertyBox .data .list label input { position: absolute; top: 2px; left: 0; }
+    .propertyBox .data .list label:hover, .propertyBox .data .list label:focus { background-color: #EEE; cursor: pointer; }
+    .propertyBox.twoColumns .data .list { column-count: 2; }
+
+    /* Profile Boxes */
+    .profileBox { margin-bottom: 15px; }
+    .profile:not(.mainProfile) .profileBox { font-size: 0; }
+    .profile:not(.mainProfile) .profileBox .profileLabel, .profile:not(.mainProfile) .profileBox .profileData { display: inline-block; vertical-align: top; }
+    .profile:not(.mainProfile) .profileBox .profileLabel { width: 175px; font-weight: bold; padding: 3px 10px 0 0; text-align: right; font-size: 16px; }
+    .profile:not(.mainProfile) .profileBox .profileData { width: calc(100% - 175px); }
+    .profileBox .profileGuidance { padding: 5px; }
+    .profileBox .profileList { background-color: #EEE; padding: 5px; }
+    .profileBox .profileButtons input { min-width: 300px; display: inline-block; }
+    .profileBox .profileList .profileItem { background-color: #FFF; border: 1px solid #CCC; padding: 2px; margin-bottom: 5px; font-size: 0; }
+    .profileBox .profileList .profileItem .name, .profileBox .profileList .profileItem .buttons { display: inline-block; vertical-align: top; }
+    .profileBox .profileList .profileItem .name { width: calc(100% - 200px); padding: 2px 10px 2px 5px; }
+    .profileBox .profileList .profileItem .buttons { width: 200px; font-size: 0; }
+    .profileBox .profileList .profileItem .buttons input { display: inline-block; vertical-align: top; width: 96px; margin: 0 2px; }
+    .profileBox .profileList .profileItem:last-child { margin-bottom: 0; }
+    .profileButtons { text-align: right; padding: 5px 0; }
+
+    /* MicroSearch Boxes */
+    .microSearchBox { margin-bottom: 15px; }
+    .profile:not(.mainProfile) .microSearchBox { font-size: 0; }
+    .profile:not(.mainProfile) .microSearchBox .microSearchLabel, .profile:not(.mainProfile) .microSearchBox .microSearchData { display: inline-block; vertical-align: top; }
+    .profile:not(.mainProfile) .microSearchBox .microSearchLabel { width: 175px; font-weight: bold; padding: 3px 10px 0 0; text-align: right; font-size: 16px; }
+    .profile:not(.mainProfile) .microSearchBox .microSearchData { width: calc(100% - 175px); }
+    .microSearchBox .microSearchColumns { font-size: 0; }
+    .microSearchBox .microSearchColumn { display: inline-block; vertical-align: top; width: 50%; }
+    .microSearchBox .microSearchSearch { padding-right: 2.5px; }
+    .microSearchBox .microSearchSaved { padding-left: 2.5px; }
+    .microSearchBox .microSearchColumn h3 { margin: 0; padding: 5px; font-size: 18px; }
+    .microSearchBox .microSearchFilters .microSearchFilter { display: block; width: 100%; margin-bottom: 2px; }
+    .microSearchBox .microSearchFilters .microSearchKeywords { font-size: 0; }
+    .microSearchBox .microSearchFilters .microSearchKeywords input { display: inline-block; vertical-align: top; }
+    .microSearchBox .microSearchFilters .microSearchKeywords input[type=text] { width: calc(100% - 150px); }
+    .microSearchBox .microSearchFilters .microSearchKeywords input[type=button] { width: 73px; margin-left: 2px; }
+    .microSearchBox .microSearchSaved .microSearchSavedItems { padding: 5px; background-color: #EEE; }
+    .microSearchBox .microSearchSaved .microSearchSavedItems p { text-align: center; margin: 0; padding: 5px; font-style: italic; }
+    .microSearchBox .microProfile { padding: 5px; margin-bottom: 5px; background-color: #FFF; border: 1px solid #CCC; position: relative; }
+    .microSearchBox .microProfile .microProfileButtons { position: absolute; top: 5px; right: 5px; width: 100px; }
+    .microSearchBox .microProfile input, .microSearchBox .microProfile .linkButton { display: inline-block; vertical-align: top; width: calc(100% - 1px); margin: 0 1px; }
+    .microSearchBox .microProfile .title { font-weight: bold; min-height: 25px; padding: 0 115px 5px 0; display: block; }
+    .microSearchBox .microProfile .description { padding: 5px; font-size: 14px; }
+    .microSearchBox .microProfile .description:empty { padding: 0; }
+    .microSearchBox .microProfile .selectors { display: none; }
+    .microSearchBox .microProfile .rawData { display: none; }
+    .microSearchBox .microSearchSaved .microProfile .showOnResult { display: none; }
+    .microSearchBox .microSearchResults .microProfile .showOnSaved { display: none; }
+    .microSearchBox .microSearchStatus { padding: 5px; text-align: center; }
+    .microSearchBox .microSearchPaging { text-align: center; }
+    .microSearchBox .microSearchPageButton { display: inline-block; min-width: 25px; }
+    .microSearchBox .microSearchPageButton.current { background-color: #3D4443; color: #FFF; }
+    .microSearchBox .microSearchButtons { text-align: right; padding: 5px; }
+    .microSearchBox[data-hasEditProfile=false] .microProfile .editMicroProfile { display: none; }
+    .microSearchBox[data-hasEditProfile=true] .microProfile .title { padding-right: 190px; }
+    .microSearchBox[data-hasEditProfile=true] .microProfile .microProfileButtons { width: 175px; font-size: 0; }
+    .microSearchBox[data-hasEditProfile=true] .microProfile .microProfileButtons input, .microSearchBox[data-hasEditProfile=true] .microProfile .microProfileButtons .linkButton { width: calc(50% - 2px); }
+    .microSearchBox .microProfile .microProfileButtons .linkButton { font-size: 16px; text-align: center; }
+
+    /* Text Value Profile */
+    .profile:not(.mainProfile) .textValueBox, .textValueBox .textValueValueBox { font-size: 0; }
+    .profile:not(.mainProfile) .textValueBox .textValueLabel, .profile:not(.mainProfile) .textValueBox .textValueData { display: inline-block; vertical-align: top; }
+    .profile:not(.mainProfile) .textValueBox .textValueLabel { width: 175px; font-weight: bold; padding: 3px 10px 0 0; text-align: right; font-size: 16px; }
+    .profile:not(.mainProfile) .textValueBox .textValueData { width: calc(100% - 175px); }
+    .textValueBox .textValueList { background-color: #EEE; padding: 5px; }
+    .textValueBox .profileButtons input { min-width: 300px; display: inline-block; }
+    .textValueBox .textValueProfile { font-size: 0; padding: 5px; background-color: #FFF; margin-bottom: 5px; }
+    .textValueBox .textValueProfile:last-child { margin-bottom: 0; }
+    .textValueBox .textValueProfile .textValueValue { width: 100%; }
+    .textValueBox .textValueProfile .textValueSelectorBox { font-size: 0; margin-bottom: 2px; }
+    .textValueBox .textValueProfile .textValueSelectorBox *:not(option), .textValueBox .textValueProfile .textValueValueBox * { display: inline-block; vertical-align: top; }
+    .textValueBox .textValueProfile .textValueSelectorBox *:not(option) { width: 50%; }
+    .textValueBox .textValueProfile .textValueValue { width: calc(100% - 102px); }
+    .textValueBox .textValueProfile .textValueDelete { width: 100px; margin-left: 2px; }
+    .textValueBox[data-hasOther=false] .textValueProfile .textValueSelector { width: 100%; }
+    .textValueBox[data-hasOther=false] .textValueProfile .textValueOther { display:none; }
+    .textValueBox[data-hasSelector=false] .textValueProfile .textValueSelector { display: none; }
+    .textValueBox[data-hasSelector=false] .textValueProfile .textValueOther { width: 100%; }
+     
+    /* Tabs */
+    .hasTabs .tabs { margin-bottom: 10px; font-size: 0; text-align: center; }
+    .hasTabs .tabs input { margin: 1px; display: inline-block; vertical-align: top; min-width: 100px; }
+    .hasTabs.verticalTabs { font-size: 0; }
+    .hasTabs.verticalTabs .tabs { width: 200px; }
+    .hasTabs.verticalTabs .tabItems { width: calc(100% - 200px); padding-left: 15px; }
+    .hasTabs.verticalTabs .tabs, .hasTabs.verticalTabs .tabItems { display: inline-block; vertical-align: top; }
+    .hasTabs.verticalTabs .tabs input { display: block; width: 100%; margin: 1px 0; }
+    .hasTabs .tabs input.selected { background-color: #3D4443; color: #FFF; }
+    .hasTabs .tabItems .tabItem:not(.selected) { display: none; }
+
+    /* Profile Editors */
+    #profiles { position: relative; z-index: 999999; }
+    #profiles .profile { display: none; border: 1px solid #CCC; background-color: #FFF; }
+    #profiles .profile[data-visible=true] { display: block; position: fixed; top: 5vh; left: 5vw; z-index: 100; height: 90vh; width: 90vw; }
+    #profiles .profile .profileTitle { background-color: #EEE; padding: 5px; font-size: 20px; font-weight: bold; height: 35px; border-bottom: 1px solid #CCC; }
+    #profiles .profile .profileBoxButtons { background-color: #EEE; text-align: right; padding: 2px; height: 30px; border-top: 1px solid #CCC; position: absolute; left: 0; bottom: 0; right: 0; }
+    #profiles .profile .profileBoxButtons input { width: 150px; display: inline-block; }
+    #profiles .profile .profileContent { overflow-y: auto; max-height: calc(90vh - 67px); padding: 5px; }
+    #overlay[data-visible=true] { background-color: rgba(0,0,0,0.7); position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 99; }
+    #profiles .profile .mainGuidance { font-style: italic; padding: 5px; background-color: #EEE; margin-bottom: 5px; }
+
+    /* Special things */
+    .profile[data-profile=DurationProfile] table { margin: 0; }
+    .profile[data-profile=DurationProfile] table td { padding: 0; border: none; }
+
+
+    /* Radio Selector */
+    .radioSelector {}
+    .radioSelector .radioSection { position: relative; font-size: 0; padding-left: 30px; }
+    .radioSelector .radioSection .radioButton { position: absolute; left: 0; top: 0; bottom: 0; width: 30px; padding-top: 5px; text-align: center; }
+    .radioSelector .radioSection .radioButton:hover, .radioSelector .radioSection .radioButton:focus { cursor: pointer; background-color: #47CEC7; }
+    .radioSelector .radioSection.selected .radioButton { background-color: #3D4443; }
+    .radioSelector .radioSection:not(.selected) .radioCover { position: absolute; top: 0; bottom: 0; left: 30px; right: 0; background-color: rgba(255,255,255,0.7); }
+
+    /* Global Buttons */
+    #globalButtons { position: fixed; bottom: 0; left: 0; right: 0; height: 30px; text-align: right; background-color: #555; border-top: 1px solid #333; padding: 2px 10px; z-index: 50; }
+    #globalButtons input { display: inline-block; vertical-align: top; min-width: 100px; height: 24px; font-weight: bold; }
+
+</style>
+
+<div id="editor">
+
+    <div class="profile mainProfile hasTabs verticalTabs" data-editorName="MainProfile" data-profile="@mainProfileType" data-recordID="@Model.MainProfile.Id" data-recordRowId="@Model.MainProfile.RowId" data-repeaterID="0">
+
+        @switch ( Model.Editor )
+        {
+            case EditorSettings.EditorType.CREDENTIAL:
+            {
+                <h1>@(Model.MainProfile.Id == 0 ? "New Credential" : "Editing Credential: " + Model.MainProfile.Name)</h1>
+
+                <div class="tabs">
+                    <input type="button" class="selected" value="Basic Info" data-properties="BasicInfoHeader,Name,Description,AlternateName,Url,ImageUrl,DateEffective,Version,LatestVersionUrl,ReplacesVersionUrl,AvailableOnlineAt,CredentialTypeId,CredentialPurposeTypeIds,CredentialLevelTypeIds,EstimatedTimeToEarn,EstimatedCosts,Addresses,Jurisdiction,Subjects,Keywords" />
+                    <input type="button" value="Agent Roles" data-properties="AgentRole_Recipient" />
+                    <input type="button" value="Industry" data-properties="Industry" />
+                    <input type="button" value="Occupation" data-properties="Occupation" />
+                    <input type="button" value="Embedded Credentials" data-properties="EmbeddedCredentials" />
+                    @*<input type="button" value="Encompassing Credentials" data-properties="ParentCredential" />*@
+                    <input type="button" value="Attainment Requirements" data-properties="Requires" />
+                    <input type="button" value="Attainment Recommendations" data-properties="Recommends" />
+                    <input type="button" value="Post-Award Connections (Requirements)" data-properties="IsRequiredFor" />
+                    <input type="button" value="Post-Award Connections (Recommendations)" data-properties="IsRecommendedFor" />
+                    <input type="button" value="Renewal Requirements" data-properties="Renewal" />
+                    <input type="button" value="Revocation Terms" data-properties="Revocation" />
+                    <input type="button" value="Quality Assurance Actions" data-properties="QualityAssuranceAction_Recipient" />
+                    @*<input type="button" value="Credential Processes" data-properties="CredentialProcess" />
+                    <input type="button" value="Statistical Information" data-properties="Earnings,EmploymentOutcome,Holders" />*@
+                </div>
+
+                <div class="tabItems">
+
+                    <h2 class="tabItem" data-property="BasicInfoHeader">Basic Information</h2>
+
+                    @* Basic Info *@
+                    @foreach(var item in new List<TextInputSettings>() {
+                        new TextInputSettings() { Property = "Name", Label = "Credential Name", Type = TextInputSettings.InputType.TEXT, IsRequired = true, MinimumLength = 5, Guidance = "The official name of the credential." },
+                        new TextInputSettings() { Property = "AlternateName", Label = "Alternate Name", Type = TextInputSettings.InputType.TEXT, IsRequired = false, MinimumLength = 3, Guidance = "An alternate name for the credential." },
+                        new TextInputSettings() { Property = "Description", Label = "Credential Description", Type = TextInputSettings.InputType.TEXTAREA, IsRequired = true, MinimumLength = 15, Guidance = "A summary or description of the credential." },
+                        new TextInputSettings() { Property = "Url", Label = "Credential URL", Type = TextInputSettings.InputType.URL, Guidance = "The URL of a page that lists information about the credential." },
+                        new TextInputSettings() { Property = "ImageUrl", Label = "Credential Image", Type = TextInputSettings.InputType.URL, Guidance = "A publicly-accessible URL of the image or icon that represents the credential." },
+                        new TextInputSettings() { Property = "DateEffective", Label = "Effective Date", Type = TextInputSettings.InputType.DATE, Guidance = "The date that the credential was first officially recognized and earnable." },
+                        new TextInputSettings() { Property = "Version", Label = "Credential Version", Type = TextInputSettings.InputType.TEXT, Guidance = "The version number, code, catalog year, or other identifier for the specific version of the credential being described." },
+                        new TextInputSettings() { Property = "LatestVersionUrl", Label = "Latest Version URL", Type = TextInputSettings.InputType.URL, Guidance = "Provide a URL that will always lead to the latest version of the credential, even if the credential version changes." },
+                        new TextInputSettings() { Property = "ReplacesVersionUrl", Label = "Version Being Replaced URL", Type = TextInputSettings.InputType.URL, Guidance = "Provide a URL to the version of the credential that this credential version replaces." },
+                         new TextInputSettings() { Property = "AvailableOnlineAt", Label = "Available Online At", Type = TextInputSettings.InputType.URL, Guidance = "Provide a URL to where this credential is available online." },
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", item )
+                    }
+
+                    @* Lists *@
+                    @foreach(var item in new List<ListInputSettings>() {
+                        new ListInputSettings() { Property = "CredentialTypeId", Label = "Credential Type", Type = ListInputSettings.InterfaceType.DROPDOWN_LIST, HasOtherBox = true, Guidance = "Select the type that best describes the credential.", EnumItems = enumServices.GetCredentialType( EnumerationType.CUSTOM ).Items },
+                        new ListInputSettings() { Property = "CredentialPurposeTypeIds", Label = "Credential Purpose", Type = ListInputSettings.InterfaceType.CHECKBOX_LIST, HasOtherBox = true, Guidance = "The general purpose of the credential.", EnumItems = enumServices.GetCredentialPurpose( EnumerationType.CUSTOM ).Items },
+                        new ListInputSettings() { Property = "CredentialLevelTypeIds", Label = "Credential Level", Type = ListInputSettings.InterfaceType.CHECKBOX_LIST, HasOtherBox = true, Guidance = "Select the education level someone should have before attempting to attain this credential.", EnumItems = enumServices.GetCredentialLevel( EnumerationType.CUSTOM ).Items }
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_ListBox.cshtml", item )
+                    }
+                    @* TextValue Profiles *@
+                                        @foreach ( var item in new List<TextValueEditorSettings>()
+                    {
+                       new TextValueEditorSettings() { Property = "Subjects", ParentRepeaterId = "0", Label = "Subjects", AddText = "Add a Subject", Guidance = "Enter subjects that describe this Credential.", ValueType = TextInputSettings.InputType.TEXT, ValuePlaceholder = "Subject" },
+                        new TextValueEditorSettings() { Property = "Keywords", ParentRepeaterId = "0", Label = "Keywords", AddText = "Add a Keyword", Guidance = "Enter subjects that describe this Credential.", ValueType = TextInputSettings.InputType.TEXT, ValuePlaceholder = "Add a Keyword (max length of 200 characters)" }
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_TextValueEditor.cshtml", item )
+                    }
+                    @* Profiles *@
+                    @{ var parentID = Model.MainProfile.Id.ToString(); }
+                    @foreach ( var item in new List<ProfileSettings>() {
+                        new ProfileSettings() { Property = "EstimatedTimeToEarn", Profile = "DurationProfile", ParentRepeaterId = "0", Label = "Estimated Time to Earn", AddText = "Add new Time Estimate", Guidance = "Describe the estimated amount of time it would take to earn the credential normally, and for each applicable special circumstance." },
+                        new ProfileSettings() { Property = "EstimatedCosts", Profile = "CostProfile", ParentRepeaterId = "0", Label = "Estimated Costs", AddText = "Add New Estimated Cost", Guidance = "Enter costs associated with this credential, for example an aggregate cost." },  
+                        new ProfileSettings() { Property = "Addresses", Profile = "AddressProfile", ParentRepeaterId = "0", Label = "Available at Addresses", AddText = "Add an Address", Guidance = "Addresses at which the credential is available." },
+                        new ProfileSettings() { Property = "Jurisdiction", Profile = "JurisdictionProfile", ParentRepeaterId = "0", Label = "Jurisdiction", AddText = "Add new Jurisdiction", Guidance = "The geographic area that the credential is recognized in, sans exceptions." },
+                        new ProfileSettings() { Property = "AgentRole_Recipient", Profile = "AgentRoleProfile_Recipient", ParentRepeaterId = "0", Label = "Agent Roles", AddText = "Add new Role", Guidance = "Describe the relationships this credential has to one or more organizations." },
+                        new ProfileSettings() { Property = "Requires", Profile = "ConditionProfile", ParentRepeaterId = "0", Label = "Attainment Requirements", AddText = "Add new Requirements", Guidance = "Describe each set of requirements for attaining this credential." },
+                        new ProfileSettings() { Property = "Recommends", Profile = "ConditionProfile", ParentRepeaterId = "0", Label = "Attainment Recommendations", AddText = "Add new Recommendations", Guidance = "Describe each set of recommended items that will help prepare someone to attain the credential." },
+                        new ProfileSettings() { Property = "IsRequiredFor", Profile = "ConditionProfile", ParentRepeaterId = "0", Label = "Post-Award Credential Connections: Required For", AddText = "Add new Connection", Guidance = "Describe each set of items that the credential is a known requirement for." },
+                        new ProfileSettings() { Property = "IsRecommendedFor", Profile = "ConditionProfile", ParentRepeaterId = "0", Label = "Post-Award Credential Connections: Recommended For", AddText = "Add new Connection", Guidance = "Describe each set of items that the credential will help someone prepare for." },
+                        new ProfileSettings() { Property = "Renewal", Profile = "ConditionProfile", ParentRepeaterId = "0", Label = "Credential Renewal", AddText = "Add new Renewal Requirements", Guidance = "Describe the applicable conditions someone who previously attained this credential must meet in order to renew their status as a holder." },
+                        new ProfileSettings() { Property = "QualityAssuranceAction_Recipient", Profile = "QualityAssuranceActionProfile_Recipient", ParentRepeaterId = "0", Label = "Quality Assurance Actions", AddText = "Add new Quality Assurance Action", Guidance = "Describe the Quality Assurance Actions that have been applied to this credential." },
+                        new ProfileSettings() { Property = "CredentialProcess", Profile = "ProcessProfile", ParentRepeaterId = "0", Label = "Credential Processes", AddText = "Add new Process Description", Guidance = "Describe the processes used to select, develop, validate, or maintain the credential." },
+                        new ProfileSettings() { Property = "Earnings", Profile = "EarningsProfile", ParentRepeaterId = "0", Label = "Credential Earnings", AddText = "Add new Earnings Description", Guidance = "Describe the statistical information about earnings that holders of this credential are reported to have received." },
+                        new ProfileSettings() { Property = "EmploymentOutcome", Profile = "EmploymentOutcomeProfile", ParentRepeaterId = "0", Label = "Employment Outcomes", AddText = "Add new Outcome Description", Guidance = "Describe statistical employment outcome information about this credential." },
+                        new ProfileSettings() { Property = "Holders", Profile = "HolderProfile", ParentRepeaterId = "0", Label = "Holder Statistics", AddText = "Add new Holder Statistics Description", Guidance = "Describe statistical information about those who received this credential." },
+                        new ProfileSettings() { Property = "Revocation", Profile = "RevocationProfile", ParentRepeaterId = "0", Label = "Revocation Terms", AddText = "Add new Revocation Conditions", Guidance = "Describe the applicable conditions for removing this credential from someone that has previously attained it." },
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", item )
+                    }
+
+                    @* Micro Searches *@
+                    @{
+                        var industryHeaders = new Dictionary<string, string>() { { "0", "Select an Industry" } };
+                        EnumerationServices.NAICS_Categories_Enumeration().Items.ForEach( m => industryHeaders.Add( m.CodeId.ToString(), m.Name ) );
+
+                        var occupationHeaders = new Dictionary<string, string>() { { "0", "Select an Occupation" } };
+                        EnumerationServices.SOC_Categories_Enumeration().Items.ForEach( m => occupationHeaders.Add( m.CodeId.ToString(), m.Name ) );
+                    }
+                    @foreach(var item in new List<MicroSearchSettings>() {
+                        new MicroSearchSettings() { 
+                            Property = "Industry", 
+                            SearchType = "IndustrySearch",
+                            ProfileTemplate = "CodeItem",
+                            SavedItemsHeader = "Saved Industries",
+                            ParentRepeaterId = "0",
+                            Label = "Industry Codes", 
+                            Guidance = "Identify the specific industries this credential applies to. We recommend using the <a href=\"http://www.naics.com/search/\" target=\"_blank\">NAICS codes</a>. Select an Industry category and browse through codes or search by entering a keyword or parial NAICS code in the text box.", 
+                            ExtraClasses = new List<string>() { "tabItem" }, 
+                            Filters = new List<MicroSearchFilter>() { 
+                                new MicroSearchFilter() { FilterName = "HeaderId", Type = "select", Items = industryHeaders } 
+                            }
+                        },
+                        new MicroSearchSettings() { 
+                            Property = "Occupation", 
+                            SearchType = "OccupationSearch",
+                            ProfileTemplate = "CodeItem",
+                            SavedItemsHeader = "Saved Occupations",
+                            ParentRepeaterId = "0",
+                            Label = "Occupation Codes", 
+                            Guidance = "Identify the specific occupations this credential applies to. We recommend using the <a href=\"http://www.bls.gov/soc/\" target=\"_blank\">SOC codes</a>. Select an Occupation category and browse through codes or search by entering a keyword or parial SOC code in the text box.", 
+                            ExtraClasses = new List<string>() { "tabItem" }, 
+                            Filters = new List<MicroSearchFilter>() { 
+                                new MicroSearchFilter() { FilterName = "HeaderId", Type = "select", Items = occupationHeaders } 
+                            }
+                        },
+                        new MicroSearchSettings() { 
+                            Property = "EmbeddedCredentials", 
+                            SearchType = "CredentialSearch",
+                            SavedItemsHeader = "Saved Credentials",
+                            ProfileTemplate = "MicroProfile",
+                            ParentRepeaterId = "0",
+                            ProfileType = "Credential",
+                            Label = "Embedded Credentials", 
+                            Guidance = "Identify any credentials that are a part of this credential. Such credentials are typically earned during the pursuit of this credential and/or upon attainment of it.", 
+                            ExtraClasses = new List<string>() { "tabItem" } 
+                        }
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_MicroSearch.cshtml", item )
+                    }
+
+
+                </div><!-- /tabItems -->
+            }
+            break;
+
+            case EditorSettings.EditorType.ORGANIZATION:
+            {
+                <h1>@(Model.MainProfile.Id == 0 ? "New Organization" : "Editing Organization: " + Model.MainProfile.Name)</h1>
+
+                <div class="tabs">
+                    <input type="button" class="selected" value="Basic Info" data-properties="BasicInfoHeader,Name,Description,Purpose,Url,ImageUrl,DateEffective,Founded,FoundingYear,FoundingMonth,FoundingDay,OrganizationTypeIds,OrganizationServiceTypeIds,OrganizationSectorTypeId,QAPurposeType,IdentificationCodes,Jurisdiction, Keywords" />
+                    <input type="button" value="Contact Information" data-properties="SocialMediaPages,Address,PhoneNumbers,Emails" />
+                    <input type="button" value="Agent Roles Received" data-properties="AgentRole_Recipient" />
+                    @*<input type="button" value="Agent Roles Performed" data-properties="AgentRole_Actor" />*@
+                    <input type="button" value="Quality Assurance Actions Received" data-properties="QualityAssuranceAction_Recipient" />
+                    @*<input type="button" value="Quality Assurance Actions Issued" data-properties="QualityAssuranceAction_Actor" />*@
+                    <input type="button" value="Verification Services" data-properties="VerificationService" />
+                    <input type="button" value="Departments" data-properties="Department" />
+                    <input type="button" value="Subsidiaries" data-properties="Subsidiary" />
+                </div>
+
+                <div class="tabItems">
+
+                    <h2 class="tabItem" data-property="BasicInfoHeader">Basic Information</h2>
+
+                    @* Basic Info *@
+                    @foreach(var item in new List<TextInputSettings>() {
+                        new TextInputSettings() { Property = "Name", Label = "Organization Name", Type = TextInputSettings.InputType.TEXT, IsRequired = true, MinimumLength = 5, Guidance = "The official name of the organization." },
+                        new TextInputSettings() { Property = "Description", Label = "Organization Description", Type = TextInputSettings.InputType.TEXTAREA, IsRequired = true, MinimumLength = 15, Guidance = "A summary or description of the organization." },
+                        new TextInputSettings() { Property = "Purpose", Label = "Organization Purpose", Type = TextInputSettings.InputType.TEXTAREA, Guidance = "The organization's purpose or mission statement." },
+                        new TextInputSettings() { Property = "Url", Label = "Organization URL", Type = TextInputSettings.InputType.URL, Guidance = "The URL of a page that lists information about the organization." },
+                        new TextInputSettings() { Property = "ImageUrl", Label = "Organization Image", Type = TextInputSettings.InputType.URL, Guidance = "A publicly-accessible URL of the image or icon that represents the organization." },
+                        @*new TextInputSettings() { Property = "DateEffective", Label = "Effective Date", Type = TextInputSettings.InputType.DATE, Guidance = "The date that this information was first applicable." },
+                        new TextInputSettings() { Property = "Founded", Label = "Organization Established/Founded Date", Type = TextInputSettings.InputType.NUMBER, Guidance = "Indicate when the organization was founded (For example, \"1980\" or \"July 2000\" or \"01/02/2003\")." }*@
+                        new TextInputSettings() { Property = "FoundingYear", Label = "Founding Year", Type = TextInputSettings.InputType.NUMBER, Guidance = "The year the organization was founded." },
+                        new TextInputSettings() { Property = "FoundingMonth", Label = "Founding Month", Type = TextInputSettings.InputType.NUMBER, Guidance = "The month the organization was founded." },
+                        new TextInputSettings() { Property = "FoundingDay", Label = "Founding Day", Type = TextInputSettings.InputType.NUMBER, Guidance = "The numeric/calendar day the organization was founded." }
+                        
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", item )
+                    }
+
+                    @* Lists *@
+                    @foreach(var item in new List<ListInputSettings>() {
+                        new ListInputSettings() { Property = "OrganizationTypeIds", Label = "Organization Type", Type = ListInputSettings.InterfaceType.CHECKBOX_LIST, HasOtherBox = false, Guidance = "Select the type(s) that best describe the organization. Check all that apply.", EnumItems = enumServices.GetOrganizationType( EnumerationType.CUSTOM ).Items, ExtraClasses = new List<string>() { "twoColumns" } },
+                        new ListInputSettings() { Property = "OrganizationServiceTypeIds", Label = "Organization Service Types", Type = ListInputSettings.InterfaceType.CHECKBOX_LIST, HasOtherBox = true, Guidance = "The types of services offered by the organization.", EnumItems = enumServices.GetOrganizationServices( EnumerationType.CUSTOM ).Items, ExtraClasses = new List<string>() { "twoColumns" } },
+                        new ListInputSettings() { Property = "OrganizationSectorTypeId", Label = "Organization Sector Type", Type = ListInputSettings.InterfaceType.DROPDOWN_LIST, HasOtherBox = false, Guidance = "Select the sector type that best describes the organization.", CodeItems = enumServices.GetPropertiesList( "orgSectorType", false ) },
+                        new ListInputSettings() { Property = "QAPurposeType", Label = "Agent QA Purpose Type", Type = ListInputSettings.InterfaceType.CHECKBOX_LIST, HasOtherBox = false, Guidance = "Select the Quality Assurance purpose type.", CodeItems = enumServices.GetPropertiesList("agentQAPurpose", false) }
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_ListBox.cshtml", item )
+                    }
+
+                    @* Profiles *@
+                    @{ var parentID = Model.MainProfile.Id.ToString(); }
+                    @foreach ( var item in new List<ProfileSettings>() {
+                        new ProfileSettings() { Property = "Jurisdiction", Profile = "JurisdictionProfile", ParentRepeaterId = "0", Label = "Jurisdiction", AddText = "Add new Jurisdiction", Guidance = "The geographic area that this organization serves, sans exceptions." },
+                        new ProfileSettings() { Property = "AgentRole_Recipient", Profile = "AgentRoleProfile_Recipient", ParentRepeaterId = "0", Label = "Agent Roles Received", AddText = "Add new Role", Guidance = "Describe the relationships this organization has to one or more organizations where this organization is the recipient of the role." },
+                        new ProfileSettings() { Property = "AgentRole_Actor", Profile = "AgentRoleProfile_Actor", ParentRepeaterId = "0", Label = "Agent Roles Performed", AddText = "Add new Role", Guidance = "Describe the relationships this organization has to other entities where this organization is the performer of the role." },
+                        new ProfileSettings() { Property = "QualityAssuranceAction_Recipient", Profile = "QualityAssuranceActionProfile_Recipient", ParentRepeaterId = "0", Label = "Quality Assurance Actions Received", AddText = "Add new Quality Assurance Action", Guidance = "Describe the Quality Assurance Actions that have been applied to this organization." },
+                        new ProfileSettings() { Property = "QualityAssuranceAction_Actor", Profile = "QualityAssuranceActionProfile_Actor", ParentRepeaterId = "0", Label = "Quality Assurance Actions Issued", AddText = "Add new Quality Assurance Action", Guidance = "Describe the Quality Assurance Actions that this organization has issued." },
+                        new ProfileSettings() { Property = "Address", Profile = "AddressProfile", ParentRepeaterId = "0", Label = "Organization Addresses", AddText = "Add an Address", Guidance = "Addresses at which the organization can be reached." },
+                        new ProfileSettings() { Property = "VerificationService", Profile = "VerificationServiceProfile", ParentRepeaterId = "0", Label = "Verification Services", AddText = "Add a Verification Service", Guidance = "If the organization provides services to prove that individuals have credentials, describe them here." },
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", item )
+                    }
+
+                    @* TextValue Profiles *@
+                    @foreach ( var item in new List<TextValueEditorSettings>()
+                    {
+                        new TextValueEditorSettings() { Property = "Keywords", ParentRepeaterId = "0", Label = "Keywords", AddText = "Add a Keyword", Guidance = "Enter subjects that describe this record.", ValueType = TextInputSettings.InputType.TEXT, ValuePlaceholder = "Add a Keyword (max length of 200 characters)" },
+                         new TextValueEditorSettings() { Property = "IdentificationCodes", ParentRepeaterId = "0", Label = "Organization Identification Codes", AddText = "Add an Identification Code", Guidance = "Codes that identify the organization within existing frameworks", HasSelector = true, HasOther = true, CodeItems = new EnumerationServices().GetPropertiesList( "identityType", false ), ValueType = TextInputSettings.InputType.TEXT },
+                        new TextValueEditorSettings() { Property = "SocialMediaPages", ParentRepeaterId = "0", Label = "Organization Social Media Pages", AddText = "Add a Social Media Page", Guidance = "Social Media Pages that represent the organization directly.", ValueType = TextInputSettings.InputType.URL, ValuePlaceholder = "http://" },
+                        new TextValueEditorSettings() { Property = "PhoneNumbers", ParentRepeaterId = "0", Label = "Organization Phone/Fax Numbers", AddText = "Add a Phone/Fax Number", Guidance = "Phone numbers for contacting the organization directly.", HasSelector = true, HasOther = true, CodeItems = new EnumerationServices().GetPropertiesList( "phoneType", false ), ValueType = TextInputSettings.InputType.TEXT, ValuePlaceholder = "Phone/Fax Number" },
+                        new TextValueEditorSettings() { Property = "Emails", ParentRepeaterId = "0", Label = "Organization Emails", AddText = "Add an Email", Guidance = "Emails for contacting the organization directly. Please provide a purpose (e.g, \"Public Relations\", \"Technical Staff\", \"Head Office\", etc.) and a valid email address.", ValueType = TextInputSettings.InputType.TEXT, HasOther = true, OtherPlaceholder = "Email Purpose", ValuePlaceholder = "Email Address" },
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_TextValueEditor.cshtml", item )
+                    }
+
+
+                    @* Micro Searches *@
+                    @foreach(var item in new List<MicroSearchSettings>() {
+                        new MicroSearchSettings() { 
+                            Property = "Department", 
+                            SearchType = "OrganizationSearch",
+                            Label = "Department Organizations", 
+                            Guidance = "Identify any organizations that are a department of this organization.", 
+                            SavedItemsHeader = "Saved Departments",
+                            ExtraClasses = new List<string>() { "tabItem" },
+                            HasEditProfile = true,
+                            HasCreateProfile = true,
+                            CreateProfileTitle = "Organization",
+                            ProfileType = "Organization",
+                            ParentRepeaterId = "0"
+                        },
+                        new MicroSearchSettings() { 
+                            Property = "Subsidiary", 
+                            SearchType = "OrganizationSearch",
+                            Label = "Subsidiary Organizations", 
+                            Guidance = "Identify any organizations that are a subsidiary of this organization.", 
+                            SavedItemsHeader = "Saved Subsidiaries",
+                            ExtraClasses = new List<string>() { "tabItem" },
+                            HasEditProfile = true,
+                            HasCreateProfile = true,
+                            CreateProfileTitle = "Organization",
+                            ProfileType = "Organization",
+                            ParentRepeaterId = "0"
+                        }
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_MicroSearch.cshtml", item )
+                    }
+
+                </div><!-- /tabItems -->
+            }
+            break;
+
+            case EditorSettings.EditorType.ASSESSMENT:
+            {
+                <h1>@(Model.MainProfile.Id == 0 ? "New Assessment" : "Editing Assessment: " + Model.MainProfile.Name)</h1>
+
+                <div class="tabs">
+                    <input type="button" class="selected" value="Basic Info" data-properties="BasicInfoHeader,Name,Description,Url,AvailableOnlineAt,IdentificationCode,DateEffective,AssessmentTypeIds,AssessmentModalityTypeIds,Jurisdiction,Duration,Subjects,Keywords,Addresses,Example,RequiresCompetencies,AssessesCompetencies" />
+                    <input type="button" class="selected" value="Organization Roles" data-properties="AgentRole_Recipient" />
+                    <input type="button" class="selected" value="Quality Assurance Received" data-properties="QualityAssuranceAction_Recipient" />
+                    <input type="button" class="selected" value="Estimated Costs" data-properties="Cost" />
+                </div>
+            
+                <div class="tabItems">
+
+                    <h2 class="tabItem" data-property="BasicInfoHeader">Basic Information</h2>
+
+                    @* Basic Info *@
+                    @foreach(var item in new List<TextInputSettings>() {
+                        new TextInputSettings() { Property = "Name", Label = "Assessment Name", Type = TextInputSettings.InputType.TEXT, IsRequired = true, MinimumLength = 5, Guidance = "The official name of the assessment." },
+                        new TextInputSettings() { Property = "Description", Label = "Assessment Description", Type = TextInputSettings.InputType.TEXTAREA, IsRequired = true, MinimumLength = 15, Guidance = "A summary or description of the assesssment." },
+                        new TextInputSettings() { Property = "Url", Label = "Assessment URL", Type = TextInputSettings.InputType.URL, Guidance = "The URL of a page that lists information about the assessment." },
+                         new TextInputSettings() { Property = "AvailableOnlineAt", Label = "Available Online At", Type = TextInputSettings.InputType.URL, Guidance = "Provide a URL to where this credential is available online." },
+                        new TextInputSettings() { Property = "IdentificationCode", 
+                            Label = "Identification Code", Type = TextInputSettings.InputType.TEXT, Guidance = "Provide the identification code for the assessment, if it has one." },
+                        new TextInputSettings() { Property = "DateEffective", Label = "Effective Date", Type = TextInputSettings.InputType.DATE, Guidance = "The date that this information was first applicable." }
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", item )
+                    }
+
+                    @* Lists *@
+                    @foreach(var item in new List<ListInputSettings>() {
+                        new ListInputSettings() { Property = "AssessmentTypeIds", Label = "Assessment Method", Type = ListInputSettings.InterfaceType.CHECKBOX_LIST, HasOtherBox = true, Guidance = "Select the type(s) that best describe the assessment. Check all that apply.", EnumItems = enumServices.GetEnumeration( "assessmentType", EnumerationType.MULTI_SELECT ).Items, ExtraClasses = new List<string>() { "twoColumns" } },
+                        new ListInputSettings() { Property = "AssessmentModalityTypeIds", Label = "Assessment Modality Types", Type = ListInputSettings.InterfaceType.CHECKBOX_LIST, HasOtherBox = true, Guidance = "The type(s) of modality through which the assessment is offered.", EnumItems = enumServices.GetEnumeration( "modality", EnumerationType.MULTI_SELECT ).Items, ExtraClasses = new List<string>() { "twoColumns" } }
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_ListBox.cshtml", item )
+                    }
+
+                    @* Profiles *@
+                    @{ var parentID = Model.MainProfile.Id.ToString(); }
+                    @foreach ( var item in new List<ProfileSettings>() {
+                        new ProfileSettings() { Property = "Duration", Profile = "DurationProfile", ParentRepeaterId = "0", Label = "Estimated Time to Complete", AddText = "Add new Time Estimate", Guidance = "Describe the estimated amount of time it would take to complete the assessment normally, and for each applicable special circumstance." },
+                        new ProfileSettings() { Property = "Addresses", Profile = "AddressProfile", ParentRepeaterId = "0", Label = "Available at Addresses", AddText = "Add an Address", Guidance = "Enter addresses at which the assessment is available." },
+                        new ProfileSettings() { Property = "Jurisdiction", Profile = "JurisdictionProfile", ParentRepeaterId = "0", Label = "Jurisdiction", AddText = "Add new Jurisdiction", Guidance = "The geographic area that this assessment information is applicable to, sans exceptions." },
+                        new ProfileSettings() { Property = "AgentRole_Recipient", Profile = "AgentRoleProfile_Recipient", ParentRepeaterId = "0", Label = "Agent Roles Received", AddText = "Add new Role", Guidance = "Describe the relationships this assessment has to one or more organizations where this assessment is the recipient of the role." },
+                        new ProfileSettings() { Property = "QualityAssuranceAction_Recipient", Profile = "QualityAssuranceActionProfile_Recipient", ParentRepeaterId = "0", Label = "Quality Assurance Actions Received", AddText = "Add new Quality Assurance Action", Guidance = "Describe the Quality Assurance Actions that have been applied to this assessment." },
+                        new ProfileSettings() { Property = "Cost", Profile = "CostProfile", Label = "Cost", AddText = "Add new Cost", Guidance = "If there are any costs associated with this assessment, describe them here.", ParentRepeaterId = "0" },
+                        new ProfileSettings() { Property = "RequiresCompetencies", Profile = "CredentialAlignmentObjectProfile", Label = "Competencies Required", AddText = "Add new Competency", Guidance = "Indicate the competencies this assessment requires.", ParentRepeaterId = "0" },
+                        new ProfileSettings() { Property = "AssessesCompetencies", Profile = "CredentialAlignmentObjectProfile", Label = "Competencies Assessed", AddText = "Add new Competency", Guidance = "Indicate the competencies this assessment assesses.", ParentRepeaterId = "0" }
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", item )
+                    }
+
+                    @* TextValue Profiles *@
+                    @*new TextValueEditorSettings() { Property = "IdentificationCodes", ParentRepeaterId = "0", Label = "Assessment Identification Codes", AddText = "Add an Identification Code", Guidance = "Codes that identify the assessment within existing frameworks", HasSelector = true, ValueType = TextInputSettings.InputType.TEXT },*@
+                   @foreach ( var item in new List<TextValueEditorSettings>()
+                    {
+                       new TextValueEditorSettings() { Property = "Subjects", ParentRepeaterId = "0", Label = "Subjects", AddText = "Add a Subject", Guidance = "Enter subjects that describe this record.", ValueType = TextInputSettings.InputType.TEXT, ValuePlaceholder = "Subject" },
+                        new TextValueEditorSettings() { Property = "Keywords", ParentRepeaterId = "0", Label = "Keywords", AddText = "Add a Keyword", Guidance = "Enter subjects that describe this record.", ValueType = TextInputSettings.InputType.TEXT, ValuePlaceholder = "Add a Keyword (max length of 200 characters)" },
+                        new TextValueEditorSettings() { Property = "Example", ParentRepeaterId = "0", Label = "Example Assessment", AddText = "Add an example Assessment URL", Guidance = "URL to one or more examples of this assessment.", ValueType = TextInputSettings.InputType.URL }
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_TextValueEditor.cshtml", item )
+                    }
+
+                </div><!-- /tabItems -->
+
+            }
+            break;
+
+            case EditorSettings.EditorType.LEARNINGOPPORTUNITY:
+            {
+
+                <h1>@(Model.MainProfile.Id == 0 ? "New Learning Opportunity" : "Editing Learning Opportunity: " + Model.MainProfile.Name)</h1>
+
+                <div class="tabs">
+                    <input type="button" class="selected" value="Basic Info" data-properties="BasicInfoHeader,Name,Description,Url,AvailableOnlineAt,IdentificationCode,DateEffective,DeliveryTypeIds,LearningCompetencies,RequiresCompetencies,TeachesCompetencies,Subjects,Keywords,Jurisdiction,Duration,LearningResource,Addresses" />
+                    <input type="button" class="selected" value="Instructional Program Category" data-properties="CipCode" />
+                    <input type="button" class="selected" value="Organization Roles" data-properties="AgentRole_Recipient" />
+                    <input type="button" class="selected" value="Quality Assurance Received" data-properties="QualityAssuranceAction_Recipient" />
+                    <input type="button" class="selected" value="Estimated Costs" data-properties="Cost" />
+                    <input type="button" class="selected" value="Embedded Learning Opportunities" data-properties="EmbeddedLearningOpportunity" />
+                </div>
+            
+                <div class="tabItems">
+
+                    <h2 class="tabItem" data-property="BasicInfoHeader">Basic Information</h2>
+
+                    @* Basic Info *@
+                    @foreach(var item in new List<TextInputSettings>() {
+                        new TextInputSettings() { Property = "Name", Label = "Learning Opportunity Name", Type = TextInputSettings.InputType.TEXT, IsRequired = true, MinimumLength = 5, Guidance = "The official name of the learning opportunity." },
+                        new TextInputSettings() { Property = "Description", Label = "Learning Opportunity Description", Type = TextInputSettings.InputType.TEXTAREA, IsRequired = true, MinimumLength = 15, Guidance = "A summary or description of the learning opportunity." },
+                        new TextInputSettings() { Property = "Url", Label = "Learning Opportunity URL", Type = TextInputSettings.InputType.URL, Guidance = "The URL of a page that lists information about the learning opportunity." },
+                         new TextInputSettings() { Property = "AvailableOnlineAt", Label = "Available Online At", Type = TextInputSettings.InputType.URL, Guidance = "Provide a URL to where this credential is available online." },
+                         new TextInputSettings() { Property = "IdentificationCode", Label = "Identification Code", Type = TextInputSettings.InputType.TEXT, Guidance = "Provide the identification code for this learning opportunity, if it has one." },
+                        new TextInputSettings() { Property = "DateEffective", Label = "Effective Date", Type = TextInputSettings.InputType.DATE, Guidance = "The date that this information was first applicable." }
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", item )
+                    }
+
+                    @* Lists *@
+                    @foreach(var item in new List<ListInputSettings>() {
+                        new ListInputSettings() { Property = "DeliveryTypeIds", Label = "Delivery Type", Type = ListInputSettings.InterfaceType.CHECKBOX_LIST, HasOtherBox = true, Guidance = "Select the type(s) that best describe the way the learning opportunity is delivered. Check all that apply.", EnumItems = enumServices.GetEnumeration( "learningOpportunityDeliveryType", EnumerationType.MULTI_SELECT, true ).Items, ExtraClasses = new List<string>() { "twoColumns" } },
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_ListBox.cshtml", item )
+                    }
+
+                    @* Profiles *@
+                    @{ var parentID = Model.MainProfile.Id.ToString(); }
+                    @foreach ( var item in new List<ProfileSettings>() {
+                        new ProfileSettings() { Property = "Duration", Profile = "DurationProfile", ParentRepeaterId = "0", Label = "Estimated Time to Complete", AddText = "Add new Time Estimate", Guidance = "Describe the estimated amount of time it would take to complete the learning opportunity normally, and for each applicable special circumstance." },
+                        new ProfileSettings() { Property = "Addresses", Profile = "AddressProfile", ParentRepeaterId = "0", Label = "Available at Addresses", AddText = "Add an Address", Guidance = "Enter addresses at which the learning opportunity is available." },
+                        new ProfileSettings() { Property = "Jurisdiction", Profile = "JurisdictionProfile", ParentRepeaterId = "0", Label = "Jurisdiction", AddText = "Add new Jurisdiction", Guidance = "The geographic area that this assessment information is applicable to, sans exceptions." },
+                        new ProfileSettings() { Property = "AgentRole_Recipient", Profile = "AgentRoleProfile_Recipient", ParentRepeaterId = "0", Label = "Agent Roles Received", AddText = "Add new Role", Guidance = "Describe the relationships this learning opportunity has to one or more organizations where this learning opportunity is the recipient of the role." },
+                        new ProfileSettings() { Property = "QualityAssuranceAction_Recipient", Profile = "QualityAssuranceActionProfile_Recipient", ParentRepeaterId = "0", Label = "Quality Assurance Actions Received", AddText = "Add new Quality Assurance Action", Guidance = "Describe the Quality Assurance Actions that have been applied to this learning opportunity." },
+                        new ProfileSettings() { Property = "Cost", Profile = "CostProfile", Label = "Cost", AddText = "Add new Cost", Guidance = "If there are any costs associated with this learning opportunity, describe them here.", ParentRepeaterId = "0" },
+                        new ProfileSettings() { Property = "RequiresCompetencies", Profile = "CredentialAlignmentObjectProfile", Label = "Competencies Required", AddText = "Add new Competency", Guidance = "Indicate the competencies this learning opportunity requires.", ParentRepeaterId = "0" },
+                        new ProfileSettings() { Property = "TeachesCompetencies", Profile = "CredentialAlignmentObjectProfile", Label = "Competencies Taught", AddText = "Add new Competency", Guidance = "Indicate the competencies this learning opportunity teaches.", ParentRepeaterId = "0" }
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", item )
+                    }
+
+                    @* TextValue Profiles *@
+                    @*new TextValueEditorSettings() { Property = "IdentificationCodes", ParentRepeaterId = "0", Label = "Learning Opportunity Identification Codes", AddText = "Add an Identification Code", Guidance = "Codes that identify the learning opportunity within existing frameworks", HasSelector = true, ValueType = TextInputSettings.InputType.TEXT },*@
+                                        @foreach ( var item in new List<TextValueEditorSettings>()
+                    {
+                        @*new TextValueEditorSettings() { Property = "LearningCompetencies", ParentRepeaterId = "0", Label = "Competencies", AddText = "Add a Competency", Guidance = "Enter competencies along with optional URLs to look them up.", ValueType = TextInputSettings.InputType.TEXT, ValuePlaceholder = "Competency" },*@
+                        new TextValueEditorSettings() { Property = "Subjects", ParentRepeaterId = "0", Label = "Subjects", AddText = "Add a Subject", Guidance = "Enter subjects that describe this Learning Opportunity.", ValueType = TextInputSettings.InputType.TEXT, ValuePlaceholder = "Subject" },
+                        new TextValueEditorSettings() { Property = "Keywords", ParentRepeaterId = "0", Label = "Keywords", AddText = "Add a Keyword", Guidance = "Enter subjects that describe this record.", ValueType = TextInputSettings.InputType.TEXT, ValuePlaceholder = "Add a Keyword (max length of 200 characters)" },
+                        new TextValueEditorSettings() { Property = "LearningResource", ParentRepeaterId = "0", Label = "Reference URL", AddText = "Add a Reference URL", Guidance = "URL to one or more key learning resources that are important for understanding and/or completing this learning opportunity.", ValueType = TextInputSettings.InputType.URL }
+
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_TextValueEditor.cshtml", item )
+                    }
+
+                    @* Micro Searches *@
+                    @foreach(var item in new List<MicroSearchSettings>() {
+                        new MicroSearchSettings() {
+                            Property = "CipCode",
+                            SearchType = "CIPSearch",
+                            ProfileTemplate = "CodeItem",
+                            SavedItemsHeader = "Saved CIP Codes",
+                            ParentRepeaterId = "0",
+                            Label = "Instructional Program Category",
+                            Guidance = "Identify the specific instructional program classifications that apply to this learning opportunity. We recommend using the <a href=\"https://nces.ed.gov/ipeds/cipcode/browse.aspx?y=55\" target=\"_blank\">CIP codes</a>.",
+                            ExtraClasses = new List<string>() { "tabItem" }
+                        },
+                        new MicroSearchSettings() {
+                            Property = "EmbeddedLearningOpportunity",
+                            SearchType = "LearningOpportunityHasPartSearch",
+                            SavedItemsHeader = "Saved Learning Opportunities",
+                            ParentRepeaterId = "0",
+                            Label = "Embedded Learning Opportunity",
+                            Guidance = "Identify any learning opportunities that are a part of this learning opportunity.",
+                            HasEditProfile = true,
+                            HasCreateProfile = true,
+                            CreateProfileTitle = "LearningOpportunity",
+                            ProfileType = "LearningOpportunity",
+                            ExtraClasses = new List<string>() { "tabItem" }
+                        }
+                    } )
+                    {
+                        @Html.Partial( "~/Views/Editor/_MicroSearch.cshtml", item )
+                    }
+
+                </div><!-- /tabItems -->
+            
+            }
+            break;
+            
+            default: break;
+        }
+    </div><!-- /profile -->
+</div>
+<div id="globalButtons">
+    <input type="button" class="actionButton" value="Save Data" onclick="doGlobalSave(this);" />
+    <input type="button" value="Preview" onclick="doGlobalPreview();" />
+    <input type="button" class="redButton" value="Delete" onclick="doGlobalDelete(this);" />
+</div>
+<div id="overlay"></div>
+<div id="profiles"></div>
+
+
+@* Templates *@
+
+@* Editor List Item *@
+<script type="text/template" id="template_profileListItem">
+    <div class="profileItem" data-repeaterID="{repeaterID}">
+        <div class="name">{Name}</div>
+        <div class="buttons">
+            <input type="button" class="actionButton" value="Edit" onclick="editProfile({repeaterID}, this);" />
+            <input type="button" class="redButton" value="Delete" onclick="deleteProfile({repeaterID}, this);" />
+        </div>
+    </div>
+</script>
+
+@* Duration Profile *@
+<script type="text/template" id="template_DurationProfile">
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Profile = "DurationProfile", Type = ProfileSettings.ModelType.WRAPPER_START } )
+
+        <div class="radioSelector propertyBox" data-sectionProperty="IsRange">
+            <div class="mainGuidance">Provide either an exact duration or a minimum and maximum duration.</div>
+            <div class="radioSection exact selected">
+                <label class="radioButton"><input type="radio" data-sectionValue="false" name="duration_{repeaterID}" checked="checked" /></label>
+                <div class="label">Exact Duration</div>
+                <div class="data">
+                    @Html.Partial( "~/Views/Editor/_DurationEditor.cshtml", "ExactDuration" )
+                </div>
+                <div class="radioCover"></div>
+            </div>
+            <div class="radioSection range">
+                <label class="radioButton"><input type="radio" data-sectionValue="true" name="duration_{repeaterID}" /></label>
+                <div class="label">Minimum Duration</div>
+                <div class="data">
+                    @Html.Partial( "~/Views/Editor/_DurationEditor.cshtml", "MinimumDuration" )
+                </div>
+                <div class="label">Maximum Duration</div>
+                <div class="data">
+                    @Html.Partial( "~/Views/Editor/_DurationEditor.cshtml", "MaximumDuration" )
+                </div>
+                <div class="radioCover"></div>
+            </div>
+        </div>
+
+        @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Description", Label = "Description", Type = TextInputSettings.InputType.TEXTAREA, Guidance = "Provide any useful further description, such as special conditions under which the above information applies, here." } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Type = ProfileSettings.ModelType.WRAPPER_END } )
+</script>
+
+
+@* Jurisdiction *@
+<script type="text/template" id="template_JurisdictionProfile">
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Profile = "JurisdictionProfile", Type = ProfileSettings.ModelType.WRAPPER_START, IncludeName = false } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Description", Label = "Description", Type = TextInputSettings.InputType.TEXTAREA, Guidance = "Summarize this Jurisdiction and provide any additional necessary information." } )
+
+        @Html.Partial( "~/Views/Editor/_ListBox.cshtml", new ListInputSettings() { 
+            Property = "", 
+            Label = "Special Jurisdictions", 
+            IncludeDefaultItem = false, 
+            Type = ListInputSettings.InterfaceType.BOOLEAN_CHECKBOX_LIST, 
+            StringItems = new Dictionary<string, string>() { 
+                { "IsGlobalJurisdiction", "The jurisdiction is global/worldwide" },
+                { "IsOnlineJurisdiction", "The jurisdiction is Online" }
+            }
+        } )
+
+        @{
+            var locationTypes = new MicroSearchFilter()
+            {
+                FilterName = "LocationType",
+                Type = "select",
+                Items = new Dictionary<string, string>() { 
+                    { "CONT,ADMD,ADM1,PCL,PCLI,PPL,PPLA1,PPLA2", "Search for all location types" },
+                    { "PPL,PPLA1,PPLA2", "Search for Cities/Villages" },
+                    { "ADMD,ADM1", "Search for States/Provinces/Regions" },
+                    { "CONT,PCL,PCLI", "Search for Continents and Countries" }
+                }
+            };
+        }
+
+        @Html.Partial( "~/Views/Editor/_MicroSearch.cshtml", new MicroSearchSettings()
+        {
+            Property = "MainRegion",
+            SearchType = "RegionSearch",
+            ProfileTemplate = "Region",
+            SavedItemsHeader = "Saved Regions",
+            Label = "Main Region",
+            PageSize = 5,
+            Guidance = "Describe the primary region for this item.",
+            Filters = new List<MicroSearchFilter>() { locationTypes },
+            AllowMultipleSavedItems = false,
+            //DoAjaxSave = false,
+            AutoSaveNewParentProfile = true,
+            StaticSelectorValues = new Dictionary<string, object>() { { "IsException", false } }
+        } )
+
+        @Html.Partial( "~/Views/Editor/_MicroSearch.cshtml", new MicroSearchSettings()
+        {
+            Property = "RegionException",
+            SearchType = "RegionSearch",
+            ProfileTemplate = "Region",
+            SavedItemsHeader = "Saved Exceptions",
+            Label = "Region Exceptions",
+            PageSize = 5,
+            Guidance = "If the primary region contains any sub-regions where the item does <b>not</b> apply, select them here.",
+            Filters = new List<MicroSearchFilter>() { locationTypes },
+            //DoAjaxSave = false,
+            AutoSaveNewParentProfile = true,
+            StaticSelectorValues = new Dictionary<string, object>() { { "IsException", true } }
+        } )
+
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Type = ProfileSettings.ModelType.WRAPPER_END } )
+</script>
+
+
+@* Agent Role (Recipient) SHOW FOR CREDENTIAL AGENT ROLES *@
+<script type="text/template" id="template_AgentRoleProfile_Recipient">
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Profile = "AgentRoleProfile_Recipient", IncludeName = false, Type = ProfileSettings.ModelType.WRAPPER_START } )
+
+        @Html.Partial( "~/Views/Editor/_ListBox.cshtml", new ListInputSettings() { Property = "RoleTypeIds", Label = "Agent Roles", Type = ListInputSettings.InterfaceType.CHECKBOX_LIST, HasOtherBox = false, Guidance = "Select the type(s) of relationship the selected organization has to this Item. Check all that apply.  (** roles.Items **)", EnumItems = roles.Items, ExtraClasses = new List<string>() { "twoColumns" } } )
+
+        @Html.Partial( "~/Views/Editor/_MicroSearch.cshtml", new MicroSearchSettings()
+        {
+            Property = "Actor",
+            SearchType = "OrganizationSearch",
+            Label = "Acting Organization",
+            Guidance = "Select the organization that performs the role(s) you selected.",
+            SavedItemsHeader = "Selected Organization",
+            ProfileType = "Organization",
+            AllowMultipleSavedItems = false,
+            DoAjaxSave = false,
+            PageSize = 5,
+            HasEditProfile = true,
+            StaticSelectorValues = new Dictionary<string, object>()
+            {
+                { "Property", "Actor" }
+            }
+        } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Type = ProfileSettings.ModelType.WRAPPER_END } )
+</script>
+
+@* Agent Role (Actor) *@
+<script type="text/template" id="template_AgentRoleProfile_Actor">
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Profile = "AgentRoleProfile_Actor", Type = ProfileSettings.ModelType.WRAPPER_START } )
+
+    
+        @Html.Partial( "~/Views/Editor/_ListBox.cshtml", new ListInputSettings() { Property = "RoleTypeIds", Label = "Agent Roles", Type = ListInputSettings.InterfaceType.CHECKBOX_LIST, HasOtherBox = false, Guidance = "Select the type(s) of relationship the selected organization has to this Organization. Check all that apply.", EnumItems = enumServices.GetAllAgentReverseRoles( EnumerationType.CUSTOM ).Items, ExtraClasses = new List<string>() { "twoColumns" } } )
+
+        @Html.Partial( "~/Views/Editor/_MicroSearch.cshtml", new MicroSearchSettings()
+        {
+            Property = "Actor",
+            Label = "Acting Organization",
+            Guidance = "Select the organization that performs the role(s) you selected.",
+            ProfileType = "Organization",
+            AllowMultipleSavedItems = false
+        } )
+    
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Type = ProfileSettings.ModelType.WRAPPER_END } )
+</script>
+
+@* Condition Profile *@
+<script type="text/template" id="template_ConditionProfile">
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Profile = "ConditionProfile", Type = ProfileSettings.ModelType.WRAPPER_START, HasTabs = true, TabItems = new Dictionary<string, string>() {
+            { "Basic Info", "Name,Description,DateEffective,Experience,ConditionProvider,AudienceTypeIds,MinimumAge,RequiresCompetencies" },
+            { "Advanced Info", "ConditionItem,ReferenceUrl,Jurisdiction,Residency,Competency,MiniCompetency" },
+            { "Credentials", "Credential,CredentialTypeIds" },
+            { "Assessments", "Assessment" },
+            { "Learning Opportunities", "LearningOpportunity" },
+            { "Other Tasks", "Task" }
+        }
+    } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Description", Label = "Description", Type = TextInputSettings.InputType.TEXTAREA, Guidance = "Summarize this information." } )
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Experience", Label = "Experience", Type = TextInputSettings.InputType.TEXTAREA, Guidance = "List any equivalent work, educational, and/or experiential experience someone must have to meet this condition's criteria.<" } )
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "DateEffective", Label = "Effective Date", Type = TextInputSettings.InputType.DATE, Guidance = "Indicate when this information first took effect." } )
+
+    @Html.Partial( "~/Views/Editor/_MicroSearch.cshtml", new MicroSearchSettings()
+    {
+        Property = "ConditionProvider",
+        SearchType = "OrganizationSearch",
+        Label = "Condition Provider",
+        Guidance = "Select the organization that asserts this information.",
+        SavedItemsHeader = "Selected Organization",
+        PageSize = 5,
+        AllowMultipleSavedItems = false,
+        DoAjaxSave = false,
+        HasEditProfile = true,
+        HasCreateProfile = true,
+        CreateProfileTitle = "Organization",
+        ProfileType = "Organization"
+    } )
+
+    @Html.Partial( "~/Views/Editor/_TextValueEditor.cshtml", new TextValueEditorSettings() { Property = "ConditionItem", Label = "Condition Items", AddText = "Add new Condition Item", Guidance = "Enter any individual specific conditions or requirements." } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Property = "RequiresCompetencies", Profile = "CredentialAlignmentObjectProfile", Label = "Competencies", AddText = "Add new Competency", Guidance = "Provide any competencies that this information requires or applies to." } )
+
+    @*@Html.Partial( "~/Views/Editor/_TextValueEditor.cshtml", new TextValueEditorSettings() { Property = "MiniCompetency", Label = "Competencies", AddText = "Add new Competency", Guidance = "Enter any relevant competencies along with the URLs to look them up.", ValueType = TextInputSettings.InputType.URL, ValuePlaceholder = "http://", HasOther = true, OtherPlaceholder = "Competency"} )*@
+
+    @Html.Partial( "~/Views/Editor/_TextValueEditor.cshtml", new TextValueEditorSettings() { Property = "ReferenceUrl", Label = "Reference URL", AddText = "Add new Reference URL", Guidance = "Enter a URL to a useful web resource related to these conditions.", ValueType = TextInputSettings.InputType.URL, ValuePlaceholder = "http://", HasOther = true, OtherPlaceholder = "Reference Name" } )
+
+    @Html.Partial( "~/Views/Editor/_ListBox.cshtml", new ListInputSettings() { Property = "AudienceTypeIds", Label = "Applicable Audience", Type = ListInputSettings.InterfaceType.CHECKBOX_LIST, HasOtherBox = true, Guidance = "Indicate which audience(s) these conditions apply to. Check all that apply.", EnumItems = enumServices.GetEnumeration( "applicableAudienceType" ).Items } )
+
+    @Html.Partial( "~/Views/Editor/_MicroSearch.cshtml", new MicroSearchSettings()
+    {
+        Property = "Credential",
+        SearchType = "CredentialSearch",
+        Label = "Applicable Credential",
+        SavedItemsHeader = "Saved Credentials",
+        Guidance = "Select any other credential(s) that these conditions require or apply to.",
+        HasEditProfile = true,
+        HasCreateProfile = true,
+        CreateProfileTitle = "Credential",
+        ProfileType = "Credential"
+    } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "MinimumAge", Label = "Minimum Age", Type = TextInputSettings.InputType.NUMBER, Guidance = "Indicate the minimum required age in years, if applicable." } )
+
+    @Html.Partial( "~/Views/Editor/_ListBox.cshtml", new ListInputSettings() { Property = "CredentialTypeIds", Label = "Credential Type", Type = ListInputSettings.InterfaceType.CHECKBOX_LIST, HasOtherBox = true, Guidance = "If this information applies to a type of credential rather than a specific credential, indicate it here. Check all that apply.", EnumItems = enumServices.GetCredentialType( EnumerationType.CUSTOM ).Items, ExtraClasses = new List<string>() { "twoColumns" }, IncludeDefaultItem = false } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Property = "Residency", Profile = "JurisdictionProfile", Label = "Residency", AddText = "Add new Residency Condition", Guidance = "If someone must be a resident of a given place in order for these conditions to apply to that person, indicate the valid place(s) here." } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Property = "Jurisdiction", Profile = "JurisdictionProfile", Label = "Jurisdiction", AddText = "Add new Jurisdiction", Guidance = "Select the place(s) where this information is applicable, independent of any residency requirements." } )
+
+    @Html.Partial( "~/Views/Editor/_MicroSearch.cshtml", new MicroSearchSettings()
+    {
+        Property = "Assessment",
+        SearchType = "AssessmentSearch",
+        Label = "Applicable Assessment",
+        SavedItemsHeader = "Saved Assessments",
+        Guidance = "Select any assessment(s) that these conditions require or apply to.",
+        HasEditProfile = true,
+        HasCreateProfile = true,
+        CreateProfileTitle = "Assessment",
+        ProfileType = "Assessment"
+    } )
+
+    @Html.Partial( "~/Views/Editor/_MicroSearch.cshtml", new MicroSearchSettings()
+    {
+        Property = "LearningOpportunity",
+        SearchType = "LearningOpportunitySearch",
+        Label = "Applicable Learning Opportunity",
+        SavedItemsHeader = "Saved Learning Opportunities",
+        Guidance = "Select any learning opportunity(ies) that these conditions require or apply to.",
+        HasEditProfile = true,
+        HasCreateProfile = true,
+        CreateProfileTitle = "Learning Opportunity",
+        ProfileType = "LearningOpportunity"
+    } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Property = "Task", Profile = "TaskProfile", Label = "Other Task", AddText = "Add new Task", Guidance = "If there are any additional tasks that require a deeper description than the condition items allow for, are not assessments or learning opportunities, and/or have a cost associated with them, indicate them here." } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Type = ProfileSettings.ModelType.WRAPPER_END, HasTabs = true } )
+</script>
+
+@* Task Profile *@
+<script type="text/template" id="template_TaskProfile">
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Profile = "TaskProfile", Type = ProfileSettings.ModelType.WRAPPER_START } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Description", Label = "Description", Type = TextInputSettings.InputType.TEXTAREA, Guidance = "Describe the task." } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "DateEffective", Label = "Effective Date", Type = TextInputSettings.InputType.DATE, Guidance = "Indicate when this information first took effect." } )
+
+    @Html.Partial( "~/Views/Editor/_MicroSearch.cshtml", new MicroSearchSettings()
+    {
+        Property = "TaskProvider",
+        SearchType = "OrganizationSearch",
+        Label = "Task Provider",
+        Guidance = "Select the organization that is responsible for providing and/or maintaining this task.",
+        SavedItemsHeader = "Selected Organization",
+        AllowMultipleSavedItems = false,
+        DoAjaxSave = false,
+        HasEditProfile = true,
+        HasCreateProfile = true,
+        CreateProfileTitle = "Organization",
+        ProfileType = "Organization"
+    } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Property = "Cost", Profile = "CostProfile", Label = "Cost", AddText = "Add new Cost", Guidance = "If there are any costs associated with this task, describe them here." } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Property = "Duration", Profile = "DurationProfile", Label = "Duration", AddText = "Add new Duration", Guidance = "Estimate how long it will take to complete this task." } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Property = "Jurisdiction", Profile = "JurisdictionProfile", Label = "Jurisdiction", AddText = "Add new Jurisdiction", Guidance = "Select the place(s) where this information is applicable, independent of any residency requirements." } )
+    
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Type = ProfileSettings.ModelType.WRAPPER_END } )
+</script>
+
+@* Cost Profile *@
+<script type="text/template" id="template_CostProfile">
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Profile = "CostProfile", Type = ProfileSettings.ModelType.WRAPPER_START } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "StartDate", Label = "Start Date", Type = TextInputSettings.InputType.DATE, Guidance = "Indicate the start date of the validity of this information." } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "EndDate", Label = "End Date", Type = TextInputSettings.InputType.DATE, Guidance = "Indicate the end date of the validity of this information." } )
+
+    @Html.Partial( "~/Views/Editor/_TextValueEditor.cshtml", new TextValueEditorSettings() { Property = "ReferenceUrl", Label = "Reference URLs", AddText = "Add new Reference URL", Guidance = "Enter a URL to a useful web resource related to these conditions.", ValueType = TextInputSettings.InputType.URL, ValuePlaceholder = "http://", HasOther = true, OtherPlaceholder = "Reference Name" } )
+
+    @*@Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Currency", Label = "Currency", Type = TextInputSettings.InputType.TEXT, Guidance = "Provide the <a href=\"https://en.wikipedia.org/wiki/ISO_4217\" target=\"_blank\">ISO Currency Code</a> for the currency used in this cost profile." } )*@
+
+    @Html.Partial( "~/Views/Editor/_ListBox.cshtml", new ListInputSettings() { Property = "CurrencyTypeId", Label = "Currency Type", Type = ListInputSettings.InterfaceType.DROPDOWN_LIST, HasOtherBox = false, Guidance = "Select the type of currency that the costs for this item are measured in.", EnumItems = enumServices.GetCurrencies( EnumerationType.SINGLE_SELECT_ID_ONLY ).Items } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Property = "CostItem", Profile = "CostItemProfile", Label = "Cost Items", AddText = "Add new Cost Item", Guidance = "Describe the individual costs." } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Property = "Jurisdiction", Profile = "JurisdictionProfile", Label = "Jurisdiction", AddText = "Add new Jurisdiction", Guidance = "Select the place(s) where this information is applicable." } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Type = ProfileSettings.ModelType.WRAPPER_END } )
+</script>
+
+@* Cost Item Profile *@
+<script type="text/template" id="template_CostItemProfile">
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Profile = "CostItemProfile", Type = ProfileSettings.ModelType.WRAPPER_START } )
+
+    @Html.Partial( "~/Views/Editor/_ListBox.cshtml", new ListInputSettings() { Property = "CostTypeId", Label = "Cost Type", Type = ListInputSettings.InterfaceType.DROPDOWN_LIST, HasOtherBox = true, Guidance = "Select the type of cost.", EnumItems = enumServices.GetEnumeration( "costType", EnumerationType.SINGLE_SELECT_ID_ONLY ).Items } )
+
+    @Html.Partial( "~/Views/Editor/_ListBox.cshtml", new ListInputSettings() { Property = "ResidencyTypeIds", Label = "Residency Type(s)", Type = ListInputSettings.InterfaceType.CHECKBOX_LIST, HasOtherBox = true, Guidance = "Select the type(s) residency to which this cost item applies.", EnumItems = enumServices.GetEnumeration( "residencyType", EnumerationType.MULTI_SELECT ).Items } )
+
+    @Html.Partial( "~/Views/Editor/_ListBox.cshtml", new ListInputSettings() { Property = "EnrollmentTypeIds", Label = "Enrollment Type(s)", Type = ListInputSettings.InterfaceType.CHECKBOX_LIST, HasOtherBox = true, Guidance = "Select the type(s) of enrollment to which this cost item applies.", EnumItems = enumServices.GetEnumeration( "enrollmentType", EnumerationType.MULTI_SELECT ).Items } )
+
+    @Html.Partial( "~/Views/Editor/_ListBox.cshtml", new ListInputSettings() { Property = "AudienceTypeIds", Label = "Applicable Audience(s)", Type = ListInputSettings.InterfaceType.CHECKBOX_LIST, HasOtherBox = true, Guidance = "Select the type(s) of audience to which this cost item applies.", EnumItems = enumServices.GetEnumeration( "applicableAudienceType", EnumerationType.MULTI_SELECT ).Items } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Price", Label = "Price", Type = TextInputSettings.InputType.TEXT, Guidance = "Provide the cost in the financial units indicated above." } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Payments", Label = "Payment Pattern", Type = TextInputSettings.InputType.TEXTAREA, Guidance = "Describe the nature of payment(s) for this cost item." } )
+
+    @Html.Partial( "~/Views/Editor/_MicroSearch.cshtml", new MicroSearchSettings()
+    {
+        Property = "Recipient",
+        SearchType = "OrganizationSearch",
+        Label = "Payment Recipient",
+        Guidance = "Select the organization to which this cost will be paid.",
+        SavedItemsHeader = "Selected Recipient",
+        AllowMultipleSavedItems = false,
+        DoAjaxSave = false,
+        HasEditProfile = true,
+        HasCreateProfile = true,
+        CreateProfileTitle = "Organization",
+        ProfileType = "Organization"
+    } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Type = ProfileSettings.ModelType.WRAPPER_END } )
+</script>
+
+@* Credential Alignment Object Profile *@
+<script type="text/template" id="template_CredentialAlignmentObjectProfile">
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Profile = "CredentialAlignmentObjectProfile", Type = ProfileSettings.ModelType.WRAPPER_START, IncludeName = false } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Name", Label = "Competency Name", Type = TextInputSettings.InputType.TEXT, Guidance = "Provide the name of the competency." } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Description", Label = "Competency Description", Type = TextInputSettings.InputType.TEXTAREA, Guidance = "Describe the competency." } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "TargetUrl", Label = "Competency URL", Type = TextInputSettings.InputType.URL, Guidance = "Provide the URL of the competency." } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "EducationalFramework", Label = "Educational Framework", Type = TextInputSettings.InputType.TEXT, Guidance = "If the competency belongs to an educational framework, provide it here. This can be either the official name of the framework or a URL to it." } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "CodedNotation", Label = "Notation Code", Type = TextInputSettings.InputType.TEXT, Guidance = "If the competency has a code or identifier, provide it here." } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Type = ProfileSettings.ModelType.WRAPPER_END } )
+</script>
+
+@* Revocation Profile *@
+<script type="text/template" id="template_RevocationProfile">
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Profile = "RevocationProfile", Type = ProfileSettings.ModelType.WRAPPER_START } )
+
+    @Html.Partial( "~/Views/Editor/_ListBox.cshtml", new ListInputSettings() { Property = "RevocationCriteriaTypeIds", Label = "Revocation Criteria", Type = ListInputSettings.InterfaceType.CHECKBOX_LIST, HasOtherBox = true, Guidance = "Indicate the criteria that will lead to the credential being revoked. Check all that apply.", EnumItems = enumServices.GetEnumeration( "revocationCriteriaType", EnumerationType.MULTI_SELECT ).Items } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Description", Label = "Description", Type = TextInputSettings.InputType.TEXTAREA, Guidance = "Summarize this information." } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "StartDate", Label = "Start Date", Type = TextInputSettings.InputType.DATE, Guidance = "Indicate the start date of the validity of this information." } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "EndDate", Label = "End Date", Type = TextInputSettings.InputType.DATE, Guidance = "Indicate the end date of the validity of this information." } )
+
+    @Html.Partial( "~/Views/Editor/_TextValueEditor.cshtml", new TextValueEditorSettings() { Property = "ReferenceUrl", Label = "Reference URL", AddText = "Add new Reference URL", Guidance = "Enter a URL to a useful web resource related to these conditions.", ValueType = TextInputSettings.InputType.URL, ValuePlaceholder = "http://", HasOther = true, OtherPlaceholder = "Reference Name" } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Property = "Jurisdiction", Profile = "JurisdictionProfile", Label = "Jurisdiction", AddText = "Add new Jurisdiction", Guidance = "Select the place(s) where this information is applicable." } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Type = ProfileSettings.ModelType.WRAPPER_END } )
+</script>
+
+@* Quality Assurance Action *@
+<script type="text/template" id="template_QualityAssuranceActionProfile_Recipient">
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Profile = "QualityAssuranceActionProfile_Recipient", Type = ProfileSettings.ModelType.WRAPPER_START, IncludeName=false } )
+    
+        @Html.Partial( "~/Views/Editor/_MicroSearch.cshtml", new MicroSearchSettings()
+        {
+            Property = "Actor",
+            SearchType = "QAOrganizationSearch",
+            Label = "Acting Organization",
+            Guidance = "Select the organization that performed this quality assurance.",
+            SavedItemsHeader = "Selected Organization",
+            PageSize = 5,
+            AllowMultipleSavedItems = false,
+            DoAjaxSave = false,
+            HasEditProfile = true,
+            ProfileType = "Organization"
+        } )
+
+      @Html.Partial( "~/Views/Editor/_ListBox.cshtml", new ListInputSettings() { Property = "QualityAssuranceTypeId", Label = "Agent Roles", Type = ListInputSettings.InterfaceType.DROPDOWN_LIST, HasOtherBox = false, Guidance = "Select the type of quality assurance action.", EnumItems = qaRoles.Items } )
+
+        @Html.Partial( "~/Views/Editor/_MicroSearch.cshtml", new MicroSearchSettings()
+        {
+            Property = "IssuedCredential",
+            SearchType = "QACredentialSearch",
+            Label = "Quality Assurance Issued",
+            Guidance = "Select the quality assurance credential that was issued to this item by the acting organization.",
+            SavedItemsHeader = "Selected Quality Assurance",
+            PageSize = 5,
+            AllowMultipleSavedItems = false,
+            DoAjaxSave = false,
+            HasEditProfile = true,
+            HasCreateProfile = true,
+            CreateProfileTitle = "Credential",
+            ProfileType = "Credential"
+        } )
+
+        @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "StartDate", Label = "Assurance Start Date", Type = TextInputSettings.InputType.DATE, Guidance = "The date the assurance took effect." } )
+
+        @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "EndDate", Label = "Assurance End Date", Type = TextInputSettings.InputType.DATE, Guidance = "The date the assurance expires" } )
+
+        @*
+            @Html.Partial( "~/Views/Editor/_MicroSearch.cshtml", new MicroSearchSettings()
+            {
+                Property = "SecondaryActor",
+                SearchType = "OrganizationSearch",
+                Label = "Participating Organizations",
+                Guidance = "If any other organizations participated in issuing this quality assurance, indicate them here.",
+                PageSize = 5,
+                DoAjaxSave = false
+            } )
+        *@
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Description", Label = "Description", Type = TextInputSettings.InputType.TEXTAREA, Guidance = "Summarize this Quality Assurance and provide any additional necessary information." } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Type = ProfileSettings.ModelType.WRAPPER_END } )
+</script>
+
+@* Verification Service Profile *@
+<script type="text/template" id="template_VerificationServiceProfile">
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Profile = "VerificationServiceProfile", Type = ProfileSettings.ModelType.WRAPPER_START } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Description", Label = "Description", Type = TextInputSettings.InputType.TEXTAREA, Guidance = "Describe the task." } )
+
+    @Html.Partial( "~/Views/Editor/_ListBox.cshtml", new ListInputSettings() { 
+        Property = "", 
+        Label = "Authorized Verification", 
+        IncludeDefaultItem = false, 
+        Type = ListInputSettings.InterfaceType.BOOLEAN_CHECKBOX_LIST, 
+        StringItems = new Dictionary<string, string>() { 
+            { "HolderMustAuthorize", "The holder of the credential must authorize this service" },
+        }
+    } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "DateEffective", Label = "Effective Date", Type = TextInputSettings.InputType.DATE, Guidance = "Indicate when this information first took effect." } )
+
+    @Html.Partial( "~/Views/Editor/_MicroSearch.cshtml", new MicroSearchSettings()
+    {
+        Property = "Credential",
+        SearchType = "CredentialSearch",
+        Label = "Applicable Credential",
+        SavedItemsHeader = "Saved Credentials",
+        PageSize = 5,
+        Guidance = "Select the credential(s) that this service applies to.",
+        HasEditProfile = true,
+        HasCreateProfile = true,
+        CreateProfileTitle = "Credential",
+        ProfileType = "Credential",
+        DoAjaxSave = false,
+        AllowMultipleSavedItems = false
+    } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Property = "Jurisdiction", Profile = "JurisdictionProfile", Label = "Jurisdiction", AddText = "Add new Jurisdiction", Guidance = "Select the place(s) where this information is applicable." } )
+    
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Property = "Cost", Profile = "CostProfile", Label = "Cost", AddText = "Add new Cost", Guidance = "If there are any costs associated with this service, describe them here." } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Type = ProfileSettings.ModelType.WRAPPER_END } )
+</script>
+
+@* Process Profile *@
+<script type="text/template" id="template_ProcessProfile">
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Profile = "ProcessProfile", Type = ProfileSettings.ModelType.WRAPPER_START } )
+
+
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Type = ProfileSettings.ModelType.WRAPPER_END } )
+</script>
+
+@* Earnings Profile *@
+<script type="text/template" id="template_EarningsProfile">
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Profile = "EarningsProfile", Type = ProfileSettings.ModelType.WRAPPER_START } )
+
+
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Type = ProfileSettings.ModelType.WRAPPER_END } )
+</script>
+
+@* Employment Outcome Profile *@
+<script type="text/template" id="template_EmploymentOutcomeProfile">
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Profile = "EmploymentOutcomeProfile", Type = ProfileSettings.ModelType.WRAPPER_START } )
+
+
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Type = ProfileSettings.ModelType.WRAPPER_END } )
+</script>
+
+@* Holder Profile *@
+<script type="text/template" id="template_HolderProfile">
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Profile = "HolderProfile", Type = ProfileSettings.ModelType.WRAPPER_START } )
+
+
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Type = ProfileSettings.ModelType.WRAPPER_END } )
+</script>
+
+@* Holder Profile *@
+<script type="text/template" id="template_AddressProfile">
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Profile = "AddressProfile", Type = ProfileSettings.ModelType.WRAPPER_START } )
+
+        @Html.Partial( "~/Views/Editor/_ListBox.cshtml", new ListInputSettings() { 
+            Property = "", 
+            Label = "Main Address", 
+            IncludeDefaultItem = false, 
+            Type = ListInputSettings.InterfaceType.BOOLEAN_CHECKBOX_LIST, 
+            EnableUncheck = false,
+            StringItems = new Dictionary<string, string>() { 
+                { "IsMainAddress", "This is the main/official/headquarters address" }
+            }
+        } )
+
+        @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Address1", Label = "Address Line 1", Type = TextInputSettings.InputType.TEXT, Guidance = "" } )
+
+        @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Address2", Label = "Address Line 2", Type = TextInputSettings.InputType.TEXT, Guidance = "" } )
+
+        @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "City", Label = "City", Type = TextInputSettings.InputType.TEXT, Guidance = "" } )
+
+        @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Region", Label = "State/Province", Type = TextInputSettings.InputType.TEXT, Guidance = "" } )
+
+        @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "PostalCode", Label = "Postal Code", Type = TextInputSettings.InputType.TEXT, Guidance = "" } )
+
+        @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Country", Label = "Country", Type = TextInputSettings.InputType.TEXT, Guidance = "" } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Type = ProfileSettings.ModelType.WRAPPER_END } )
+</script>
+
+@* Starter Profile - used for "Create New" functions in micro searches *@
+<script type="text/template" id="template_StarterProfile">
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Profile = "StarterProfile", Type = ProfileSettings.ModelType.WRAPPER_START } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Description", Label = "Description", Type = TextInputSettings.InputType.TEXTAREA, Guidance = "Summarize this information." } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Url", Label = "Url", Type = TextInputSettings.InputType.TEXT, Guidance = "Provide the URL to this item." } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "ProfileType", Type = TextInputSettings.InputType.HIDDEN } )
+
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "SearchType", Type = TextInputSettings.InputType.HIDDEN } )
+
+    @Html.Partial( "~/Views/Editor/_ProfileBox.cshtml", new ProfileSettings() { Type = ProfileSettings.ModelType.WRAPPER_END } )
+</script>
+
+@* Text Value Profiles *@
+<script type="text/template" id="template_TextValueProfile">
+    <div class="textValueProfile" data-recordID="{RecordId}" data-rowID="{RowId}" data-hasSelector="{HasSelector}" data-textValueID="{textValueID}">
+        <div class="textValueSelectorBox" data-hasOther="{HasOther}">
+            <select class="textValueSelector"></select>
+            <input type="text" class="textValueOther" placeholder="{OtherPlaceholder}" data-required="{RequireOther}" />
+        </div>
+        <div class="textValueValueBox">
+            <input type="text" class="textValueValue" data-type="{ValueType}" placeholder="{ValuePlaceholder}" data-required="{RequireValue}" />
+            <input type="button" class="textValueDelete redButton" value="Delete" onclick="deleteTextValueProfile('{textValueName}', '{textValueID}', this);" />
+        </div>
+    </div>
+</script>
+
+@* Micro Profiles *@
+@* Paging *@
+<script type="text/template" id="template_MicroSearch_PageButton">
+    <input type="button" class="microSearchPageButton {current}" value="{pageNumber}" onclick="setMicroSearchPage('{microSearchName}', {pageNumber});" />
+</script>
+
+@* Generic Micro Profile *@
+<script type="text/template" id="template_MicroProfile_MicroProfile">
+    <div class="microProfile" data-microprofile="microProfile" data-recordID="{RecordId}" data-resultID="{resultID}">
+        <div class="rawData">{rawData}</div>
+        <div class="selectors">{Selectors}</div>
+        <div class="title">{Name}</div>
+        <div class="description">{Description}</div>
+        <div class="properties">{Properties}</div>
+        <div class="microProfileButtons">
+            <input type="button" class="actionButton showOnResult" value="Save/Add" onclick="saveMicroProfile('{microSearchName}', {resultID});" />
+            <a href="@Url.Content("~/editor/"){profileType}/{Id}" class="linkButton actionButton editMicroProfile" target="_blank">Edit</a>
+            <input type="button" class="redButton deleteButton showOnSaved" value="Delete" onclick="deleteMicroProfile('{microSearchName}', {resultID});" />
+        </div>
+    </div>
+</script>
+
+@* Code Item *@
+<script type="text/template" id="template_MicroProfile_CodeItem">
+    <div class="microProfile" data-microprofile="codeitem" data-recordID="{RecordId}" data-resultID="{resultID}">
+        <div class="rawData">{rawData}</div>
+        <div class="selectors">{Selectors}</div>
+        <a href="{Url}" target="_blank" class="title">{Name}</a>
+        <div class="description">{Description}</div>
+        <div class="properties">
+            <div data-microproperty="FrameworkCode">Code: {FrameworkCode}</div>
+        </div>
+        <div class="microProfileButtons">
+            <input type="button" class="actionButton showOnResult" value="Save/Add" onclick="saveMicroProfile('{microSearchName}', {resultID});" />
+            <input type="button" class="redButton deleteButton showOnSaved" value="Delete" onclick="deleteMicroProfile('{microSearchName}', {resultID});" />
+        </div>
+    </div>
+</script>
+
+@* Region *@
+<script type="text/template" id="template_MicroProfile_Region">
+    <div class="microProfile" data-microprofile="region" data-latitude="{Latitude}" data-longitude="{Longitude}" data-geonamesID="{GeoNamesId}" data-resultID="{resultID}">
+        <div class="rawData">{rawData}</div>
+        <div class="selectors">{Selectors}</div>
+        <div class="title">{Name}</div>
+        <div class="description">{Description}</div>
+        <a href="{Url}" target="_blank">View on Map</a>
+        <div class="microProfileButtons">
+            <input type="button" class="actionButton showOnResult" value="Save/Add" onclick="saveMicroProfile('{microSearchName}', {resultID});" />
+            <input type="button" class="redButton deleteButton showOnSaved" value="Delete" onclick="deleteMicroProfile('{microSearchName}', {resultID});" />
+        </div>
+    </div>
+</script>
+
+<div id="waitWrapper">
+    <div id="wait"><i id="waitSpinner" class="fa fa-spin fa-spinner"></i><div id="waitTitle">Working...</div></div>
+</div>

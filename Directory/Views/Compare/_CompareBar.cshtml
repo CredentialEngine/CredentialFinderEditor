@@ -1,0 +1,112 @@
+﻿@model string
+@{ var displayMode = string.IsNullOrWhiteSpace(Model) ? "bottom" : Model; }
+@Html.Partial( "~/Views/Compare/_CompareCore.cshtml" )
+<script type="text/javascript">
+    compare.bar = {};
+
+    $(document).ready(function() {
+        compare.listen(compare.onUpdate, compare.bar.updateTotals);
+        compare.listen(compare.onUpdate, compare.bar.renderItemLists);
+        compare.listen(compare.onUpdate, compare.bar.flashBar);
+    });
+
+    //Toggle the bar
+    compare.bar.toggleBar = function() {
+        var bar = $("#compareBar");
+        bar.attr("data-status", bar.attr("data-status") == "compact" ? "expanded" : "compact");
+    }
+    //
+
+    //Update totals
+    compare.bar.updateTotals = function() {
+        var bar = $("#compareBar");
+        try {
+            bar.find(".compareCompactItem[data-type=credential]").html("Selected " + compare.items.credential.length + " Credentials");
+        } catch(e) { }
+        try {
+            bar.find(".compareCompactItem[data-type=organization]").html("Selected " + compare.items.organization.length + " Organizations");
+        } catch(e) { }
+    }
+    //
+
+    //Render items
+    compare.bar.renderItemLists = function() {
+        compare.bar.renderItemList($(".compareItems[data-type=credential]"), compare.items.credential);
+        compare.bar.renderItemList($(".compareItems[data-type=organization]"), compare.items.organization);
+    }
+    //
+
+    //Render a list
+    compare.bar.renderItemList = function(list, data) {
+        var template = $("#template_compareTemplate").html();
+        list.html("");
+        for(var i in data){
+            list.append(template
+                .replace(/{Title}/g, data[i].Title)
+                .replace(/{Id}/g, data[i].Id)
+                .replace(/{Type}/g, data[i].Type)
+            );
+        }
+    }
+    //
+
+    //Grab attention
+    compare.bar.flashBar = function() {
+        $("#compareBar .compareCompactItem[data-type]").addClass("highlighted");
+        setTimeout(function() { 
+            $("#compareBar .compareCompactItem").removeClass("highlighted");
+        }, 500);
+    }
+    //
+</script>
+<style type="text/css">
+    #compareBar { position: fixed; background-color: #373738; color: #FFF; z-index: 100; }
+    #compareBar #compareBarExpanded .compareList { padding: 5px; }
+    #compareBar #compareBarExpanded .compareListTitle { font-weight: bold; text-align: center; padding: 5px; background-color: #555; }
+    #compareBar #compareBarExpanded .compareItems { background-color: #222; background-image: linear-gradient(#222, #333); padding: 5px; height: 200px; overflow-y: auto; }
+    #compareBar .compareCompactItem.highlighted { background-color: #FEBC20; }
+    
+    /* Bottom of the window mode */
+    #compareBar.bottom { bottom: 0; left: 0; right: 0; }
+    #compareBar.bottom[data-status=compact] { height: 30px; }
+    #compareBar.bottom #compareBarCompact { font-size: 0; }
+    #compareBar.bottom #compareBarCompact .compareCompactItem { display: inline-block; vertical-align: top; width: 25%; height: 30px; font-size: 16px; padding: 5px; color: #FFF; }
+    #compareBar.bottom #compareBarCompact .compareLink { text-align: center; }
+    #compareBar.bottom #compareBarExpanded { font-size: 0; }
+    #compareBar.bottom #compareBarExpanded .compareList { display: inline-block; vertical-align: top; width: 50%; }
+    
+    /* Side of the window mode */
+    #compareBar.side { top: 0; right: 0; bottom: 0; }
+    #compareBar.side[data-status=compact] { width: 30px; }
+
+    /* List Items */
+    .compareItem { background-color: #EEE; padding: 5px 30px 5px 5px; position: relative; min-height: 35px; margin-bottom: 5px; color: #000; }
+    .compareItem .redButton { position: absolute; top: 5px; right: 5px; width: 25px; height: 25px; }
+</style>
+
+<div id="compareBar" class="@displayMode" data-status="compact">
+    <div id="compareBarCompact">
+        <input type="button" class="compareCompactItem" id="compareToggle" value="Toggle Details" onclick="compare.bar.toggleBar();" />
+        <div class="compareCompactItem" data-type="credential">Selected 0 Credentials</div>
+        <div class="compareCompactItem" data-type="organization">Selected 0 Organizations</div>
+        <a class="compareLink linkButton compareCompactItem" href="@Url.Content( "~/Compare" )" target="_blank">Go to Comparison Page</a>
+    </div>
+    <div id="compareBarExpanded">
+        <div class="compareList" data-type="credential">
+            <div class="compareListTitle">Credentials</div>
+            <div class="compareItems" data-type="credential"></div>
+        </div>
+        <div class="compareList" data-type="organization">
+            <div class="compareListTitle">Organizations</div>
+            <div class="compareItems" data-type="organization"></div>
+        </div>
+    </div>
+</div>
+<div id="compareTemplates">
+    <script type="text/template" id="template_compareTemplate">
+        <div class="compareItem" data-id="{Id}" data-type="{Type}">
+            <div class="compareItemTitle"><a href="@Url.Content("~/"){Type}management/detail2/{Id}">{Title}</a></div>
+            <input type="button" value="X" class="redButton" onclick="compare.removeItem({Id}, '{Type}');" />
+        </div>
+    </script>
+</div>

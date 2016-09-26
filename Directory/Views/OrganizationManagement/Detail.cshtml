@@ -1,0 +1,88 @@
+﻿@model Models.Common.Organization
+@using CTIServices
+@{
+    ViewBag.Title = "Viewing Organization";
+}
+
+<script type="text/javascript">
+	var model = @Html.Raw( new System.Web.Script.Serialization.JavaScriptSerializer().Serialize( Model ).Replace( "\"\\/Date(", "new Date(" ).Replace( ")\\/\"", ").toString()" ) );
+	$(document).ready(function() {
+		$(".json").html(JSON.stringify(model, null, "\t"));
+	});
+</script>
+
+
+<style type="text/css">
+	.basic { margin-bottom: 10px; }
+	.description { padding: 5px; }
+	.section h2 { margin: 0; }
+	.basic .url { display: block; }
+	
+    .credential { padding: 5px; margin-bottom: 5px; border: 1px solid #EEE; position: relative; }
+    .credential .title { font-size: 20px; display: block; min-height: 30px; padding-right: 100px; }
+    .credential .date { position: absolute; top: 5px; right: 5px; font-style: italic; opacity: 0.7; padding: 0 5px; }
+    .credential .credentialUrl { font-size: 14px; }
+
+	.json { white-space: pre-wrap; }
+	.editLink { position: absolute; top: 5px; right: 5px; }
+	#pageContent { position: relative; }
+</style>
+
+
+<h1>@Model.Name</h1>
+
+<div id="pageContent">
+    @if (AccountServices.CanUserPublishContent()) 
+    {
+	    <a class="editLink linkButton" href="@Url.Content("~/OrganizationManagement/Edit/")@Model.Id">Edit</a>
+    }
+	<div class="section basic">
+		<h2>Description</h2>
+		<div class="description">@Model.Description</div>
+		<a class="url" href="@Model.Url" target="_blank">@Model.Url</a>
+	</div>
+
+@if ( Model.CreatedCredentials != null && Model.CreatedCredentials.Count > 0 )
+{
+    <div class="section credentials">
+        <h2>Credentials</h2>
+        <div class="credentialsList">
+           
+                @foreach ( var credential in Model.CreatedCredentials )
+                {
+                    <div class="credential">
+                        <div class="date">@credential.LastUpdated.ToShortDateString()</div>
+                        <a class="title" href="@Url.Content("~/CredentialManagement/Detail/")@credential.Id">@credential.Name</a>
+                        <div>@credential.Description</div>
+                        <a class="credentialUrl" href="@credential.Url" target="_blank">@credential.Url</a>
+                    </div>
+                }
+           
+            @*else
+            {
+                <p>This organization has not been associated with any credentials yet.</p>
+            }*@
+        </div>
+    </div>
+}
+
+    @if ( Model.Identifiers != null && Model.Identifiers.Items.Count > 0 )
+    {
+        <div class="section identifiers">
+            <h2>Identifiers</h2>
+            <div class="identifiersList">
+                @foreach ( var identifier in Model.Identifiers.Items )
+                {
+                    <div>@identifier.ItemSummary</div>
+                }
+            </div>
+        </div>
+    }
+    @if (ViewBag.IsAdmin)
+    { 
+	    <div class="section rawData">
+		    <h2>Raw Data</h2>
+		    <div class="json"></div>
+	    </div>
+    }
+</div>

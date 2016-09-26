@@ -1,0 +1,86 @@
+﻿@model Models.Node.Interface.MicroSearchSettings
+@{
+    var microSearchName = Model.ParentRepeaterId + "_" + Model.Property;
+}
+<div 
+     class="microSearchBox tabItem @string.Join( " ", Model.ExtraClasses )" 
+     data-property="@Model.Property" 
+     data-parentRepeaterID="@Model.ParentRepeaterId"
+     data-profileTemplate="@Model.ProfileTemplate"
+     data-searchType="@Model.SearchType"
+     data-previous="@Model.Previous"
+     data-pageSize="@Model.PageSize"
+     data-pageNumber="@Model.PageNumber"
+     data-hasKeywords="@Html.Raw(Model.HasKeywords ? "true" : "false")"
+     data-allowMultipleSavedItems="@Html.Raw( Model.AllowMultipleSavedItems ? "true" : "false" )"
+     data-microSearchName="@microSearchName"
+     data-autoSaveNewParentProfile="@Html.Raw( Model.AutoSaveNewParentProfile ? "true" : "false" )"
+     data-doAjaxSave="@Html.Raw( Model.DoAjaxSave ? "true" : "false" )"
+     data-profileType="@Model.ProfileType"
+     data-hasEditProfile="@Html.Raw( Model.HasEditProfile ? "true" : "false" )"
+     data-hasCreateProfile="@Html.Raw( Model.HasCreateProfile ? "true" : "false" )"
+     data-createProfileTitle="@Model.CreateProfileTitle"
+     >
+    <div style="display:none;" class="staticSelectorValues">
+        @Html.Raw( new System.Web.Script.Serialization.JavaScriptSerializer().Serialize( Model.StaticSelectorValues ) )
+    </div>
+    <h2 class="microSearchLabel">@Model.Label</h2>
+    <div class="microSearchData">
+        <div class="guidance">@Html.Raw( Model.Guidance )</div>
+        <div class="microSearchColumns">
+            <div class="microSearchColumn microSearchSearch">
+                <h3>Search</h3>
+                <div class="microSearchFilters">
+                    @foreach ( var item in Model.Filters )
+                    {
+                        var attributes = "";
+                        foreach ( var attribute in item.Attributes )
+                        {
+                            attributes = attributes + attribute.Key + "=\"" + attribute.Value + "\" ";
+                        }
+                        switch ( item.Type )
+                        {
+                            case "select":
+                                <select class="microSearchFilter" data-type="select" data-filtername="@item.FilterName" @attributes>
+                                    @foreach ( var option in item.Items )
+                                    {
+                                        <option value="@option.Key">@option.Value</option>
+                                    }
+                                </select>
+                                    break;
+                            case "text":
+                            <input type="text" class="microSearchFilter" data-type="text" data-filtername="@item.FilterName" placeholder="@item.Placeholder" @attributes />
+                                    break;
+                            default: break;
+                        }
+                    }
+                    @if ( Model.HasKeywords )
+                    {
+                        <div class="microSearchKeywords">
+                            <input type="text" class="microSearchFilter" data-type="text" data-filtername="keywords" placeholder="Search..." />
+                            <input type="button" value="Search" onclick="doMicroSearch('@microSearchName', false);" class="actionButton" />
+                            <input type="button" value="Reset" onclick="resetMicroSearch('@microSearchName');" class="redButton" />
+                        </div>
+                    }
+                </div>
+                <div class="microSearchStatus"></div>
+                <div class="microSearchResults"></div>
+                <div class="microSearchPaging"></div>
+            </div>
+            <div class="microSearchColumn microSearchSaved">
+                <h3>@Model.SavedItemsHeader</h3>
+                <div class="microSearchSavedItems">
+                    <p class="microSearchNoItems">No saved items</p>
+                    <div class="microSearchSavedItemsList"></div>
+                </div>
+                @if ( Model.HasCreateProfile )
+                {
+                    <div class="microSearchButtons">
+                        <input type="button" value="Create New @Model.CreateProfileTitle" onclick="createStarterProfile('@microSearchName');" />
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+</div>

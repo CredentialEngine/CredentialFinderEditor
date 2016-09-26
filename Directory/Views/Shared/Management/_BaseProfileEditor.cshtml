@@ -1,0 +1,34 @@
+﻿@*Allow overriding the description's description *@
+@model string
+<div class="subfield">
+	<i>Indicate the date this item's information first became effective, published, or applicable.</i>
+    <input type="text" data-property="DateEffective" data-type="date" placeholder="MM/DD/YYYY" />
+</div>
+<div class="subfield">
+	@if( string.IsNullOrWhiteSpace( Model ) ) { <i>Briefly summarize this information.</i> } else { <i>@Model</i> }
+	<textarea data-property="Description" data-type="text"></textarea>
+</div>
+@if ( ViewData[ "hideRegion" ] != "true" )
+{
+    @*
+    <div class="subfield repeating">
+        <i>Indicate the region for which the information in this item is relevant.</i>
+        @Html.Partial( "~/Views/Shared/Management/_GeoCoordinatesEditor.cshtml", "Region" )
+        <div class="repeaterItems" data-repeaterID="Region_{id}" data-title="Region"></div>
+        <div class="repeater withItems" data-property="Regions" id="Region_{id}" data-profile="GeoCoordinates"></div>
+        <div class="buttons">
+            <input type="button" onclick="addProfile('GeoCoordinates', 'Region_{id}');" value="Add Another Region" />
+        </div>
+
+    </div>
+    *@
+    <div class="subfield repeating" data-property="Jurisdiction">
+        <i>Indicate the region for which the information in this item is relevant.</i>
+        <div class="repeaterItems" data-repeaterid="Jurisdiction_{id}" data-title="Jurisdiction"></div>
+        <div class="repeater withItems" data-property="Jurisdiction" id="Jurisdiction_{id}" data-profile="JurisdictionProfile"></div>
+        <div class="buttons">
+            <input type="button" onclick="addProfile('JurisdictionProfile', 'Jurisdiction_{id}');" value="Add A Jurisdiction" />
+        </div>
+    </div>
+
+}

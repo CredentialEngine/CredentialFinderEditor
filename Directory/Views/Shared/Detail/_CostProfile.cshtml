@@ -1,0 +1,16 @@
+﻿@model Models.ProfileModels.CostProfile
+<div class="costProfile">
+    @foreach ( var costItem in Model.Items )
+    {
+        <div class="costItem">
+            @try { <div><b>Type:</b> @costItem.CostType.Items.FirstOrDefault().Name</div> } catch { @Html.Raw( "</div>" ); }
+            @try { <div><b>Cost:</b> @costItem.Price @Model.Currency</div> } catch { @Html.Raw( "</div>" ); }
+            @try { <div><b>Applies to:</b> @string.Join( ", ", costItem.ApplicableAudienceType.Items.Select( m => m.Name ) )</div> } catch { @Html.Raw( "</div>" ); }
+            @try { <div><b>Enrollment:</b> @string.Join( ", ", costItem.EnrollmentType.Items.Select( m => m.Name ) )</div> } catch { @Html.Raw( "</div>" ); }
+            @try { <div><b>Residency:</b> @string.Join( ", ", costItem.ResidencyType.Items.Select( m => m.Name ) )</div> } catch { @Html.Raw( "</div>" ); }
+            <div>@costItem.PaymentPattern</div>
+            <div>@costItem.Description</div>
+            @try { <div>Paid to: @costItem.Payee.Name</div> } catch { @Html.Raw( "</div>" ); }                                                                                         
+        </div>
+    }
+</div>

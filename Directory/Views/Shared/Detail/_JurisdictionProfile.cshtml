@@ -1,0 +1,38 @@
+﻿@model Models.Common.JurisdictionProfile
+<div class="jurisdictionProfile">
+    <div class="mainJurisdiction">
+        @if ( !string.IsNullOrWhiteSpace( Model.MainJurisdiction.TitleFormatted ) )
+        {
+            <div class="mainJurisdictionName">@Model.MainJurisdiction.TitleFormatted</div>
+        }
+        @if ( Model.IsOnlineJurisdiction || Model.IsGlobalJurisdiction )
+        {
+            <div>
+                @if ( !string.IsNullOrWhiteSpace( Model.MainJurisdiction.TitleFormatted ) )
+                {
+                    <i>This information also applies:</i>
+                }
+            </div>
+            <ul class="extraJurisdictions">
+                @if(Model.IsOnlineJurisdiction){ <li>Online</li> }
+                @if(Model.IsGlobalJurisdiction){ <li>Globally/Worldwide</li> }
+            </ul>
+        }
+    </div>
+    @if ( Model.JurisdictionException.Count > 0 )
+    {
+        <div class="jurisdictionExceptions">
+            <i>Exceptions:</i>
+            <ul class="jurisdictionExceptionList">
+                @foreach ( var exception in Model.JurisdictionException )
+                {
+                    try { <li>@exception.TitleFormatted</li> } catch { }
+                }
+            </ul>
+        </div>
+    }
+    @if ( !string.IsNullOrWhiteSpace( Model.Description ) )
+    {
+        <div class="jurisdictionDescription">@Model.Description</div>
+    }
+</div>

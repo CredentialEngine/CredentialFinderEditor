@@ -1,0 +1,34 @@
+﻿@using CTIDirectory.Models
+@model UserProfileEdit
+@{
+    ViewBag.Title = "User Profile";
+}
+
+<link href="@Url.Content( "~/Style/AccountBox" )" rel="stylesheet" type="text/css" />
+
+<h1>@ViewBag.Title</h1>
+
+<div id="accountBox" class="singleColumn">
+    @using ( Html.BeginForm( "UserProfile", "Account" ) )
+    {
+        @Html.AntiForgeryToken()
+    <div class="input">
+        <label>Login Name</label>@Model.UserName
+        @Html.TextBoxFor( model => Model.UserName, new Dictionary<string, object>() { { "readonly", "true" } } ) 
+</div>
+    <div class="input">
+        <label>First Name</label>@Html.TextBoxFor( m => m.FirstName )
+    </div>
+    <div class="input">
+        <label>Last Name</label>@Html.TextBoxFor( m => m.LastName )
+    </div>
+    <div class="input">
+        <label>Email</label>@Html.TextBoxFor( m => m.Email )
+    </div>
+
+    <div class="buttons">
+        <button type="submit" class="actionButton">Save</button>
+    </div>
+    }
+</div>
+@Scripts.Render( "~/bundles/jqueryval" )

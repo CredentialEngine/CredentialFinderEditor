@@ -1,0 +1,14 @@
+﻿@model string
+<div data-property="@Model" class="propertyInput" data-type="duration" data-group="{repeaterID}_@Model">
+    <table>
+        <tr>
+            <td><input type="text" data-type="number" data-group="{repeaterID}_@Model" data-subproperty="Years" placeholder="Years" /></td>
+            <td><input type="text" data-type="number" data-group="{repeaterID}_@Model" data-subproperty="Months" placeholder="Months" /></td>
+            <td><input type="text" data-type="number" data-group="{repeaterID}_@Model" data-subproperty="Weeks" placeholder="Weeks" /></td>
+            <td><input type="text" data-type="number" data-group="{repeaterID}_@Model" data-subproperty="Days" placeholder="Days" /></td>
+            <td><input type="text" data-type="number" data-group="{repeaterID}_@Model" data-subproperty="Hours" placeholder="Hours" /></td>
+            <td><input type="text" data-type="number" data-group="{repeaterID}_@Model" data-subproperty="Minutes" placeholder="Minutes" /></td>
+        </tr>
+        <tr><th>Years</th><th>Months</th><th>Weeks</th><th>Days</th><th>Hours</th><th>Minutes</th></tr>
+    </table>
+</div>

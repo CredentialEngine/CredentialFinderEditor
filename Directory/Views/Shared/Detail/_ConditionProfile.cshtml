@@ -1,0 +1,141 @@
+﻿@model Models.ProfileModels.ConditionProfile
+
+<div class="conditionProfile">
+    <h3>@ViewData["conditionsTitle"]</h3>
+    <div class="conditionProfileData">
+        @if ( !string.IsNullOrWhiteSpace( Model.Description ) || !string.IsNullOrWhiteSpace( Model.Experience ) || Model.MinimumAge > 0 )
+        {
+            <div class="condition">
+                <h4>Details</h4>
+                @if ( !string.IsNullOrWhiteSpace( Model.Description ) )
+                {
+                    <p class="condtionDescription">@Html.Raw(Model.Description)</p>
+                }
+                @if ( !string.IsNullOrWhiteSpace( Model.Experience ) )
+                {
+                    <p class="conditionExperience">@Model.Experience</p>
+                }
+                @if ( Model.MinimumAge > 0 )
+                {
+                    <p class="conditionAge">You must be at least @Model.MinimumAge years old.</p>
+                }
+            </div>
+
+        }
+
+        @if ( Model.ApplicableAudienceType.Items.Count() > 0 )
+        {
+            <div class="condition">
+                <h4>Applicable Audience</h4>
+                <ul class="keywordsList">
+                    @foreach ( var item in Model.ApplicableAudienceType.Items )
+                    {
+                        <li><a href="@Url.Content( "~/search?autosearch=true&filters=" + Model.ApplicableAudienceType.Id + "-" + item.Id )" target="_blank">@item.Name</a></li>
+                    }
+                </ul>
+            </div>
+        }
+
+        @if ( Model.CredentialType.Items.Count() > 0 || (Model.RequiredCredential != null && Model.RequiredCredential.Count > 0) )
+        {
+            <div class="condition">
+                <h4>@ViewData["conditionHeader"] Credentials</h4>
+                <ul class="keywordsList">
+                    @foreach ( var item in Model.CredentialType.Items )
+                    {
+                        <li><a href="@Url.Content( "~/search?autosearch=true&filters=" + Model.CredentialType.Id + "-" + item.Id )" target="_blank">@item.Name</a></li>
+                    }
+                    @if ( Model.RequiredCredential != null ) { 
+                        foreach ( var item in Model.RequiredCredential )
+                        {
+                            <li><a href="@Url.Content( "~/search?autosearch=true&keywords=" )@item" target="_blank">@item</a></li>
+                        }
+                    }
+                </ul>
+            </div>
+        }
+
+        @if ( Model.TargetAssessment.Count() > 0 )
+        {
+            <div class="condition">
+                <h4>@ViewData["conditionHeader"] Assessments</h4>
+                @foreach ( var item in Model.TargetAssessment )
+                {
+                    <div class="conditionItem">
+                        <div class="conditionTitle">@item.Name</div>
+                        <div class="conditionDescription">@item.Description</div>
+                        <div class="conditionCosts">
+                            @if ( item.EstimatedCost.Count() > 0 )
+                            {
+                                <h5>Estimated Costs:</h5>
+                                foreach ( var cost in item.EstimatedCost )
+                                {
+                                    @Html.Partial( "~/Views/Shared/Detail/_CostProfile.cshtml", cost );
+                                }
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        @if ( Model.TargetLearningOpportunity.Count() > 0 )
+        {
+            <div class="condition">
+                <h4>@ViewData["conditionHeader"] Learning Opportunities</h4>
+                @foreach ( var item in Model.TargetLearningOpportunity )
+                {
+                    <div class="conditionItem">
+                        <div class="conditionTitle">@item.Name</div>
+                        <div class="conditionDescription">@item.Description</div>
+                        <div class="conditionCosts">
+                            @if ( item.EstimatedCost.Count() > 0 )
+                            {
+                                <h5>Estimated Costs:</h5>
+                                foreach ( var cost in item.EstimatedCost )
+                                {
+                                    @Html.Partial( "~/Views/Shared/Detail/_CostProfile.cshtml", cost );
+                                }
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        @if ( Model.TargetTask.Count() > 0 )
+        {
+            <div class="condition">
+                <h4>@ViewData["conditionHeader"] Tasks</h4>
+                @foreach ( var item in Model.TargetTask )
+                {
+                    <div class="conditionItem">
+                        <div class="conditionDescription">@item.Description</div>
+                        <div class="conditionCosts">
+                            @if ( item.EstimatedCost.Count() > 0 )
+                            {
+                                <h5>Estimated Costs:</h5>
+                                foreach ( var cost in item.EstimatedCost )
+                                {
+                                    @Html.Partial( "~/Views/Shared/Detail/_CostProfile.cshtml", cost );
+                                }
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        @if ( Model.Jurisdiction.Count() > 0 )
+        {
+            <div class="condition">
+                <h4>Jurisdiction</h4>
+                @foreach ( var item in Model.Jurisdiction )
+                {
+                    @Html.Partial( "~/Views/Shared/Detail/_JurisdictionProfile.cshtml", item );
+                }
+            </div>
+        }
+    </div>
+
+</div>

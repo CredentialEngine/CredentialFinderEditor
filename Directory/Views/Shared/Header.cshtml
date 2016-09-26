@@ -1,0 +1,31 @@
+﻿@{ var url = Request.Url.PathAndQuery.ToLower(); }
+@if ( !AccountServices.CanUserViewSite() && !AccountServices.CanUserPublishContent() && !url.Contains( "home/about" ) && !url.ToLower().Contains( "account/" ) && !url.ToLower().Contains( "manage/" ) )
+{
+    Response.Redirect("~/Home/About");
+}
+<div id="navbar">
+	<input type="button" id="btnToggleNavbar" title="Show Navigation" value="Menu" onclick="common.toggleNavbar();" />
+	<div id="navItems" class="collapsed">
+		<a href="@Url.Content( "~/" )" class="navHeader">Home</a>
+        <a href="@Url.Content( "~/Search" )" class="navHeader">Search</a>
+        <a href="@Url.Content( "~/search?searchtype=credential" )">Search for Credentials</a>
+        <a href="@Url.Content( "~/search?searchtype=organization" )">Search for Organizations</a>
+        <a href="@Url.Content( "~/search?searchtype=assessment" )">Search for Assessments</a>
+        <a href="@Url.Content( "~/search?searchtype=learningopportunity" )">Search for Learning Opportunities</a>
+        <div class="navHeader">Add New...</div>
+		<a href="@Url.Content( "~/editor/Organization" )">Add Organization</a>
+		<a href="@Url.Content( "~/editor/Credential" )">Add Credential</a>
+        <a href="@Url.Content( "~/editor/assessment" )">Add Assessment</a>
+        <a href="@Url.Content( "~/editor/LearningOpportunity" )">Add Learning Opportunity</a>
+        @*<a href="@Url.Content( "~/OrganizationManagement" )" class="navHeader">Organization Management</a>*@
+        @*<a href="@Url.Content( "~/CredentialManagement" )" class="navHeader">Credential Management</a>*@
+        @*<a href="@Url.Content( "~/profile/assessments" )" class="navHeader">Assessment Management</a>*@
+        @*<a href="@Url.Content( "~/profile/LearningOpportunities" )" class="navHeader">Learning Opportunity Management</a>*@
+	</div>
+</div><!--
+--><a href="/" title="CTI Home" id="logoLink">
+	<img src="@Url.Content( "~/Images/Common/cti_logo_transparent.png" )" alt="Credentialing Transparency Initiative Logo" />
+</a><!--
+--><div id="loginBox">
+	@Html.Partial( "_LoginPartial" )
+</div>

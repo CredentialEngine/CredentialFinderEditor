@@ -1,0 +1,614 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>
+    </ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{FBEF48FC-2FA5-4CB4-AB27-5F7A35B1CB6B}</ProjectGuid>
+    <ProjectTypeGuids>{349c5851-65df-11da-9384-00065b846f21};{fae04ec0-301f-11d3-bf4b-00c04f79efbc}</ProjectTypeGuids>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>CTI.Directory</RootNamespace>
+    <AssemblyName>CTI.Directory</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <UseIISExpress>true</UseIISExpress>
+    <IISExpressSSLPort>60740</IISExpressSSLPort>
+    <IISExpressAnonymousAuthentication>enabled</IISExpressAnonymousAuthentication>
+    <IISExpressWindowsAuthentication>disabled</IISExpressWindowsAuthentication>
+    <IISExpressUseClassicPipelineMode>false</IISExpressUseClassicPipelineMode>
+    <SccProjectName>SAK</SccProjectName>
+    <SccLocalPath>SAK</SccLocalPath>
+    <SccAuxPath>SAK</SccAuxPath>
+    <SccProvider>SAK</SccProvider>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Antlr3.Runtime">
+      <HintPath>..\packages\Antlr.3.4.1.9004\lib\Antlr3.Runtime.dll</HintPath>
+    </Reference>
+    <Reference Include="EntityFramework, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\packages\EntityFramework.6.1.3\lib\net45\EntityFramework.dll</HintPath>
+    </Reference>
+    <Reference Include="EntityFramework.SqlServer, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\packages\EntityFramework.6.1.3\lib\net45\EntityFramework.SqlServer.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.AspNet.Identity.Core">
+      <HintPath>..\packages\Microsoft.AspNet.Identity.Core.2.2.1\lib\net45\Microsoft.AspNet.Identity.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.AspNet.Identity.EntityFramework">
+      <HintPath>..\packages\Microsoft.AspNet.Identity.EntityFramework.2.2.1\lib\net45\Microsoft.AspNet.Identity.EntityFramework.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.AspNet.Identity.Owin">
+      <HintPath>..\packages\Microsoft.AspNet.Identity.Owin.2.2.1\lib\net45\Microsoft.AspNet.Identity.Owin.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="Microsoft.Owin">
+      <HintPath>..\packages\Microsoft.Owin.3.0.1\lib\net45\Microsoft.Owin.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin.Host.SystemWeb">
+      <HintPath>..\packages\Microsoft.Owin.Host.SystemWeb.3.0.1\lib\net45\Microsoft.Owin.Host.SystemWeb.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin.Security">
+      <HintPath>..\packages\Microsoft.Owin.Security.3.0.1\lib\net45\Microsoft.Owin.Security.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Owin.Security.Cookies">
+      <HintPath>..\packages\Microsoft.Owin.Security.Cookies.2.1.0\lib\net45\Microsoft.Owin.Security.Cookies.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin.Security.Google">
+      <HintPath>..\packages\Microsoft.Owin.Security.Google.3.0.1\lib\net45\Microsoft.Owin.Security.Google.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin.Security.MicrosoftAccount">
+      <HintPath>..\packages\Microsoft.Owin.Security.MicrosoftAccount.3.0.1\lib\net45\Microsoft.Owin.Security.MicrosoftAccount.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Owin.Security.OAuth">
+      <HintPath>..\packages\Microsoft.Owin.Security.OAuth.2.1.0\lib\net45\Microsoft.Owin.Security.OAuth.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="Owin">
+      <HintPath>..\packages\Owin.1.0\lib\net40\Owin.dll</HintPath>
+    </Reference>
+    <Reference Include="System.IdentityModel.Tokens.ValidatingIssuerNameRegistry, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.IdentityModel.Tokens.ValidatingIssuerNameRegistry.4.5.1\lib\net45\System.IdentityModel.Tokens.ValidatingIssuerNameRegistry.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Net.Http.Formatting, Version=5.2.3.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\packages\Microsoft.AspNet.WebApi.Client.5.2.3\lib\net45\System.Net.Http.Formatting.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Net.Http.WebRequest" />
+    <Reference Include="System.Web.DynamicData" />
+    <Reference Include="System.Web.Entity" />
+    <Reference Include="System.Web.ApplicationServices" />
+    <Reference Include="System.ComponentModel.DataAnnotations" />
+    <Reference Include="System" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Web.Optimization">
+      <HintPath>..\packages\Microsoft.AspNet.Web.Optimization.1.1.3\lib\net40\System.Web.Optimization.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Web" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Web.Services" />
+    <Reference Include="System.EnterpriseServices" />
+    <Reference Include="WebGrease">
+      <HintPath>..\packages\WebGrease.1.5.2\lib\WebGrease.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.Web.Infrastructure, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <Private>True</Private>
+      <HintPath>..\packages\Microsoft.Web.Infrastructure.1.0.0.0\lib\net40\Microsoft.Web.Infrastructure.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.Razor">
+      <HintPath>..\packages\Microsoft.AspNet.Razor.3.0.0\lib\net45\System.Web.Razor.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.Webpages">
+      <HintPath>..\packages\Microsoft.AspNet.Webpages.3.0.0\lib\net45\System.Web.Webpages.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.Webpages.Deployment">
+      <HintPath>..\packages\Microsoft.AspNet.Webpages.3.0.0\lib\net45\System.Web.Webpages.Deployment.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.Webpages.Razor">
+      <HintPath>..\packages\Microsoft.AspNet.Webpages.3.0.0\lib\net45\System.Web.Webpages.Razor.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.Helpers">
+      <HintPath>..\packages\Microsoft.AspNet.Webpages.3.0.0\lib\net45\System.Web.Helpers.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Web.Mvc">
+      <HintPath>..\packages\Microsoft.AspNet.Mvc.5.0.0\lib\net45\System.Web.Mvc.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="App_Data\email\ConfirmAccount.txt" />
+    <Content Include="App_Data\email\ForgotPassword.txt" />
+    <Content Include="App_Data\email\PartnerEmail.txt" />
+    <Content Include="Content\DataTables-1.10.12\css\dataTables.bootstrap.css" />
+    <Content Include="Content\DataTables-1.10.12\css\dataTables.bootstrap.min.css" />
+    <Content Include="Content\DataTables-1.10.12\css\dataTables.foundation.css" />
+    <Content Include="Content\DataTables-1.10.12\css\dataTables.foundation.min.css" />
+    <Content Include="Content\DataTables-1.10.12\css\dataTables.jqueryui.css" />
+    <Content Include="Content\DataTables-1.10.12\css\dataTables.jqueryui.min.css" />
+    <Content Include="Content\DataTables-1.10.12\css\jquery.dataTables.css" />
+    <Content Include="Content\DataTables-1.10.12\css\jquery.dataTables.min.css" />
+    <Content Include="Content\DataTables-1.10.12\css\jquery.dataTables_themeroller.css" />
+    <Content Include="Content\DataTables-1.10.12\images\sort_asc.png" />
+    <Content Include="Content\DataTables-1.10.12\images\sort_asc_disabled.png" />
+    <Content Include="Content\DataTables-1.10.12\images\sort_both.png" />
+    <Content Include="Content\DataTables-1.10.12\images\sort_desc.png" />
+    <Content Include="Content\DataTables-1.10.12\images\sort_desc_disabled.png" />
+    <Content Include="Content\DataTables-1.10.12\js\dataTables.bootstrap.js" />
+    <Content Include="Content\DataTables-1.10.12\js\dataTables.bootstrap.min.js" />
+    <Content Include="Content\DataTables-1.10.12\js\dataTables.foundation.js" />
+    <Content Include="Content\DataTables-1.10.12\js\dataTables.foundation.min.js" />
+    <Content Include="Content\DataTables-1.10.12\js\dataTables.jqueryui.js" />
+    <Content Include="Content\DataTables-1.10.12\js\dataTables.jqueryui.min.js" />
+    <Content Include="Content\DataTables-1.10.12\js\jquery.dataTables.js" />
+    <Content Include="Content\DataTables-1.10.12\js\jquery.dataTables.min.js" />
+    <Content Include="Content\datatables.css" />
+    <Content Include="Content\datatables.js" />
+    <Content Include="Content\datatables.min.css" />
+    <Content Include="Content\datatables.min.js" />
+    <Content Include="Content\Responsive-2.1.0\css\responsive.bootstrap.css" />
+    <Content Include="Content\Responsive-2.1.0\css\responsive.bootstrap.min.css" />
+    <Content Include="Content\Responsive-2.1.0\css\responsive.dataTables.css" />
+    <Content Include="Content\Responsive-2.1.0\css\responsive.dataTables.min.css" />
+    <Content Include="Content\Responsive-2.1.0\css\responsive.foundation.css" />
+    <Content Include="Content\Responsive-2.1.0\css\responsive.foundation.min.css" />
+    <Content Include="Content\Responsive-2.1.0\css\responsive.jqueryui.css" />
+    <Content Include="Content\Responsive-2.1.0\css\responsive.jqueryui.min.css" />
+    <Content Include="Content\Responsive-2.1.0\js\dataTables.responsive.js" />
+    <Content Include="Content\Responsive-2.1.0\js\dataTables.responsive.min.js" />
+    <Content Include="Content\Responsive-2.1.0\js\responsive.bootstrap.js" />
+    <Content Include="Content\Responsive-2.1.0\js\responsive.bootstrap.min.js" />
+    <Content Include="Content\Responsive-2.1.0\js\responsive.foundation.js" />
+    <Content Include="Content\Responsive-2.1.0\js\responsive.foundation.min.js" />
+    <Content Include="Content\Responsive-2.1.0\js\responsive.jqueryui.js" />
+    <Content Include="Content\Responsive-2.1.0\js\responsive.jqueryui.min.js" />
+    <Content Include="Content\Site.css" />
+    <Content Include="Content\themes\base\jquery-ui.css" />
+    <Content Include="Content\themes\base\jquery.ui.datepicker.css" />
+    <Content Include="Global.asax" />
+    <Content Include="Images\Common\ajax-loader.gif" />
+    <Content Include="Images\Common\background_office.jpg" />
+    <Content Include="Images\Common\background_skyline.png" />
+    <Content Include="Images\Common\cti_logo_narrow_med.png" />
+    <Content Include="Images\Common\cti_logo_transparent.png" />
+    <Content Include="Images\Common\cti_logo_wide.png" />
+    <Content Include="Images\Common\cti_logo_wide_recolored.png" />
+    <Content Include="Images\Common\favicon.png" />
+    <Content Include="Images\Common\menuburger_blue.png" />
+    <Content Include="Images\Common\menuburger_white.png" />
+    <Content Include="Images\Common\resizer_125x100.png" />
+    <Content Include="Images\Common\Resizer_300x200.png" />
+    <Content Include="Images\Common\Resizer_400x300.png" />
+    <Content Include="Images\V2\Common\background_office.jpg" />
+    <Content Include="Images\V2\Common\wallpaper_industries_green_30deg.png" />
+    <Content Include="Images\Footer\facebook.png" />
+    <Content Include="Images\Footer\logo-gwu.jpg" />
+    <Content Include="Images\Footer\logo-lumina.jpg" />
+    <Content Include="Images\Footer\logo-siu.gif" />
+    <Content Include="Images\Footer\logo-workcred.jpg" />
+    <Content Include="Images\Footer\twitter.png" />
+    <Content Include="Images\Icons\cti_icon_cost.png" />
+    <Content Include="Images\Icons\cti_icon_duration.png" />
+    <Content Include="Images\Icons\cti_icon_duration_pink.png" />
+    <Content Include="Images\Icons\cti_icon_interests.png" />
+    <Content Include="Images\Icons\cti_icon_interests_pink.png" />
+    <Content Include="Images\Icons\cti_icon_levels.png" />
+    <Content Include="Images\Icons\cti_icon_certification_pink.png" />
+    <Content Include="Images\Icons\cti_icon_levels_pink.png" />
+    <Content Include="Images\Icons\cti_icon_quality.png" />
+    <Content Include="Images\Icons\cti_icon_apprenticeship_pink.png" />
+    <Content Include="Images\Icons\cti_icon_education_pink.png" />
+    <Content Include="Images\Icons\cti_icon_badge_pink.png" />
+    <Content Include="Images\Icons\cti_icon_certificate_pink.png" />
+    <Content Include="Images\Icons\cti_icon_degree_pink.png" />
+    <Content Include="Images\Icons\cti_icon_diploma_pink.png" />
+    <Content Include="Images\Icons\cti_icon_info.png" />
+    <Content Include="Images\Icons\cti_icon_info_bg.png" />
+    <Content Include="Images\Icons\cti_icon_license_pink.png" />
+    <Content Include="Images\Icons\cti_icon_list.png" />
+    <Content Include="Images\Icons\cti_icon_list_bg.png" />
+    <Content Include="Images\Icons\cti_icon_mapmarker.png" />
+    <Content Include="Images\Icons\cti_icon_mapmarker_pink.png" />
+    <Content Include="Images\Icons\cti_icon_micro_pink.png" />
+    <Content Include="Images\Icons\cti_icon_military_pink.png" />
+    <Content Include="Images\Icons\cti_icon_quality_pink.png" />
+    <Content Include="Images\Icons\cti_icon_star.png" />
+    <Content Include="Images\Icons\cti_icon_star_bg.png" />
+    <Content Include="Images\Icons\icon_clipboard.png" />
+    <Content Include="Images\Icons\icon_compare_white.png" />
+    <Content Include="Images\Icons\icon_connect_white.png" />
+    <Content Include="Images\Icons\icon_credential.png" />
+    <Content Include="Images\Icons\icon_delete.png" />
+    <Content Include="Images\Icons\icon_delete_white.png" />
+    <Content Include="Images\Icons\icon_edit.png" />
+    <Content Include="Images\Icons\icon_edit_white.png" />
+    <Content Include="Images\Icons\icon_heart.png" />
+    <Content Include="Images\Icons\icon_infobubble.gif" />
+    <Content Include="Images\Icons\icon_linkeddata.png" />
+    <Content Include="Images\Icons\icon_magnifyingglass.png" />
+    <Content Include="Images\Icons\icon_map_pink.png" />
+    <Content Include="Images\Icons\icon_pencil.png" />
+    <Content Include="Images\Icons\icon_QAOrg.png" />
+    <Content Include="Images\Icons\icon_search_white.png" />
+    <Content Include="Images\Photos\educators.jpg" />
+    <Content Include="Images\Photos\government.jpg" />
+    <Content Include="Images\Photos\jobseekers.jpg" />
+    <Content Include="Images\Photos\occupations.jpg" />
+    <Content Include="Images\Photos\students.jpg" />
+    <Content Include="Images\Photos\thumbsup1.jpg" />
+    <Content Include="Images\Photos\thumbsup2.jpg" />
+    <Content Include="Images\Photos\thumbsup3.jpg" />
+    <Content Include="Images\Photos\thumbsup4.jpg" />
+    <Content Include="Images\Photos\thumbsup5.jpg" />
+    <Content Include="Images\Photos\workers.jpg" />
+    <Content Include="Images\Social\apple.png" />
+    <Content Include="Images\Social\facebook.png" />
+    <Content Include="Images\Social\flickr.png" />
+    <Content Include="Images\Social\googleplus.png" />
+    <Content Include="Images\Social\instagram.png" />
+    <Content Include="Images\Social\linkedin.png" />
+    <Content Include="Images\Social\other.png" />
+    <Content Include="Images\Social\pinterest.png" />
+    <Content Include="Images\Social\twitter.png" />
+    <Content Include="Images\Social\yahoo.png" />
+    <Content Include="Images\Social\youtube.png" />
+    <Content Include="Images\V2\Icons\flat_badge.png" />
+    <Content Include="Images\V2\Icons\flat_certificate.png" />
+    <Content Include="Images\V2\Icons\flat_certification.png" />
+    <Content Include="Images\V2\Icons\flat_connect.png" />
+    <Content Include="Images\V2\Icons\flat_degree.png" />
+    <Content Include="Images\V2\Icons\flat_diploma.png" />
+    <Content Include="Images\V2\Icons\flat_duration.png" />
+    <Content Include="Images\V2\Icons\flat_information-badge.png" />
+    <Content Include="Images\V2\Icons\flat_interests.png" />
+    <Content Include="Images\V2\Icons\flat_levels.png" />
+    <Content Include="Images\V2\Icons\flat_license.png" />
+    <Content Include="Images\V2\Icons\flat_map.png" />
+    <Content Include="Images\V2\Icons\flat_microcredential.png" />
+    <Content Include="Images\V2\Icons\flat_quality.png" />
+    <Content Include="Images\V2\Icons\flat_star.png" />
+    <Content Include="Images\V2\Photos\educators.jpg" />
+    <Content Include="Images\V2\Photos\government.jpg" />
+    <Content Include="Images\V2\Photos\jobseekers.jpg" />
+    <Content Include="Images\V2\Photos\occupations.jpg" />
+    <Content Include="Images\V2\Photos\students.jpg" />
+    <Content Include="Images\V2\Photos\workers.jpg" />
+    <Content Include="Scripts\common.js" />
+    <Content Include="Scripts\commonv2.js" />
+    <Content Include="Scripts\jquery-ui-1.11.1.js" />
+    <Content Include="Scripts\jquery.timepicker.js" />
+    <Content Include="Styles\bootstrap.min.css" />
+    <Content Include="Styles\common.css" />
+    <Content Include="Styles\images\ui-bg_flat_75_ffffff_40x100.png" />
+    <Content Include="Styles\jquery-ui.css" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Bold-webfont.svg" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-BoldItalic-webfont.svg" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Italic-webfont.svg" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Light-webfont.svg" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-LightItalic-webfont.svg" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Regular-webfont.svg" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-SemiBold-webfont.svg" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-SemiBoldItalic-webfont.svg" />
+    <Content Include="Styles\Webfonts\Gibson\gibson.css" />
+    <Content Include="Styles\Webfonts\TrumpGothicPro\TrumpGothicPro-Medium-webfont.svg" />
+    <Content Include="Styles\Webfonts\TrumpGothicPro\trumpgothicpro.css" />
+    <Content Include="Styles\zocial.css" />
+    <Content Include="Styles\zocial.svg" />
+    <Content Include="Web.config">
+      <SubType>Designer</SubType>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="App_Start\BundleConfig.cs" />
+    <Compile Include="App_Start\FilterConfig.cs" />
+    <Compile Include="App_Start\IdentityConfig.cs" />
+    <Compile Include="App_Start\RouteConfig.cs" />
+    <Compile Include="Areas\Admin\AdminAreaRegistration.cs" />
+    <Compile Include="Areas\Admin\Controllers\OrganizationController.cs" />
+    <Compile Include="Areas\Users\UsersAreaRegistration.cs" />
+    <Compile Include="Controllers\AccountController.cs" />
+    <Compile Include="Controllers\AjaxController.cs" />
+    <Compile Include="Controllers\CompareController.cs" />
+    <Compile Include="Controllers\DetailController.cs" />
+    <Compile Include="Controllers\EditorController.cs" />
+    <Compile Include="Controllers\HomeController.cs" />
+    <Compile Include="Controllers\ManageController.cs" />
+    <Compile Include="Controllers\MessageController.cs" />
+    <Compile Include="Controllers\PageController.cs" />
+    <Compile Include="Controllers\SearchController.cs" />
+    <Compile Include="Controllers\StyleController.cs" />
+    <Compile Include="Global.asax.cs">
+      <DependentUpon>Global.asax</DependentUpon>
+    </Compile>
+    <Compile Include="Models\AccountViewModels.cs" />
+    <Compile Include="Models\IdentityModels.cs" />
+    <Compile Include="Models\ManageViewModels.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Startup.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Views\web.config">
+      <SubType>Designer</SubType>
+    </Content>
+    <Content Include="packages.config" />
+    <Content Include="Views\_ViewStart.cshtml" />
+    <Content Include="Views\Shared\_Layout.cshtml" />
+    <Content Include="Views\Shared\Header.cshtml" />
+    <Content Include="Views\Shared\Footer.cshtml" />
+    <Content Include="Views\Shared\Management\_EnumerationEditor.cshtml" />
+    <Content Include="Views\Home\Index.cshtml" />
+    <Compile Include="App_Start\Startup.Auth.cs" />
+    <Content Include="Areas\Admin\Views\web.config" />
+    <Content Include="Areas\Users\Views\web.config" />
+    <Content Include="Areas\Admin\Views\_ViewStart.cshtml" />
+    <Content Include="Areas\Admin\Views\Shared\_Layout.cshtml" />
+    <Content Include="Areas\Admin\Views\Organization\Index.cshtml" />
+    <Content Include="Areas\Admin\Views\Organization\Members.cshtml" />
+    <Content Include="App_Data\keys\ctiDevPlainRegistry.key" />
+    <Content Include="App_Data\keys\ctiDevPlainRegistry.key.pem" />
+    <Content Include="App_Data\keys\ctiProdRegistry.key" />
+    <Content Include="App_Data\keys\ctiProdRegistry.key.pem" />
+    <None Include="Properties\PublishProfiles\Github Project Deploy.pubxml" />
+    <None Include="Properties\PublishProfiles\Production.pubxml" />
+    <Content Include="Views\Shared\Management\_BaseProfileEditor.cshtml" />
+    <Content Include="Scripts\test.json" />
+    <Content Include="Views\Shared\Management\_EditorCore.cshtml" />
+    <Content Include="Views\Account\ExternalLoginConfirmation.cshtml" />
+    <Content Include="Views\Account\ExternalLoginFailure.cshtml" />
+    <Content Include="Views\Account\Login.cshtml" />
+    <Content Include="Views\Account\Manage.cshtml" />
+    <Content Include="Views\Account\Register.cshtml" />
+    <Content Include="Views\Account\_ExternalLoginsListPartial.cshtml" />
+    <Content Include="Views\Account\_RemoveAccountPartial.cshtml" />
+    <Content Include="Views\Shared\_LoginPartial.cshtml" />
+    <Content Include="Views\Manage\AddPhoneNumber.cshtml" />
+    <Content Include="Views\Manage\ChangePassword.cshtml" />
+    <Content Include="Views\Manage\Index.cshtml" />
+    <Content Include="Views\Manage\ManageLogins.cshtml" />
+    <Content Include="Views\Manage\SetPassword.cshtml" />
+    <Content Include="Views\Manage\VerifyPhoneNumber.cshtml" />
+    <Content Include="Styles\zocial.eot" />
+    <Content Include="Styles\zocial.ttf" />
+    <Content Include="Styles\zocial.woff" />
+    <Content Include="Views\Shared\Management\_DurationEditor.cshtml" />
+    <None Include="Properties\PublishProfiles\Test Project Deploy.pubxml" />
+    <None Include="Properties\PublishProfiles\Test web package deploy.pubxml" />
+    <Content Include="Views\Shared\Management\_SearchCore.cshtml" />
+    <Content Include="Views\Shared\_ConsoleMessage.cshtml" />
+    <Content Include="Views\Shared\_ModalWindows.cshtml" />
+    <Content Include="Views\Account\ForgotPassword.cshtml" />
+    <Content Include="Views\Account\ForgotPasswordConfirmation.cshtml" />
+    <Content Include="Views\Account\ResetPassword.cshtml">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="Views\Account\ResetPasswordConfirmation.cshtml">
+      <SubType>Code</SubType>
+    </Content>
+    <Content Include="Views\Shared\Management\_MicroSearch.cshtml" />
+    <Content Include="Views\Shared\_ToolTips.cshtml" />
+    <Content Include="Views\Search\Index-old.cshtml" />
+    <Content Include="Views\Search\Index.cshtml" />
+    <Content Include="Views\Shared\Detail\_DetailCore.cshtml" />
+    <Content Include="Views\Shared\Detail\_OrganizationBox.cshtml" />
+    <Content Include="Views\Shared\Detail\_ConditionProfile.cshtml" />
+    <Content Include="Views\Search\_EnumerationFilter.cshtml" />
+    <Content Include="Views\Editor\_DurationEditor.cshtml" />
+    <Content Include="Views\Home\About.cshtml" />
+    <Content Include="Views\Compare\Index.cshtml" />
+    <Content Include="Views\Compare\_CompareCore.cshtml" />
+    <Content Include="Views\Compare\_CompareBar.cshtml" />
+    <Content Include="Views\Home\_Content_QualityAssuranceInformation.cshtml" />
+    <Content Include="Views\Home\_Content_CredentialInformation.cshtml" />
+    <Content Include="Views\Home\_Content_AudienceInformation.cshtml" />
+    <Content Include="Views\Editor\Editor.cshtml" />
+    <Content Include="Views\Editor\_PropertyBox.cshtml" />
+    <Content Include="Views\Editor\_ListBox.cshtml" />
+    <Content Include="Views\Editor\_ProfileBox.cshtml" />
+    <Content Include="Views\Shared\Detail\_CostProfile.cshtml" />
+    <Content Include="Views\Shared\Detail\_JurisdictionProfile.cshtml" />
+    <Content Include="Views\Editor\_MicroSearch.cshtml" />
+    <Content Include="Views\Account\ConfirmEmail.cshtml" />
+    <Content Include="Views\Account\SendCode.cshtml" />
+    <Content Include="Views\Account\VerifyCode.cshtml" />
+    <Content Include="Views\Account\ConfirmationRequired.cshtml" />
+    <Content Include="Views\Editor\_TextValueEditor.cshtml" />
+    <Content Include="Views\V2\Shared\_Header.cshtml" />
+    <Content Include="Views\V2\Shared\_Footer.cshtml" />
+    <Content Include="Views\V2\_ViewStart.cshtml" />
+    <Content Include="Views\V2\Shared\_Layout.cshtml" />
+    <Content Include="Views\V2\Search\Index.cshtml" />
+    <Content Include="Views\V2\Style\commonV2.cshtml" />
+    <Content Include="Views\V2\Search\_EnumerationFilter.cshtml" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Bold-webfont.eot" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Bold-webfont.ttf" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Bold-webfont.woff" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Bold-webfont.woff2" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-BoldItalic-webfont.eot" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-BoldItalic-webfont.ttf" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-BoldItalic-webfont.woff" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-BoldItalic-webfont.woff2" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Italic-webfont.eot" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Italic-webfont.ttf" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Italic-webfont.woff" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Italic-webfont.woff2" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Light-webfont.eot" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Light-webfont.ttf" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Light-webfont.woff" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Light-webfont.woff2" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-LightItalic-webfont.eot" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-LightItalic-webfont.ttf" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-LightItalic-webfont.woff" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-LightItalic-webfont.woff2" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Regular-webfont.eot" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Regular-webfont.ttf" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Regular-webfont.woff" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-Regular-webfont.woff2" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-SemiBold-webfont.eot" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-SemiBold-webfont.ttf" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-SemiBold-webfont.woff" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-SemiBold-webfont.woff2" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-SemiBoldItalic-webfont.eot" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-SemiBoldItalic-webfont.ttf" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-SemiBoldItalic-webfont.woff" />
+    <Content Include="Styles\Webfonts\Gibson\Gibson-SemiBoldItalic-webfont.woff2" />
+    <Content Include="Views\V2\Compare\_CompareBar.cshtml" />
+    <Content Include="Views\V2\Compare\_CompareCore.cshtml" />
+    <Content Include="Views\V2\Compare\Index.cshtml" />
+    <Content Include="Styles\Webfonts\TrumpGothicPro\TrumpGothicPro-Medium-webfont.eot" />
+    <Content Include="Styles\Webfonts\TrumpGothicPro\TrumpGothicPro-Medium-webfont.ttf" />
+    <Content Include="Styles\Webfonts\TrumpGothicPro\TrumpGothicPro-Medium-webfont.woff" />
+    <Content Include="Styles\Webfonts\TrumpGothicPro\TrumpGothicPro-Medium-webfont.woff2" />
+    <Content Include="Views\V2\Home\Index.cshtml" />
+    <Content Include="Views\V2\Detail\Index.cshtml" />
+    <Content Include="Views\V2\Detail\_Roles.cshtml" />
+    <Content Include="Views\Shared\Lockout.cshtml" />
+    <Content Include="Views\Shared\Error.cshtml" />
+    <Content Include="Views\Account\UserProfile.cshtml" />
+    <Content Include="Views\V2\Account\Register.cshtml" />
+    <Content Include="Views\V2\Account\_ExternalLoginsListPartial.cshtml" />
+    <Content Include="Views\V2\Account\Login.cshtml" />
+    <Content Include="Views\V2\Account\ForgotPassword.cshtml" />
+    <Content Include="Views\V2\Account\ForgotPasswordConfirmation.cshtml" />
+    <Content Include="Views\V2\Account\ResetPassword.cshtml" />
+    <Content Include="Views\V2\Account\ResetPasswordConfirmation.cshtml" />
+    <Content Include="Views\V2\Account\ConfirmationRequired.cshtml" />
+    <Content Include="Views\V2\Account\ConfirmEmail.cshtml" />
+    <Content Include="Views\V2\Account\ExternalLoginConfirmation.cshtml" />
+    <Content Include="Views\V2\Account\ExternalLoginFailure.cshtml" />
+    <Content Include="Views\V2\Account\ChangePassword.cshtml" />
+    <Content Include="Views\V2\Style\account.cshtml" />
+    <Content Include="Views\Message\NotAuthorized.cshtml" />
+    <Content Include="Views\V2\Account\UserProfile.cshtml" />
+    <Content Include="Views\V2\Compare\IndexV2.cshtml" />
+    <Content Include="Views\V2\Search\_MicroSearchFilter.cshtml" />
+    <Content Include="Views\V2\Shared\_OldBrowserWarning.cshtml" />
+    <Content Include="Views\V2\Search\_TextFilter.cshtml" />
+    <None Include="Web.ctiTest.config">
+      <DependentUpon>Web.config</DependentUpon>
+      <SubType>Designer</SubType>
+    </None>
+    <None Include="Web.Debug.config">
+      <DependentUpon>Web.config</DependentUpon>
+    </None>
+    <None Include="Web.Github.config">
+      <DependentUpon>Web.config</DependentUpon>
+    </None>
+    <None Include="Web.Test.config">
+      <DependentUpon>Web.config</DependentUpon>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Areas\Admin\Models\" />
+    <Folder Include="Areas\Users\Controllers\" />
+    <Folder Include="Areas\Users\Models\" />
+    <Folder Include="Areas\Users\Views\Shared\" />
+    <Folder Include="Views\Ajax\" />
+    <Folder Include="Views\Page\" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Common\Utilities\Utilities.csproj">
+      <Project>{5af99218-bbd8-48c4-bbde-eff5f35b4e05}</Project>
+      <Name>Utilities</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\CTIServices\CTIServices.csproj">
+      <Project>{33975a3c-9628-4d4f-a91a-72d4755b78e7}</Project>
+      <Name>CTIServices</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Models\Models.csproj">
+      <Project>{f8f98544-dde4-4523-a633-3f2a9707e125}</Project>
+      <Name>Models</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
+    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'ctiTest|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Test|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Github|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(VSToolsPath)\WebApplications\Microsoft.WebApplication.targets" Condition="'$(VSToolsPath)' != ''" />
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v10.0\WebApplications\Microsoft.WebApplication.targets" Condition="false" />
+  <ProjectExtensions>
+    <VisualStudio>
+      <FlavorProperties GUID="{349c5851-65df-11da-9384-00065b846f21}">
+        <WebProjectProperties>
+          <UseIIS>True</UseIIS>
+          <AutoAssignPort>True</AutoAssignPort>
+          <DevelopmentServerPort>10511</DevelopmentServerPort>
+          <DevelopmentServerVPath>/</DevelopmentServerVPath>
+          <IISUrl>https://localhost:44315/</IISUrl>
+          <NTLMAuthentication>False</NTLMAuthentication>
+          <UseCustomServer>False</UseCustomServer>
+          <CustomServerUrl>
+          </CustomServerUrl>
+          <SaveServerSettingsInUserFile>False</SaveServerSettingsInUserFile>
+        </WebProjectProperties>
+      </FlavorProperties>
+    </VisualStudio>
+  </ProjectExtensions>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

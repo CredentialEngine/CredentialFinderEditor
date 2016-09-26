@@ -1,0 +1,12 @@
+﻿@model Models.Common.Organization
+<div class="organizationBox" data-organizationID="@Model.Id">
+    <div class="organizationBox_Basics">
+        <div class="organizationBox_Roles">@string.Join( ", ", Model.OrganizationRole_Actor.Select( m => m.RoleType.Name ) )</div>
+        <a class="organizationBox_Name" target="_blank" href="@Url.Content( "~/organizationmanagement/detail2/" + Model.Id )">@Model.Name</a>
+        <div class="organizationBox_Description">@Html.Raw( Model.Description.Length > 100 ? Model.Description.Substring( 0, 100 ) + "..." : @Model.Description )</div>
+    </div>
+    <div class="organizationBox_Data">
+        <div class="organizationBox_Logo" style="background-image: url('@Model.ImageUrl'), linear-gradient(#CCC, #EEE);"></div>
+        <img class="mapMarkerButton clickable" tabindex="0" src="@Url.Content( "~/images/icons/cti_icon_mapmarker_pink.png" )" onclick="centerMapOnOrganization('organizationMap', '@Model.Id');" />
+    </div>
+</div>

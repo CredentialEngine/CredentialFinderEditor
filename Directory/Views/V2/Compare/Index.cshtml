@@ -1,0 +1,152 @@
+﻿@model CompareItemSummary
+@using Models.Helpers;
+@{
+    ViewBag.Title = "Index";
+}
+
+@Html.Partial( "~/Views/Compare/_CompareCore.cshtml", "" )
+
+<script type="text/javascript">
+    /* Page Functions */
+
+    function setViewMode(mode) {
+        $(".compareList").removeClass("columns rows").addClass(mode);
+        $(".toolSection#viewMode input").removeClass("selected").filter("[data-view=" + mode + "]").addClass("selected");
+    }
+    //
+
+    function setType(type) {
+        $(".toolSection#type input, .compareList").removeClass("selected").filter("[data-type=" + type + "]").addClass("selected");
+    }
+    //
+</script>
+<style type="text/css">
+    ul { margin: 0; }
+    #toolbar {  }
+    #toolbar .toolSection { margin: 0 10px; text-align: right; }
+    #toolbar .toolSection button { padding: 5px 10px; margin: 2px 10px; }
+
+    td { padding: 5px; min-width: 250px; vertical-align: top; color: #000; } 
+    .compareList { overflow: auto; }
+    .compareList:not(.selected) { display: none; }
+
+    .compareList.rows tr { border-bottom: 1px solid #CAD9DB; }
+    .compareList.rows .compareItem { display: table-row; }
+    .compareList.rows td { display: table-cell; border: none; padding: 15px; }
+    .compareList.rows td:not(.title) { color: #607171; }
+
+    .compareList.columns .compareItem { display: inline-block; vertical-align: top; width: 300px; }
+    .compareList.columns td { display: block; padding: 15px; }
+
+    .compareList.rows th { font-weight: bold; font-size: 18px; background-color: #555; color: #FFF; padding: 10px; text-align: left; }
+    .compareList.columns th { display: none; }
+
+    .title { font-weight: bold; font-size: 18px; background-color: #F2F4F4; }
+    .description { white-space: pre-wrap; }
+</style>
+
+<h1>Comparing Items</h1>
+
+<div id="comparator">
+
+    @* Toolbar *@
+    <div id="toolbar">
+        <div class="toolSection" id="type">
+            <button class="whiteButton selected" data-type="credential" onclick="setType('credential');"><i class="fa fa-copy"></i> Compare Credentials</button>
+            <button type="button" class="whiteButton" data-type="organization" onclick="setType('organization');"><i class="fa fa-copy"></i> Compare Organizations</button>
+        </div>
+        @*<div class="toolSection" id="viewMode">
+            <input type="button" class="selected" data-view="rows" onclick="setViewMode('rows');" value="View in Rows" />
+            <input type="button" data-view="columns" onclick="setViewMode('columns');" value="View in Columns" />
+        </div>*@
+    </div>
+
+    @* Credentials *@
+    <div class="compareList rows selected" data-type="credential">
+        <table>
+            <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Credential Type</th>
+                <th>Level</th>
+                <th>Industry</th>
+                <th>Occupation</th>
+            </tr>
+            @foreach ( var item in Model.Credentials )
+            {
+                <tr>
+                    <td class="title"><a href="@Url.Content( "~/detail/credential/" + item.Id )">@item.Name</a></td>
+                    <td class="description">@Html.Raw( item.Description )</td>
+                    <td class="cbxl">
+                        <ul>
+                            @foreach( var type in item.CredentialType.Items )
+                            {
+                                <li>@type.Name</li>
+                            }
+                        </ul>
+                    </td>
+                    <td class="cbxl">
+                        <ul>
+                            @foreach ( var level in item.CredentialLevel.Items )
+                            {
+                                <li>@level.Name</li>
+                            }
+                        </ul>
+                    </td>
+                    <td class="cbxl">
+                        <ul>
+                            @foreach ( var level in item.Industry.Items )
+                            {
+                                <li>@level.Name</li>
+                            }
+                        </ul>
+                    </td>
+                    <td class="cbxl">
+                        <ul>
+                            @foreach ( var level in item.Occupation.Items )
+                            {
+                                <li>@level.Name</li>
+                            }
+                        </ul>
+                    </td>
+                </tr>
+            }
+        </table>
+    </div>
+
+    @* Organizations *@
+    <div class="compareList rows" data-type="organization">
+        <table>
+            <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Organization Type</th>
+                <th>Service Type</th>
+            </tr>
+            @foreach ( var item in Model.Organizations )
+            {
+                <tr>
+                    <td class=" title"><a href="@Url.Content( "~/detail/organization/" + item.Id )" target="_blank">@item.Name</td>
+                    <td class=" description">@Html.Raw( item.Description )</td>
+                    <td class=" cbxl">
+                        <ul>
+                            @foreach ( var type in item.OrganizationType.Items )
+                            {
+                                <li>@type.Name</li>
+                            }
+                        </ul>
+                    </td>
+                    <td class=" cbxl">
+                        <ul>
+                            @foreach ( var type in item.ServiceType.Items )
+                            {
+                                <li>@type.Name</li>
+                            }
+                        </ul>
+                    </td>
+                </tr>
+            }
+        </table>
+    </div>
+
+</div>

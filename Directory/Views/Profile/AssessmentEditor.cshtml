@@ -1,0 +1,153 @@
+﻿@model Models.ProfileModels.AssessmentProfile
+@using Models.Common;
+@{
+    ViewBag.Title = "Assessment Editor";
+    var enumServices = new EnumerationServices();
+
+     ViewBag.GetOrgs = true;
+     ViewBag.GetQAOrgs = false;
+
+     var activeSection = string.IsNullOrWhiteSpace( ViewBag.ActiveSection ) ? "basic" : ViewBag.ActiveSection;
+     var tabs = new List<dynamic>() {
+			new { name = "basic", title = "Basic Information", tabs = new List<string>() { "Name", "Url", "IdentificationCode", "DateEffective", "Description", "AssessmentExampleUrl", "AssessmentType", "Modality", "EstimatedDuration", "Jurisdiction" } },
+			new { name = "roles", title = "Organization Roles", tabs = new List<string>() { "OrganizationRole" } },
+			new { name = "cost", title = "Estimated Costs", tabs = new List<string>() { "EstimatedCost"} }
+	};
+}
+
+
+@Html.Partial( "~/Views/Shared/Management/_EditorCore.cshtml", null, new ViewDataDictionary() { { "editorTabs", tabs }, { "activeSection", activeSection } } )
+
+<script type="text/javascript">
+    //Hold data from server if there is any
+    var starterData = @Html.Raw( new System.Web.Script.Serialization.JavaScriptSerializer().Serialize( Model ) );
+    var activeSection = "@activeSection";
+    var mainObjectID = @Model.Id;
+    var controller = "Profile";
+    var objectType = "assessment";
+</script>
+<script type="text/javascript">
+	//Page Functions
+    function preview() {
+        consoleMessage.addErrorMessage("Preview not implemented for assessments yet.", "", 2000);
+        return;
+	}
+
+    //Preview changers
+    function showCollectedData() {
+        collectFormData();
+        doAjax(controller, "echo_assessment", { input: formData }, finishServerReload);
+        $("#collectedDataContent").html(JSON.stringify(formData, null, "\t"));
+        $("#serverDataContent").html("Loading...");
+        $("#collectedData").fadeIn();
+    }
+    function reloadDataServer() {
+        collectFormData();
+        doAjax(controller, "echo_assessment", { input: formData }, finishServerReload);
+        wipeForm();
+    }
+</script>
+
+<h1>@Html.Raw( Model.Id > 0 ? "Editing Assessment/Exam: " + Model.Name : "New Assessment/Exam" )</h1>
+
+<div id="tabs">
+    @foreach ( var tab in tabs )
+		{
+        <input type="button" data-hasdata="false" data-name="@tab.title" data-tabid="@tab.name" value="@tab.title" onclick="showTab('@tab.name');" />
+		}
+</div><!--
+--><form id="editForm">
+    <div class="field" data-property="Name">
+        <h2>Assessment/Exam Name <span class="required">(Required)</span></h2>
+        <i>If the assessment has a formal name, provide it here.</i>
+        <input type="text" data-property="Name" data-type="text" data-required="true" data-minlength="5" />
+    </div>
+
+    <div class="field" data-property="Url">
+        <i>Provide the URL of the assessment.</i>
+        <input type="text" data-property="Url" data-type="url" placeholder="http://" />
+    </div>
+
+    <div class="field" data-property="IdentificationCode">
+        <i>Provide the identification code for the assessment, if it has one.</i>
+        <input type="text" data-property="IdentificationCode" data-type="text" />
+    </div>
+
+    <div class="field" data-property="DateEffective">
+        <i>Indicate the date this item's information first became effective, published, or applicable.</i>
+        <input type="text" data-property="DateEffective" data-type="date" placeholder="MM/DD/YYYY" />
+    </div>
+
+    <div class="field" data-property="Description">
+        <i>Briefly summarize this assessment.</i>
+        <textarea data-property="Description" data-type="text"></textarea>
+    </div>
+
+    <div class="field repeating" data-property="AssessmentExampleUrl">
+        <i>Provide the URLs of any references or applicable examples of this assessment.</i>
+        <div class="repeaterItems" data-repeaterid="AssessmentExampleUrl" data-title="Example URL"></div>
+        <div class="repeater withItems" data-property="AssessmentExampleUrl" id="AssessmentExampleUrl" data-profile="UrlProfile"></div>
+        <div class="buttons">
+            <input type="button" onclick="addProfile('UrlProfile', 'AssessmentExampleUrl');" value="Add Example URL" />
+        </div>
+    </div>
+       <div class="field" data-property="AssessmentExampleUrl2">
+           <i>Provide the URLs of any references or applicable examples of this assessment. One URL per line.</i>
+           <textarea data-property="AssessmentExampleUrl2" data-type="multi"></textarea>
+       </div>
+    <div class="field column2" data-property="AssessmentType">
+        <i>Indicate the type(s) of assessment. Check all that apply.</i>
+        @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetEnumeration( "assessmentType", EnumerationType.MULTI_SELECT ) )
+        <b>Other (enter type)</b>
+        <input type="text" data-property="OtherAssessmentType" data-type="text" placeholder="If you selected &quot;other&quot;, explain here." />
+    </div>
+
+    <div class="field column2" data-property="Modality">
+        <i>Indicate the type(s) of Modality. Check all that apply.</i>
+        @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetEnumeration( "modality", EnumerationType.MULTI_SELECT ) )
+    </div>
+
+    <div class="field repeating" data-property="OrganizationRole">
+        <i>Indicate which roles are played by which organizations relative to this assessment.</i>
+        <div class="repeaterItems" data-repeaterid="OrganizationRoles" data-title="Relationship Description"></div>
+        <div class="repeater withItems" data-property="OrganizationRole" id="OrganizationRoles" data-profile="EntityRoleProfileInverse"></div>
+        <div class="buttons">
+            <input type="button" onclick="addProfile('EntityRoleProfileInverse', 'OrganizationRoles');" value="Add Relationship Description" />
+        </div>
+    </div>
+
+    <div class="field" data-property="EstimatedDuration">
+        <i>Estimate the time it will take to complete this assessment.</i>
+        <div class="repeaterItems" data-repeaterid="EstimatedDuration" data-title="Duration Profile"></div>
+        <div class="repeater withItems" data-property="EstimatedDuration" id="EstimatedDuration" data-profile="DurationProfile"></div>
+        <div class="buttons">
+            <input type="button" onclick="addProfile('DurationProfile', 'EstimatedDuration');" value="Add Duration Description" />
+        </div>
+    </div>
+
+    <div class="field repeating" data-property="Jurisdiction">
+        <i>Indicate the region for which the information in this item is relevant.</i>
+        <div class="repeaterItems" data-repeaterid="Jurisdiction" data-title="Jurisdiction"></div>
+        <div class="repeater withItems" data-property="Jurisdiction" id="Jurisdiction" data-profile="JurisdictionProfile"></div>
+        <div class="buttons">
+            <input type="button" onclick="addProfile('JurisdictionProfile', 'Jurisdiction');" value="Add A Jurisdiction" />
+        </div>
+    </div>
+
+    <div class="field repeating" data-property="EstimatedCost">
+        <i>Indicate the nature of costs associated with taking this assessment.</i>
+        <div class="repeaterItems" data-repeaterid="AssessmentCost" data-title="Assessment Cost"></div>
+        <div class="repeater withItems" data-property="EstimatedCost" id="AssessmentCost" data-profile="CostProfileSplit"></div>
+        <div class="buttons">
+            <input type="button" onclick="addProfile('CostProfileSplit', 'AssessmentCost');" value="Add Attainment Cost Description" />
+        </div>
+    </div>
+
+
+</form>
+<div id="actionButtons">
+    <div id="status"></div>
+    <input type="button" id="btnSaveData" value="Save Data" onclick="updateData('profile', 'assessmentupdate', this);" />
+    <input type="button" id="btnDelete" class="actionButton redButton" value="Delete" onclick="deleteData('Profile', 'DeleteAssessment', this);" />
+    @*<input type="button" id="btnPreview" value="Preview" onclick="preview();" />*@
+</div>

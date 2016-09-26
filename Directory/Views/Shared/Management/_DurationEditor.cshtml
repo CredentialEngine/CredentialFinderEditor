@@ -1,0 +1,21 @@
+﻿@model string
+<input type="hidden" data-group="{id}_@Model" data-property="@Model" data-type="duration" />
+<div class="subproperties" data-type="duration" data-group="{id}_@Model">
+    @*<div class="dPart">Years:</div><input type="text" class="dPart" data-type="number" data-group="{id}_@Model" data-subproperty="Years" placeholder="Years" />
+    <div class="dPart">Months:</div><input type="text" class="dPart" data-type="number" data-group="{id}_@Model" data-subproperty="Months" placeholder="Months" />
+    <div class="dPart">Weeks:</div><input type="text" class="dPart" data-type="number" data-group="{id}_@Model" data-subproperty="Weeks" placeholder="Weeks" />
+    <div class="dPart">Days:</div><input type="text" class="dPart" data-type="number" data-group="{id}_@Model" data-subproperty="Days" placeholder="Days" />
+    <div class="dPart">Hours:</div><input type="text" class="dPart" data-type="number" data-group="{id}_@Model" data-subproperty="Hours" placeholder="Hours" />
+    <div class="dPart">Minutes:</div><input type="text" class="dPart" data-type="number" data-group="{id}_@Model" data-subproperty="Minutes" placeholder="Minutes" />*@
+    <table>
+        <tr><th>Years</th><th>Months</th><th>Weeks</th><th>Days</th><th>Hours</th></tr>
+        <tr>
+            <td><input type="text" data-type="number" data-group="{id}_@Model" data-subproperty="Years" placeholder="Years" /></td>
+            <td><input type="text" data-type="number" data-group="{id}_@Model" data-subproperty="Months" placeholder="Months" /></td>
+            <td><input type="text" data-type="number" data-group="{id}_@Model" data-subproperty="Weeks" placeholder="Weeks" /></td>
+            <td><input type="text" data-type="number" data-group="{id}_@Model" data-subproperty="Days" placeholder="Days" /></td>
+            <td><input type="text" data-type="number" data-group="{id}_@Model" data-subproperty="Hours" placeholder="Hours" /></td>
+        </tr>
+    </table>
+
+</div>

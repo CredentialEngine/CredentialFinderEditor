@@ -1,0 +1,6 @@
+﻿@model Models.Search.TextFilterSettings
+<div class="filter textFilter" data-searchtype="@Model.SearchType" data-filtername="@Model.FilterName" data-categoryID="@Model.CategoryId" data-fields="@(string.Join(",", Model.Fields))">
+    <div class="textFilterTitle">@Model.InputTitle</div>
+    <p class="textFilterGuidance">@Model.Guidance</p>
+    <input type="text" class="textFilterText" placeholder="@Model.Placeholder" />
+</div>

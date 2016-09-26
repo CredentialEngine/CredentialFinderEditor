@@ -1,0 +1,60 @@
+﻿@model Models.Node.Interface.ProfileSettings
+@using Models.Node.Interface;
+@switch ( Model.Type )
+{
+    case ProfileSettings.ModelType.LIST:
+    {
+        <div class="profileBox tabItem @string.Join( " ", Model.ExtraClasses )" data-profile="@Model.Profile" data-property="@Model.Property" data-parentRepeaterID="@Model.ParentRepeaterId" data-profileTitle="@Model.Label">
+            <h2 class="profileLabel">@Model.Label</h2>
+            <div class="profileData">
+                <div class="guidance">@Model.Guidance</div>
+                <div class="profileList"></div>
+                <div class="profileButtons">
+                    <input type="button" value="@Model.AddText" onclick="addNewProfile(@Model.ParentRepeaterId, '@Model.Property', this);" />
+                </div>
+            </div>
+        </div>
+    }
+    break;
+    case ProfileSettings.ModelType.WRAPPER_START:
+    {
+        @:<div class="profile @( Model.HasTabs ? "hasTabs" : "" ) @string.Join( " ", Model.ExtraClasses )" data-profile="@Model.Profile" data-recordID="{RecordId}" data-recordRowId="{RecordRowId}" data-repeaterID="{repeaterID}" data-property="{Property}" data-parentRepeaterID="{parentRepeaterID}">
+            <div class="profileTitle">{profileTitle}</div>
+            @:<div class="profileContent">
+                if ( Model.HasTabs )
+                {
+                    <div class="tabs">
+                        @foreach ( var tab in Model.TabItems )
+                        {
+                            <input type="button" class="@(tab.Value == Model.TabItems.First().Value ? "selected" : "")" value="@tab.Key" data-properties="@tab.Value" />
+                        }
+                    </div>
+                    @:<div class="tabItems">
+                }
+                if ( Model.IncludeName )
+                {
+                    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Name", Label = "Profile Name", Type = TextInputSettings.InputType.TEXT, Guidance = "Enter a name to help you identify this profile later." } )
+                }
+    }
+    break;
+    case ProfileSettings.ModelType.WRAPPER_END: 
+    {
+                if ( Model.HasTabs )
+                {
+                    @:</div>
+                }
+            @:</div>
+            <div class="profileBoxButtons">
+                <input class="actionButton" type="button" value="Save and Continue" onclick="saveProfile({repeaterID}, this, null, false);" />
+                <input class="actionButton" type="button" value="Save and Close" onclick="saveProfile({repeaterID}, this, null, true);" />
+                <input class="redButton" type="button" value="Cancel" onclick="cancelProfile({repeaterID}, this);" />
+                <input class="redButton" type="button" value="Delete" onclick="deleteProfile({repeaterID}, this);" />
+            </div>
+        @:</div>
+    }
+    break;
+    default: break;
+}
+
+        
+

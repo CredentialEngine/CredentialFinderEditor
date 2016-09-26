@@ -1,0 +1,1945 @@
+﻿@using Models.Search
+@{
+    ViewBag.Title = "Credential Directory";
+    var searchType = string.IsNullOrWhiteSpace( Request.Params[ "searchType" ] ) ? "credential" : Request.Params[ "searchType" ].ToLower();
+    var sortOrder = string.IsNullOrWhiteSpace( Request.Params[ "sortOrder" ] ) ? "relevance" : Request.Params[ "sortOrder" ].ToLower();
+    var preselectedFilters = new Dictionary<int, List<int>>();
+    try
+    {
+        var filterString = string.IsNullOrWhiteSpace( Request.Params[ "filters" ] ) ? "" : Request.Params[ "filters" ];
+        foreach ( var filterchunk in filterString.Split( '_' ) )
+        {
+            var chunkParts = filterchunk.Split( '-' );
+            var categoryID = int.Parse( chunkParts[ 0 ] );
+            var filterIDs = chunkParts[ 1 ].Split( ',' ).Select( int.Parse ).ToList();
+            preselectedFilters.Add( categoryID, filterIDs );
+        }
+    }
+    catch { }
+
+    var canEditDocument = AccountServices.IsUserSiteStaff();
+    
+    var enumServices = new EnumerationServices();
+
+    var industryCodes = EnumerationServices.NAICS_Categories_Enumeration();
+    var occupationCodes = EnumerationServices.SOC_Categories_Enumeration();
+    var cipCodes = EnumerationServices.CIPS_Categories_Enumeration();
+    var audiences = enumServices.GetEnumeration( "applicableAudienceType", Models.Common.EnumerationType.MULTI_SELECT, false, false );
+    var googleMapsKey = new ThirdPartyApiServices().GetGoogleMapsApiKey();
+
+    var enableMap = true;
+}
+
+@Html.Partial( "~/Views/V2/Compare/_CompareBar.cshtml", "" )
+
+<script type="text/javascript">
+    /* Server and global variables */
+    var currentFilters = [];
+    var currentResults = [];
+    var previousQuery = "";
+    var previousKeywords = "";
+    var currentPage = 1;
+    var pageSize = 25;
+    var sortOrder = "@sortOrder";
+    var totalPages = 0;
+    var searchType = "@searchType";
+    var searchTimer = 0;
+    var autoPaging = {
+        enabled: true, //master switch
+        searching: false, //search in progress already
+        waiting: false, //waiting on cooldown
+        cooldown: 0, //cooldown timer
+    };
+    var statusTypes = {
+        searching: "searching",
+        success: "success",
+        error: "error"
+    };
+    var maps = {
+        credential: { box: "#credentialMap", map: {}, markers: [], autoZoom: true },
+        organization: { box: "#organizationMap", map: {}, markers: [], autoZoom: true },
+        assessment: { box: "#assessmentMap", map: {}, markers: [], autoZoom: true },
+        learningopportunity: { box: "#learningOpportunityMap", map: {}, markers: [], autoZoom: true }
+    };
+    var mapCenter = { lat: 37.0902, lng: -95.7129 };
+
+    /* Initialization */
+    $(document).ready(function () {
+        window.name = ""; //Reset window name
+        setupSearchType();
+        setupKeywords();
+        setupSortOrder();
+        setupFilters();
+        setupBlurring();
+        setupInfiniteScroll();
+        setupDescriptionTruncation();
+        setupStickyMap();
+        setupLocationSearch();
+        doAutoSearch();
+    });
+
+
+    function setupKeywords() {
+        previousKeywords = $("#txtKeywords").val();
+        $("#txtKeywords").on("keyup change", function (e) {
+            var value = $(this).val();
+            if (e.which == 9 || e.keyCode == 9) {
+                return; //Ignore tab
+            }
+            if(previousKeywords == value){
+                return; //Ignore duplicate query (change is fired on blur)
+            }
+            previousKeywords = value;
+
+            //Search
+            resetCountdown();
+        });
+    }
+    //
+
+    function setupFilters(){
+        //Do a search when a filter changes
+        $(".filter input, .filter select, #ddlSearchType, #ddlSortOrder").not(".microSearchFilterBox *").on("keyup change", function (e) {
+            updateCurrentFilters();
+            resetCountdown();
+        });
+
+        $(".filter input[type=checkbox], .filter input[type=radio]").on("change", function() { 
+            $(this).blur();
+        });
+
+        //Auto-close the filter box when the user clicks outside it
+        $("html").not("#filtersMenu, #btnToggleFilters, #selectedFilterList, #searchBox").on("click", function () {
+            hideFilters();
+        });
+        $("#filtersList, #btnToggleFilters, #selectedFilterList, #searchBox").on("click", function (e) {
+            e.stopPropagation();
+            return;
+        });
+
+        //Switch which filter options show
+        $("#filterCategories input").on("click", function() {
+            showFiltersOption($(this).attr("data-filtername"));
+        });
+
+        showFilterType('@searchType');
+    }
+    //
+
+    function setupSearchType() {
+        $("#ddlSearchType").on("change", function () {
+            searchType = $(this).find("option:selected").attr("value");
+            showFilterType(searchType);
+            showMapType(searchType);
+        });
+    }
+    //
+
+    function setupSortOrder() {
+        $("#ddlSortOrder").on("change", function(){
+            sortOrder = $(this).find("option:selected").attr("value");
+        });
+    }
+    //
+
+    function setupBlurring() {
+        $("input[type=button]").on("mouseup", function() { 
+            $(this).blur();
+        })
+    }
+    //
+
+    function setupInfiniteScroll() {
+        var autoPagingStatus = $("#autoPagingStatus");
+        var win = $(window);
+        $(window).on("scroll", function() {
+            if(currentPage >= totalPages){
+                return;
+            }
+            var scrollTop = document.body.scrollTop || document.documentElement.scrollTop;
+            var winHeight = win.height();
+            var offset = autoPagingStatus.offset();
+            var trigger = (scrollTop + winHeight) + 100;
+            if(trigger >= offset.top && autoPaging.enabled && !autoPaging.searching && !autoPaging.waiting){
+                //Load the next page of results
+                currentPage++;
+                doSearch(true);
+
+                //Activate cooldown to prevent search spam
+                autoPaging.waiting = true;
+                setTimeout(function() {
+                    autoPaging.waiting = false;
+                }, 1000);
+
+                setAutoPagingStatus("", statusTypes.searching);
+            }
+            else if(autoPaging.searching || autoPaging.waiting) {
+                setAutoPagingStatus("Search is busy, please scroll again!", statusTypes.error);
+            }
+        });
+    }
+    //
+
+    function setupMapBox(){
+        //For each map item...
+        for(var i in maps){
+            //Create the map
+            maps[i].map = new google.maps.Map($(maps[i].box)[0], { center: mapCenter, zoom: 4 });
+        }
+        wakeMaps();
+    }
+    //
+
+    function setupStickyMap(){
+        $("#content").attr("data-viewMode", "list");
+        var header = $("#searchInputs");
+        var box = $("#content");
+        var win = $(window);
+        win.on("scroll", function() {
+            var scrollTop = document.body.scrollTop || document.documentElement.scrollTop;
+            if(scrollTop >= header.offset().top + header.outerHeight()){
+                $("#mapBox").addClass("sticky");
+            }
+            else {
+                $("#mapBox").removeClass("sticky");
+            }
+            if(scrollTop + win.height() - 40 >= box.offset().top + box.height()){
+                $("#mapBox").addClass("bottom");
+            }
+            else {
+                $("#mapBox").removeClass("bottom");
+            }
+        });
+    }
+    //
+
+    function setupDescriptionTruncation() {
+        $(window).on("resize", function() {
+            handleTruncatingDescriptions();
+        });
+    }
+    //
+
+    function doAutoSearch(){
+        //Search if there is a preselected query
+        var autoQuery = "@Request.Params[ "keywords" ]";
+        if(autoQuery.length > 0){
+            resetCountdown();
+            return;
+        }
+        //Force an auto search
+        var autoSearch = "@Request.Params["autosearch"]";
+        if(autoSearch != ""){
+            resetCountdown();
+            return;
+        }
+    }
+    //
+
+    function setupLocationSearch() {
+        $("#txtLocationSearch").on("click focus", function() {
+            $("#locationResultsBox").attr("data-active", "true");
+        });
+        $("#txtLocationSearch").on("keyup change", function() {
+            location_resetCountdown();
+        });
+        $("html").not("#txtLocationSearch, #locationResultsBox").on("click", function() {
+            $("#locationResultsBox").attr("data-active", "false");
+        });
+        $("#txtLocationSearch, #locationResultsBox").on("click", function(e){
+            e.stopPropagation(); 
+        });
+    }
+    //
+
+</script>
+<script type="text/javascript">
+    /* Location Search Functions */
+    var locationTimer = 0;
+    var locationFilterActive = false;
+
+    function location_resetCountdown() {
+        clearTimeout(locationTimer);
+        locationTimer = setTimeout(function() {
+            location_findLocations();
+        }, 1000);
+    }
+    //
+
+    function location_setStatus(message){
+        console.log(message);
+        $("#locationStatus").html(message);
+    }
+    //
+
+    function location_findLocations() {
+        var box = $("#txtLocationSearch");
+        var text = box.val().trim().replace(/"/g, "");
+
+        //Prevent duplicate search
+        if(box.attr("data-previous") == text){
+            return;
+        }
+        box.attr("data-previous", text);
+        location_setStatus("Searching...");
+
+        doAjax("Search", "FindLocations", { text: text }, location_success_findLocations, null, null);
+    }
+    //
+
+    function location_success_findLocations(message, passThrough){
+        if(message.valid){
+            console.log(message);
+            location_renderLocations(message.data);
+        }
+        else { 
+            location_setStatus(message.status);
+        }
+    }
+    //
+
+    function location_renderLocations(data){
+        var box = $("#locationResultsList");
+        var template = $("#template_location_LocationResult").html();
+
+        box.html("");
+        for(var i in data){
+            box.append(template
+                .replace(/{Name}/g, data[i].Name)
+                .replace(/{Bounds}/g, JSON.stringify(data[i].Bounds))
+                .replace(/{LocationFormatted}/g, data[i].LocationFormatted)
+            );
+        }
+
+        if(data.length == 0){
+            location_setStatus("Sorry, no results. Please try another query, or position the map manually and click the Search Current Area button.");
+        }
+        else {
+            location_setStatus("");
+        }
+    }
+    //
+
+    function location_focusMap(result){
+        var textBox = $("#txtLocationSearch");
+        var resultsBox = $("#locationResultsBox");
+        var results = $("#locationResultsList");
+        var result = $(result);
+        var data = JSON.parse(result.find(".locationBounds").text());
+        var text = result.find(".locationName").text();
+
+        textBox.val(text);
+        results.attr("data-active", "false");
+
+        maps[searchType].map.fitBounds({ north: data.North, south: data.South, east: data.East, west: data.West });
+        location_doBoundsSearch();
+        resultsBox.attr("data-active", "false");
+    }
+    //
+
+    function location_doBoundsSearch() {
+        locationFilterActive = true;
+        resetCountdown();
+    }
+    //
+</script>
+<script type="text/javascript">
+    /* Google Maps Functions */
+
+    function showMapType(type){
+        $("#mapBox .googleMap").removeClass("selected").filter("[data-searchType=" + type + "]").addClass("selected");
+        wakeMaps();
+    }
+    //
+
+    function wakeMaps(){
+        for(var i in maps){
+            //google.maps.event.trigger(maps[i].map, "resize");
+            moveMap(maps[i].map, mapCenter.lat, mapCenter.lng);
+        }
+    }
+    //
+
+    function moveMap(map, latitude, longitude, zoom) {
+        google.maps.event.trigger(map, "resize");
+        map.setCenter({ lat: latitude, lng: longitude });
+        if (zoom) {
+            map.setZoom(Math.floor(zoom));
+        }
+    }
+    //
+
+    function addMarker(map, type, resultID, latitude, longitude, markerID){
+        var marker = new google.maps.Marker({
+            map: map,
+            position: { lat: latitude, lng: longitude }
+        });
+        marker.addListener("click", function() {
+            highlightResult(type, resultID, markerID);
+        });
+        return marker;
+    }
+    //
+
+    function removeMarkers(markers){
+        for(var i in markers){
+            markers[i].marker.setMap(null);
+        }
+        markers = [];
+    }
+    //
+
+    function highlightMarker(mapData, resultID, markerID){
+        setViewMode('map');
+        for(var i in mapData.markers){
+            if(mapData.markers[i].resultID == resultID && mapData.markers[i].markerID == markerID){
+                moveMap(mapData.map, mapData.markers[i].marker.position.lat(), mapData.markers[i].marker.position.lng(), mapData.autoZoom ? 10 : null);
+                mapData.autoZoom = false;
+            }
+        }
+    }
+    //
+
+    function highlightResult(type, resultID, markerID) {
+        if(type == searchType){
+            setViewMode('map');
+            highlightMarker(maps[searchType], resultID, markerID);
+
+            $("#results .result[data-recordid=" + resultID + "]").addClass("highlighted")[0].scrollIntoView();
+            setTimeout(function() {
+                $("#results .result[data-recordid=" + resultID + "]").removeClass("highlighted");
+            }, 500);
+            $(window).trigger("scroll");
+        }
+    }
+    //
+</script>
+<script type="text/javascript">
+    /* Page Functions */
+
+    //Delay search
+    function resetCountdown() {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function () {
+            doSearch(false);
+        }, 800);
+    }
+    //
+
+    //Add a selected filter
+    function addIndirectFilter(filterName, filterID, tagValue, tagText){
+        //Try to find a match in the existing checkbox list
+        var checkboxFilter = $("#filterOptions .filter[data-filterName=" + filterName + "] input[value=" + tagValue + "]");
+        var indirect = true;
+        if(checkboxFilter.length > 0){
+            checkboxFilter.prop("checked", true);
+            indirect = false;
+        }
+
+        //Setup the filter data
+        var filter = {
+            searchType: searchType,
+            filterName: filterName,
+            filterID: filterID,
+            tagValue: tagValue,
+            tagText: tagText,
+            indirect: indirect
+        };
+        
+        //Add the indirect filter if it hasn't already been added
+        var found = false;
+        for(var i in currentFilters){
+            var item = currentFilters[i];
+            if(item.searchType == searchType && item.filterName == filterName && item.filterID == filterID && item.tagValue == tagValue){
+                found = true;
+            }
+        }
+        if(!found){
+            currentFilters.push(filter);
+        }
+
+        //Render current filters
+        renderCurrentFilters();
+
+        resetCountdown();
+    }
+    //
+
+    //Update selected filters
+    function updateCurrentFilters() {
+        //Remove all direct filters from the list
+        var replacement = [];
+        for(var i in currentFilters){
+            if(currentFilters[i].indirect){
+                replacement.push(currentFilters[i]);
+            }
+        }
+        currentFilters = replacement;
+
+        //Repopulate direct filters from what is actually currently checked
+        $(".filter[data-searchType=" + searchType + "]").each(function () {
+            var box = $(this);
+            var filterName = box.attr("data-filtername");
+            var filterID = box.attr("data-categoryID");
+
+            if(box.hasClass("microSearchFilterBox")){
+                //Code Items
+                box.find(".microSearchSelectedItems .microResult").each(function() {
+                    var result = $(this);
+                    var selectors = JSON.parse(result.find(".microSelectors").text());
+
+                    currentFilters.push({
+                        searchType: searchType,
+                        filterName: filterName,
+                        //filterID: selectors.CategoryId,
+                        filterID: filterID,
+                        resultID: result.attr("data-resultID"),
+                        tagValue: selectors.CodeId,
+                        tagText: result.find(".microResultTitle").text().trim(),
+                        indirect: false
+                    });
+                });
+            }
+            else if(box.hasClass("textFilter")){
+                //Text Filters
+                var text = box.find(".textFilterText").val().trim();
+                if(text.length > 0){
+                    currentFilters.push({
+                        searchType: searchType,
+                        filterName: filterName,
+                        filterID: filterID,
+                        resultID: filterID,
+                        tagValue: text,
+                        tagText: text,
+                        indirect: false
+                    });
+                }
+            }
+            else {
+                box.find("input:checked").each(function () {
+                    var tag = $(this);
+
+                    currentFilters.push({
+                        searchType: searchType,
+                        filterName: filterName,
+                        filterID: filterID,
+                        resultID: tag.attr("value"),
+                        tagValue: tag.attr("value"),
+                        tagText: tag.parent().text().trim(),
+                        indirect: false
+                    });
+                });
+            }
+        });
+
+        console.log("searching location?", locationFilterActive);
+        if(locationFilterActive){
+            var data = maps[searchType].map.getBounds().toJSON();
+            console.log(data);
+            currentFilters.push({
+                searchType: searchType,
+                filterName: "bounds",
+                filterID: 0,
+                resultID: "bounds",
+                tagValue: { North: data.north, East: data.east, West: data.west, South: data.south },
+                tagText: "Searching within visible map area",
+                indirect: false
+            });
+        }
+
+        renderCurrentFilters();
+    }
+    //
+
+    //Get the currently selected filters in a server-friendly form
+    function getPackedCurrentFilters() {
+        var result = [];
+
+        for(var i in currentFilters){
+            var filter = currentFilters[i];
+            
+            //Skip this filter if it's not part of the current search type
+            if(filter.searchType != searchType){
+                continue;
+            }
+
+            //Find an existing match in the results and add to it, otherwise add a new item
+            var found = false;
+            for(var j in result){
+                if(result[j].CategoryId == filter.filterID && filter.filterID != 0){
+                    result[j].Items.push(filter.tagValue);
+                    found = true;
+                }
+            }
+            if(!found && filter.filterName != "bounds"){
+                result.push({
+                    Name: filter.filterName,
+                    CategoryId: filter.filterID,
+                    Items: [filter.tagValue],
+                    Data: filter.tagValue
+                })
+            }
+            if(filter.filterName == "bounds"){
+                result.push({
+                    Name: filter.filterName,
+                    CategoryId: filter.filterID,
+                    Boundaries: filter.tagValue
+                })
+            }
+        }
+
+        return result;
+    }
+    //
+
+    //Do a search
+    function doSearch(isPaging) {
+        //Reset paging unless the search was triggered by a page button click
+        if (!isPaging) {
+            currentPage = 1;
+        }
+        
+        //Block duplicate requests
+        autoPaging.searching = true;
+
+        //Update selected filters
+        updateCurrentFilters();
+
+        //Build query
+        var query = {
+            SearchType: searchType,
+            StartPage: currentPage,
+            PageSize: pageSize,
+            Keywords: $("#txtKeywords").val(),
+            SortOrder: sortOrder,
+            Filters: getPackedCurrentFilters()
+        };
+
+        //Skip identical query
+        var stringified = JSON.stringify(query);
+        console.log(previousQuery);
+        console.log(stringified);
+        if (stringified == previousQuery) {
+            return; //Don't repeat the same search
+        }
+        previousQuery = stringified;
+
+        //Set status
+        setStatus("Searching...", statusTypes.searching);
+
+        //Do the search
+        doAjax("Search", "MainSearch", { query: query }, success_doSearch, null, !isPaging);
+    }
+    //
+
+    //Set search status
+    function setStatus(message, statusType) {
+        var box = $("#status");
+        console.log(statusType);
+        box.attr("data-status", statusType).html(message);
+    }
+    //
+
+    //Reset search
+    function resetSearch(){
+        $("#txtKeywords").val("");
+
+        resetCountdown();
+    }
+    //
+
+    //Switch page
+    function switchPage(page){
+        currentPage = page;
+        clearTimeout(searchTimer);
+        doSearch(true);
+    }
+    //
+
+    //Set auto paging status
+    function setAutoPagingStatus(message, statusType){
+        var box = $("#autoPagingStatus");
+        console.log(statusType, message);
+        box.attr("data-status", statusType).html(message);
+    }
+    //
+
+    //Delete an item
+    function deleteResult(name, type, recordID){
+        var result = $(".result." + type + "[data-recordID=" + recordID + "]");
+        result.addClass("aboutToDelete");
+
+        modal.confirm(
+            "Confirm Delete",
+            "Are you sure you want to delete <b>" + name + "</b>? This action cannot be undone!",
+            function() {
+ 
+                switch(type){
+                    case "credential":
+                        doAjax("Search", "DeleteCredential", { id: recordID }, success_deleteResult, result);
+                        return;
+                    case "organization":
+                        doAjax("Search", "DeleteOrganization", { id: recordID }, success_deleteResult, result);
+                        return;
+                    case "assessment":
+                        doAjax("Search", "DeleteAssessment", { id: recordID }, success_deleteResult, result);
+                        return;
+                    case "learningopportunity":
+                        doAjax("Search", "DeleteLearningOpportunity", { id: recordID }, success_deleteResult, result);
+                        return;
+                    default:
+                        return;
+                }
+                
+            },
+            function() {
+                result.removeClass("aboutToDelete");
+            }
+        );
+    }
+    //
+
+    //Toggle description cover
+    function toggleCover(id, button){
+        var description = $(".result[data-recordID=" + id + "] .descriptionBox");
+        description.toggleClass("expanded");
+        $(button).attr("value", description.hasClass("expanded") ? "Show Less" : "Show More");
+    }
+    //
+
+    //Hide some descriptions based on height
+    function handleTruncatingDescriptions() {
+        $(".result .descriptionBox").each(function() {
+            var box = $(this);
+            if(box.height() > 75){
+                box.addClass("truncated");
+            }
+            else {
+                box.removeClass("truncated");
+            }
+        });
+    }
+    //
+
+    //Change view mode
+    function setViewMode(mode){
+        $("#content").attr("data-viewMode", mode);
+        $("#searchResultsHeader #viewMode button").removeClass("selected").filter("[data-viewmode=" + mode + "]").addClass("selected");
+        $(window).trigger("viewModeChanged");
+        wakeMaps();
+    }
+    //
+</script>
+<script type="text/javascript">
+    /* Ajax Functions */
+
+    //Do an AJAX search
+    function doAjax(controller, method, data, success, button, passThrough) {
+        //Disable the button
+        if (button) {
+            $(button).attr("data-originalValue", $(button).attr("value")).attr("value", "...").prop("disabled", true);
+        }
+
+        //Make the request
+        $.ajax({
+            url: "@Url.Content( "~/" )" + controller + "/" + method,
+            async: true,
+            headers: { "Accept": "application/json", "Content-type": "application/json; charset=utf-8" },
+            dataType: "json",
+            type: "POST",
+            data: JSON.stringify(data),
+            success: function (message) {
+                console.log("Response: ", message);
+                if (typeof (success) == "function") {
+                    success(message, passThrough);
+                }
+            }
+        }).done(function() {
+            //Reenable the button
+            if(button){
+                $(button).attr("value", $(button).attr("data-originalValue")).prop("disabled", false);
+            }
+        });
+
+    }
+    //
+
+    /* Ajax success methods */
+
+    function success_doSearch(message, replace) {
+        autoPaging.searching = false;
+
+        if (message.valid) {
+            currentResults = message.data;
+            renderCurrentResults(replace);
+            renderPaging();
+
+            if(message.data.TotalResults > 0){
+                setStatus("Found " + message.data.TotalResults + " results", statusTypes.success);
+            }
+            else {
+                setStatus("Sorry, no results found", statusTypes.error)
+            }
+        }
+        else {
+            setStatus(message.status, statusTypes.error);
+        }
+    }
+    //
+
+    function success_deleteResult(message, result){
+        if(message.valid){
+            result.remove();
+            //May need to remove map marker(s)
+        }
+        else {
+            consoleMessage.addErrorMessage(message.status, "", 5000);
+            result.removeClass("aboutToDelete");
+        }
+    }
+    //
+
+</script>
+<script type="text/javascript">
+    /* Filter interaction */
+
+    //Toggle the filters menu
+    function toggleFilters() {
+        var box = $("#filtersList");
+        if (box.hasClass("visible")) {
+            hideFilters();
+        }
+        else {
+            showFilters();
+        }
+    }
+    //
+
+    //Show Filters
+    function showFilters() {
+        $("#filtersList").addClass("visible").stop().slideDown(250);
+    }
+    //
+
+    //Hide Filters
+    function hideFilters() {
+        $("#filtersList").removeClass("visible").stop().slideUp(250);
+    }
+    //
+
+    //Show Filter type
+    function showFilterType(searchType){
+        var filters = $("#filterCategories [data-searchType], #filterBox [data-searchType]");
+        filters.removeClass("active")
+        var activeFilters = filters.filter("[data-searchType=" + searchType + "]")
+        activeFilters.addClass("active");
+        showFiltersOption(activeFilters.first().attr("data-filtername"));
+    }
+    //
+
+    //Show Filters option
+    function showFiltersOption(filterID){
+        $("[data-filtername]").removeClass("selected").filter("[data-filtername=" + filterID + "][data-searchType=" + searchType + "]").addClass("selected");
+    }
+    //
+
+    //Toggle the selected filters list
+    function toggleSelectedItems() {
+        $("#selectedFilterList").toggleClass("expanded");
+    }
+    //
+
+    //Remove a selected filter
+    function removeFilter(filterName, tagValue){
+        var filterBox = $("#filterOptions .filter[data-filterName=" + filterName + "]");
+
+        if(filterBox.hasClass("microSearchFilterBox")){
+            removeMicroResult(filterBox.attr("data-microSearchName"), tagValue);
+        }
+        else if(filterBox.hasClass("textFilter")){
+            filterBox.find(".textFilterText").val("");
+        }
+        else if(filterName == "bounds"){
+            $("#txtLocationSearch").val("").attr("data-previous", "");
+            $("#locationResultsList").html("");
+            locationFilterActive = false;
+        }
+        else {
+            var checkboxFilter = filterBox.find("input[value=" + tagValue + "]");
+            if(checkboxFilter.length > 0){
+                checkboxFilter.prop("checked", false);
+            }
+        }
+
+        var replacement = [];
+        for(var i in currentFilters){
+            var item = currentFilters[i];
+            if(item.filterName == filterName && item.tagValue == tagValue && item.searchType == searchType){
+                continue;
+            }
+            else {
+                replacement.push(item);
+            }
+        }
+
+        currentFilters = replacement;
+
+        renderCurrentFilters();
+        resetCountdown();
+    }
+    //
+
+</script>
+<script type="text/javascript">
+    /* Rendering Methods */
+
+    //Render current results
+    function renderCurrentResults(replace) {
+        var box = $("#results");
+        var template = $("#template_result_" + currentResults.SearchType).html();
+
+        if(replace){
+            box.html("");
+            removeMarkers(maps[searchType].markers);
+        }
+
+        for (var i in currentResults.Results) {
+            var current = currentResults.Results[i];
+            var text = template
+                .replace(/{Name}/g, current.Name)
+                .replace(/{Description}/g, current.Description)
+                .replace(/{RecordId}/g, current.RecordId);
+
+            for (var j in current.Properties) {
+                if(typeof(current.Properties[j]) == "object"){
+                    text = text.replace(new RegExp("{" + j + "}", "g"), renderObject(current, j, current.Properties[j]));
+                }
+                else {
+                    text = text.replace(new RegExp("{" + j + "}", "g"), current.Properties[j] );
+                }
+            }
+
+            box.append(text);
+        }
+
+        box.find(".result .tags .tag").not(".tagInitialized").each(function() {
+            var tag = $(this);
+            var link = tag.find(".tagsTitle");
+            var tags = tag.find(".tagsList");
+            var filterName = tag.attr("data-filterName");
+            var filterID = tag.attr("data-filterID");
+            tag.addClass("tagInitialized");
+            if(link.length > 0 && tags.length > 0){
+                tag.addClass("hasData");
+                var text = tags.html().replace(/filterName/g, filterName).replace(/filterID/g, filterID);
+                tags.html(text);
+            }
+            link.on("click", function(e) {
+                tag.toggleClass("expanded");
+            });
+            tag.on("click", function(e){
+                $(".result .tags .tag").not(tag).removeClass("expanded");
+                e.stopPropagation();
+            });
+            $("html").not(tag).on("click", function() {
+                tag.removeClass("expanded");
+            })
+        });
+
+
+        //Conceal long descriptions
+        handleTruncatingDescriptions();
+    }
+    //
+
+    //Render an object
+    function renderObject(result, type, data){
+        if(data == null || typeof(data) == "undefined"){
+            return "";
+        }
+        switch(data.Type.toLowerCase()){
+            case "tags":
+                var boxTemplate = $("#template_tagsBox").html();
+                var tagTemplate = $("#template_tag").html();
+                var result = "";
+                var count = 0;
+                for(var i in data.Data){
+                    result += tagTemplate.replace(/{filterName}/g, "").replace(/{filterID}/g, "").replace(/{tagValue}/g, i).replace(/{tagText}/g, data.Data[i]);
+                    count++;
+                }
+
+                if(count == 0){
+                    return "Not Available";
+                }
+
+                var boxResult = boxTemplate.replace(/{summary}/g, count + " " + data.Title).replace(/{tagData}/g, result);
+                return boxResult;
+            case "locations":
+                var resultText = "";
+                var template = $("#template_mapMarker").html();
+                var markerID = 0;
+                for(var i in data.Data){
+                    if(data.Data[i].Latitude != 0 && data.Data[i].Longitude != 0) {
+                        resultText += addMarkerResult(maps[searchType].map, searchType, result.RecordId, data.Data[i].Latitude, data.Data[i].Longitude, markerID, template);
+                        markerID++;
+                    }
+                }
+                return resultText;
+            default: return "";
+        }
+    }
+
+    function addMarkerResult(map, searchType, resultID, latitude, longitude, markerID, template){
+        var marker = addMarker(map, searchType, resultID, latitude, longitude, markerID);
+        var item = {
+            marker: marker,
+            resultID: resultID,
+            markerID: markerID
+        };
+        maps[searchType].markers.push(item);
+        return template.replace(/{searchType}/g, searchType).replace(/{resultID}/g, resultID).replace(/{markerID}/g, markerID);
+    }
+    //
+
+    //Render paging
+    function renderPaging() {
+        var total = currentResults.TotalResults;
+        var box = $("#paging");
+        var template = $("#template_pagingButton").html();
+        totalPages = Math.ceil(total / pageSize);
+
+        if(currentPage >= totalPages && totalPages > 0){
+            setAutoPagingStatus("No more results", statusTypes.success);
+        }
+    }
+    //
+
+    //Render current filters
+    function renderCurrentFilters(){
+        var box = $("#selectedFilterList");
+        var template = $("#template_selectedFilter").html();
+        box.html("");
+
+        for(var i in currentFilters){
+            box.append(template
+                .replace(/{tagText}/g, currentFilters[i].tagText)
+                .replace(/{filterName}/g, currentFilters[i].filterName)
+                //.replace(/{tagValue}/g, currentFilters[i].tagValue)
+                .replace(/{resultID}/g, currentFilters[i].resultID)
+            );
+        }
+
+        $("#btnToggleSelectedFilters").attr("value", (currentFilters.length == 0 ? "No" : currentFilters.length) + " filter" + (currentFilters.length == 1 ? "" : "s") + " selected");
+
+        if(currentFilters.length == 0){
+            box.html("<p>No filters selected.</p>");
+        }
+    }
+    //
+
+</script>
+<script type="text/javascript">
+    /* MicroSearch Functions */
+    $(document).ready(function() { 
+        initializeMicroSearches();
+    });
+
+    var microSearchTimers = {};
+    var microResultID = 0;
+
+    //Get a MicroSearch Box
+    function getMicroSearchBox(name){
+        return $(".microSearchFilterBox[data-microSearchName=" + name + "]");
+    }
+    //
+
+    //Set a MicroSearch status
+    function setMicroSearchStatus(name, status, message) {
+        var statusBox = getMicroSearchBox(name).find(".microSearchInputStatus");
+        statusBox.attr("data-status", status).html(message);
+    }
+    //
+
+    //Set a MicroSearch selected area status
+    function setMicroSearchSelectedStatus(name, status, message){
+        var statusBox = getMicroSearchBox(name).find(".microSearchSelectedStatus");
+        statusBox.attr("data-status", status).html(message);
+    }
+    //
+
+    //Reset a MicroSearch wait timer
+    function resetMicroSearchCountdown(name){
+        clearTimeout(microSearchTimers[name]);
+        microSearchTimers[name] = setTimeout(function() { 
+            updateMicroSearch(name);
+        }, 800);
+    }
+    //
+
+    //Initialize MicroSearches
+    function initializeMicroSearches() {
+        $(".microSearchFilterBox").not(".initialized").each(function() {
+            var box = $(this);
+            var name = box.attr("data-microSearchName");
+            box.addClass("initialized");
+
+            microSearchTimers[name] = 0;
+            box.find(".microSearchInputs input, .microSearchInputs select").on("keyup change", function() {
+                resetMicroSearchCountdown(name);
+            });
+        });
+    }
+    //
+
+    //Update a MicroSearch
+    function updateMicroSearch(name, isPaging){
+        //Get box
+        var box = getMicroSearchBox(name);
+        var pageSize = parseInt(box.attr("data-pageSize"));
+        var pageNumber = parseInt(box.attr("data-pageNumber"));
+
+        //Update paging
+        if(!isPaging){
+            pageNumber = 1;
+        }
+
+        //Get filters
+        var filters = [];
+        box.find(".microSearchInputs input[type=text]").each(function() {
+            var filter = $(this);
+            var value = filter.val().trim();
+            if(value.length > 0){
+                filters.push({ Name: filter.attr("data-filtername"), Value: value });
+            }
+        });
+        box.find(".microSearchInputs select").each(function() {
+            var filter = $(this);
+            var value = filter.find("option:selected").attr("value");
+            if(value != "0"){
+                filters.push({ Name: filter.attr("data-filtername"), Value: value });
+            }
+        });
+
+        //Construct query
+        var query = {
+            SearchType: box.attr("data-microSearchType"),
+            Filters: filters,
+            PageNumber: pageNumber,
+            PageSize: pageSize,
+            IncludeAllCodes: false
+
+        };
+
+        //Only continue if necessary
+        var previousBox = box.find(".microSearchPrevious");
+        var stringified = JSON.stringify(query);
+        if(previousBox.text() == stringified){
+            console.log("Skipping duplicate microsearch", stringified);
+            return;
+        }
+        previousBox.html(stringified);
+
+        //Continue
+        setMicroSearchStatus(name, "searching", "Searching...");
+        doAjax("Search", "DoMicroSearch", query, success_updateMicroSearch, null, name);
+    }
+    //
+
+    //Successfully complete a MicroSearch
+    function success_updateMicroSearch(message, passThrough){
+        if(message.valid){
+            var box = getMicroSearchBox(passThrough);
+            if(message.extra > 0){
+                setMicroSearchStatus(passThrough, "success", "Found " + message.extra + " items");
+            }
+            else {
+                setMicroSearchStatus(passThrough, "error", "Sorry, no results were found. Please try again");
+            }
+            renderMicroSearchResults(passThrough, false, message.data);
+            renderMicroSearchPaging(passThrough, message.extra);
+        }
+        else {
+            setMicroSearchStatus(passThrough, "error", message.status);
+        }
+    }
+    //
+
+    //Render MicroSearch results
+    function renderMicroSearchResults(name, isSelected, results){
+        var box = getMicroSearchBox(name);
+        var resultsBox = box.find(".microSearchResults");
+        var selectedBox = box.find(".microSearchSelectedItems");
+        var resultTemplate = $("#template_microSearchResult").html();
+        var selectedTemplate = $("#template_microSearchSelected").html();
+
+        var targetBox = selectedBox;
+        var template = selectedTemplate;
+        if(!isSelected){
+            template = resultTemplate;
+            targetBox = resultsBox;
+            resultsBox.html("");
+        }
+
+        for(var i in results){
+            var button = $(template
+                .replace(/{Name}/g, results[i].Name)
+                .replace(/{Description}/g, results[i].Description)
+                .replace(/{microSearchName}/g, name)
+                .replace(/{microResultID}/g, microResultID)
+                .replace(/{Selectors}/g, JSON.stringify(results[i].Selectors))
+                .replace(/{Raw}/g, JSON.stringify(results[i]))
+            ).appendTo(targetBox);
+            microResultID++;
+        }
+    }
+    //
+
+    //Update MicroSearch paging
+    function renderMicroSearchPaging(name, totalResults){
+        var box = getMicroSearchBox(name);
+        var pagingBox = box.find(".microSearchPaging");
+        var pageButtonTemplate = $("#template_microSearchPageButton").html();
+        var pageSize = parseInt(box.attr("data-pageSize"));
+        var currentPage = parseInt(box.attr("data-pageNumber"));
+        var totalPages = totalResults == 0 ? 0 : Math.ceil(totalResults / pageSize);
+        var skips = [1, 5, 10, 20, 30, 40, 50, 75, 100, 1000, totalPages];
+        var minRange = currentPage - 2;
+        var maxRange = currentPage + 2;
+
+        pagingBox.html("");
+        for(var i = 1; i <= totalPages; i++){
+            if(skips.indexOf(i) > -1 || (i >= minRange && i <= maxRange)){ 
+                pagingBox.append(pageButtonTemplate
+                    .replace(/{microSearchName}/g, name)
+                    .replace(/{pageNumber}/g, i)
+                    .replace(/{current}/g, i == currentPage ? "current" : "")
+                );
+            }
+        }
+    }
+    //
+
+    //Switch MicroSearch page
+    function setMicroSearchPage(name, pageNumber) {
+        var box = getMicroSearchBox(name);
+        box.attr("data-pageNumber", pageNumber);
+        updateMicroSearch(name, true);
+    }
+    //
+
+    //Select a MicroSearch result
+    function selectMicroResult(name, resultID){
+        var box = getMicroSearchBox(name);
+        var result = box.find(".microSearchResults .microResult[data-resultID=" + resultID + "]");
+        var selectors = result.find(".microSelectors").text();
+        var selectedBox = box.find(".microSearchSelectedItems");
+        var alreadySelected = false;
+
+        selectedBox.find(".microResult").each(function() {
+            if($(this).find(".microSelectors").text() == selectors){
+                alreadySelected = true;
+            }
+        });
+        if(!alreadySelected){
+            var data = JSON.parse(result.find(".microRaw").text());
+            renderMicroSearchResults(name, true, [data]);
+        }
+
+        updateSelectedTotal(name);
+        resetCountdown();
+    }
+    //
+
+    //Remove a MicroSearch result
+    function removeMicroResult(name, resultID){
+        var box = getMicroSearchBox(name);
+        var selectedBox = box.find(".microSearchSelectedItems");
+        var result = selectedBox.find(".microResult[data-resultID=" + resultID + "]");
+        result.remove();
+
+        updateSelectedTotal(name);
+        resetCountdown();
+    }
+    //
+
+    //Update the count of selected MicroSearch result items
+    function updateSelectedTotal(name){
+        var box = getMicroSearchBox(name);
+        var selectedBox = box.find(".microSearchSelectedItems");
+        var selectedTotal = selectedBox.find(".microResult").length;
+        setMicroSearchSelectedStatus(name, "success", selectedTotal == 0 ? "No items selected." : "Selected " + selectedTotal + " item" + (selectedTotal == 1 ? "" : "s") + ".");
+    }
+    //
+</script>
+
+<style type="text/css">
+    /* Big Stuff */
+
+    /* Search Inputs */
+    #searchInputs {  }
+    #searchBox { background-color: #BADCA3; margin: 0 -5vw; padding: 75px 5vw 25px 5vw; position: relative; white-space: nowrap; }
+    #searchBox h2 { display: none; }
+    #searchBox .column { width: calc(100% / 3); padding-right: 10px; }
+    #searchBox .column:last-child { padding-right: 0; }
+    #searchBox .searchInputItem { height: 50px; font-size: 20px; border-radius: 5px; width: 100%; }
+    #searchBox select:not(:hover):not(:focus), #searchBox input[type=text]:not(:hover):not(:focus) { border-color: transparent; }
+    #searchBox #btnReset { border-radius: 50%; height: 20px; width: 20px; font-size: 14px; position: absolute; margin-left: -35px; margin-top: 14px; }
+    #searchBox label { position: absolute; margin-top: -35px; font-size: 24px; font-weight: bold; color: #3D4443; }
+    #searchBox .column.buttonsBox .searchInputItem { width: calc(50% - 5px); }
+    #searchBox .column.buttonsBox .searchInputItem:first-child { margin-right: 10px; }
+
+    /* Filters */
+    #filtersBox { margin: 0 -5vw; }
+    #filtersList { background-color: #0F3E63; color: #FFF; padding: 10px; 5vw; display: none; }
+    #filterCategories { width: 33%; }
+    #filterOptions { width: 64%; }
+    #selectedFilterList { padding: 10px 5vw; }
+    #filtersList h2 { text-transform: uppercase; font-size: 24px; margin: 0 0 5px 0; color: inherit; }
+    #filterCategories input { display: block; width: 100%; background-color: transparent; color: #FFF; text-align: left; opacity: 1; border-bottom: 1px solid rgba(255,255,255,0.25); padding: 5px; border-radius: 0; font-weight: bold; font-size: 20px; }
+    #filterCategories input:not(.active) { display: none; }
+    #filterCategories input:hover, #filterCategories input.selected { border-color: transparent; background-color: #FFF; color: #0F3E63; }
+    #filterCategories input.active.last { border-bottom: none; }
+    #filterOptions .filter { padding: 0 10px; }
+    #filterOptions .filter:not(.selected) { display: none; }
+    #filterOptions .filter.column2 { column-count: 2; -moz-column-count: 2; }
+    #filterOptions .filter label { display: inline-block; width: 100%; padding: 5px 5px 5px 35px; position: relative; }
+    /* Ensure accessibility of custom checkbox images */
+    #filterOptions .filter input[type=checkbox]:not(:checked) ~ .fa-check { opacity: 0; }
+    #filterOptions .filter label .fa-check { position: absolute; top: 5px; left: 10px; }
+    #filterOptions .filter input[type=checkbox], #filterOptions .filter input[type=radio] { position: absolute; top: 5px; left: 5px; opacity: 0; }
+    #filterOptions .filter input[type=checkbox]:focus, #filterOptions .filter input[type=radio]:focus { opacity: 1; } 
+    #filterOptions .filter label:hover, #filterOptions .filter label:focus { background-color: #FFF; color: #0F3E63; cursor: pointer; }
+    #selectedFilterList .selectedFilter { background-color: #F2F4F4; padding: 10px 35px 10px 10px; border-radius: 2px; position: relative; margin: 2px; color: #3D4443; }
+    #selectedFilterList .selectedFilter .closeButton { position: absolute; top: 10px; right: 5px; width: 20px; height: 20px; font-size: 14px; }
+
+    /* Search Results */
+    #searchResults { position: relative; }
+    #content[data-viewmode=map] #searchResults { min-height: 100vh; }
+    #searchResultsHeader { position: relative; padding: 10px 325px 25px 0; min-height: 50px; }
+    #searchResultsHeader #status { font-size: 30px; font-weight: lighter; font-style: italic; color: #607171; font-style: italic; }
+    #searchResultsHeader #viewOptions { position: absolute; top: 10px; right: 0; }
+    #searchResultsHeader #viewOptions #ddlSortOrder { margin-right: 5px; }
+    #searchResultsHeader #viewOptions .viewOption { height: 40px; font-size: 16px; }
+    #searchResultsHeader #viewMode button:first-child { border-radius: 2px 0 0 2px; }
+    #searchResultsHeader #viewMode button:last-child { border-radius: 0 2px 2px 0; }
+    #searchResultsHeader #viewMode button { padding: 5px 10px; }
+    #searchResultsHeader #viewMode button.selected { background-color: #F2F4F4; }
+    #autoPagingStatus { border-top: 1px solid #CAD9DB; text-align: center; padding: 50px; font-style: italic; color: #607171; }
+    #autoPagingStatus:empty { display: none; }
+    
+    .result { padding: 10px 5px; border-top: 1px solid #CAD9DB; font-size: 0; min-height: 200px; position: relative; }
+    .result .iconBox, .result .detailsBox { display: inline-block; vertical-align: top; }
+    .result .iconBox { width: 200px; }
+    .result .iconBox .typeIcon { width: 100%; height: 150px; background-size: 80%; background-repeat: no-repeat; background-position: top center; }
+    .result .iconBox .type { text-align: center; font-style: italic; /*font-weight: lighter;*/ font-style: italic; color: #45A085; font-size: 14px; }
+    .result .detailsBox { width: calc(100% - 200px); }
+    .result .detailsBox .name { font-weight: bold; color: #607171; font-size: 24px; display: table; padding-right: 125px; }
+    .result .detailsBox .subtitle { padding: 5px 0; padding-right: 125px; }
+    .result .detailsBox .subtitle a, .result .detailsBox .subtitle .location { font-style: italic; color: #3D4443; }
+    .result .detailsBox .markerList { padding: 0 10px; display: inline-block; vertical-align: middle;}
+    .result .detailsBox .markerList button { padding: 0 5px; margin: 2px; font-size: 25px; }
+    .result .descriptionBox { margin: 0; padding: 10px 0 15px 0; }
+    .result .description { column-count: 2; -moz-column-count: 2; }
+    .result .tags { padding: 10px 0; font-size: 0; }
+    .result .tags .tag, .result .tags .tag .tagsTitle { background-position: top 10px left 10px; background-size: 20px; background-repeat: no-repeat; }
+    .result .tags .tag { display: inline-block; vertical-align: top; margin: 5px; background-color: #F2F4F4; color: #607171; /*font-weight: lighter;*/ position: relative; border-color: transparent; height: 45px; min-width: 150px; }
+    .result .tags .tag:not(.hasData) { padding: 13px 10px 10px 35px; display: none; }
+    .result .tags .tag.hasData .tagsTitle { padding: 10px 10px 10px 35px; height: 100%; width: 100%; text-align: left; opacity: 1; border-color: transparent; }
+    .result .tags .tagsList { padding-top: 10px; position: absolute; left: 0; top: calc(100% - 2px); z-index: 50; background-color: #E0DB80; min-width: 100%; }
+    .result .tags .tag:not(.expanded) .tagsList { display: none; }
+    .result .tags .tagItem { color: #000; }
+    .tagItem { display: block; padding: 5px; }
+    .result .compareButton { padding: 10px; position: absolute; top: 10px; right: 0; }
+    .result .compareButton .fa { padding: 0 5px; }
+    .result .editBox { text-align: right; padding: 5px; }
+    .result .editBox:not([data-canEdit=true]) { display: none; }
+    .result .editBox .whiteButton { /*font-weight: lighter;*/ padding: 5px; font-size: 12px; border-color: transparent; }
+    .result .editBox .fa { opacity: 0.5; }
+    .result .editBox .whiteButton:hover .fa, .result .editBox .whiteButton:focus .fa { opacity: 0.8; }
+    .result .editBox .whiteButton:hover, .result .editBox .whiteButton:focus { border-color: #CAD9DB; }
+    .result .descriptionCover { display: none; }
+    .result.highlighted { box-shadow: 0 0 0 5px #E0DB80; }
+    .result.organization .qaIcon { display: none; height: 25px; }
+    .result.organization[data-isqa=true] .qaIcon { display: inline-block; vertical-align: top; }
+    .result.organization .iconBox { padding-right: 10px; }
+    .result .iconBox .logo { height: 150px; background-size: contain; background-position: center center; background-repeat: no-repeat; border: 1px solid #CAD9DB; }
+    .result.assessment .detailsBox, .result.learningOpportunity .detailsBox { width: 100%; }
+
+    /* Map */
+    #mapBox { display: none; position: absolute; top: 0; right: 0; width: calc(50vw - 15px); height: calc(100vh - 40px); }
+    #mapBox #locationFilter { min-height: 80px; padding: 5px; background-color: #CAD9DB; }
+    #mapBox #locationFilter #bboxSearchButton { width: 225px; margin-left: 5px; font-size: 20px; }
+    #mapBox #locationFilter #locationSelector { width: calc(100% - 230px); position: relative; }
+    #mapBox #locationFilter #locationSelector #txtLocationSearch { font-size: 20px; width: 100%; }
+    #mapBox #locationResultsBox { position: absolute; width: 100%; background-color: #FFF; padding: 5px; z-index: 999; }
+    #mapBox #locationResultsBox[data-active=false] { display: none; }
+    #mapBox .locationResult { display: block; width: 100%; text-align: left; margin-bottom: 5px; }
+    #mapBox .locationResult .locationName { font-weight: bold; }
+    #mapBox .locationResult .locationFormatted { padding: 5px; }
+    #mapBox #mapList { height: calc(100% - 40px); position: relative; }
+    #mapBox .googleMap { display: block; height: 100%; width: 100%; position: absolute; top: 0; right: 0; }
+    #mapBox .googleMap:not(.selected) { display: none; }
+    #content[data-viewmode=map] #mapBox { display: block; }
+    #content[data-viewmode=map] #searchResults { padding-right: 50vw; }
+    #content[data-viewmode=map] #mapBox.sticky { position: fixed; top: 0; right: 5vw; }
+    #content[data-viewmode=map] #mapBox.sticky.bottom { position: absolute; top: initial; right: 0; bottom: 0; }
+    #content[data-viewmode=map] .result .description { column-count: 1; -moz-column-count: 1; }
+
+    /* MicroSearch Filters */
+    .microSearchFilterBox { font-size: 0; }
+    .microSearchTitle { font-size: 20px; font-weight: bold; text-transform: uppercase; }
+    .microSearchFindBox, .microSearchSelectedBox { display: inline-block; vertical-align: top; width: 50%; }
+    .microSearchFindBox { padding-right: 10px; }
+    .microSearchSelectedBox { padding-left: 10px; }
+    .microSearchInputs {  }
+    .microSearchInputs input[type=text], .microSearchInputs select { display: block; width: 100%; margin-bottom: 5px; }
+    .microSearchStatus { text-align: center; padding: 5px; font-style: italic; font-weight: lighter; }
+    .microResult { padding: 5px; margin-bottom: 5px; }
+    .microResultTitle { font-size: 18px; padding: 5px 80px 5px 5px; display: block; width: 100%; position: relative; text-align: left; }
+    .microDescription { font-weight: lighter; }
+    .microResultTitle .select { position: absolute; right: 5px; font-size: 16px; font-weight: lighter; font-style: italic; width: 75px; text-align: right; }
+    .microResultTitle .select .fa { display: inline-block; padding: 0 5px; }
+    .microSearchPaging { padding: 5px; text-align: center; }
+    .microSearchPaging button { min-width: 30px; margin: 2px; }
+    .microSearchPaging button.current { background-color: #FFF; color: #0F3E63; }
+
+    /* Text Search Filters */
+    .textFilterTitle { font-size: 20px; font-weight: bold; text-transform: uppercase; }
+    .textFilterGuidance { padding: 10px; color: #FFF; }
+    .textFilterText { font-size: 20px; width: 100%; display: block; }
+
+    /* Miscellaneous */
+    /* Responsive */
+    @@media (max-width: 1400px) {
+        #content[data-viewmode=map] #searchResultsHeader { padding: 10px 0 25px 0; }
+        #content[data-viewmode=map] #searchResultsHeader #status, #content[data-viewmode=map] #searchResultsHeader #viewOptions { display: block; width: 100%; position: static; padding: 5px 0; text-align: center; }
+        #content[data-viewmode=map] .result .iconBox { display: none; }
+        #content[data-viewmode=map] .result .detailsBox { display: block; width: 100%; }
+        #content[data-viewmode=map] #filtersList #filterCategories, #content[data-viewmode=map] #filtersList #filterOptions { display: block; width: 100%; }
+        #content[data-viewmode=map] #filtersList #filterOptions { padding-top: 25px; }
+    }
+    @@media (max-width: 900px) {
+        #searchBox { padding-top: 25px; }
+        #searchBox > .column { display: block; width: 100%; padding: 50px 0 0 0; }
+        #searchBox .column.buttonsBox { padding-top: 10px; }
+
+        #filterOptions .filter.column2 { column-count: 1; -moz-column-count: 1; }
+
+        .result .iconBox { width: 100px; }
+        .result .iconBox .typeIcon { height: 75px; }
+        .result .detailsBox { width: calc(100% - 100px); }
+        .result .description { column-count: 1; -moz-column-count: 1; }
+
+        #content[data-viewmode=map] .compareButton span { display: none; }
+        #content[data-viewmode=map] .result .detailsBox .name { padding-right: 50px; }
+        #content[data-viewmode=map] .result .detailsBox .subtitle { padding-right: 50px; }
+        #content[data-viewmode=map] #searchResultsHeader #viewOptions > .column { display: block; width: 100%; }
+        #content[data-viewmode=map] #searchResultsHeader #viewOptions #viewMode { padding-top: 5px; }
+        #content[data-viewmode=map] #searchResultsHeader #viewOptions #viewMode .viewOption { width: 50%; }
+    }
+    @@media (max-width: 725px) {
+        #content[data-viewmode=map] #searchResults { padding-right: 0; padding-bottom: 50vh; }
+        #content[data-viewmode=map] #mapBox, #content[data-viewmode=map] #mapBox.sticky { position: fixed; bottom: 75px; height: 50vh; left: 0; right: 0; top: initial; width: 100vw; }
+        #content[data-viewmode=map] #mapBox.sticky.bottom { left: -5vw; right: -5vw; width: 100vw; }
+    }
+    @@media (max-width: 700px) {
+        #searchResultsHeader { padding: 10px 0 25px 0; }
+        #searchResultsHeader #status, #searchResultsHeader #viewOptions { display: block; width: 100%; position: static; padding: 5px 0; text-align: center; }
+        .result .iconBox { display: none; }
+        .result .detailsBox { display: block; width: 100%; }
+        #filtersList #filterCategories, #filtersList #filterOptions { display: block; width: 100%; }
+        #filtersList #filterOptions { padding-top: 25px; }
+    }
+    @@media (max-width: 500px) {
+        .compareButton span { display: none; }
+        .result .detailsBox .name { padding-right: 50px; }
+        .result .detailsBox .subtitle { padding-right: 50px; }
+    }
+    @@media (max-width: 400px){
+        #searchResultsHeader #viewOptions > .column { display: block; width: 100%; }
+        #searchResultsHeader #viewOptions #viewMode { padding-top: 5px; }
+        #searchResultsHeader #viewOptions #viewMode .viewOption { width: 50%; }
+    }
+
+</style>
+<style type="text/css">
+    #searchBox { background-image: url('@Url.Content( "~/Images/V2/Common/wallpaper_industries_green_30deg.png" )'); }
+    .result.credential [data-type*=badge] .typeIcon { background-image: url('@Url.Content("~/images/V2/icons/flat_badge.png")'); }
+    .result.credential [data-type*=certificate] .typeIcon { background-image: url('@Url.Content("~/images/V2/icons/flat_certificate.png")'); }
+    .result.credential [data-type*=certification] .typeIcon { background-image: url('@Url.Content("~/images/V2/icons/flat_certification.png")'); }
+    .result.credential [data-type*=degree] .typeIcon { background-image: url('@Url.Content("~/images/V2/icons/flat_degree.png")'); }
+    .result.credential [data-type*=diploma] .typeIcon { background-image: url('@Url.Content("~/images/V2/icons/flat_diploma.png")'); }
+    .result.credential [data-type*=license] .typeIcon { background-image: url('@Url.Content("~/images/V2/icons/flat_license.png")'); }
+    .result.credential [data-type*=apprentice] .typeIcon { background-image: url('@Url.Content("~/images/V2/icons/flat_apprenticeship.png")'); }
+    .result.credential [data-type*=military] .typeIcon { background-image: url('@Url.Content("~/images/V2/icons/flat_military.png")'); }
+    .result.credential [data-type*=micro] .typeIcon { background-image: url('@Url.Content("~/images/V2/icons/flat_micro.png")'); }
+    .result.credential [data-type*=quality] .typeIcon { background-image: url('@Url.Content("~/images/V2/icons/flat_quality.png")'); }
+    .result .tags .tag.industry, .result .tags .tag.industry .tagsTitle { background-image: url('@Url.Content( "~/images/icons/cti_icon_interests.png" )'); }
+    .result .tags .tag.level, .result .tags .tag.level .tagsTitle { background-image: url('@Url.Content( "~/images/icons/cti_icon_levels.png" )'); }
+    .result .tags .tag.cost, .result .tags .tag.cost .tagsTitle { background-image: url('@Url.Content( "~/images/icons/cti_icon_cost.png" )'); }
+    .result .tags .tag.time, .result .tags .tag.time .tagsTitle { background-image: url('@Url.Content( "~/images/icons/cti_icon_duration.png" )'); }
+</style>
+
+<div id="searchInputs">
+    <div id="searchBox" class="inlineBlockBox">
+        <h2>Search</h2>
+        <div class="column searchTypeBox">
+            <label for="ddlSearchType">Search</label>
+            <select id="ddlSearchType" class="searchInputItem">
+                <option value="credential" @( searchType == "credential" ? "selected=\"selected\"" : "")>Credentials</option>
+                <option value="organization" @( searchType == "organization" ? "selected=\"selected\"" : "")>Organizations</option>
+                <option value="assessment" @( searchType == "assessment" ? "selected=\"selected\"" : "")>Assessments</option>
+                <option value="learningopportunity" @( searchType == "learningopportunity" ? "selected=\"selected\"" : "")>Learning Opportunities</option>
+            </select>
+        </div>
+        <div class="column keywordsBox">
+            <label for="txtKeywords">For</label>
+            <input type="text" id="txtKeywords" class="searchInputItem" value="@Request.Params[ "keywords" ]" placeholder="Start typing to search..." />
+            <button class="closeButton fa fa-close" id="btnReset" onclick="resetSearch();" title="Reset"></button>
+        </div>
+        <div class="column buttonsBox inlineBlockBox">
+            <button class="actionButton column searchInputItem" id="btnSearch" onclick="doSearch(false);"><i class="fa fa-search"></i> Search</button>
+            <button class="greenButton column searchInputItem" id="btnToggleFilters" onclick="toggleFilters();"><i class="fa fa-plus"></i> Filters</button>
+        </div>
+    </div>
+    <div id="filtersBox">
+        <div id="filtersList" class="inlineBlockBox">
+            <h2>Add Filters</h2>
+            <div id="filterCategories" class="column">
+                @* Credential Filters *@
+                <input type="button" data-filtername="credentialType" data-searchtype="credential" value="Credential Type" />
+                <input type="button" data-filtername="credentialLevel" data-searchtype="credential" value="Intended Educational Level" />
+                @*<input type="button" data-filtername="credentialPurpose" data-searchtype="credential" value="Credential Purpose" />*@
+                @*<input type="button" data-filtername="occupation" data-searchType="credential" value="Occupations" />
+                <input type="button" data-filtername="industry" data-searchType="credential" value="Industries" />*@
+                <input type="button" data-filtername="occupationSearch" data-searchType="credential" value="Occupations" />
+                <input type="button" data-filtername="industrySearch" data-searchType="credential" value="Industries" />
+                <input type="button" data-filtername="qualityAssurance" data-searchtype="credential" value="Quality Assurance" class="last" />
+                        
+                @* Organization Filters *@
+                <input type="button" data-filtername="qualityAssurance" data-searchtype="organization" value="Quality Assurance" />
+                <input type="button" data-filtername="organizationType" data-searchtype="organization" value="Organization Type" class="last" />
+                <input type="button" data-filtername="industry" data-searchType="organization" value="Industry" style="display:none" />
+                <input type="button" data-filtername="occupation" data-searchtype="organization" value="Occupations" class="last" style="display:none" />
+
+                @* Assessment Filters *@
+                <input type="button" data-filtername="assessmentMethod" data-searchtype="assessment" value="Assessment Method" />
+
+                @* Learning Opportunity Filters *@
+                @*<input type="button" data-filtername="cipCodes" data-searchtype="learningopportunity" value="Instructional Program Classifications" />*@
+                <input type="button" data-filtername="competencies" data-searchtype="learningopportunity" value="Competencies" />
+                <input type="button" data-filtername="cipSearch" data-searchtype="learningopportunity" value="Instructional Program Classifications" />
+                <input type="button" data-filtername="deliveryType" data-searchtype="learningopportunity" value="Delivery Types" class="last" />
+            </div>
+            <div id="filterOptions" class="column">
+                @* Credential Filters *@
+
+                @{ var credentialType = enumServices.GetCredentialType( Models.Common.EnumerationType.MULTI_SELECT, false ); }
+                @Html.Partial( "~/Views/V2/Search/_EnumerationFilter.cshtml", new HtmlEnumerationFilterSettings()
+                {
+                    CssClasses = new List<string>() { "column2" },
+                    SearchType = "credential",
+                    FilterName = "credentialType",
+                    CategoryId = credentialType.Id,
+                    Enumeration = credentialType,
+                    PreselectedFilters = preselectedFilters
+                } )
+
+                @{ var credentialPurpose = enumServices.GetCredentialPurpose( Models.Common.EnumerationType.MULTI_SELECT, false ); }
+                @Html.Partial( "~/Views/V2/Search/_EnumerationFilter.cshtml", new HtmlEnumerationFilterSettings()
+                {
+                    SearchType = "credential",
+                    FilterName = "credentialPurpose",
+                    CategoryId = credentialPurpose.Id,
+                    Enumeration = credentialPurpose,
+                    PreselectedFilters = preselectedFilters
+                } )
+
+                @{ var credentialLevel = enumServices.GetCredentialLevel( Models.Common.EnumerationType.MULTI_SELECT, false ); }
+                @Html.Partial( "~/Views/V2/Search/_EnumerationFilter.cshtml", new HtmlEnumerationFilterSettings()
+                {
+                    SearchType = "credential",
+                    FilterName = "credentialLevel",
+                    CategoryId = credentialLevel.Id,
+                    Enumeration = credentialLevel,
+                    PreselectedFilters = preselectedFilters
+                } )
+
+                <div class="filter" data-searchtype="credential" data-filtername="credentialLocation">
+                
+                </div>
+
+                @*@Html.Partial( "~/Views/V2/Search/_EnumerationFilter.cshtml", new HtmlEnumerationFilterSettings()
+                {
+                    CssClasses = new List<string>() { "column2" },
+                    SearchType = "credential",
+                    FilterName = "industry",
+                    CategoryId = industryCodes.Id,
+                    Enumeration = industryCodes,
+                    PreselectedFilters = preselectedFilters
+                } )*@
+                @Html.Partial( "~/Views/V2/Search/_MicroSearchFilter.cshtml", new MicroSearchFilterSettings()
+                {
+                    InputTitle = "Find Industries",
+                    SelectedTitle = "Selected Industries",
+                    ParentSearchType = "credential",
+                    FilterName = "industrySearch",
+                    MicroSearchType = "IndustrySearch",
+                    CategoryId = industryCodes.Id,
+                    Filters = new List<MicroSearchSettings_FilterV2>
+                    {
+                        new MicroSearchSettings_FilterV2() { DefaultItemTitle = "Select an Industry Category...", Type = "select", FilterName = "HeaderId", EnumerationData = industryCodes.Items }
+                    },
+                    PreselectedFilters = preselectedFilters
+                } )
+
+                @*@Html.Partial( "~/Views/V2/Search/_EnumerationFilter.cshtml", new HtmlEnumerationFilterSettings()
+                {
+                    CssClasses = new List<string>() { "column2" },
+                    SearchType = "credential",
+                    FilterName = "occupation",
+                    CategoryId = occupationCodes.Id,
+                    Enumeration = occupationCodes,
+                    PreselectedFilters = preselectedFilters
+                } )*@
+                @Html.Partial( "~/Views/V2/Search/_MicroSearchFilter.cshtml", new MicroSearchFilterSettings()
+                {
+                    InputTitle = "Find Occupations",
+                    SelectedTitle = "Selected Occupations",
+                    ParentSearchType = "credential",
+                    FilterName = "occupationSearch",
+                    MicroSearchType = "OccupationSearch",
+                    CategoryId = occupationCodes.Id,
+                    Filters = new List<MicroSearchSettings_FilterV2>
+                    {
+                        new MicroSearchSettings_FilterV2() { DefaultItemTitle = "Select an Occupation Category...", Type = "select", FilterName = "HeaderId", EnumerationData = occupationCodes.Items }
+                    },
+                    PreselectedFilters = preselectedFilters
+                } )
+
+
+                <div class="filter" data-searchtype="credential" data-filtername="qualityAssurance" data-categoryID="0">
+                    <label><input type="checkbox" value="includeNormal" data-schemaname="includeNormal" checked="checked" /><i class="fa fa-check"></i> Include credentials meant for individuals</label>
+                    <label><input type="checkbox" value="includeQualityAssurance" data-schemaname="includeQualityAssurance" /><i class="fa fa-check"></i> Include quality assurance credentials meant for organizations</label>
+                </div>
+
+                @* Organization Filters *@
+
+                @{ var organizationType = enumServices.GetOrganizationType( Models.Common.EnumerationType.MULTI_SELECT ); }
+                @Html.Partial( "~/Views/V2/Search/_EnumerationFilter.cshtml", new HtmlEnumerationFilterSettings()
+                {
+                    CssClasses = new List<string>() { "column2" },
+                    SearchType = "organization",
+                    FilterName = "organizationType",
+                    CategoryId = organizationType.Id,
+                    Enumeration = organizationType,
+                    PreselectedFilters = preselectedFilters
+                } )
+
+                @Html.Partial( "~/Views/V2/Search/_EnumerationFilter.cshtml", new HtmlEnumerationFilterSettings()
+                {
+                    CssClasses = new List<string>() { "column2" },
+                    SearchType = "organization",
+                    FilterName = "industry",
+                    CategoryId = industryCodes.Id,
+                    Enumeration = industryCodes,
+                    PreselectedFilters = preselectedFilters
+                } )
+
+                @Html.Partial( "~/Views/V2/Search/_EnumerationFilter.cshtml", new HtmlEnumerationFilterSettings()
+                {
+                    CssClasses = new List<string>() { "column2" },
+                    SearchType = "organization",
+                    FilterName = "occupation",
+                    CategoryId = occupationCodes.Id,
+                    Enumeration = occupationCodes,
+                    PreselectedFilters = preselectedFilters
+                } )
+
+                <div class="filter" data-searchtype="organization" data-filtername="qualityAssurance" data-categoryID="0">
+                    <label><input type="checkbox" value="includeNormal" data-schemaname="includeNormal" checked="checked" /><i class="fa fa-check"></i> Include Credentialing Organizations</label>
+                    <label><input type="checkbox" value="includeQualityAssurance" data-schemaname="includeQualityAssurance" /><i class="fa fa-check"></i> Include Quality Assurance Organizations</label>
+                </div>
+
+                @* Assessment Filters *@
+
+                @{ var assessmentMethod = enumServices.GetEnumeration( "assessmentType", Models.Common.EnumerationType.MULTI_SELECT, false, false ); }
+                @Html.Partial( "~/Views/V2/Search/_EnumerationFilter.cshtml", new HtmlEnumerationFilterSettings()
+                {
+                    CssClasses = new List<string>() { "column2" },
+                    SearchType = "assessment",
+                    FilterName = "assessmentMethod",
+                    CategoryId = assessmentMethod.Id,
+                    Enumeration = assessmentMethod,
+                    PreselectedFilters = preselectedFilters
+                } )
+
+
+                @* Learning Opportunity Filters *@
+
+                @Html.Partial("~/views/V2/Search/_TextFilter.cshtml", new TextFilterSettings() {
+                    InputTitle = "Search for Competencies",
+                    Guidance = "Enter a keyword or short phrase to show results with matching competencies.",
+                    SearchType = "learningopportunity",
+                    FilterName = "competencies",
+                    CategoryId = "0",
+                    Fields = new List<string>() { "competency" }
+                } )
+
+                @*@Html.Partial( "~/Views/V2/Search/_EnumerationFilter.cshtml", new HtmlEnumerationFilterSettings()
+                {
+                    CssClasses = new List<string>() { "column2" },
+                    SearchType = "learningopportunity",
+                    FilterName = "cipCodes",
+                    CategoryId = cipCodes.Id,
+                    Enumeration = cipCodes,
+                    PreselectedFilters = preselectedFilters
+                } )*@
+                @Html.Partial( "~/Views/V2/Search/_MicroSearchFilter.cshtml", new MicroSearchFilterSettings()
+                {
+                    InputTitle = "Find Classifications",
+                    SelectedTitle = "Selected Classifications",
+                    ParentSearchType = "learningopportunity",
+                    FilterName = "cipSearch",
+                    MicroSearchType = "CIPSearch",
+                    CategoryId = cipCodes.Id,
+                    Filters = new List<MicroSearchSettings_FilterV2>
+                    {
+                        new MicroSearchSettings_FilterV2() { DefaultItemTitle = "Select a Classification...", Type = "select", FilterName = "HeaderId", EnumerationData = cipCodes.Items  }
+                    },
+                    PreselectedFilters = preselectedFilters
+                } )
+
+
+                @{ var deliveryType = enumServices.GetEnumeration( "learningOpportunityDeliveryType", Models.Common.EnumerationType.MULTI_SELECT, false, false ); }
+                @Html.Partial( "~/Views/V2/Search/_EnumerationFilter.cshtml", new HtmlEnumerationFilterSettings()
+                {
+                    CssClasses = new List<string>() { "column2" },
+                    SearchType = "learningopportunity",
+                    FilterName = "deliveryType",
+                    CategoryId = deliveryType.Id,
+                    Enumeration = deliveryType,
+                    PreselectedFilters = preselectedFilters
+                } )
+
+            </div>
+        </div>
+        <div id="selectedFilterList" class="inlineBlockBox"></div>
+    </div>
+</div><!-- /searchHeader -->
+
+<div id="searchResults">
+    <div id="searchResultsWrapper">
+        <div id="searchResultsHeader">
+            <div id="status">Ready to search</div>
+            <div id="viewOptions" class="inlineBlockBox">
+                <select id="ddlSortOrder" class="column viewOption">
+                    <option value="relevance" @( sortOrder == "relevance" ? "selected=\"selected\"" : "" )>Sort by Relevance</option>
+                    <option value="alpha" @( sortOrder == "alpha" ? "selected=\"selected\"" : "")>Sort A-Z</option>
+                </select>
+                @if ( enableMap )
+                {
+                    <div id="viewMode" class="column inlineBlockBox">
+                        <button class="column viewOption whiteButton selected" data-viewmode="list" onclick="setViewMode('list');"><i class="fa fa-fw fa-list"></i> List</button>
+                        <button class="column viewOption whiteButton" data-viewmode="map" onclick="setViewMode('map');"><i class="fa fa-fw fa-map-marker"></i>  Map</button>
+                    </div>
+                }
+            </div>
+        </div>
+        <div id="results"></div>
+        <div id="autoPagingStatus"></div>
+    </div>
+
+    @if ( enableMap )
+    {
+        <div id="mapBox">
+            <div id="locationFilter" class="inlineBlockBox">
+                <div>Drag and resize the map to frame the area to search, or search for a location to reposition the map. </div>
+                <div id="locationSelector" class="column">
+                    <input type="text" id="txtLocationSearch" placeholder="Search within location..." />
+                    <div id="locationResultsBox" data-active="false">
+                        <div id="locationStatus"></div>
+                        <div id="locationResultsList"></div>
+                    </div>
+                </div>
+                <button id="bboxSearchButton" class="actionButton" onclick="location_doBoundsSearch()"><i class="fa fa-map-o"></i> Search Current Area</button>
+            </div>
+            <div id="mapList">
+                <div id="credentialMap" data-searchType="credential" class="googleMap @( searchType == "credential" ? "selected" : "" )"></div>
+                <div id="organizationMap" data-searchType="organization" class="googleMap @( searchType == "organization" ? "selected" : "")"></div>
+                <div id="assessmentMap" data-searchType="assessment" class="googleMap @( searchType == "assessment" ? "selected" : "")"></div>
+                <div id="learningOpportunityMap" data-searchType="learningopportunity" class="googleMap @( searchType == "learningopportunity" ? "selected" : "")"></div>
+            </div>
+        </div>
+    }
+</div><!-- /searchResults -->
+
+
+<div id="templates" style="display:none;">
+    @* Template: Credential *@
+    <script type="text/template" id="template_result_credential">
+        <div class="result credential" data-recordid="{RecordId}">
+            <div class="iconBox" data-type="{TypeSchema}">
+                <div class="typeIcon"></div>
+                <div class="type">{Type}</div>
+            </div>
+            <div class="detailsBox">
+                <a target="credentialResult" href="@Url.Content("~/detail/credential/"){RecordId}" class="name">{Name}</a>
+                @*<div class="subtitle"><a target="organizationResult" href="@Url.Content("~/organizationmanagement/detail2/"){CreatorId}">{Creator}</a></div>*@
+                <div class="subtitle">
+                    <a data-ownerID="{OwnerId}" target="organizationResult" href="@Url.Content("~/detail/organization/"){OwnerId}">{Owner}</a>
+                    <div class="markerList">{AvailableAt}</div>
+                </div>
+                <div class="data">
+                    <div class="descriptionBox">
+                        <div class="description">{Description}</div>
+                        <div class="descriptionCover">
+                            <input type="button" value="Show More" onclick="toggleCover({RecordId}, this);" />
+                        </div>
+                    </div>
+                    <div class="tags">
+                        <div class="tag industry" data-filterName="industry" data-filterID="@industryCodes.Id">{Industry}</div>
+                        <div class="tag level" data-filterName="credentialLevel" data-filterID="@credentialLevel.Id">{Level}</div>
+                        <div class="tag cost" data-filterName="" data-filterID="">{Cost}</div>
+                        <div class="tag time" data-filterName="" data-filterID="">{Time}</div>
+                    </div>
+                    
+                </div>
+                <button class="actionButton compareButton" onclick="compare.addItem({RecordId}, 'credential', '{Name}');"><i class="fa fa-copy"></i><span> Compare</span></button>
+            </div>
+            <div class="editBox" data-canEdit="{CanEditRecord}">
+                <a class="editLink linkButton whiteButton" target="_credentialEditWindow" title="Edit" href="@Url.Content( "~/editor/Credential/" ){RecordId}"><i class="fa fa-pencil"></i> Edit</a>
+                @*@if ( canEditDocument ) { <a class="editLink linkButton whiteButton" target="_credentialEditWindow" title="Edit" href="@Url.Content( "~/editor/Credential/" ){RecordId}"><i class="fa fa-pencil"></i> Edit2</a> }*@
+                @if ( canEditDocument ) { <button class="deleteButton whiteButton" title="Delete" onclick="deleteResult('{Name}', 'credential', {RecordId});"><i class="fa fa-close"></i> Delete</button> }
+            </div>
+        </div>
+    </script>
+
+    @* Template: Organization *@
+    <script type="text/template" id="template_result_organization">
+        <div class="result organization" data-recordid="{RecordId}" data-isQA="{IsQA}">
+            <div class="iconBox">
+                <div class="logo" style="background-image: url('{Logo}'), linear-gradient(#CCC, #EEE);"></div>
+            </div>
+            <div class="detailsBox">
+                <a target="organizationResult" href="@Url.Content("~/detail/organization/"){RecordId}" class="name">{Name} <img class="qaIcon" title="This organization provides Quality Assurance" src="@Url.Content("~/images/icons/cti_icon_star_bg.png")" /></a>
+                <div class="subtitle">
+                    <span class="location">{Location}</span>
+                    <div class="markerList">{AvailableAt}</div>
+                </div>
+                <div class="data">
+                    <div class="description">{Description}</div>
+                </div>
+                <button class="actionButton compareButton" onclick="compare.addItem({RecordId}, 'organization', '{Name}');"><i class="fa fa-copy"></i><span> Compare</span></button>
+            </div>
+            <div class="editBox" data-canEdit="{CanEditRecord}">
+                <a class="editLink linkButton whiteButton" target="_organizationEditWindow" href="@Url.Content( "~/editor/Organization/" ){RecordId}" title="Edit"><i class="fa fa-pencil"></i> Edit</a> 
+                @if ( canEditDocument ) { <input type="button" class="deleteButton whiteButton" value="Delete" title="Delete" onclick="deleteResult('{Name}', 'organization', {RecordId});" /> }
+            </div>
+        </div>
+    </script>
+
+    @* Template: Assessment *@
+    <script type="text/template" id="template_result_assessment">
+        <div class="result assessment" data-recordid="{RecordId}">
+            <div class="detailsBox">
+                <a target="assessmentResult" href="@Url.Content("~/detail/assessment/"){RecordId}" class="name">{Name}</a>
+                <div class="subtitle">
+                    <a data-ownerid="{OwnerId}" target="organizationResult" href="@Url.Content("~/detail/organization/"){OwnerId}">{Owner}</a>
+                    <div class="markerList">{AvailableAt}</div>
+                </div>
+                <div class="data">
+                    <div class="description">{Description}</div>
+                </div>
+            </div>
+            <div class="editBox" data-canEdit="{CanEditRecord}">
+                <a class="editLink linkButton whiteButton" target="_assessmentEditWindow" href="@Url.Content( "~/editor/assessment/" ){RecordId}" title="Edit"><i class="fa fa-pencil"></i> Edit</a> 
+                @if ( canEditDocument ) { <input type="button" class="deleteButton whiteButton" value="Delete" title="Delete" onclick="deleteResult('{Name}', 'assessment', {RecordId});" /> }
+            </div>
+        </div>
+    </script>
+
+    @* Template: Learningopportunity *@
+    <script type="text/template" id="template_result_learningopportunity">
+        <div class="result learningOpportunity" data-recordid="{RecordId}">
+            <div class="detailsBox">
+                <a target="learningOpportunityResult" href="@Url.Content( "~/detail/learningopportunity/" ){RecordId}" class="name">{Name}</a>
+                <div class="subtitle">
+                    <a data-ownerid="{OwnerId}" target="organizationResult" href="@Url.Content("~/detail/organization/"){OwnerId}">{Owner}</a>
+                    <div class="markerList">{AvailableAt}</div>
+                </div>
+                <div class="data">
+                    <div class="description">{Description}</div>
+                </div>
+            </div>
+            <div class="editBox" data-canEdit="{CanEditRecord}">
+                <a class="editLink linkButton whiteButton" target="_learningOpportunityEditWindow" href="@Url.Content( "~/editor/learningOpportunity/" ){RecordId}" title="Edit"><i class="fa fa-pencil"></i> Edit</a> 
+                @if ( canEditDocument ) { <input type="button" class="deleteButton whiteButton" value="Delete" title="Delete" onclick="deleteResult('{Name}', 'learningopportunity', {RecordId});" /> }
+            </div>
+        </div>
+    </script>
+
+    @* Template: Tags Box *@
+    <script type="text/template" id="template_tagsBox">
+        <button class="tagsTitle yellowButton">{summary}</button>
+        <div class="tagsList">
+            {tagData}
+        </div>
+    </script>
+
+    @* Template: Tag *@
+    <script type="text/template" id="template_tag">
+        <a class="tagItem" href="javascript:addIndirectFilter('filterName', 'filterID', '{tagValue}', '{tagText}');">{tagText}</a>
+    </script>
+
+    @* Template: SelectedFilterListItem *@
+    <script type="text/template" id="template_selectedFilter">
+        <div class="selectedFilter column">
+            {tagText}
+            <button class="closeButton fa fa-close" onclick="removeFilter('{filterName}', '{resultID}');" title="Remove"></button>
+        </div>
+    </script>
+
+    @* Template: MicroSearch Result *@
+    <script type="text/template" id="template_microSearchResult">
+        <div class="microResult" data-resultID="{microResultID}">
+            <div class="microSelectors" style="display:none;">{Selectors}</div>
+            <div class="microRaw" style="display:none;">{Raw}</div>
+            <button class="actionButton microResultTitle" onclick="selectMicroResult('{microSearchName}', {microResultID});">{Name} <span class="select">Select <i class="fa fa-caret-right"></i></span></button>
+            <div class="microDescription">{Description}</div>
+        </div>
+    </script>
+
+    @* Template: MicroSearch Selected *@
+    <script type="text/template" id="template_microSearchSelected">
+        <div class="microResult" data-resultID="{microResultID}">
+            <div class="microSelectors" style="display:none;">{Selectors}</div>
+            <div class="microRaw" style="display:none;">{Raw}</div>
+            <button class="actionButton microResultTitle" onclick="removeMicroResult('{microSearchName}', {microResultID});">{Name} <span class="select"> <i class="fa fa-close"></i></span></button>
+            <div class="microDescription">{Description}</div>
+        </div>
+    </script>
+
+    @* Template: MicroSearch Paging Button *@
+    <script type="text/template" id="template_microSearchPageButton">
+        <button class="actionButton {current}" onclick="setMicroSearchPage('{microSearchName}',{pageNumber});">{pageNumber}</button>
+    </script>
+
+    @* Template: Map Marker *@
+    <script type="text/template" id="template_mapMarker">
+        <button class="mapButton" onclick="highlightResult('{searchType}', {resultID}, {markerID});"><i class="fa fa-map-marker"></i></button>
+    </script>
+
+    @* Template: Location Result *@
+    <script type="text/template" id="template_location_LocationResult">
+        <button class="locationResult whiteButton" onclick="location_focusMap(this)">
+            <div class="locationBounds" style="display:none">{Bounds}</div>
+            <div class="locationName">{Name}</div>
+            <div class="locationFormatted">{LocationFormatted}</div>
+        </button>
+    </script>
+</div>
+@if ( enableMap )
+{
+    <script src="https://maps.googleapis.com/maps/api/js?key=@googleMapsKey&callback=setupMapBox"></script>
+}

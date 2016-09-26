@@ -1,0 +1,90 @@
+﻿@model Models.Node.Interface.ListInputSettings
+@using Models.Node.Interface;
+
+@{
+    var items = new Dictionary<string, string>();
+    foreach ( var item in Model.CodeItems )
+    {
+        AddItem( items, item.Id.ToString(), item.Name );
+    }
+    foreach ( var item in Model.EnumItems )
+    {
+        AddItem( items, item.Id.ToString(), item.Name );
+    }
+    foreach ( var item in Model.StringItems )
+    {
+        AddItem( items, item.Key, item.Value );
+    }
+}
+@functions {
+    private void AddItem( Dictionary<string, string> items, string key, string value )
+    {
+        if ( !items.ContainsKey( key ) ) 
+        {
+            items.Add( key, value );
+        }
+    }
+}
+
+<div class="propertyBox tabItem @string.Join( " ", Model.ExtraClasses )" data-property="@Model.Property" @foreach(var item in Model.Attributes){ @Html.Raw( item.Key + "=\"" + item.Value + "\"" ) } >
+    <div class="label">@Model.Label</div>
+    <div class="data">
+        @switch ( Model.Type )
+        {
+            case ListInputSettings.InterfaceType.CHECKBOX_LIST:
+            {
+                <div class="guidance">@Model.Guidance</div>
+                <div class="list propertyInput" data-property="@Model.Property" data-type="checkboxlist" data-valueType="number">
+                    @foreach ( var item in items )
+                    {
+                        <label><input type="checkbox" value="@item.Key" /> @item.Value</label>
+                    }
+                </div>
+            }
+            break;
+            case ListInputSettings.InterfaceType.DROPDOWN_LIST:
+            {
+                <select class="propertyInput" data-property="@Model.Property" data-type="select" data-valueType="number">
+                    @if ( Model.IncludeDefaultItem && !items.ContainsKey( "0" ) )
+                    {
+                        <option value="0">Select...</option>
+                    }
+                    @foreach ( var item in items )
+                    {
+                        <option value="@item.Key">@item.Value</option>
+                    }
+                </select>
+                <div class="guidance">@Model.Guidance</div>
+            }
+            break;
+            case ListInputSettings.InterfaceType.BOOLEAN_CHECKBOX_LIST:
+            {
+                <div class="guidance">@Model.Guidance</div>
+                <div class="list">
+                    @foreach ( var item in items )
+                    {
+                        <label class="boolean"><input type="checkbox" data-type="boolean" data-property="@item.Key" class="propertyInput"  data-enableUncheck="@( Model.EnableUncheck ? "true" : "false" )" /> @item.Value</label>
+                    }
+                </div>
+            }
+            break;
+            case ListInputSettings.InterfaceType.BOOLEAN_RADIO_LIST:
+            {
+                <div class="guidance">@Model.Guidance</div>
+                var temp = Guid.NewGuid();
+                <div class="list" data-listName="radioList_@temp">
+                    @foreach ( var item in items )
+                    {
+                        <label class="boolean"><input type="radio" name="radioList_@temp" data-type="boolean" data-property="@item.Key" class="propertyInput" /> @item.Value</label>
+                    }
+                </div>
+            }
+            break;
+            default: break;
+        }
+        @if ( Model.HasOtherBox )
+        {
+            <input type="text" class="otherInput" data-type="other" data-property="Other" data-otherproperty="@Model.Property" placeholder="Other..." />
+        }
+    </div>
+</div>

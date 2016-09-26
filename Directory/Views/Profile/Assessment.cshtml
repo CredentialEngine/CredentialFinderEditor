@@ -1,0 +1,93 @@
+﻿@model Models.ProfileModels.AssessmentProfile
+@using Models.Common;
+@using CTIServices
+@{
+    ViewBag.Title = "Viewing Assessment";
+
+    var serializer = new System.Web.Script.Serialization.JavaScriptSerializer();
+    var orgs = Model.OrganizationRole.Select( m => m.TargetAssessment ).ToList();
+    var addressList = new List<Dictionary<string, string>>();
+    foreach ( var org in orgs )
+    {
+        //addressList.Add( new Dictionary<string, string>() { { "id", org.Id.ToString() }, { "address", org.Address.DisplayAddress() } } );
+    }
+
+    //addressList.Add( new Dictionary<string, string>() { { "id", Model.Id.ToString() }, { "address", Model.Address.DisplayAddress() } } );
+
+    var canPublish = AccountServices.CanUserPublishContent();
+
+}
+
+@Html.Partial( "~/Views/Shared/Detail/_DetailCore.cshtml", new ViewDataDictionary() { { "organizationAddresses", addressList } } )
+
+
+<script type="text/javascript">
+    var assessment = @Html.Raw( serializer.Serialize( Model ) );
+
+
+</script>
+
+<div id="editButtons">
+    <input type="button" value="Compare" onclick="compare.addItem(@Model.Id, 'organization', '@Model.Name');" />
+    @if ( canPublish )
+    {
+        <a class="editLink linkButton" href="@Url.Content( "~/editor/assessment/" )@Model.Id">Edit</a>
+        <input type="button" class="redButton" value="Delete" onclick="deleteThis('@Model.Name', 'credential', @Model.Id);" />
+    }
+</div>
+<h1><a href="@Model.Url" target="_blank">@Model.Name</a></h1>
+
+<div id="columns">
+    <div class="column data">
+        <div class="section" id="basic">
+            <h2>About This Assessment</h2>
+            <div id="description">@Html.Raw( Model.Description )</div>
+        </div>
+        <div class="section" id="industry">
+            <h2>Assessment Type</h2>
+            <ul class="keywordsList">
+                @foreach ( var item in Model.AssessmentType.Items )
+                {
+                    <li><a href="@Url.Content( "~/search?searchType=assessment&autosearch=true&filters=" + Model.AssessmentType.Id + "-" + item.Id )" target="_blank">@item.Name</a></li>
+                }
+            </ul>
+        </div>
+        @*<div class="section" id="qualityAssurance">
+            
+        </div>*@
+    </div>
+    <div class="column organizations">
+
+        <div id="mapBox"></div>
+
+    </div>
+</div>
+
+<div id="details">
+    <div id="tabButtons">
+        <input type="button" data-tabid="details" class="selected" value="Details" />
+        <input type="button" data-tabid="json" value="Raw Metadata" />
+    </div>
+    <div id="tabBox">
+
+        <div class="tab" data-tabid="details">
+            <h2>Details</h2>
+            @{ var hasDetails = false; }
+            <table id="details">
+                <tbody>
+                </tbody>
+            </table>
+            @if ( !hasDetails )
+            {
+                <p class="noItems">No Detailed information available.</p>
+            }
+        </div>
+
+        <div class="tab" data-tabid="json">
+            <h2>Raw Metadata</h2>
+            <p>For readability, the document below uses human-readable labels for controlled vocabulary items.</p>
+            <div id="json"></div>
+        </div>
+
+    </div>
+</div>

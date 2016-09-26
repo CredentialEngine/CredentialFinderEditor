@@ -1,0 +1,304 @@
+﻿
+@{
+    ViewBag.Title = "Credential Directory";
+}
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        //Enable search
+        $("#keywords").on("keyup", function (e) {
+            if (e.which == 13 || e.keyCode == 13) {
+                search();
+            }
+        });
+
+        //Init sliders
+        initSlider("credentialTypeSlider");
+        initAutoSliding();
+    });
+
+    function search() {
+        window.location = "@Url.Content("~/search")?keywords=" + $("#keywords").val() + "&autosearch=true";
+    }
+</script>
+<script type="text/javascript">
+    /* Slider functions */
+    var sliders = [];
+    function getSlider(slider){
+        for (var i in sliders) {
+            if (sliders[i].name == slider) {
+                return sliders[i];
+            }
+        }
+    }
+    //
+
+    function initAutoSliding() {
+        $(".slider.autoslide").each(function () {
+            var box = $(this);
+            var navigator = $(".sliderNavigator[data-slider=" + box.attr("id") + "]");
+
+            setInterval(function () {
+                if (!box.is(":hover") && (navigator ? !navigator.is(":hover") : true)) {
+                    slideNext(box.attr("id"));
+                }
+            }, 5000);
+        });
+    }
+
+    function initSlider(slider) {
+        //Get box and items
+        var slideBox = $("#" + slider + " .slideBox");
+        var slides = slideBox.find(".slide");
+        var items = [];
+
+        //Setup linked list
+        var i = 0;
+        slides.each(function () {
+            var slide = $(this);
+            items.push({
+                name: slide.attr("data-name"),
+                nextSlide: (i + 1 >= slides.length ? 0 : i + 1),
+                previousSlide: (i - 1 < 0 ? slides.length - 1 : i - 1),
+                html: slide[0].outerHTML
+            });
+            i++;
+        })
+
+        //Add to sliders
+        sliders.push({
+            name: slider,
+            box: slideBox,
+            items: items,
+            current: 0,
+            sliding: false,
+            navigator: $(".sliderNavigator[data-slider=" + slider + "]")
+        });
+
+        //Set initial content
+        slides.remove();
+        slideBox.append(items[0].html);
+    }
+    //
+
+    function slideNext(sliderName) {
+        var slider = getSlider(sliderName);
+        var target = slider.items[slider.current].nextSlide;
+        slideTo(sliderName, target, true);
+    }
+    //
+
+    function slidePrevious(sliderName) {
+        var slider = getSlider(sliderName);
+        var target = slider.items[slider.current].previousSlide;
+        slideTo(sliderName, target, false);
+    }
+    //
+
+    function slideTo(sliderName, target, isNext) {
+        var slider = getSlider(sliderName);
+        if (slider.sliding) {
+            return;
+        }
+
+        slider.sliding = true;
+        if (isNext) {
+            slider.box.append(slider.items[target].html);
+            slider.box.animate({ "margin-left": "-100%" }, 500, function () {
+                slider.box.css("margin-left", "0");
+                slider.box.find(".slide").first().remove();
+                slider.sliding = false;
+            });
+        }
+        else {
+            slider.box.prepend(slider.items[target].html);
+            slider.box.css("margin-left", "-100%");
+            slider.box.animate({ "margin-left": "0%" }, 500, function () {
+                slider.box.find(".slide").last().remove();
+                slider.sliding = false;
+            });
+        }
+
+        slider.current = target;
+        slider.navigator.find(".sliderNavigatorItem").removeClass("current").filter("[data-name=" + slider.items[slider.current].name + "]").addClass("current");
+    }
+    //
+
+    function slideToName(sliderName, slideName) {
+        var slider = getSlider(sliderName);
+        for (var i in slider.items) {
+            if (slider.items[i].name == slideName) {
+                slideTo(sliderName, i, true);
+            }
+        }
+        slider.navigator.find(".sliderNavigatorItem").blur();
+    }
+    //
+</script>
+<style type="text/css">
+    /* Big Stuff */
+    #content { padding: 0; font-size: 18px; }
+
+    /* Big Image */
+    #bigImage { text-align: center; padding: 150px 5vw 200px 5vw; background-size: cover; background-position: center top; }
+    #bigImage h1 { font-size: 60px; color: #FFF; text-shadow: 0 0 25px rgba(100,0,10,0.8); }
+
+    /* Sections */
+    .section { padding: 75px 5vw 75px 5vw; }
+
+    /* Search Box */
+    #searchBox { white-space: nowrap; margin-bottom: 25px; max-width: 75vw; margin: 10px auto 25px auto; }
+    #searchBox * { font-size: 40px; }
+    #keywords { width: 85%; max-width: calc(100% - 150px); }
+    #btnSearch { width: 15%; min-width: 150px; }
+
+    /* Trio */
+    #trio { font-size: 0; padding: 75px 0; max-width: 75vw; margin: 0 auto; }
+    #trio .column { display: inline-block; vertical-align: top; width: 32%; background-color: rgba(255, 200, 225, 0.6); color: #FFF; min-height: 225px; position: relative; overflow: hidden; z-index: 1; }
+    #trio .column img { position: absolute; bottom: -10px; right: -10px; opacity: 0.65; z-index: -1; width: 150px; }
+    #trio .column.center { margin: 0 2%; }
+    #trio .column h2 { font-size: 36px; margin: 0; text-align: center; background-color: rgba(55, 190, 183, 0.7); padding: 5px; }
+    #trio .column p { font-size: 30px; font-weight: bold; color: #333; margin: 0; padding: 20px 15px 10px 15px; }
+    #trio .column { background-position: right -50px bottom -50px; text-align: center; }
+
+    /* More Info */
+    #moreInfo { font-size: 0; color: #333; background-color: #FFF; text-align: center; }
+    #moreInfo .column { display: inline-block; vertical-align: top; width: calc(100% / 3); max-width: 350px; margin: 0; padding: 0 15px; font-size: 0; }
+    #moreInfo .column * { display: block; }
+    #moreInfo .column .bigIcon { width: 100%; max-width: 200px; margin: 0 auto; }
+    #moreInfo .column .bigIcon img { opacity: 0.8; }
+    #moreInfo .column .bigIcon:hover img, #moreInfo .column .bigIcon:focus img { opacity: 1; }
+    #moreInfo .column div { padding: 0 10px; font-size: 24px; }
+
+    /* Info sections */
+    #content .section.info { font-size: 0; }
+    #info_credential { background-color: #999; }
+    #info_quality { background-color: #777; }
+    .section.info { line-height: 25px; }
+    .section.info .infoHeader { position: relative; padding: 10px 0 25px 100px; }
+    .section.info .infoHeader img { width: 75px; position: absolute; top: 5px; left: 0; }
+    .section.info .infoHeader p { margin: 5px 5px 15px 5px; padding: 0; font-size: 22px; }
+    /*
+    .section.info li { margin-bottom: 15px; }
+    .section.info dt { font-weight: bold; color: #FFF; background-color: rgba(55, 190, 183, 0.8); margin: -5px -5px 5px -5px; padding: 5px; }
+    .section.info dt, .section.info dd { display: block; }
+    .section.info dd { background-position: left center; background-repeat: no-repeat; background-size: 75px 75px; margin-left: 0; padding-left: 85px; padding-right: 25px; min-height: 75px; margin-bottom: 15px; } 
+    .section.info .di { display: block; background-color: rgba(255,255,255,0.8); padding: 5px; color: #000; padding: 5px; margin-bottom: 5px; }
+    .section.info .di ul { margin: 0; padding: 0 0 0 25px; }
+    .section.info .di ul li { margin: 0; }
+    */
+
+    /* Slider */
+    #credentialTypesList { font-size: 0; text-align: center; }
+    #credentialTypesList a { display: inline-block; vertical-align: top; width: 110px; height: 150px; margin: 5px; background-size: 100px; background-position: center top 10px; background-repeat: no-repeat; opacity: 0.8; font-size: 14px; color: #FFF; text-decoration: none; line-height: normal; padding-top: 110px; }
+    #credentialTypesList a:hover, #credentialTypesList a:focus, #credentialTypesList a.current { opacity: 1; background-position: center top; }
+    .slider { position: relative; margin: 0; padding: 0 50px; font-size: 0; white-space: nowrap; }
+    .slider .slideCanvas { overflow-x: hidden; overflow-y: auto; width: 100%; height: 100%; }
+    .slider .slideBox { font-size: 0; white-space: nowrap; width: 200%; height: 100%; }
+    .slider .slideHeightFix { height: 100%; display: inline-block; vertical-align: middle; width: 0; padding: 0; margin: 0; }
+    .slider .slide { display: inline-block; vertical-align: middle; width: 50%; white-space: normal; padding: 20px 10px 10px 255px; background-position: left center; background-size: 250px auto; background-repeat: no-repeat; min-height: 250px; }
+    .slider .sliderButton { display: block; position: absolute; top: 0; bottom: 0; width: 50px; font-size: 30px; }
+    .slider .sliderButton.previous { left: 0; }
+    .slider .sliderButton.next { right: 0; }
+    .slider .slideTitle { background-color: transparent; font-size: 50px; margin: 0; padding: 5px; line-height: normal; }
+    .slider .slideDescription { margin: 0; padding: 10px; }
+    .slider .slideDescription * { font-size: 22px; line-height: 26px; }
+    .slider ul li { margin: 0; }
+
+    /* Photo Boxes */
+    #content .photos { font-size: 0; text-align: center; }
+    .photos .photoBox { display: inline-block; vertical-align: top; width: 50%; padding: 10px; }
+    .photoBox .photo { width: 100%; background-color: #CCC; position: relative; background-position: center center; background-size: 120%; background-repeat: no-repeat; }
+    .photoBox .photo img { width: 100%; }
+    .photoBox:hover .photo, .photoBox:focus .photo { background-size: 130%; }
+    .photoBox .photoOverlay { height: 65px; position: absolute; bottom: 0; left: 0; right: 0; overflow: hidden; transition: height 0.5s; }
+    .photoBox:hover .photoOverlay, .photoBox:focus .photoOverlay { height: 100%; }
+    .photoBox .title { font-weight: bold; font-size: 26px; color: #FFF; background-color: rgba(201, 0, 68, 0.6); text-align: center; padding: 5px; height: 65px; }
+    .photoBox .description { padding: 15px; color: #FFF; background-color: rgba(0,0,0,0.6); font-size: 22px; height: calc(100% - 65px); }
+    .photos.teal .title { background-color: rgba(55, 190, 183, 0.6); }
+
+    @@media (max-width: 1200px){
+        .photos .photoBox { width: 49%; }
+    }
+
+    @@media (max-width: 925px){
+        #trio .column h2 { min-height: 3em; }
+        .slider .slide { background-size: 100px auto; padding-left: 105px; min-height: 100px; }
+        .slider .slideTitle { font-size: 30px; font-weight: bold; }
+        .slider .slideDescription * { font-size: 18px; line-height: 20px; }
+    }
+    @@media (max-width: 875px){
+        #trio .column, #trio .column.center { display: block; width: 100%; margin: 0 0 10px 0; min-height: 125px; }
+        #trio .column h2 { min-height: initial; }
+        .photos .photoBox { width: 100%; display: block; }
+    }
+    @@media (max-width: 550px) {
+        .section { padding: 25px 1vw; }
+        #bigImage h1 { font-size: 30px; }
+        #searchBox * { font-size: 20px; }
+        #moreInfo .column { display: block; width: 100%; margin: 5px auto 10px auto; }
+        .section.info > img { width: 50px; display: block; }
+        .section.info > div { width: 100%; display: block); }
+        .slider .slide { background-size: 75px auto; background-position: top center; padding-left: 5px; padding-top: 80px; min-height: 0; }
+        .slider .slideTitle { text-align: center; } 
+
+    }
+</style>
+<style type="text/css">
+    #bigImage { background-image: linear-gradient(rgba(201, 0, 68, 0.5), rgba(201, 0, 68, 0.5)), url('@Url.Content( "~/images/common/background_office.jpg" )'); }
+
+</style>
+
+<div class="section" id="bigImage">
+    <h1>Discover Credential Connections</h1>
+
+    <div id="searchBox">
+        <input type="text" id="keywords" placeholder="Find Credentials..." /><input type="button" class="actionButton" id="btnSearch" value="Search" onclick="search();" />
+    </div>
+    
+    <div class="section" id="trio">
+        <div class="column">
+            @*<img src="@Url.Content( "~/images/icons/icon_search_white.png" )" />*@
+            <h2>Find</h2>
+            <p>Explore and find credentials that are right for you.</p>
+        </div>
+        <div class="column center">
+            @*<img src="@Url.Content( "~/images/icons/icon_compare_white.png" )" />*@
+            <h2>Compare</h2>
+            <p>Compare credentials based on their key features.</p>
+        </div>
+        <div class="column">
+            @*<img src="@Url.Content( "~/images/icons/icon_connect_white.png" )" />*@
+            <h2>Connect</h2>
+            <p>CTI is reenvisioning how you connect to credentials.</p>
+        </div>
+    </div>
+
+</div>
+
+<div class="section" id="moreInfo">
+    <div class="column">
+        <a class="bigIcon" href="#info_audience"><img src="@Url.Content( "~/images/icons/cti_icon_info_bg.png" )" /></a>
+        <div>Find credentials for high school students, professionals, and everyone in between.</div>
+    </div>
+    <div class="column">
+        <a class="bigIcon" href="#info_credential"><img src="@Url.Content( "~/images/icons/cti_icon_list_bg.png" )" /></a>
+        <div>Credentials come in many forms. Find out more.</div>
+    </div>
+    <div class="column">
+        <a class="bigIcon" href="#info_quality"><img src="@Url.Content( "~/images/icons/cti_icon_star_bg.png" )" /></a>
+        <div>Find out what quality assurance means and discover why it's important.</div>
+    </div>
+</div>
+
+<div class="section info" id="info_audience">
+    @Html.Partial( "~/Views/Home/_Content_AudienceInformation.cshtml" )
+</div>
+
+<div class="section info" id="info_credential">
+    @Html.Partial( "~/Views/Home/_Content_CredentialInformation.cshtml" )
+</div>
+
+<div class="section info" id="info_quality">
+    @Html.Partial( "~/Views/Home/_Content_QualityAssuranceInformation.cshtml" )
+</div>
