@@ -9,7 +9,7 @@ using Models.ProfileModels;
 using EM = Data;
 using Utilities;
 using DBentity = Data.Entity_TaskProfile;
-using Entity = Models.ProfileModels.TaskProfile;
+using ThisEntity = Models.ProfileModels.TaskProfile;
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
 namespace Factories
@@ -27,7 +27,7 @@ namespace Factories
 		/// <param name="userId"></param>
 		/// <param name="messages"></param>
 		/// <returns></returns>
-		public bool TaskProfileUpdate( List<Entity> profiles, Guid parentUid, int parentTypeId, int userId, ref List<string> messages )
+		public bool TaskProfileUpdate( List<ThisEntity> profiles, Guid parentUid, int parentTypeId, int userId, ref List<string> messages )
 		{
 			bool isValid = true;
 			int intialCount = messages.Count;
@@ -46,11 +46,12 @@ namespace Factories
 			int count = 0;
 			bool hasData = false;
 			if ( profiles == null )
-				profiles = new List<Entity>();
+				profiles = new List<ThisEntity>();
 
 			DBentity efEntity = new DBentity();
 
-			Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
+			//Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
+			Entity parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
 			{
 				messages.Add( "Error - the parent entity was not found." );
@@ -65,7 +66,7 @@ namespace Factories
 					bool isEmpty = false;
 
 
-					foreach ( Entity entity in profiles )
+					foreach ( ThisEntity entity in profiles )
 					{
 						if ( ValidateProfile( entity, ref isEmpty, ref  messages ) == false )
 						{
@@ -154,7 +155,7 @@ namespace Factories
 									 join item in profiles
 											 on existing.Id equals item.Id
 											 into joinTable
-									 from result in joinTable.DefaultIfEmpty( new Entity { Id = 0, ParentId = 0 } )
+									 from result in joinTable.DefaultIfEmpty( new ThisEntity { Id = 0, ParentId = 0 } )
 									 select new { DeleteId = existing.Id, ParentId = ( result.ParentId ) };
 
 					foreach ( var v in deleteList )
@@ -177,7 +178,7 @@ namespace Factories
 			return isValid;
 		}
 
-		public bool Update( Entity entity, Guid parentUid, int userId, ref List<string> messages )
+		public bool Update( ThisEntity entity, Guid parentUid, int userId, ref List<string> messages )
 		{
 			bool isValid = true;
 			int intialCount = messages.Count;
@@ -194,7 +195,8 @@ namespace Factories
 	
 			DBentity efEntity = new DBentity();
 
-			Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
+			//Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
+			Entity parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
 			{
 				messages.Add( "Error - the parent entity was not found." );
@@ -207,7 +209,7 @@ namespace Factories
 
 				if ( ValidateProfile( entity, ref isEmpty, ref  messages ) == false )
 				{
-					messages.Add( "Task Profile was invalid. " + SetEntitySummary( entity ) );
+					//messages.Add( "Task Profile was invalid. " + SetEntitySummary( entity ) );
 					return false;
 				}
 				if ( isEmpty )
@@ -272,7 +274,7 @@ namespace Factories
 			return isValid;
 		}
 
-		private bool UpdateParts( Entity entity, int userId, ref List<string> messages )
+		private bool UpdateParts( ThisEntity entity, int userId, ref List<string> messages )
 		{
 			bool isAllValid = true;
 
@@ -316,7 +318,7 @@ namespace Factories
 		}
 		
 
-		public bool ValidateProfile( Entity profile, ref bool isEmpty, ref List<string> messages )
+		public bool ValidateProfile( ThisEntity profile, ref bool isEmpty, ref List<string> messages )
 		{
 			bool isValid = true;
 
@@ -341,6 +343,11 @@ namespace Factories
 				messages.Add( "A profile name must be entered" );
 				isValid = false;
 			}
+			if (!IsValidDate(profile.DateEffective))
+			{
+				messages.Add( "Please enter a valid effective date" );
+				isValid = false;
+			}
 			//should be something else
 			if ( !IsValidGuid( profile.AffiliatedAgentUid )
 				&& ( profile.EstimatedCost == null || profile.EstimatedCost.Count == 0 )
@@ -362,11 +369,11 @@ namespace Factories
 		/// Uses the parent Guid to retrieve the related Entity, then uses the EntityId to retrieve the child objects.
 		/// </summary>
 		/// <param name="parentUid"></param>
-		public static List<Entity> TaskProfile_GetAll( Guid parentUid )
+		public static List<ThisEntity> TaskProfile_GetAll( Guid parentUid )
 		{
-			Entity entity = new Entity();
-			List<Entity> list = new List<Entity>();
-			Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
+			ThisEntity entity = new ThisEntity();
+			List<ThisEntity> list = new List<ThisEntity>();
+			Entity parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
 			{
 				return list;
@@ -385,7 +392,7 @@ namespace Factories
 					{
 						foreach ( DBentity item in results )
 						{
-							entity = new Entity();
+							entity = new ThisEntity();
 							ToMap( item, entity, true );
 
 
@@ -401,9 +408,9 @@ namespace Factories
 			return list;
 		}//
 
-		public static Entity TaskProfile_Get( int profileId )
+		public static ThisEntity TaskProfile_Get( int profileId )
 		{
-			Entity entity = new Entity();
+			ThisEntity entity = new ThisEntity();
 			
 			try
 			{
@@ -425,7 +432,7 @@ namespace Factories
 			return entity;
 		}//
 
-		public static void FromMap( Entity from, DBentity to )
+		public static void FromMap( ThisEntity from, DBentity to )
 		{
 			//want to ensure fields from create are not wiped
 			if ( to.Id == 0 )
@@ -451,12 +458,15 @@ namespace Factories
 			
 
 		}
-		public static void ToMap( DBentity from, Entity to, bool includingItems = true )
+		public static void ToMap( DBentity from, ThisEntity to, bool includingItems = true )
 		{
 			to.Id = from.Id;
 			to.RowId = from.RowId;
 
-			to.ProfileName = from.ProfileName;
+			if ( from.ProfileName == "*** new profile ***" )
+				from.ProfileName = "";
+			else	
+				to.ProfileName = from.ProfileName;
 			to.Description = from.Description;
 
 			if ( IsValidDate( from.DateEffective ) )
@@ -485,7 +495,7 @@ namespace Factories
 				to.Jurisdiction = RegionsManager.Jurisdiction_GetAll( to.RowId );
 			}
 		}
-		static string SetEntitySummary( Entity to )
+		static string SetEntitySummary( ThisEntity to )
 		{
 			string summary = "Task Profile ";
 			if ( !string.IsNullOrWhiteSpace( to.ProfileName ) )

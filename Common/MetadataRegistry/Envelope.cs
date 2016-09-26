@@ -96,7 +96,22 @@ namespace MetadataRegistry
 		public string Url { get; set; }
 
 	}
+	public class DeleteObject
+	{
+		public DeleteObject()
+		{
+			deleteLabel = "true";
+		}
+		[JsonProperty( PropertyName = "delete" )]
+		public string deleteLabel { get; set; }
 
+		[JsonProperty( PropertyName = "ctld:ctid" )]
+		public string Ctid { get; set; }
+
+		[JsonProperty( PropertyName = "deletedBy" )]
+		public string Actor { get; set; }
+
+	}
 
 	public class DeleteEnvelope
 	{

@@ -9,19 +9,23 @@ using System.Threading.Tasks;
 using System.Data.Entity;
 
 using CM = Models.Common;
+using ME = Models.Elastic;
+using Models.ProfileModels;
 using EM = Data;
 using Utilities;
 //using PropertyMgr = Factories.CredentialPropertyManager;
-using Entity = Models.Common.Credential;
+using ThisEntity = Models.Common.Credential;
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
+using CondProfileMgr = Factories.Entity_ConditionProfileManager;
+using CondProfileMgrOld = Factories.ConnectionProfileManager;
 
 namespace Factories
 {
 	public class CredentialManager : BaseFactory
 	{
 		static string thisClassName = "Factories.CredentialManager";
-
+		
 		#region Credential - presistance =======================
 
 		/// <summary>
@@ -195,6 +199,7 @@ namespace Factories
 		{
 			bool isValid = false;
 			int count = 0;
+			bool updatingStatus = UtilityManager.GetAppKeyValue( "onRegisterSetEntityToPublic", false );
 			using ( var context = new Data.CTIEntities() )
 			{
 				try
@@ -207,7 +212,8 @@ namespace Factories
 					if ( efEntity != null && efEntity.Id > 0 )
 					{
 						efEntity.CredentialRegistryId = envelopeId;
-						efEntity.StatusId = CodesManager.ENTITY_STATUS_PUBLISHED;
+						if ( updatingStatus )
+							efEntity.StatusId = CodesManager.ENTITY_STATUS_PUBLISHED;
 
 						if ( HasStateChanged( context ) )
 						{
@@ -327,6 +333,11 @@ namespace Factories
 			if ( erm.EntityUpdate( entity.Keywords, entity.RowId, CodesManager.ENTITY_TYPE_CREDENTIAL, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_KEYWORD, false ) == false )
 				isAllValid = false;
 
+			if ( erm.EntityUpdate( entity.OtherIndustries, entity.RowId, CodesManager.ENTITY_TYPE_CREDENTIAL, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_NAICS, false ) == false )
+				isAllValid = false;
+
+			if ( erm.EntityUpdate( entity.OtherOccupations, entity.RowId, CodesManager.ENTITY_TYPE_CREDENTIAL, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_SOC, false ) == false )
+				isAllValid = false;
 			//don't call from here, as will from a separate call
 			//if (orgMgr.Credential_UpdateOrgRoles( entity, ref messages, ref count ))
 			//	isAllValid = false;
@@ -361,7 +372,7 @@ namespace Factories
 			statusMessage = string.Join( ",", messages.ToArray() );
 			return isAllValid;
 		}
-		public bool UpdateProperties( Entity entity, ref List<string> messages )
+		public bool UpdateProperties( ThisEntity entity, ref List<string> messages )
 		{
 			bool isAllValid = true;
 			//OLD
@@ -441,6 +452,25 @@ namespace Factories
 		#endregion
 
 		#region credential - retrieval ===================
+		public static CM.Credential Credential_Get( int id, CredentialRequest cr )
+		{
+			CM.Credential entity = new CM.Credential();
+
+			using ( var context = new Data.CTIEntities() )
+			{
+				EM.Credential item = context.Credential
+							.SingleOrDefault( s => s.Id == id
+								&& s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED
+								);
+
+				if ( item != null && item.Id > 0 )
+				{
+					ToMap( item, entity, cr);
+				}
+			}
+
+			return entity;
+		}
 		/// <summary>
 		/// Get a credential
 		/// ?should we allow get on a 'deleted' cred? Most people wouldn't remember the Id, although could be from a report
@@ -527,6 +557,19 @@ namespace Factories
 		}
 		*/
 
+		public static List<string> Autocomplete( string pFilter, int pageNumber, int pageSize, int userId, ref int pTotalRows )
+		{
+			bool autocomplete = true;
+			List<string> results = new List<string>();
+
+			List<CM.CredentialSummary> list = Search( pFilter, "", pageNumber, pageSize, ref pTotalRows, userId, autocomplete );
+
+			foreach ( CM.CredentialSummary item in list )
+				results.Add( item.Name );
+
+			return results;
+		}
+
 		/// <summary>
 		/// Quick search
 		/// NOTE: 16-07-06 mp - changed to use Credential_Summary instead of Credential_Summary2. Need to determine impact
@@ -547,7 +590,9 @@ namespace Factories
 				// will only return active credentials
 				List<Views.Credential_Summary> results = context.Credential_Summary
 					.Where( s => keyword == "" 
-						|| ( s.Name.Contains( keyword ) || s.OrganizationName.Contains( keyword ) )
+						|| ( s.Name.Contains( keyword ) 
+						|| (s.Description.Contains(keyword))
+						|| s.OrganizationName.Contains( keyword ) )
 						)
 					.Take( maxTerms )
 					.OrderBy( s => s.Name )
@@ -569,12 +614,16 @@ namespace Factories
 
 			return list;
 		}
-		public static List<CM.CredentialSummary> Search( string pFilter, string pOrderBy, int pageNumber, int pageSize, ref int pTotalRows, int userId = 0 )
+		public static List<CM.CredentialSummary> Search( string pFilter, string pOrderBy, int pageNumber, int pageSize, ref int pTotalRows, int userId = 0, bool autocomplete = false )
 		{
 			string connectionString = DBConnectionRO();
 			CM.CredentialSummary item = new CM.CredentialSummary();
 			List<CM.CredentialSummary> list = new List<CM.CredentialSummary>();
 			var result = new DataTable();
+			string creatorOrgs = "";
+			string owningOrgs = "";
+			int orgId = 0;
+			string orgName = "";
 			using ( SqlConnection c = new SqlConnection( connectionString ) )
 			{
 				c.Open();
@@ -617,11 +666,19 @@ namespace Factories
 				{
 					item = new CM.CredentialSummary();
 					item.Id = GetRowColumn( dr, "Id", 0 );
+					item.Name = GetRowColumn( dr, "Name", "missing" );
+
+					//for autocomplete, only need name
+					if ( autocomplete )
+					{
+						list.Add( item );
+						continue;
+					}
 					string rowId = GetRowColumn( dr, "EntityUid" );
 					//if ( IsGuidValid( rowId ) )
 					item.RowId = new Guid( rowId );
 
-					item.Name = GetRowColumn( dr, "Name", "missing" );
+					
 					item.Description = GetRowColumn( dr, "Description", "" );
 					item.Url = GetRowColumn( dr, "Url", "" );
 
@@ -629,11 +686,41 @@ namespace Factories
 
 					item.ManagingOrgId = GetRowPossibleColumn( dr, "ManagingOrgId", 0 );
 					item.ManagingOrganization = GetRowPossibleColumn( dr, "ManagingOrganization" );
-					item.CreatorOrganizationId = GetRowColumn( dr, "OrgId", 0 );
-					item.CreatorOrganizationName = GetRowColumn( dr, "OrganizationName", "" );
+					creatorOrgs = GetRowPossibleColumn( dr, "CreatorOrgs" );
+					if ( !string.IsNullOrWhiteSpace( creatorOrgs ) )
+					{
+						var orgs = creatorOrgs.Split( '|' );
+						foreach ( string orgSet in orgs )
+						{
+							//step one, just handle first one
+							if (ExtractOrg( orgSet, ref orgId, ref orgName )) 
+							{
+								item.CreatorOrganizationId = orgId;
+								item.CreatorOrganizationName = orgName;
+								break;
+							}
+						}
+					}
+					owningOrgs = GetRowPossibleColumn( dr, "OwningOrgs" );
+					if ( !string.IsNullOrWhiteSpace( owningOrgs ) )
+					{
+						var orgs = owningOrgs.Split( '|' );
+						foreach ( string orgSet in orgs )
+						{
+							//step one, just handle first one
+							if ( ExtractOrg( orgSet, ref orgId, ref orgName ) )
+							{
+								item.OwnerOrganizationId = orgId;
+								item.OwnerOrganizationName = orgName;
+								break;
+							}
+						}
+					}
+					//item.CreatorOrganizationId = GetRowColumn( dr, "OrgId", 0 );
+					//item.CreatorOrganizationName = GetRowColumn( dr, "OrganizationName", "" );
 
-					item.OwnerOrganizationId = GetRowPossibleColumn( dr, "owingOrgId", 0 );
-					item.OwnerOrganizationName = GetRowPossibleColumn( dr, "owingOrganization" );
+					//item.OwnerOrganizationId = GetRowPossibleColumn( dr, "owingOrgId", 0 );
+					//item.OwnerOrganizationName = GetRowPossibleColumn( dr, "owingOrganization" );
 
 					item.CTID = GetRowPossibleColumn( dr, "CTID" );
 					item.CredentialRegistryId = GetRowPossibleColumn( dr, "CredentialRegistryId" );
@@ -658,10 +745,12 @@ namespace Factories
 					item.CredentialType = GetRowPossibleColumn( dr, "CredentialType", "" );
 					item.CredentialTypeSchema = GetRowPossibleColumn( dr, "CredentialTypeSchema", "" );
 					//NAICS CSV
+					//16-09-12 mp - changed to use pipe (|) rather than ; due to conflicts with actual embedded semicolons
 					string naicsList = GetRowPossibleColumn( dr, "NaicsList", "" );
+					//item.NaicsList = new List<Models.CodeItem>();
 					if ( !string.IsNullOrWhiteSpace( naicsList ) )
 					{
-						var codeGroup = naicsList.Split( ';' );
+						var codeGroup = naicsList.Split( '|' );
 						foreach ( string codeSet in codeGroup )
 						{
 							var codes = codeSet.Split( ',' );
@@ -669,10 +758,11 @@ namespace Factories
 						}
 					}
 					//credential levels CSV
+					//16-09-12 mp - changed to use pipe (|) rather than ; due to conflicts with actual embedded semicolons
 					string levelsList = GetRowPossibleColumn( dr, "LevelsList", "" );
 					if ( !string.IsNullOrWhiteSpace( levelsList ) )
 					{
-						var codeGroup = levelsList.Split( ';' );
+						var codeGroup = levelsList.Split( '|' );
 						foreach ( string codeSet in codeGroup )
 						{
 							var codes = codeSet.Split( ',' );
@@ -696,7 +786,17 @@ namespace Factories
 
 			}
 		}
+		private static bool ExtractOrg( string data, ref int orgId, ref string orgName )
+		{
+			var org = data.Split( ',' );
+			orgName = org[ 1 ].Trim();
+			if (Int32.TryParse(org[ 0 ].Trim(), out orgId))
+				return true;
+			else
+				return false;
+			
 		
+		}
 		/// <summary>
 		/// Fill
 		/// </summary>
@@ -757,6 +857,10 @@ namespace Factories
 
 			to.Keywords = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_KEYWORD );
 
+			to.OtherIndustries = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_NAICS );
+
+			to.OtherOccupations = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_SOC );
+			
 
 			if ( includingProperties )
 			{
@@ -786,8 +890,9 @@ namespace Factories
 				to.Industry = Entity_FrameworkItemManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_NAICS );
 
 				//get all condition profiles
-				ConnectionProfileManager.FillProfiles( from, to, forEditView );
-				
+				//ConnectionProfileManager.FillProfiles( from, to, forEditView );
+				FillConditionProfiles( from, to, forEditView );
+
 				to.Revocation = Entity_RevocationProfileManager.GetAll( to.RowId );
 
 				//to.Region = RegionsManager.GetAll( to.RowId );
@@ -811,45 +916,149 @@ namespace Factories
 				}
 
 				to.QualityAssuranceAction = Entity_QualityAssuranceActionManager.QualityAssuranceActionProfile_GetAll( to.RowId );
-				
-			//}
-			//else
-			//{
-			//	//the agent data should be already included?
-			//	if ( from.Credential_AgentRelationship.Count > 0 )
-			//	{
-			//		//TODO - do we need two different options?
-			//		if ( forEditView && allowingMultipleOrgRoles )
-			//		{
-			//			//change to use Entity_AgentRoles	OrganizationRoleManager.Credential_FillAllOrgRolesAsEnumeration( from, to );
-
-			//			to.OrganizationRole = Entity_AgentRelationshipManager.AgentEntityRole_GetAllSummary( to.RowId, false );
-
-			//			//get QA separate
-			//			//TODO - convert
-			//			//OrganizationRoleManager.Fill_QAActionsForCredential( from, to );
-
-			//			to.QualityAssuranceAction = Entity_QualityAssuranceActionManager.QualityAssuranceActionProfile_GetAll( to.RowId );
-
-			//		}
-			//		else
-			//		{
-			//			//need to confirm ok for display
-			//			//OrganizationRoleManager.FillAllOrgRolesForCredential( from, to );
-
-			//			to.OrganizationRole = Entity_AgentRelationshipManager.AgentEntityRole_GetAll( to.RowId, false );
-
-
-			//			to.QualityAssuranceAction = Entity_QualityAssuranceActionManager.QualityAssuranceActionProfile_GetAll( to.RowId );
-			//		}
-
-			//	}
-			//}
-			
-			
 
 		}
 	
+		private static void ToMap( EM.Credential from, CM.Credential to, 
+					CredentialRequest cr)
+		{
+			to.Id = from.Id;
+			to.StatusId = from.StatusId ?? 1;
+			to.RowId = from.RowId;
+			 
+			to.Name = from.Name;
+			to.AlternateName = from.AlternateName;
+
+			to.Description = from.Description;
+			to.ctid = from.CTID;
+			to.CredentialRegistryId = from.CredentialRegistryId;
+
+			to.Version = from.Version;
+			if ( IsValidDate( from.EffectiveDate ) )
+				to.DateEffective = ( ( DateTime ) from.EffectiveDate ).ToShortDateString();
+			else
+				to.DateEffective = "";
+
+			to.Url = from.Url;
+			to.LatestVersionUrl = from.LatestVersionUrl;
+			to.ReplacesVersionUrl = from.ReplacesVersionUrl;
+			to.ManagingOrgId = from.ManagingOrgId ?? 0;
+			to.AvailableOnlineAt = from.AvailableOnlineAt;
+
+			if ( from.ImageUrl != null && from.ImageUrl.Trim().Length > 0 )
+				to.ImageUrl = from.ImageUrl;
+			else
+				to.ImageUrl = null;
+
+			if ( IsValidDate( from.Created ) )
+				to.Created = ( DateTime ) from.Created;
+			to.CreatedById = from.CreatedById == null ? 0 : ( int ) from.CreatedById;
+			if ( IsValidDate( from.LastUpdated ) )
+				to.LastUpdated = ( DateTime ) from.LastUpdated;
+			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
+
+			//properties
+			// 16-06-15 mp - always include credential type
+			to.CredentialType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_CREDENTIAL_TYPE );
+
+			if ( cr.IncludingProperties)
+			{
+				to.CredentialLevel = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_CREDENTIAL_LEVEL );
+
+				to.Purpose = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_CREDENTIAL_PURPOSE );
+			}
+
+			if (cr.IncludingRolesAndActions) {
+				if ( cr.IsForEditView )
+				{
+					to.OrganizationRole = Entity_AgentRelationshipManager.AgentEntityRole_GetAllSummary( to.RowId, false );
+				}
+				else
+				{
+					//get as ennumerations
+					to.OrganizationRole = Entity_AgentRelationshipManager.AgentEntityRole_GetAll_ToEnumeration( to.RowId, true );
+				}
+
+				to.QualityAssuranceAction = Entity_QualityAssuranceActionManager.QualityAssuranceActionProfile_GetAll( to.RowId );
+			}
+
+			if (cr.IncludingConnectionProfiles) {
+				//get all condition profiles
+				//TODO - have custom version of this to only get minimum!!
+				//ConnectionProfileManager.FillProfiles( from, to, cr.IsForEditView );
+				FillConditionProfiles( from, to, cr.IsForEditView );
+			}
+
+			if ( cr.IncludingRevocationProfiles )
+				to.Revocation = Entity_RevocationProfileManager.GetAll( to.RowId );
+
+			if (cr.IncludingEstimatedCosts) 
+				to.EstimatedCosts = CostProfileManager.CostProfile_GetAll( to.RowId );
+			
+			if (cr.IncludingDuration) 
+				to.EstimatedTimeToEarn = DurationProfileManager.GetAll( to.RowId );
+			
+			if (cr.IncludingAddesses) 
+				to.Addresses = AddressProfileManager.GetAll( to.RowId );
+
+			if (cr.IncludingJurisdiction)
+				to.Jurisdiction = RegionsManager.Jurisdiction_GetAll( to.RowId );
+
+			if (cr.IncludingSubjectsKeywords) 
+			{
+				to.Subjects = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_SUBJECT );
+
+				to.Keywords = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_KEYWORD );
+			}
+
+			if (cr.IncludingFrameworkItems) {
+				to.Occupation = Entity_FrameworkItemManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_SOC );
+				to.Industry = Entity_FrameworkItemManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_NAICS );
+				to.OtherIndustries = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_NAICS );
+
+				to.OtherOccupations = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_SOC );
+			
+			}
+			if (cr.IncludingEmbeddedCredentials) 
+				to.EmbeddedCredentials = Entity_CredentialManager.GetAll( to.RowId );
+		}
+		private static void FillConditionProfiles( EM.Credential from, CM.Credential to, bool forEditView = true )
+		{
+
+			if ( UtilityManager.GetAppKeyValue("usingEntityConditionProfileForAll", false) )
+			{
+				//ConditionProfile entity = new ConditionProfile();
+				List<ConditionProfile> list = Entity_ConditionProfileManager.GetAll( to.RowId );
+				foreach ( ConditionProfile entity in list )
+				{
+					//entity = new ConditionProfile();
+					//ToMap( item, entity, true, true, forEditView );
+
+					if ( entity.HasCompetencies || entity.ChildHasCompetencies )
+						to.ChildHasCompetencies = true;
+
+					if ( entity.ConnectionProfileTypeId == CondProfileMgr.ConnectionProfileType_Requirement )
+						to.Requires.Add( entity );
+					else if ( entity.ConnectionProfileTypeId == CondProfileMgr.ConnectionProfileType_Recommendation )
+						to.Recommends.Add( entity );
+					else if ( entity.ConnectionProfileTypeId == CondProfileMgr.ConnectionProfileType_NextIsRequiredFor )
+						to.IsRequiredFor.Add( entity );
+					else if ( entity.ConnectionProfileTypeId == CondProfileMgr.ConnectionProfileType_NextIsRecommendedFor )
+						to.IsRecommendedFor.Add( entity );
+					else if ( entity.ConnectionProfileTypeId == CondProfileMgr.ConnectionProfileType_Renewal )
+						to.Renewal.Add( entity );
+					else
+					{
+						EmailManager.NotifyAdmin( thisClassName + ".FillConditionProfiles. Unhandled connection type", string.Format( "Unhandled connection type of {0} was encountered", entity.ConnectionProfileTypeId ) );
+					}
+				}
+			}
+			else
+			{
+				ConnectionProfileManager.FillProfiles( from, to, forEditView );
+			}
+			
+		}
 		private static void CredentialSummary_ToMap( Views.Credential_Summary from, CM.CredentialSummary to, bool includingProperties = false, bool includingProfiles = false )
 		{
 			to.Id = from.Id;
@@ -943,7 +1152,263 @@ namespace Factories
 
 		#endregion
 
+		#region Elastic search methods
+		/// <summary>
+		/// Get organizations as Elastic format
+		/// </summary>
+		/// <param name="userId"></param>
+		/// <param name="keyword"></param>
+		/// <param name="pageNumber"></param>
+		/// <param name="pageSize"></param>
+		/// <param name="pTotalRows"></param>
+		/// <returns></returns>
+		public static List<ME.Credential> GetAllForElastic( string keyword, int pageNumber, int pageSize, ref int pTotalRows )
+		{
+			List<ME.Credential> list = new List<ME.Credential>();
+			ME.Credential entity = new ME.Credential();
+			//keyword = string.IsNullOrWhiteSpace(keyword) ? "" : keyword.Trim();
+			if ( pageSize == 0 )
+				pageSize = 500;
+			int skip = 0;
+			if ( pageNumber > 1 )
+				skip = ( pageNumber - 1 ) * pageSize;
 
+			using ( var context = new Data.CTIEntities() )
+			{
+				var Query = from Results in context.Credential
+						.Where( s => s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED )
+						.OrderBy( s => s.Name )
+							select Results;
+
+				pTotalRows = Query.Count();
+				var results = Query.Skip( skip ).Take( pageSize )
+					.ToList();
+
+				//List<EM.Organization> results2 = context.Organization
+				//	.Where( s => keyword == "" || s.Name.Contains( keyword ) )
+				//	.Take( pageSize )
+				//	.OrderBy( s => s.Name )
+				//	.ToList();
+
+				if ( results != null && results.Count > 0 )
+				{
+					foreach ( EM.Credential item in results )
+					{
+						entity = new ME.Credential();
+						ToMap( item, entity );
+						list.Add( entity );
+					}
+				}
+			}
+
+			return list;
+		}
+		/// <summary>
+		/// Get organization as Elastic format
+		/// </summary>
+		/// <param name="id"></param>
+		/// <returns></returns>
+		public static ME.Credential Organization_GetForElastic( int id )
+		{
+
+			ME.Credential entity = new ME.Credential();
+
+			using ( var context = new Data.CTIEntities() )
+			{
+				EM.Credential item = context.Credential
+						.SingleOrDefault( s => s.Id == id && s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED );
+
+				if ( item != null && item.Id > 0 )
+				{
+					ToMap( item, entity );
+				}
+			}
+
+			return entity;
+		}
+
+		public static void ToMap( EM.Credential from, ME.Credential to )
+		{
+			to.Id = from.Id;
+			to.StatusId = from.StatusId ?? 1;
+			to.RowId = from.RowId;
+
+			to.Name = from.Name;
+			to.AlternateName = from.AlternateName;
+
+			to.Description = from.Description;
+			to.CTID = from.CTID;
+			to.CredentialRegistryId = from.CredentialRegistryId;
+
+			to.Version = from.Version;
+			
+			if ( IsValidDate( from.EffectiveDate ) )
+				to.DateEffective = ( ( DateTime ) from.EffectiveDate );
+
+			to.Url = from.Url;
+			to.LatestVersionUrl = from.LatestVersionUrl;
+			to.ReplacesVersionUrl = from.ReplacesVersionUrl;
+			to.ManagingOrgId = from.ManagingOrgId ?? 0;
+			to.AvailableOnlineAt = from.AvailableOnlineAt;
+
+			if ( from.ImageUrl != null && from.ImageUrl.Trim().Length > 0 )
+				to.ImageUrl = from.ImageUrl;
+			else
+				to.ImageUrl = null;
+
+			if ( IsValidDate( from.Created ) )
+				to.Created = ( DateTime ) from.Created;
+			if ( IsValidDate( from.LastUpdated ) )
+				to.LastUpdated = ( DateTime ) from.LastUpdated;
+
+			List<TextValueProfile> tvps = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_KEYWORD );
+			if ( tvps != null )
+			{
+				foreach ( TextValueProfile item in tvps )
+				{
+					to.Keywords.Add( item.TextValue );
+				}
+			}
+			//
+			tvps = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_SUBJECT );
+			if ( tvps != null )
+			{
+				foreach ( TextValueProfile item in tvps )
+				{
+					to.Subjects.Add( item.TextValue );
+				}
+			}
+			//properties
+			to.CredentialType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_CREDENTIAL_TYPE );
+			to.OtherIndustries = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_NAICS );
+
+			to.OtherOccupations = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_SOC );
+			to.CredentialLevel = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_CREDENTIAL_LEVEL );
+
+			to.Purpose = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_CREDENTIAL_PURPOSE );
+
+			to.EstimatedCosts = CostProfileManager.CostProfile_GetAll( to.RowId );
+
+			to.Addresses = AddressProfileManager.GetAll( to.RowId );
+			to.EstimatedTimeToEarn = DurationProfileManager.GetAll( to.RowId );
+
+			to.Occupation = Entity_FrameworkItemManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_SOC );
+			to.Industry = Entity_FrameworkItemManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_NAICS );
+
+			to.Jurisdiction = RegionsManager.Jurisdiction_GetAll( to.RowId );
+
+			List<CM.Credential> isPart = Entity_CredentialManager.GetAll( to.RowId );
+			if ( isPart != null && isPart.Count > 0 )
+			{
+				ME.Credential credPart = new ME.Credential();
+				foreach ( CM.Credential item in isPart )
+				{
+					 credPart = new ME.Credential() {Id = item.Id, Name = item.Name, Description = item.Description, Url = item.Url};
+					 to.EmbeddedCredentials.Add( credPart );
+				}
+			}
+
+			//get all condition profiles
+			ElasticFillRequirementProfiles( from, to );
+				
+
+		}
+		public static void ElasticFillRequirementProfiles( EM.Credential fromEntity, ME.Credential to )
+		{
+			//only want requires
+			ConditionProfile entity = new ConditionProfile();
+			List<EM.Credential_ConnectionProfile> results = new List<EM.Credential_ConnectionProfile>();
+			using ( var context = new Data.CTIEntities() )
+			{
+				//??NOTE - the Credential will contain Credential_ConnectionProfile 
+				if ( fromEntity.Credential_ConnectionProfile != null && fromEntity.Credential_ConnectionProfile.Count > 0 )
+				{
+					//results = fromEntity.Credential_ConnectionProfile.ToList();
+					//may want to do some ordering
+
+					results = fromEntity.Credential_ConnectionProfile
+							.Where( s => s.ConnectionTypeId == CondProfileMgr.ConnectionProfileType_Requirement)
+							.OrderBy( s => s.CredentialId ).ThenBy( s => s.ConnectionTypeId ).ThenBy( s => s.Created ).ToList();
+								//select Row;
+				}
+
+				//results = context.Credential_ConnectionProfile
+				//		.Where( s => s.CredentialId == fromEntity.Id )
+				//		.OrderBy( s => s.CredentialId ).ThenBy( s => s.ConnectionTypeId ).ThenBy( s => s.Created )
+				//		.ToList();
+
+				if ( results != null && results.Count > 0 )
+				{
+					foreach ( EM.Credential_ConnectionProfile item in results )
+					{
+						//only process requires profile for now
+						if ( item.ConnectionTypeId != CondProfileMgr.ConnectionProfileType_Requirement )
+							continue;
+
+						entity = new ConditionProfile();
+						CondProfileMgrOld.ToMap( item, entity, true, true );
+
+						if ( entity.HasCompetencies || entity.ChildHasCompetencies )
+							to.ChildHasCompetencies = true;
+
+						to.Requires.Add( entity );
+						
+					}
+				}
+			}
+		}//
+		
+		#endregion
 
 	}
+	public class CredentialRequest
+	{
+		public CredentialRequest()
+		{
+		}
+		public void DoCompleteFill() {
+			IncludingProperties = true;
+		}
+		public void IsCompareRequest() {
+			IncludingProperties = true;
+			IncludingEstimatedCosts = true;
+			IncludingDuration = true;
+			IncludingFrameworkItems = true;
+			IncludingRolesAndActions = true;
+
+			//add all conditions profiles for now - to get all costs
+			IncludingConnectionProfiles = true;
+		}
+		public void IsEditRequest() {
+			IsForEditView = true;
+			IncludingProperties = true;
+
+			//need handle only needing ProfileLink equivalent views for most
+		}
+       // public int CredentialId { get; set; }
+
+        public bool IsForEditView { get; set; }
+
+        public bool AllowCaching { get; set; }
+
+        public bool IncludingProperties { get; set; }
+		
+        public bool IncludingRolesAndActions { get; set; }
+		public bool IncludingConnectionProfiles { get; set; }
+		public bool IncludingRevocationProfiles { get; set; }
+		public bool IncludingEstimatedCosts{ get; set; }
+		public bool IncludingDuration{ get; set; }
+		public bool IncludingAddesses { get; set; }
+		public bool IncludingJurisdiction { get; set; }
+
+        public bool IncludingSubjectsKeywords{ get; set; }
+
+        //public bool IncludingKeywords{ get; set; }
+		//both occupations and industries, and others for latter
+		public bool IncludingFrameworkItems{ get; set; }
+
+		public bool IncludingEmbeddedCredentials { get; set; }
+	}
+		
+
 }

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Models.ProfileModels;
 using Models.Common;
 using DBentity = Data.Views.Credential_AgentRoleIdCSV;
-using Entity = Models.ProfileModels.OrganizationRoleProfile;
+using ThisEntity = Models.ProfileModels.OrganizationRoleProfile;
 using EM = Data;
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
@@ -58,7 +58,7 @@ namespace Factories
 		//	count = 0;
 
 		//	if ( credential.OrganizationRole == null )
-		//		credential.OrganizationRole = new List<OrganizationRoleProfile>();
+		//		credential.OrganizationRole = new List<ThisEntity>();
 
 		//	//test 
 
@@ -66,7 +66,7 @@ namespace Factories
 		//	using ( var context = new EM.CTIEntities() )
 		//	{
 		//		//loop thru input, check for changes to existing, and for adds
-		//		foreach ( OrganizationRoleProfile item in credential.OrganizationRole )
+		//		foreach ( ThisEntity item in credential.OrganizationRole )
 		//		{
 		//			int codeId = item.RoleTypeId;
 
@@ -142,10 +142,10 @@ namespace Factories
 		//	count = 0;
 		//	string statusMessage = "";
 		//	if ( credential.OrganizationRole == null )
-		//		credential.OrganizationRole = new List<OrganizationRoleProfile>();
-		//	OrganizationRoleProfile entity = new OrganizationRoleProfile();
+		//		credential.OrganizationRole = new List<ThisEntity>();
+		//	ThisEntity entity = new ThisEntity();
 
-		//	List<OrganizationRoleProfile> list = FillListOneRolePerOrg( credential.OrganizationRole, credential.Id, ref messages );
+		//	List<ThisEntity> list = FillListOneRolePerOrg( credential.OrganizationRole, credential.Id, ref messages );
 		//	if ( messages.Count > 0 )
 		//		return false;
 
@@ -160,7 +160,7 @@ namespace Factories
 		//						 on new { existing.ActingAgentId, existing.RoleTypeId }
 		//						 equals new { item.ActingAgentId, item.RoleTypeId }
 		//						 into joinTable
-		//						 from result in joinTable.DefaultIfEmpty( new OrganizationRoleProfile { ActingAgentId = 0, ParentId = 0, Id = 0 } )
+		//						 from result in joinTable.DefaultIfEmpty( new ThisEntity { ActingAgentId = 0, ParentId = 0, Id = 0 } )
 		//						 select new { ActingAgentId = existing.ActingAgentId, DeleteId = existing.Id, ItemId = ( result.RoleTypeId ) };
 
 		//		foreach ( var v in deleteList )
@@ -186,7 +186,7 @@ namespace Factories
 		//							 on new { item.ActingAgentId, item.RoleTypeId }
 		//						 equals new { existing.ActingAgentId, existing.RoleTypeId }
 		//							into joinTable
-		//					  from addList in joinTable.DefaultIfEmpty( new OrganizationRoleProfile { Id = 0, ActingAgentId = 0, RoleTypeId = 0 } )
+		//					  from addList in joinTable.DefaultIfEmpty( new ThisEntity { Id = 0, ActingAgentId = 0, RoleTypeId = 0 } )
 		//					  select new { ActingAgentId = item.ActingAgentId, RoleTypeId = item.RoleTypeId, ExistingId = addList.Id };
 		//		foreach ( var v in newList )
 		//		{
@@ -215,15 +215,15 @@ namespace Factories
 		/// <param name="userId"></param>
 		/// <param name="messages"></param>
 		/// <returns></returns>
-		//public bool Credential_UpdateOrganizationRoleProfile( OrganizationRoleProfile entity, int credentialId, int userId, ref List<string> messages )
+		//public bool Credential_UpdateOrganizationRoleProfile( ThisEntity entity, int credentialId, int userId, ref List<string> messages )
 		//{
 		//	bool isValid = true;
 
 		//	string statusMessage = "";
 		//	//use existing method, so create a list of one item and call
-		//	List<OrganizationRoleProfile> profiles = new List<Entity>();
+		//	List<ThisEntity> profiles = new List<ThisEntity>();
 		//	profiles.Add( entity );
-		//	List<OrganizationRoleProfile> flattenedList = FillListOneRolePerOrg( profiles, credentialId, ref messages );
+		//	List<ThisEntity> flattenedList = FillListOneRolePerOrg( profiles, credentialId, ref messages );
 		//	if ( messages.Count > 0 )
 		//		return false;
 
@@ -239,7 +239,7 @@ namespace Factories
 		//						 on new { existing.ActingAgentId, existing.RoleTypeId }
 		//						 equals new { item.ActingAgentId, item.RoleTypeId }
 		//						 into joinTable
-		//						 from result in joinTable.DefaultIfEmpty( new OrganizationRoleProfile { ActingAgentId = 0, ParentId = 0, Id = 0 } )
+		//						 from result in joinTable.DefaultIfEmpty( new ThisEntity { ActingAgentId = 0, ParentId = 0, Id = 0 } )
 		//						 select new { ActingAgentId = existing.ActingAgentId, DeleteId = existing.Id, ItemId = ( result.RoleTypeId ) };
 
 		//		foreach ( var v in deleteList )
@@ -265,7 +265,7 @@ namespace Factories
 		//							 on new { item.ActingAgentId, item.RoleTypeId }
 		//						 equals new { existing.ActingAgentId, existing.RoleTypeId }
 		//							into joinTable
-		//					  from addList in joinTable.DefaultIfEmpty( new OrganizationRoleProfile { Id = 0, ActingAgentId = 0, RoleTypeId = 0 } )
+		//					  from addList in joinTable.DefaultIfEmpty( new ThisEntity { Id = 0, ActingAgentId = 0, RoleTypeId = 0 } )
 		//					  select new { ActingAgentId = item.ActingAgentId, RoleTypeId = item.RoleTypeId, ExistingId = addList.Id };
 		//		foreach ( var v in newList )
 		//		{
@@ -600,10 +600,10 @@ namespace Factories
 		/// <param name="agentId"></param>
 		/// <returns></returns>
 		//[Obsolete]
-		//private static List<OrganizationRoleProfile> CredentialAgentRole_GetAll( int parentId, int agentId = 0 )
+		//private static List<ThisEntity> CredentialAgentRole_GetAll( int parentId, int agentId = 0 )
 		//{
-		//	OrganizationRoleProfile p = new OrganizationRoleProfile();
-		//	List<OrganizationRoleProfile> list = new List<OrganizationRoleProfile>();
+		//	ThisEntity p = new ThisEntity();
+		//	List<ThisEntity> list = new List<ThisEntity>();
 		//	using ( var context = new ViewContext() )
 		//	{
 		//		List<Views.CredentialAgentRelationships_Summary> roles = context.CredentialAgentRelationships_Summary
@@ -614,7 +614,7 @@ namespace Factories
 
 		//		foreach ( Views.CredentialAgentRelationships_Summary entity in roles )
 		//		{
-		//			p = new OrganizationRoleProfile();
+		//			p = new ThisEntity();
 		//			p.Id = entity.CredentialAgentRelationshipId;
 		//			p.ParentUid = entity.ParentUid;
 		//			p.ParentTypeId = CodesManager.ENTITY_TYPE_CREDENTIAL;
@@ -661,17 +661,17 @@ namespace Factories
 		/// <param name="messages"></param>
 		/// <returns></returns>
 		//[Obsolete]
-		//private List<OrganizationRoleProfile> FillListOneRolePerOrg( List<OrganizationRoleProfile> profiles, int parentId, ref List<string> messages )
+		//private List<ThisEntity> FillListOneRolePerOrg( List<ThisEntity> profiles, int parentId, ref List<string> messages )
 		//{
-		//	OrganizationRoleProfile entity = new OrganizationRoleProfile();
-		//	List<OrganizationRoleProfile> list = new List<OrganizationRoleProfile>();
+		//	ThisEntity entity = new ThisEntity();
+		//	List<ThisEntity> list = new List<ThisEntity>();
 		//	if ( parentId == 0 )
 		//		return list;
 		//	int orgId = 0;
 		//	Guid agentUid;
 		//	bool isValidAgent = false;
 
-		//	foreach ( OrganizationRoleProfile item in profiles )
+		//	foreach ( ThisEntity item in profiles )
 		//	{
 		//		//TODO - ensure we have ActingAgentId filled, version Id, or something else
 		//		orgId = item.ActingAgentId;
@@ -692,7 +692,7 @@ namespace Factories
 		//			}
 		//			foreach ( EnumeratedItem e in item.RoleType.Items )
 		//			{
-		//				entity = new OrganizationRoleProfile();
+		//				entity = new ThisEntity();
 		//				entity.ParentId = parentId;
 		//				entity.ActingAgentId = orgId;
 		//				entity.ActingAgentUid = agentUid; //
@@ -782,7 +782,7 @@ namespace Factories
 		//		return;
 		//	}
 
-		//	credential.OrganizationRole = new List<OrganizationRoleProfile>();
+		//	credential.OrganizationRole = new List<ThisEntity>();
 		//	credential.QualityAssuranceAction = new List<QualityAssuranceActionProfile>();
 
 		//	foreach ( EM.Credential_AgentRelationship item in fromCredential.Credential_AgentRelationship )
@@ -818,7 +818,7 @@ namespace Factories
 		//		return;
 		//	}
 
-		//	//credential.OrganizationRole = new List<OrganizationRoleProfile>();
+		//	//credential.OrganizationRole = new List<ThisEntity>();
 		//	credential.QualityAssuranceAction = new List<QualityAssuranceActionProfile>();
 
 		//	foreach ( EM.Credential_AgentRelationship item in fromCredential.Credential_AgentRelationship )
@@ -861,7 +861,7 @@ namespace Factories
 		//		return;
 		//	}
 
-		//	credential.OrganizationRole = new List<OrganizationRoleProfile>();
+		//	credential.OrganizationRole = new List<ThisEntity>();
 		//	//credential.QualityAssuranceAction = new List<QualityAssuranceActionProfile>();
 		//	EnumeratedItem eitem = new EnumeratedItem();
 
@@ -873,7 +873,7 @@ namespace Factories
 
 		//		foreach ( Views.Credential_AgentRoleIdCSV item in agentRoles )
 		//		{
-		//			OrganizationRoleProfile orp = new OrganizationRoleProfile();
+		//			ThisEntity orp = new ThisEntity();
 		//			//warning for purposes of the editor, need to set the object id to the orgId, and rowId from the org
 		//			orp.Id = item.OrgId;
 		//			orp.RowId = ( Guid ) item.AgentUid;
@@ -927,10 +927,10 @@ namespace Factories
 		//	}
 		//}
 
-		//public static OrganizationRoleProfile GetCredentialOrgRoles_AsEnumeration( int credentialId, int orgId )
+		//public static ThisEntity GetCredentialOrgRoles_AsEnumeration( int credentialId, int orgId )
 		//{
 
-		//	OrganizationRoleProfile orp = new OrganizationRoleProfile();
+		//	ThisEntity orp = new ThisEntity();
 		//	EnumeratedItem eitem = new EnumeratedItem();
 
 		//	using ( var context = new ViewContext() )
@@ -981,9 +981,9 @@ namespace Factories
 		//	return orp;
 		//}
 
-		//private static OrganizationRoleProfile MapAgentToOrgRole( EM.Credential_AgentRelationship entity, string targetEntity )
+		//private static ThisEntity MapAgentToOrgRole( EM.Credential_AgentRelationship entity, string targetEntity )
 		//{
-		//	OrganizationRoleProfile orp = new OrganizationRoleProfile();
+		//	ThisEntity orp = new ThisEntity();
 		//	orp.Id = entity.Id;
 		//	orp.RowId = ( Guid ) entity.RowId;
 		//	orp.ParentId = entity.CredentialId;
@@ -1548,14 +1548,20 @@ namespace Factories
 		#endregion 
 
 		#region role codes retrieval ==================
-		public static Enumeration GetCredentialAgentQAActions( bool isOrgToCredentialRole = true, string entityType = "Credential" )
+		public static Enumeration GetEntityAgentQAActionFilters( bool isOrgToCredentialRole, bool getAll, string entityType )
 		{
-			return GetCredentialOrgRolesCodes( isOrgToCredentialRole, 1, entityType );
+			return GetEntityToOrgRolesCodes( isOrgToCredentialRole, 1, getAll, entityType );
+
+		}
+
+		public static Enumeration GetEntityAgentQAActions( bool isOrgToCredentialRole, bool getAll = true, string entityType = "Credential" )
+		{
+			return GetEntityToOrgRolesCodes( isOrgToCredentialRole, 1, getAll, entityType );
 
 		}
 		public static Enumeration GetCredentialOrg_NonQARoles( bool isOrgToCredentialRole = true, string entityType = "Credential" )
 		{
-			return GetCredentialOrgRolesCodes( isOrgToCredentialRole, 2, entityType );
+			return GetEntityToOrgRolesCodes( isOrgToCredentialRole, 2, true, entityType );
 		}
 
 		/// <summary>
@@ -1566,11 +1572,12 @@ namespace Factories
 		/// <returns></returns>
 		public static Enumeration GetCredentialOrg_AllRoles( bool isInverseRole = true, string entityType = "Credential" )
 		{
-			return GetCredentialOrgRolesCodes( isInverseRole, 0, entityType );
+			return GetEntityToOrgRolesCodes( isInverseRole, 0, true, entityType );
 		}
-		private static Enumeration GetCredentialOrgRolesCodes( bool isInverseRole = true, 
-			int qaRoleState = 0, 
-			string entityType = "Credential" )
+		private static Enumeration GetEntityToOrgRolesCodes( bool isInverseRole, 
+					int qaRoleState, 
+					bool getAll,
+					string entityType)
 		{
 			Enumeration entity = new Enumeration();
 
@@ -1756,7 +1763,7 @@ namespace Factories
 		#region OBSOLETE
 		//private static void MapAgentToOrgRole( Credential credential, EM.Credential_AgentRelationship entity )
 		//{
-		//	OrganizationRoleProfile p = new OrganizationRoleProfile();
+		//	ThisEntity p = new ThisEntity();
 		//	p.Id = entity.Id;
 		//	p.ParentId = entity.CredentialId;
 		//	p.Url = entity.URL;
@@ -1866,7 +1873,7 @@ namespace Factories
 		//	//List<string> messages = new List<string>();
 
 		//	//if ( credential.OrganizationRole == null )
-		//	//	credential.OrganizationRole = new List<OrganizationRoleProfile>();
+		//	//	credential.OrganizationRole = new List<ThisEntity>();
 
 		//	//if ( credential.QualityAssuranceAction == null )
 		//	//	credential.QualityAssuranceAction = new List<QualityAssuranceActionProfile>();
@@ -1874,7 +1881,7 @@ namespace Factories
 		//	//using ( var context = new EM.CTIEntities() )
 		//	//{
 		//	//	//loop thru input, check for changes to existing, and for adds
-		//	//	foreach ( OrganizationRoleProfile item in credential.OrganizationRole )
+		//	//	foreach ( ThisEntity item in credential.OrganizationRole )
 		//	//	{
 		//	//		int codeId = CodesManager.GetEnumerationSelection( item.RoleType );
 		//	//		if ( codeId == 0 )
@@ -1945,7 +1952,7 @@ namespace Factories
 		//		return;
 		//	}
 
-		//	credential.OrganizationRole = new List<OrganizationRoleProfile>();
+		//	credential.OrganizationRole = new List<ThisEntity>();
 		//	credential.QualityAssuranceAction = new List<QualityAssuranceActionProfile>();
 
 		//	foreach ( EM.Credential_AgentRelationship item in fromCredential.Credential_AgentRelationship )

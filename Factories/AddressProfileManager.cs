@@ -14,7 +14,7 @@ using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
 using DBentity = Data.Organization_Address;
 using DBentity2 = Data.Entity_Address;
-using Entity = Models.Common.Address;
+using ThisEntity = Models.Common.Address;
 
 using Utilities;
 using Models.Search.ThirdPartyApiModels;
@@ -26,7 +26,7 @@ namespace Factories
 		static string thisClassName = "AddressProfileManager";
 
 		#region Persistance - OrgAddress
-		public bool Save( Entity entity, Guid parentUid, int userId, ref List<string> messages )
+		public bool Save( ThisEntity entity, Guid parentUid, int userId, ref List<string> messages )
 		{
 			bool isValid = true;
 			int intialCount = messages.Count;
@@ -117,11 +117,11 @@ namespace Factories
 			return isValid;
 }
 
-		public bool SyncOldAddressToNew( Entity entity, Guid parentUid, int parentId, int userId, ref List<string> messages )
+		public bool SyncOldAddressToNew( ThisEntity entity, Guid parentUid, int parentId, int userId, ref List<string> messages )
 		{
 			bool isValid = true;
-			List<Entity> list = GetAllOrgAddresses( parentId );
-			foreach ( Entity item in list )
+			List<ThisEntity> list = GetAllOrgAddresses( parentId );
+			foreach ( ThisEntity item in list )
 			{
 				//only check first one, or may need a consistancy check
 				
@@ -131,7 +131,7 @@ namespace Factories
 				item.AddressRegion = entity.AddressRegion;
 				item.PostalCode = entity.PostalCode;
 				item.Country = entity.Country;
-				item.CountryNumber = entity.CountryNumber;
+				item.CountryId = entity.CountryId;
 
 				isValid = Save( item, parentUid, userId, ref messages );
 
@@ -159,7 +159,7 @@ namespace Factories
 			}
 			return isValid;
 		}
-		public bool ValidateProfile( Entity profile, ref List<string> messages )
+		public bool ValidateProfile( ThisEntity profile, ref List<string> messages )
 		{
 			bool isValid = true;
 
@@ -205,8 +205,8 @@ namespace Factories
 
 		#endregion 
 
-		#region Persistance - Entity Address
-		public bool Entity_Address_Save( Entity entity, Guid parentUid, int userId, ref List<string> messages )
+		#region Persistance - ThisEntity Address
+		public bool Entity_Address_Save( ThisEntity entity, Guid parentUid, int userId, ref List<string> messages )
 		{
 			bool isValid = true;
 			int intialCount = messages.Count;
@@ -341,10 +341,10 @@ namespace Factories
 		#endregion 
 		#region  retrieval ==================
 		#region org address
-		public static List<Entity> GetAllOrgAddresses( int parentId )
+		public static List<ThisEntity> GetAllOrgAddresses( int parentId )
 		{
-			Entity entity = new Entity();
-			List<Entity> list = new List<Entity>();
+			ThisEntity entity = new ThisEntity();
+			List<ThisEntity> list = new List<ThisEntity>();
 			try
 			{
 				using ( var context = new Data.CTIEntities() )
@@ -359,7 +359,7 @@ namespace Factories
 					{
 						foreach ( DBentity item in results )
 						{
-							entity = new Entity();
+							entity = new ThisEntity();
 							ToMap( item, entity );
 
 							list.Add( entity );
@@ -375,9 +375,9 @@ namespace Factories
 		}//
 
 
-		public static Entity GetOrganizationAddress( int profileId )
+		public static ThisEntity GetOrganizationAddress( int profileId )
 		{
-			Entity entity = new Entity();
+			ThisEntity entity = new ThisEntity();
 			try
 			{
 
@@ -413,7 +413,11 @@ namespace Factories
 			to.PostalCode = from.PostalCode;
 			to.AddressRegion = from.Region;
 			to.Country = from.Country;
-			to.CountryNumber = (int) (from.CountryId ?? 0);
+			to.CountryId = (int) (from.CountryId ?? 0);
+			if ( from.Codes_Countries != null )
+			{
+				to.Country = from.Codes_Countries.CommonName;
+			}
 
 			to.Latitude = from.Latitude ?? 0;
 			to.Longitude = from.Longitude ?? 0;
@@ -474,7 +478,11 @@ namespace Factories
 			to.City = from.City;
 			to.PostalCode = from.PostalCode;
 			to.Region = from.AddressRegion;
-			to.Country = from.Country;
+			//to.Country = from.Country;
+			if ( from.CountryId == 0 )
+				to.CountryId = null;
+			else
+				to.CountryId = from.CountryId;
 
 			//these will likely not be present? 
 			//If new, or address has changed, do the geo lookup
@@ -522,10 +530,10 @@ namespace Factories
 		#endregion 
 
 		#region  entity address
-		public static List<Entity> GetAll( Guid parentUid )
+		public static List<ThisEntity> GetAll( Guid parentUid )
 		{
-			Entity entity = new Entity();
-			List<Entity> list = new List<Entity>();
+			ThisEntity entity = new ThisEntity();
+			List<ThisEntity> list = new List<ThisEntity>();
 			try
 			{
 				using ( var context = new Data.CTIEntities() )
@@ -540,7 +548,7 @@ namespace Factories
 					{
 						foreach ( EM.Entity_Address item in results )
 						{
-							entity = new Entity();
+							entity = new ThisEntity();
 							ToMap( item, entity );
 
 							list.Add( entity );
@@ -556,9 +564,9 @@ namespace Factories
 		}//
 
 
-		public static Entity Entity_Address_Get( int profileId )
+		public static ThisEntity Entity_Address_Get( int profileId )
 		{
-			Entity entity = new Entity();
+			ThisEntity entity = new ThisEntity();
 			try
 			{
 
@@ -593,8 +601,11 @@ namespace Factories
 			to.PostalCode = from.PostalCode;
 			to.AddressRegion = from.Region;
 			to.Country = from.Country;
-			to.CountryNumber = ( int ) ( from.CountryId ?? 0 );
-
+			to.CountryId = ( int ) ( from.CountryId ?? 0 );
+			if ( from.Codes_Countries != null )
+			{
+				to.Country = from.Codes_Countries.CommonName;
+			}
 			to.Latitude = from.Latitude ?? 0;
 			to.Longitude = from.Longitude ?? 0;
 
@@ -654,7 +665,11 @@ namespace Factories
 			to.City = from.City;
 			to.PostalCode = from.PostalCode;
 			to.Region = from.AddressRegion;
-			to.Country = from.Country;
+			//to.Country = from.Country;
+			if ( from.CountryId == 0 )
+				to.CountryId = null;
+			else
+				to.CountryId = from.CountryId;
 
 			//these will likely not be present? 
 			//If new, or address has changed, do the geo lookup

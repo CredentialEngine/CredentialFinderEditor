@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-
 using Models;
 
 using Models.Common;
@@ -12,7 +11,7 @@ using Models.ProfileModels;
 using EM = Data;
 using Utilities;
 using DBentity = Data.Entity_Property;
-using Entity = Models.Common.Enumeration;
+using ThisEntity = Models.Common.Enumeration;
 
 using Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
@@ -161,7 +160,7 @@ namespace Factories
 		}
 
 
-		private void SendNewOtherIdentityNotice( Entity entity, string value, int userId )
+		private void SendNewOtherIdentityNotice( ThisEntity entity, string value, int userId )
 		{
 			//string message = string.Format( "New Other Value. <ul><li>OrganizationId: {0}</li><li>PersonId: {1}</li><li>Framework: {2}</li><li>URL: {3}</li><li>Value: {4}</li></ul>", entity.OrganizationId, userId, name, url, entity.OtherValue );
 
@@ -242,7 +241,7 @@ namespace Factories
 		#region Entity property read ===================
 		public static Enumeration FillEnumeration( Guid parentUid, int categoryId )
 		{
-			Enumeration entity = new Entity();
+			Enumeration entity = new ThisEntity();
 			entity = CodesManager.GetEnumeration( categoryId );
 
 			entity.Items = new List<EnumeratedItem>();

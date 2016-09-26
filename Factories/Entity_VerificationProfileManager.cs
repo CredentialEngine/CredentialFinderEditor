@@ -9,7 +9,7 @@ using Models.ProfileModels;
 using EM = Data;
 using Utilities;
 using DBentity = Data.Entity_VerificationProfile;
-using Entity = Models.ProfileModels.AuthenticationProfile;
+using ThisEntity = Models.ProfileModels.AuthenticationProfile;
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
 namespace Factories
@@ -26,7 +26,7 @@ namespace Factories
 		/// <param name="userId"></param>
 		/// <param name="messages"></param>
 		/// <returns></returns>
-		public bool VerificationProfile_Update( Entity entity, Guid parentUid, int userId, ref List<string> messages )
+		public bool VerificationProfile_Update( ThisEntity entity, Guid parentUid, int userId, ref List<string> messages )
 		{
 			bool isValid = true;
 			int intialCount = messages.Count;
@@ -125,20 +125,20 @@ namespace Factories
 			return isValid;
 		}
 
-		private bool UpdateParts( Entity entity, int userId, ref List<string> messages )
+		private bool UpdateParts( ThisEntity entity, int userId, ref List<string> messages )
 		{
 			bool isAllValid = true;
 
 			//TODO - skip items not yet handled in new version
-			if ( !entity.IsNewVersion )
-			{
-				if ( !new CostProfileManager().CostProfileUpdate( entity.EstimatedCost, entity.RowId, CodesManager.ENTITY_TYPE_TASK_PROFILE, userId, ref messages ) )
-					isAllValid = false;
+			//if ( !entity.IsNewVersion )
+			//{
+			//	if ( !new CostProfileManager().CostProfileUpdate( entity.EstimatedCost, entity.RowId, CodesManager.ENTITY_TYPE_TASK_PROFILE, userId, ref messages ) )
+			//		isAllValid = false;
 			
 
-				if ( new RegionsManager().JurisdictionProfile_Update( entity.Jurisdiction, entity.RowId, CodesManager.ENTITY_TYPE_TASK_PROFILE, userId, RegionsManager.JURISDICTION_PURPOSE_SCOPE, ref messages ) == false )
-					isAllValid = false;
-			}
+			//	if ( new RegionsManager().JurisdictionProfile_Update( entity.Jurisdiction, entity.RowId, CodesManager.ENTITY_TYPE_TASK_PROFILE, userId, RegionsManager.JURISDICTION_PURPOSE_SCOPE, ref messages ) == false )
+			//		isAllValid = false;
+			//}
 
 
 
@@ -167,7 +167,7 @@ namespace Factories
 		}
 
 
-		public bool ValidateProfile( Entity profile, ref bool isEmpty, ref List<string> messages )
+		public bool ValidateProfile( ThisEntity profile, ref bool isEmpty, ref List<string> messages )
 		{
 			bool isValid = true;
 
@@ -209,14 +209,14 @@ namespace Factories
 		#region  retrieval ==================
 
 		/// <summary>
-		/// Get all Task profiles for the parent
+		/// Get all VerificationProfile for the parent
 		/// Uses the parent Guid to retrieve the related Entity, then uses the EntityId to retrieve the child objects.
 		/// </summary>
 		/// <param name="parentUid"></param>
-		public static List<Entity> VerificationProfile_GetAll( Guid parentUid )
+		public static List<ThisEntity> VerificationProfile_GetAll( Guid parentUid )
 		{
-			Entity entity = new Entity();
-			List<Entity> list = new List<Entity>();
+			ThisEntity entity = new ThisEntity();
+			List<ThisEntity> list = new List<ThisEntity>();
 			Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
 			{
@@ -236,7 +236,7 @@ namespace Factories
 					{
 						foreach ( DBentity item in results )
 						{
-							entity = new Entity();
+							entity = new ThisEntity();
 							Entity_ToMap( item, entity, true );
 
 
@@ -252,9 +252,9 @@ namespace Factories
 			return list;
 		}//
 
-		public static Entity VerificationProfile_Get( int profileId )
+		public static ThisEntity VerificationProfile_Get( int profileId )
 		{
-			Entity entity = new Entity();
+			ThisEntity entity = new ThisEntity();
 
 			try
 			{
@@ -276,7 +276,7 @@ namespace Factories
 			return entity;
 		}//
 
-		public static void Entity_FromMap( Entity from, DBentity to )
+		public static void Entity_FromMap( ThisEntity from, DBentity to )
 		{
 			//want to ensure fields from create are not wiped
 			if ( to.Id == 0 )
@@ -301,7 +301,7 @@ namespace Factories
 
 
 		}
-		public static void Entity_ToMap( DBentity from, Entity to, bool includingItems = true )
+		public static void Entity_ToMap( DBentity from, ThisEntity to, bool includingItems = true )
 		{
 			to.Id = from.Id;
 			to.RowId = from.RowId;
@@ -333,7 +333,7 @@ namespace Factories
 				to.LastUpdated = ( DateTime ) from.LastUpdated;
 			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
 		}
-		static string SetEntitySummary( Entity to )
+		static string SetEntitySummary( ThisEntity to )
 		{
 			string summary = "Verification Profile ";
 			if ( !string.IsNullOrWhiteSpace( to.ProfileName ) )

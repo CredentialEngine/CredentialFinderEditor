@@ -11,6 +11,8 @@ using Models;
 using Models.Common;
 using CM = Models.Common;
 using MN = Models.Node;
+using ME = Models.Elastic;
+using Models.ProfileModels;
 using EM = Data;
 using Utilities;
 using Models.Search.ThirdPartyApiModels;
@@ -48,7 +50,7 @@ namespace Factories
 
 					FromMap( entity, efEntity );
 
-					//efEntity.CTID = "urn:ctid:" + efEntity.RowId.ToString();
+					efEntity.CTID = "urn:ctid:" + efEntity.RowId.ToString();
 
 					efEntity.RowId = Guid.NewGuid();
 					efEntity.CreatedById = entity.CreatedById;
@@ -175,10 +177,10 @@ namespace Factories
 			}
 			catch ( Exception ex )
 			{
-				LoggingHelper.LogError( ex, thisClassName + string.Format(".Organization_Update. id: {0}", entity.Id) );
+				LoggingHelper.LogError( ex, thisClassName + string.Format( ".Organization_Update. id: {0}", entity.Id ) );
 				isValid = false;
 			}
-			
+
 
 			return isValid;
 		}
@@ -195,6 +197,7 @@ namespace Factories
 		{
 			bool isValid = false;
 			int count = 0;
+			bool updatingStatus = UtilityManager.GetAppKeyValue( "onRegisterSetEntityToPublic", false );
 			using ( var context = new Data.CTIEntities() )
 			{
 				try
@@ -207,6 +210,7 @@ namespace Factories
 					if ( efEntity != null && efEntity.Id > 0 )
 					{
 						efEntity.CredentialRegistryId = envelopeId;
+						if ( updatingStatus )
 						efEntity.StatusId = CodesManager.ENTITY_STATUS_PUBLISHED;
 
 						if ( HasStateChanged( context ) )
@@ -305,7 +309,7 @@ namespace Factories
 
 			return isValid;
 		}
-		public bool UpdateParts( Organization entity,ref string statusMessage )
+		public bool UpdateParts( Organization entity, ref string statusMessage )
 		{
 			bool isAllValid = true;
 			int count = 0;
@@ -324,18 +328,18 @@ namespace Factories
 			if ( erm.EntityUpdate( entity.Keywords, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_KEYWORD, false ) == false )
 				isAllValid = false;
 
-			
+
 
 			//departments
 
 			//address - separate
 
 			//subsiduaries
-			if ( messages.Count > 0)
+			if ( messages.Count > 0 )
 				statusMessage += string.Join( ",", messages.ToArray() );
 
 			return isAllValid;
-}
+		}
 		public bool UpdateProperties( Organization entity, ref List<string> messages )
 		{
 			bool isAllValid = true;
@@ -362,23 +366,23 @@ namespace Factories
 			//else
 			//{
 
-				if ( mgr.UpdateProperties( entity.OrganizationSectorType, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SECTORTYPE, entity.LastUpdatedById, ref messages ) == false )
-				{
-					isAllValid = false;
-				}
+			if ( mgr.UpdateProperties( entity.OrganizationSectorType, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SECTORTYPE, entity.LastUpdatedById, ref messages ) == false )
+			{
+				isAllValid = false;
+			}
 
-				if ( erm.EntityUpdate( entity.SocialMediaPages, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SOCIAL_MEDIA ) == false )
-					isAllValid = false;
+			if ( erm.EntityUpdate( entity.SocialMediaPages, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SOCIAL_MEDIA ) == false )
+				isAllValid = false;
 
 			//how to handle notifications on 'other'?
-				if ( erm.EntityUpdate( entity.IdentificationCodes, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_IDENTIFIERS ) == false )
-					isAllValid = false;
+			if ( erm.EntityUpdate( entity.IdentificationCodes, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_IDENTIFIERS ) == false )
+				isAllValid = false;
 
-				if ( erm.EntityUpdate( entity.Emails, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_EMAIL_TYPE ) == false )
-					isAllValid = false;
+			if ( erm.EntityUpdate( entity.Emails, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_EMAIL_TYPE ) == false )
+				isAllValid = false;
 
-				if ( erm.EntityUpdate( entity.PhoneNumbers, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_PHONE_TYPE ) == false )
-					isAllValid = false;
+			if ( erm.EntityUpdate( entity.PhoneNumbers, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_PHONE_TYPE ) == false )
+				isAllValid = false;
 
 			//}
 			return isAllValid;
@@ -392,6 +396,7 @@ namespace Factories
 		public bool Organization_Delete( int orgId, ref string statusMessage )
 		{
 			bool isValid = false;
+			bool doingVirtualDelete = true;
 			if ( orgId == 0 )
 			{
 				statusMessage = "Error - missing an identifier for the Organization";
@@ -407,22 +412,36 @@ namespace Factories
 
 					if ( efEntity != null && efEntity.Id > 0 )
 					{
+						if ( doingVirtualDelete )
+						{
+							statusMessage = string.Format( "Organization: {0}, Id:{1}", efEntity.Name, efEntity.Id );
+
+							//context.Credential.Remove( efEntity );
+							efEntity.LastUpdated = System.DateTime.Now;
+							//efEntity.LastUpdatedById = userId;
+							efEntity.StatusId = CodesManager.ENTITY_STATUS_DELETED;
+						}
+						else
+						{
 						Guid rowId = efEntity.RowId;
 						int roleCount = 0;
 						//check for any existing org roles, and reject delete if any found
 						if ( Entity_AgentRelationshipManager.AgentEntityHasRoles( rowId, ref roleCount ) )
 						{
-							statusMessage = string.Format("Error - this organization cannot be deleted as there are existing roles {0}.", roleCount);
+							statusMessage = string.Format( "Error - this organization cannot be deleted as there are existing roles {0}.", roleCount );
 							return false;
+						}
+
+							new EntityManager().Delete( rowId, ref statusMessage );
+						context.Organization.Remove( efEntity );
 						}
 						
 
-						context.Organization.Remove( efEntity );
 						int count = context.SaveChanges();
 						if ( count > 0 )
 						{
 							isValid = true;
-							new EntityManager().Delete( rowId, ref statusMessage );
+							
 						}
 					}
 					else
@@ -465,7 +484,8 @@ namespace Factories
 			using ( var context = new Data.CTIEntities() )
 			{
 				EM.Organization item = context.Organization
-						.SingleOrDefault( s => s.Id == id );
+						.SingleOrDefault( s => s.Id == id
+						&& s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED );
 
 				if ( item != null && item.Id > 0 )
 				{
@@ -482,7 +502,9 @@ namespace Factories
 			using ( var context = new Data.CTIEntities() )
 			{
 				EM.Organization item = context.Organization
-						.SingleOrDefault( s => s.Id == id );
+						.SingleOrDefault( s => s.Id == id
+						&& s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED 
+						);
 
 				if ( item != null && item.Id > 0 )
 				{
@@ -497,11 +519,12 @@ namespace Factories
 			CM.Organization entity = new CM.Organization();
 			using ( var context = new Data.CTIEntities() )
 			{
-
+				//.Include( "Organization_Property" )
+				//		.Include( "Organization_PropertyOther" )
 				EM.Organization item = context.Organization
-						.Include( "Organization_Property" )
-						.Include( "Organization_PropertyOther" )
-						.SingleOrDefault( s => s.RowId == agentId );
+						
+						.SingleOrDefault( s => s.RowId == agentId
+						&& s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED );
 
 				if ( item != null && item.Id > 0 )
 				{
@@ -511,6 +534,13 @@ namespace Factories
 
 			return entity;
 		}
+
+		/// <summary>
+		/// Get agent (only active records: StatusId <= published)
+		/// </summary>
+		/// <param name="agentRowId"></param>
+		/// <param name="includeCredentials"></param>
+		/// <returns></returns>
 		public static CM.Organization Agent_Get( Guid agentRowId, bool includeCredentials = false )
 		{
 			CM.Organization to = new CM.Organization();
@@ -519,24 +549,24 @@ namespace Factories
 				//HACK note- there is currently only one organization property type, so we can get all. 
 				//In the case of multiple properties (ie creds), need to use a view to get selectively - or add more includes
 				//						.Include( "Codes_PropertyValue" )
-				Views.Agent_Summary fromEntity = context.Agent_Summary
-						.SingleOrDefault( s => s.AgentRowId == agentRowId );
+				Views.Agent_Summary from = context.Agent_Summary
+						.SingleOrDefault( s => s.AgentRowId == agentRowId);
 
-				if ( fromEntity != null && fromEntity.AgentType != null && fromEntity.AgentType.Length > 4 )
+				if ( from != null && from.AgentType != null && from.AgentType.Length > 4 )
 				{
 					//ToMap( item, entity, true );
-					to.RowId = fromEntity.AgentRowId;
+					to.RowId = from.AgentRowId;
 
-					to.Name = fromEntity.AgentName + " (" + fromEntity.AgentType + ")";
-					
-					to.Email = fromEntity.Email;
-					to.Address.AddressRegion = fromEntity.Region;
-					to.Address.Country = fromEntity.Country;
+					to.Name = from.AgentName + " (" + from.AgentType + ")";
+
+					to.Email = from.Email;
+					to.Address.AddressRegion = from.Region;
+					to.Address.Country = from.Country;
 				}
 			}
 
 			return to;
-}
+		}
 
 		public static MN.ProfileLink Agent_GetProfileLink( Guid agentId )
 		{
@@ -569,7 +599,7 @@ namespace Factories
 			using ( var context = new ViewContext() )
 			{
 				Views.Agent_Summary efEntity = context.Agent_Summary
-						.SingleOrDefault( s => s.AgentRelativeId == agentId 
+						.SingleOrDefault( s => s.AgentRelativeId == agentId
 							&& s.AgentTypeId == agentTypeId );
 
 				if ( efEntity != null && efEntity.AgentRelativeId > 0 )
@@ -606,7 +636,7 @@ namespace Factories
 		{
 			List<CM.Organization> list = new List<CM.Organization>();
 			CM.Organization entity = new CM.Organization();
-			keyword = string.IsNullOrWhiteSpace(keyword) ? ""  : keyword.Trim();
+			keyword = string.IsNullOrWhiteSpace( keyword ) ? "" : keyword.Trim();
 			if ( pageSize == 0 )
 				pageSize = 500;
 			int skip = 0;
@@ -616,7 +646,8 @@ namespace Factories
 			using ( var context = new Data.CTIEntities() )
 			{
 				var Query = from Results in context.Organization
-						.Where( s => keyword == "" || s.Name.Contains( keyword ) )
+						.Where( s => s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED
+							&& (keyword == "" || s.Name.Contains( keyword )) )
 						.OrderBy( s => s.Name )
 							select Results;
 
@@ -650,7 +681,7 @@ namespace Factories
 		{
 			List<CM.Organization> list = new List<CM.Organization>();
 			CM.Organization entity = new CM.Organization();
-			keyword = string.IsNullOrWhiteSpace(keyword) ? ""  : keyword.Trim();
+			keyword = string.IsNullOrWhiteSpace( keyword ) ? "" : keyword.Trim();
 			if ( pageSize == 0 )
 				pageSize = 500;
 			int skip = 0;
@@ -670,16 +701,16 @@ namespace Factories
 
 				if ( results != null && results.Count > 0 )
 				{
-					foreach ( Views.Agent_Summary fromEntity in results )
+					foreach ( Views.Agent_Summary from in results )
 					{
 						entity = new CM.Organization();
-						entity.RowId = fromEntity.AgentRowId;
+						entity.RowId = from.AgentRowId;
 						//include relativeid for use where understand the difference
-						entity.Id = fromEntity.AgentRelativeId;
-						entity.Name = fromEntity.AgentName;
-						entity.Email = fromEntity.Email;
-						entity.Address.AddressRegion = fromEntity.Region;
-						entity.Address.Country = fromEntity.Country;
+						entity.Id = from.AgentRelativeId;
+						entity.Name = from.AgentName;
+						entity.Email = from.Email;
+						entity.Address.AddressRegion = from.Region;
+						entity.Address.Country = from.Country;
 						list.Add( entity );
 					}
 
@@ -689,7 +720,7 @@ namespace Factories
 
 			return list;
 		}
-		
+
 		public static List<Organization> Organization_SelectQAOrgs( int userId = 0, string keyword = "", int maxTerms = 0 )
 		{
 			List<Organization> list = new List<Organization>();
@@ -701,7 +732,7 @@ namespace Factories
 			using ( var context = new ViewContext() )
 			{
 				List<Views.Organization_Summary> results = context.Organization_Summary
-						.Where( s => s.IsAQAOrganization > 0 
+						.Where( s => s.IsAQAOrganization > 0
 						   && ( keyword == "" || s.Name.Contains( keyword ) ) )
 						.Take( maxTerms )
 						.OrderBy( s => s.Name )
@@ -726,6 +757,11 @@ namespace Factories
 			return list;
 		}
 
+		/// <summary>
+		/// Retrieve all active orgs
+		/// </summary>
+		/// <param name="userId"></param>
+		/// <returns></returns>
 		public static List<Organization> Organization_SelectAll( int userId = 0 )
 		{
 			List<Organization> list = new List<Organization>();
@@ -733,6 +769,7 @@ namespace Factories
 			using ( var context = new Data.CTIEntities() )
 			{
 				List<EM.Organization> results = context.Organization
+					.Where(s => s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED)
 									.OrderBy( s => s.Name )
 									.ToList();
 
@@ -746,7 +783,7 @@ namespace Factories
 						entity.Name = item.Name;
 						//if ( string.IsNullOrWhiteSpace( item.Address ) == false )
 						//	entity.Name += " ( " + item.Address.City + " )";
-						
+
 						list.Add( entity );
 					}
 				}
@@ -754,8 +791,55 @@ namespace Factories
 
 			return list;
 		}
+		public static List<CodeItem> Organization_SelectAllAsCodes( bool insertingSelectTitle = false )
+		{
+			List<CodeItem> list = new List<CodeItem>();
+			CodeItem entity = new CodeItem();
+			using ( var context = new Data.CTIEntities() )
+			{
+				List<EM.Organization> results = context.Organization
+					.Where( s => s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED )
+									.OrderBy( s => s.Name )
+									.ToList();
 
-		public static List<Organization> Search( string pFilter, string pOrderBy, int pageNumber, int pageSize, ref int pTotalRows, int userId = 0 )
+				if ( results != null && results.Count > 0 )
+				{
+					if ( insertingSelectTitle )
+					{
+						entity = new CodeItem();
+						entity.Id = 0;
+						entity.Title = "Select Organization";
+						entity.URL = "";
+						list.Add( entity );
+					}
+
+					foreach ( EM.Organization item in results )
+					{
+						entity = new CodeItem();
+						entity.Id = item.Id;
+						entity.Name = item.Name;
+
+						list.Add( entity );
+					}
+				}
+			}
+
+			return list;
+		}
+		public static List<string> Autocomplete( string pFilter, int pageNumber, int pageSize, int userId, ref int pTotalRows )
+		{
+			bool autocomplete = true;
+			List<string> results = new List<string>();
+			List<string> competencyList = new List<string>();
+			//ref competencyList, 
+			List<Organization> list = Search( pFilter, "", pageNumber, pageSize, ref pTotalRows, userId, false, autocomplete );
+
+			foreach ( Organization item in list )
+				results.Add( item.Name );
+
+			return results;
+		}
+		public static List<Organization> Search( string pFilter, string pOrderBy, int pageNumber, int pageSize, ref int pTotalRows, int userId = 0, bool idsOnly = false, bool autocomplete = false )
 		{
 			string connectionString = DBConnectionRO();
 			Organization item = new Organization();
@@ -802,11 +886,17 @@ namespace Factories
 				foreach ( DataRow dr in result.Rows )
 				{
 					item = new Organization();
-					item.Id = GetRowColumn(dr, "Id", 0);
-					item.Name = GetRowColumn(dr, "Name", "missing");
+					item.Id = GetRowColumn( dr, "Id", 0 );
+					item.Name = GetRowColumn( dr, "Name", "missing" );
+
+					if ( idsOnly || autocomplete )
+					{
+						list.Add( item );
+						continue;
+					}
 					item.Description = GetRowColumn( dr, "Description", "" );
 					string rowId = GetRowColumn( dr, "RowId" );
-						item.RowId = new Guid(rowId);
+					item.RowId = new Guid( rowId );
 
 					item.Url = GetRowColumn( dr, "URL", "" );
 					item.CanEditRecord = GetRowColumn( dr, "CanEditRecord", false );
@@ -829,51 +919,51 @@ namespace Factories
 					//item.Address.Longitude = GetRowColumn( dr, "Longitude", 0D );
 					//all addressess
 					int addressess = GetRowPossibleColumn( dr, "AvailableAddresses", 0 );
-					if ( addressess > 0   )
+					if ( addressess > 0 )
 					{
 						item.Addresses = AddressProfileManager.GetAllOrgAddresses( item.Id );
 						//just in case (short term
 						if ( item.Addresses.Count > 0 )
 							item.Address = item.Addresses[ 0 ];
 					}
-					list.Add(item);
+					list.Add( item );
 				}
 
 				return list;
 
 			}
 		}
-		
-		public static void FromMap( CM.Organization fromEntity, EM.Organization to )
+
+		public static void FromMap( CM.Organization from, EM.Organization to )
 		{
-			
+
 			//want to ensure fields from create are not wiped
 			if ( to.Id > 0 )
 			{
-				//to.RowId = fromEntity.rowId;
-				if ( fromEntity.StatusId > 0 )
-					to.StatusId = fromEntity.StatusId;
+				//to.RowId = from.rowId;
+				if ( from.StatusId > 0 )
+					to.StatusId = from.StatusId;
 			}
 			else
 			{
-				if ( IsValidDate( fromEntity.Created ) )
-					to.Created = fromEntity.Created;
-				to.CreatedById = fromEntity.CreatedById;
+				if ( IsValidDate( from.Created ) )
+					to.Created = from.Created;
+				to.CreatedById = from.CreatedById;
 				to.StatusId = 1;
 			}
 
-			to.Id = fromEntity.Id;
-			to.Name = fromEntity.Name != null ? fromEntity.Name.Trim() : null;
-			to.Description = fromEntity.Description != null ? fromEntity.Description.Trim() : null;
-			to.Purpose = fromEntity.Purpose != null ? fromEntity.Purpose.Trim() : null;
+			to.Id = from.Id;
+			to.Name = from.Name != null ? from.Name.Trim() : null;
+			to.Description = from.Description != null ? from.Description.Trim() : null;
+			to.Purpose = from.Purpose != null ? from.Purpose.Trim() : null;
 
-			//if ( fromEntity.IsNewVersion == false )
+			//if ( from.IsNewVersion == false )
 			//{
 			//	bool hasChanged = false;
 			//	bool hasAddress = false;
-			//	if ( fromEntity.Address != null )
+			//	if ( from.Address != null )
 			//	{
-			//		if ( fromEntity.Address.HasAddress() )
+			//		if ( from.Address.HasAddress() )
 			//		{
 			//			hasAddress = true;
 			//			if ( to.Latitude == null || to.Latitude == 0 )
@@ -884,16 +974,16 @@ namespace Factories
 			//			if ( to.Id == 0 )
 			//				hasChanged = true;
 			//			else
-			//				hasChanged = HasAddressChanged( fromEntity, to );
+			//				hasChanged = HasAddressChanged( from, to );
 			//		}
 
 
-			//		to.Address1 = fromEntity.Address.Address1;
-			//		to.Address2 = fromEntity.Address.Address2;
-			//		to.City = fromEntity.Address.City;
-			//		to.PostalCode = fromEntity.Address.PostalCode;
-			//		to.Region = fromEntity.Address.AddressRegion;
-			//		to.Country = fromEntity.Address.Country;
+			//		to.Address1 = from.Address.Address1;
+			//		to.Address2 = from.Address.Address2;
+			//		to.City = from.Address.City;
+			//		to.PostalCode = from.Address.PostalCode;
+			//		to.Region = from.Address.AddressRegion;
+			//		to.Country = from.Address.Country;
 
 			//	}
 
@@ -904,7 +994,7 @@ namespace Factories
 			//	{
 			//		if ( hasChanged )
 			//		{
-			//			GoogleGeocoding.Results results = GeoServices.GeocodeAddress( fromEntity.Address.DisplayAddress() );
+			//			GoogleGeocoding.Results results = GeoServices.GeocodeAddress( from.Address.DisplayAddress() );
 			//			if ( results != null )
 			//			{
 			//				GoogleGeocoding.Location location = results.GetLocation();
@@ -923,136 +1013,132 @@ namespace Factories
 			//	}
 			//}
 
-			//if ( fromEntity.IsNewVersion == false )
+			//if ( from.IsNewVersion == false )
 			//{
-			//	to.Email = GetData( fromEntity.Email );
-			//	to.MainPhoneNumber = PhoneNumber.StripPhone( GetData( fromEntity.MainPhoneNumber ) );
-			//	to.TollFreeNumber = PhoneNumber.StripPhone( GetData( fromEntity.TollFreeNumber ) );
-			//	to.FaxNumber = PhoneNumber.StripPhone( GetData( fromEntity.FaxNumber ) );
-			//	to.TTY = PhoneNumber.StripPhone( GetData( fromEntity.TTYNumber ) );
+			//	to.Email = GetData( from.Email );
+			//	to.MainPhoneNumber = PhoneNumber.StripPhone( GetData( from.MainPhoneNumber ) );
+			//	to.TollFreeNumber = PhoneNumber.StripPhone( GetData( from.TollFreeNumber ) );
+			//	to.FaxNumber = PhoneNumber.StripPhone( GetData( from.FaxNumber ) );
+			//	to.TTY = PhoneNumber.StripPhone( GetData( from.TTYNumber ) );
 			//}
-			
+
 
 			//FoundingDate is now a string
 			//interface must handle? Or do we have to fix here?
 			//depends if just text is passed or separates
 			//this should be removed soon
-			if ( !string.IsNullOrWhiteSpace( fromEntity.FoundingDate ) )
-				to.FoundingDate = fromEntity.FoundingDate;
-			to.FoundingDate = FormatFoundingDate( fromEntity );
-			
-			//if ( IsValidDate( fromEntity.FoundingDateOld ) )
-			//	to.FoundingDateOld = fromEntity.FoundingDateOld;
+			if ( !string.IsNullOrWhiteSpace( from.FoundingDate ) )
+				to.FoundingDate = from.FoundingDate;
+			to.FoundingDate = FormatFoundingDate( from );
+
+			//if ( IsValidDate( from.FoundingDateOld ) )
+			//	to.FoundingDateOld = from.FoundingDateOld;
 			//else
 			//	to.FoundingDateOld = null;
 
-			if ( fromEntity.ServiceType != null )
+			if ( from.ServiceType != null )
 			{
-				to.ServiceTypeOther = fromEntity.ServiceType.OtherValue;
+				to.ServiceTypeOther = from.ServiceType.OtherValue;
 			}
-			//to.ServiceTypeOther = fromEntity.ServiceTypeOther;
-			to.URL = fromEntity.Url;
-			to.UniqueURI = fromEntity.UniqueURI;
-			
-			if ( fromEntity.ImageUrl != null && fromEntity.ImageUrl.Trim().Length > 0 )
-				to.ImageURL = fromEntity.ImageUrl;
+			//to.ServiceTypeOther = from.ServiceTypeOther;
+			to.URL = from.Url;
+			to.UniqueURI = from.UniqueURI;
+
+			if ( from.ImageUrl != null && from.ImageUrl.Trim().Length > 0 )
+				to.ImageURL = from.ImageUrl;
 			else
 				to.ImageURL = null;
-			
-			if ( IsValidDate(fromEntity.LastUpdated) )
-				to.LastUpdated = fromEntity.LastUpdated;
-			to.LastUpdatedById = fromEntity.LastUpdatedById;
+
+			if ( IsValidDate( from.LastUpdated ) )
+				to.LastUpdated = from.LastUpdated;
+			to.LastUpdatedById = from.LastUpdatedById;
 		}
-		//public static bool HasAddressChanged( CM.Organization fromEntity, EM.Organization to )
+		//public static bool HasAddressChanged( CM.Organization from, EM.Organization to )
 		//{
 		//	bool hasChanged = false;
 
-		//	if ( to.Address1 != fromEntity.Address.Address1
-		//	|| to.Address2 != fromEntity.Address.Address2
-		//	|| to.City != fromEntity.Address.City
-		//	|| to.PostalCode != fromEntity.Address.PostalCode
-		//	|| to.Region != fromEntity.Address.AddressRegion
-		//	|| to.Country != fromEntity.Address.Country )
+		//	if ( to.Address1 != from.Address.Address1
+		//	|| to.Address2 != from.Address.Address2
+		//	|| to.City != from.Address.City
+		//	|| to.PostalCode != from.Address.PostalCode
+		//	|| to.Region != from.Address.AddressRegion
+		//	|| to.Country != from.Address.Country )
 		//		hasChanged = true;
 
 		//	return hasChanged;
 		//}
-		private static string FormatFoundingDate( CM.Organization fromEntity )
+		private static string FormatFoundingDate( CM.Organization from )
 		{
 			string foundingDate = "";
-			if ( !string.IsNullOrWhiteSpace( fromEntity.FoundingYear ) && fromEntity.FoundingYear.Length == 4 && IsInteger( fromEntity.FoundingYear ) )
-				foundingDate = fromEntity.FoundingYear;
+			if ( !string.IsNullOrWhiteSpace( from.FoundingYear ) && from.FoundingYear.Length == 4 && IsInteger( from.FoundingYear ) )
+				foundingDate = from.FoundingYear;
 			else
 				return ""; //must have at least a year
 
-			if ( !string.IsNullOrWhiteSpace( fromEntity.FoundingMonth )
-				&& IsInteger( fromEntity.FoundingMonth ) )
+			if ( !string.IsNullOrWhiteSpace( from.FoundingMonth )
+				&& IsInteger( from.FoundingMonth ) )
 			{
-				if ( fromEntity.FoundingMonth.Length == 1 )
-					fromEntity.FoundingMonth = "0" + fromEntity.FoundingMonth;
-				foundingDate += "-" + fromEntity.FoundingMonth;
+				if ( from.FoundingMonth.Length == 1 )
+					from.FoundingMonth = "0" + from.FoundingMonth;
+				foundingDate += "-" + from.FoundingMonth;
 			}
 			else
 				return foundingDate;
 
-			if ( !string.IsNullOrWhiteSpace( fromEntity.FoundingDay )
-				&& IsInteger( fromEntity.FoundingDay ) )
+			if ( !string.IsNullOrWhiteSpace( from.FoundingDay )
+				&& IsInteger( from.FoundingDay ) )
 			{
-				if ( fromEntity.FoundingDay.Length == 1 )
-					fromEntity.FoundingDay = "0" + fromEntity.FoundingDay;
+				if ( from.FoundingDay.Length == 1 )
+					from.FoundingDay = "0" + from.FoundingDay;
 
-				foundingDate += "-" + fromEntity.FoundingDay;
+				foundingDate += "-" + from.FoundingDay;
 			}
 
 			return foundingDate;
-}
-		public static void ToMap( EM.Organization fromEntity, CM.Organization to,
+		}
+		public static void ToMap( EM.Organization from, CM.Organization to,
 					bool includingProperties = false,
 					bool includeCredentials = false,
 					bool includingRoles = false )
 		{
-			ToMap( fromEntity, to, true, true, includeCredentials, includingRoles );
+			ToMap( from, to, true, true, includeCredentials, includingRoles );
 		}
-		public static void ToMapForDetail( EM.Organization fromEntity, CM.Organization to,
+		public static void ToMapForDetail( EM.Organization from, CM.Organization to,
 					bool includingProperties,
 					bool includeCredentials,
 					bool includingRoles )
 		{
-			ToMap( fromEntity, to, false, true, includeCredentials, includingRoles );
+			ToMap( from, to, false, true, includeCredentials, includingRoles );
 		}
-		public static void ToMap( EM.Organization fromEntity, CM.Organization to,
- 					bool forEditView,
-					bool includingProperties, 
+		public static void ToMap( EM.Organization from, CM.Organization to,
+					bool forEditView,
+					bool includingProperties,
 					bool includeCredentials,
 					bool includingRoles )
 		{
-			to.Id = fromEntity.Id;
-			to.RowId = fromEntity.RowId;
+			to.Id = from.Id;
+			to.RowId = from.RowId;
+			to.StatusId = ( int ) ( from.StatusId ?? 1 );
 
-			to.Name = fromEntity.Name;
-			to.Description = fromEntity.Description;
-			to.Purpose = fromEntity.Purpose;
-			to.CredentialRegistryId = fromEntity.CredentialRegistryId;
+			to.Name = from.Name;
+			to.Description = from.Description;
+			to.Purpose = from.Purpose;
+			to.CredentialRegistryId = from.CredentialRegistryId;
+			to.ctid = from.CTID;
 
 			//soon replace
-			FillAddresses( fromEntity, to );
+			FillAddresses( from, to );
 			//with
 			//to.Addresses = AddressProfileManager.GetAll( to.RowId );
 
-			//OLD
-			//to.Email = fromEntity.Email;
-			//to.MainPhoneNumber = PhoneNumber.DisplayPhone( fromEntity.MainPhoneNumber );
-			//to.TollFreeNumber = PhoneNumber.DisplayPhone( fromEntity.TollFreeNumber );
-			//to.FaxNumber = PhoneNumber.DisplayPhone( fromEntity.FaxNumber );
-			//to.TTYNumber = PhoneNumber.DisplayPhone( fromEntity.TTY );
 
-			to.FoundingDate = fromEntity.FoundingDate;
-			//if ( IsValidDate( fromEntity.FoundingDateOld ) )
-			//	to.FoundingDateOld = ( DateTime ) fromEntity.FoundingDateOld;
+			to.FoundingDate = from.FoundingDate;
+			//if ( IsValidDate( from.FoundingDateOld ) )
+			//	to.FoundingDateOld = ( DateTime ) from.FoundingDateOld;
 
-			if ( !string.IsNullOrWhiteSpace( fromEntity.FoundingDate ) )
+			if ( !string.IsNullOrWhiteSpace( from.FoundingDate ) )
 			{
-				string[] array = fromEntity.FoundingDate.Split( '-' );
+				string[] array = from.FoundingDate.Split( '-' );
 				if ( array.Length > 0 )
 				{
 					to.FoundingYear = array[ 0 ];
@@ -1071,22 +1157,22 @@ namespace Factories
 			}
 			//not used from db? Using property other - except this is now the only other property????
 			//16-09-02 mp - push to enumeratoin
-			to.ServiceTypeOther = fromEntity.ServiceTypeOther;
+			to.ServiceTypeOther = from.ServiceTypeOther;
 
-			to.Url = fromEntity.URL;
-			to.UniqueURI = fromEntity.UniqueURI;
+			to.Url = from.URL;
+			to.UniqueURI = from.UniqueURI;
 
-			if ( fromEntity.ImageURL != null && fromEntity.ImageURL.Trim().Length > 0 )
-				to.ImageUrl = fromEntity.ImageURL;
+			if ( from.ImageURL != null && from.ImageURL.Trim().Length > 0 )
+				to.ImageUrl = from.ImageURL;
 			else
 				to.ImageUrl = null;
 
-			if ( IsValidDate(fromEntity.Created) )
-				to.Created = ( DateTime ) fromEntity.Created;
-			to.CreatedById = fromEntity.CreatedById == null ? 0 : ( int ) fromEntity.CreatedById;
-			if ( IsValidDate(fromEntity.LastUpdated) )
-				to.LastUpdated = ( DateTime ) fromEntity.LastUpdated;
-			to.LastUpdatedById = fromEntity.LastUpdatedById == null ? 0 : ( int ) fromEntity.LastUpdatedById;
+			if ( IsValidDate( from.Created ) )
+				to.Created = ( DateTime ) from.Created;
+			to.CreatedById = from.CreatedById == null ? 0 : ( int ) from.CreatedById;
+			if ( IsValidDate( from.LastUpdated ) )
+				to.LastUpdated = ( DateTime ) from.LastUpdated;
+			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
 
 			//sector type? - as an enumeration, will be stored in properties
 			to.OrganizationSectorType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SECTORTYPE );
@@ -1097,7 +1183,7 @@ namespace Factories
 			//properties
 			if ( includingProperties )
 			{
-				OrganizationServiceManager.FillOrganizationService( fromEntity, to );
+				OrganizationServiceManager.FillOrganizationService( from, to );
 
 				to.Jurisdiction = RegionsManager.Jurisdiction_GetAll( to.RowId );
 
@@ -1107,19 +1193,19 @@ namespace Factories
 
 				//if ( to.IsNewVersion == false)
 				//{
-				//	//OrganizationPropertyManager.OrganizationPropertyFill_ToMap( fromEntity, to );
-				//	//OrganizationPropertyManager.FillOrganizationType( fromEntity, to );
-				//	OrganizationPropertyManager.FillSocialMedia( fromEntity, to );
-				//	OrganizationPropertyManager.FillOrganizationIdentities( fromEntity, to );
+				//	//OrganizationPropertyManager.OrganizationPropertyFill_ToMap( from, to );
+				//	//OrganizationPropertyManager.FillOrganizationType( from, to );
+				//	OrganizationPropertyManager.FillSocialMedia( from, to );
+				//	OrganizationPropertyManager.FillOrganizationIdentities( from, to );
 				//}
 				//else
 				//{
-					//OrganizationPropertyManager.FillOrganizationType( fromEntity, to );
+				//OrganizationPropertyManager.FillOrganizationType( from, to );
 
-					to.SocialMediaPages =	Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SOCIAL_MEDIA );
-					to.IdentificationCodes = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_IDENTIFIERS );
-					to.PhoneNumbers = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_PHONE_TYPE );
-					to.Emails = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_EMAIL_TYPE );
+				to.SocialMediaPages = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SOCIAL_MEDIA );
+				to.IdentificationCodes = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_IDENTIFIERS );
+				to.PhoneNumbers = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_PHONE_TYPE );
+				to.Emails = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_EMAIL_TYPE );
 
 				//}
 			}
@@ -1127,13 +1213,13 @@ namespace Factories
 			//credentialing?
 			if ( includeCredentials )
 			{
-				to.CreatedCredentials = Entity_AgentRelationshipManager.Credentials_ForCreatingOrg(to.RowId);
+				to.CreatedCredentials = Entity_AgentRelationshipManager.Credentials_ForCreatingOrg( to.RowId );
 				if ( to.CreatedCredentials != null && to.CreatedCredentials.Count > 0 )
 					to.IsACredentialingOrg = true;
 			}
 			else
 			{
-				if (CountCredentials(fromEntity) > 0)
+				if ( CountCredentials( from ) > 0 )
 					to.IsACredentialingOrg = true;
 			}
 
@@ -1149,44 +1235,45 @@ namespace Factories
 
 				//dept and subsiduaries ????
 				Entity_AgentRelationshipManager.AgentRole_FillAllSubOrganizations( to, 0 );
-			
+
 				//
 				to.Authentication = Entity_VerificationProfileManager.VerificationProfile_GetAll( to.RowId );
 			}
 		}
-		private static void FillAddresses( EM.Organization fromEntity, CM.Organization to )
+		private static void FillAddresses( EM.Organization from, CM.Organization to )
 		{
 			to.Address = new Address();
-			if ( fromEntity.Organization_Address != null && fromEntity.Organization_Address.Count > 0 )
+			if ( from.Organization_Address != null && from.Organization_Address.Count > 0 )
 			{
 				Address address = new Address();
 				int cntr = 0;
-				foreach ( EM.Organization_Address item in fromEntity.Organization_Address )
+				foreach ( EM.Organization_Address item in from.Organization_Address )
 				{
 					cntr++;
 					address = new Address();
 					address.Id = item.Id;
 					address.RowId = item.RowId;
 					address.Name = item.Name;
-					address.IsMainAddress = (bool) (item.IsPrimaryAddress ?? false);
+					address.IsMainAddress = ( bool ) ( item.IsPrimaryAddress ?? false );
 					address.Address1 = item.Address1;
 					address.Address2 = item.Address2;
 					address.City = item.City;
 					address.PostalCode = item.PostalCode;
 					address.AddressRegion = item.Region;
 					address.Country = item.Country;
+					address.CountryId = (int) (item.CountryId ?? 0);
 
 					address.Latitude = item.Latitude ?? 0;
 					address.Longitude = item.Longitude ?? 0;
 
-					if ( fromEntity.Organization_Address.Count == 1 )
+					if ( from.Organization_Address.Count == 1 )
 					{
 						address.IsMainAddress = true;
 					}
 
 					to.Addresses.Add( address );
-					if (address.IsMainAddress
-						|| fromEntity.Organization_Address.Count == 1 )
+					if ( address.IsMainAddress
+						|| from.Organization_Address.Count == 1 )
 					{
 						to.Address = address;
 					}
@@ -1209,20 +1296,255 @@ namespace Factories
 			else
 			{
 				//do handling for old editor
-				//to.Address.Address1 = fromEntity.Address1;
-				//to.Address.Address2 = fromEntity.Address2;
-				//to.Address.City = fromEntity.City;
-				//to.Address.PostalCode = fromEntity.PostalCode;
-				//to.Address.AddressRegion = fromEntity.Region;
-				//to.Address.Country = fromEntity.Country;
+				//to.Address.Address1 = from.Address1;
+				//to.Address.Address2 = from.Address2;
+				//to.Address.City = from.City;
+				//to.Address.PostalCode = from.PostalCode;
+				//to.Address.AddressRegion = from.Region;
+				//to.Address.Country = from.Country;
 
-				//to.Address.Latitude = fromEntity.Latitude ?? 0;
-				//to.Address.Longitude = fromEntity.Longitude ?? 0;
+				//to.Address.Latitude = from.Latitude ?? 0;
+				//to.Address.Longitude = from.Longitude ?? 0;
 			}
 		}
-		private static int CountCredentials(EM.Organization entity)
+		private static int CountCredentials( EM.Organization entity )
 		{
-			return Entity_AgentRelationshipManager.CredentialCount_ForCreatingOrg(entity.RowId);
+			return Entity_AgentRelationshipManager.CredentialCount_ForCreatingOrg( entity.RowId );
+		}
+		#endregion
+
+		#region Elastic search methods
+		/// <summary>
+		/// Get organizations as Elastic format
+		/// </summary>
+		/// <param name="userId"></param>
+		/// <param name="keyword"></param>
+		/// <param name="pageNumber"></param>
+		/// <param name="pageSize"></param>
+		/// <param name="pTotalRows"></param>
+		/// <returns></returns>
+		public static List<ME.Organization> GetAllForElastic( string keyword, int pageNumber, int pageSize, ref int pTotalRows )
+		{
+			List<ME.Organization> list = new List<ME.Organization>();
+			ME.Organization entity = new ME.Organization();
+			//keyword = string.IsNullOrWhiteSpace(keyword) ? "" : keyword.Trim();
+			if ( pageSize == 0 )
+				pageSize = 500;
+			int skip = 0;
+			if ( pageNumber > 1 )
+				skip = ( pageNumber - 1 ) * pageSize;
+
+			using ( var context = new Data.CTIEntities() )
+			{
+				var Query = from Results in context.Organization
+						.Where( s => s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED )
+						.OrderBy( s => s.Name )
+							select Results;
+
+				pTotalRows = Query.Count();
+				var results = Query.Skip( skip ).Take( pageSize )
+					.ToList();
+
+				//List<EM.Organization> results2 = context.Organization
+				//	.Where( s => keyword == "" || s.Name.Contains( keyword ) )
+				//	.Take( pageSize )
+				//	.OrderBy( s => s.Name )
+				//	.ToList();
+
+				if ( results != null && results.Count > 0 )
+				{
+					foreach ( EM.Organization item in results )
+					{
+						entity = new ME.Organization();
+						ToMap( item, entity );
+						list.Add( entity );
+					}
+				}
+			}
+
+			return list;
+		}
+		/// <summary>
+		/// Get organization as Elastic format
+		/// </summary>
+		/// <param name="id"></param>
+		/// <returns></returns>
+		public static ME.Organization Organization_GetForElastic( int id )
+		{
+
+			ME.Organization entity = new ME.Organization();
+
+			using ( var context = new Data.CTIEntities() )
+			{
+				EM.Organization item = context.Organization
+						.SingleOrDefault( s => s.Id == id && s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED );
+
+				if ( item != null && item.Id > 0 )
+				{
+					ToMap( item, entity );
+				}
+			}
+
+			return entity;
+		}
+
+		public static void ToMap( EM.Organization from, ME.Organization to )
+		{
+			to.Id = from.Id;
+			to.RowId = from.RowId;
+			to.StatusId = ( int ) ( from.StatusId ?? 1 );
+			to.Name = from.Name;
+			to.Description = from.Description;
+			//to.ManagingOrgId = from.ManagingOrgId ?? 0;
+			to.Purpose = from.Purpose;
+			to.CredentialRegistryId = from.CredentialRegistryId;
+			to.CTID = from.CTID;
+			FillAddresses( from, to );
+
+			//to.FoundingDate = from.FoundingDate;
+
+			//if (!string.IsNullOrWhiteSpace(from.FoundingDate))
+			//{
+			//	string[] array = from.FoundingDate.Split('-');
+			//	if (array.Length > 0)
+			//	{
+			//		to.FoundingYear = array[0];
+			//		to.FoundingDate = to.FoundingYear;
+			//	}
+			//	if (array.Length > 1)
+			//	{
+			//		to.FoundingMonth = array[1];
+			//		to.FoundingDate += "-" + to.FoundingMonth;
+			//	}
+			//	if (array.Length > 2)
+			//	{
+			//		to.FoundingDay = array[2];
+			//		to.FoundingDate += "-" + to.FoundingDay;
+			//	}
+			//}
+
+
+			to.Url = from.URL;
+			to.UniqueURI = from.UniqueURI;
+
+			if ( from.ImageURL != null && from.ImageURL.Trim().Length > 0 )
+				to.ImageUrl = from.ImageURL;
+			else
+				to.ImageUrl = null;
+
+			if ( IsValidDate( from.Created ) )
+				to.Created = ( DateTime ) from.Created;
+			if ( IsValidDate( from.LastUpdated ) )
+				to.LastUpdated = ( DateTime ) from.LastUpdated;
+
+			//sector type? - as an enumeration, will be stored in properties
+			//to.OrganizationSectorType = EntityPropertyManager.FillEnumeration(to.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SECTORTYPE);
+
+			//to.Subjects = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_SUBJECT );
+
+			List<TextValueProfile> tvps = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_KEYWORD );
+			if ( tvps != null )
+			{
+				foreach ( TextValueProfile item in tvps )
+				{
+					to.Keywords.Add( item.TextValue );
+				}
+			}
+			//
+			tvps = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_SUBJECT );
+			if ( tvps != null )
+			{
+				foreach ( TextValueProfile item in tvps )
+				{
+					to.Subjects.Add( item.TextValue );
+				}
+			}
+			//properties
+
+			//OrganizationServiceManager.FillOrganizationService(from, to);
+			//not used from db? Using property other - except this is now the only other property????
+			//16-09-02 mp - push to enumeration
+			//to.ServiceTypeOther = from.ServiceTypeOther;
+
+			//to.Jurisdiction = RegionsManager.Jurisdiction_GetAll(to.RowId);
+
+			to.OrganizationType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_TYPE );
+
+			to.QAPurposeType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_AGENT_QAPURPOSE_TYPE );
+
+			//to.SocialMediaPages = Entity_ReferenceManager.Entity_GetAll(to.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SOCIAL_MEDIA);
+			//to.IdentificationCodes = Entity_ReferenceManager.Entity_GetAll(to.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_IDENTIFIERS);
+			//to.PhoneNumbers = Entity_ReferenceManager.Entity_GetAll(to.RowId, CodesManager.PROPERTY_CATEGORY_PHONE_TYPE);
+			//to.Emails = Entity_ReferenceManager.Entity_GetAll(to.RowId, CodesManager.PROPERTY_CATEGORY_EMAIL_TYPE);
+
+
+			//credentialing?
+			//if (includeCredentials)
+			//{
+			//	to.CreatedCredentials = Entity_AgentRelationshipManager.Credentials_ForCreatingOrg(to.RowId);
+			//	if (to.CreatedCredentials != null && to.CreatedCredentials.Count > 0)
+			//		to.IsACredentialingOrg = true;
+			//}
+			//else
+			//{
+			//	if (CountCredentials(from) > 0)
+			//		to.IsACredentialingOrg = true;
+			//}
+
+
+			to.OrganizationRole_Recipient = Entity_AgentRelationshipManager.AgentEntityRole_GetAll_ToEnumeration( to.RowId, true );
+
+			to.QualityAssuranceAction = Entity_QualityAssuranceActionManager.QualityAssuranceActionProfile_GetAll( to.RowId );
+
+			//dept and subsiduaries ????
+			//Entity_AgentRelationshipManager.AgentRole_FillAllSubOrganizations(to, 0);
+
+			//
+			//to.Authentication = Entity_VerificationProfileManager.VerificationProfile_GetAll(to.RowId);
+
+		}
+
+		private static void FillAddresses( EM.Organization from, ME.Organization to )
+		{
+
+			if ( from.Organization_Address != null && from.Organization_Address.Count > 0 )
+			{
+				Address address = new Address();
+				int cntr = 0;
+				foreach ( EM.Organization_Address item in from.Organization_Address )
+				{
+					cntr++;
+					address = new Address();
+					address.Id = item.Id;
+					address.RowId = item.RowId;
+					address.Name = item.Name;
+					address.IsMainAddress = ( bool ) ( item.IsPrimaryAddress ?? false );
+					address.Address1 = item.Address1;
+					address.Address2 = item.Address2;
+					address.City = item.City;
+					address.PostalCode = item.PostalCode;
+					address.AddressRegion = item.Region;
+					address.Country = item.Country;
+
+					address.Latitude = item.Latitude ?? 0;
+					address.Longitude = item.Longitude ?? 0;
+
+					if ( from.Organization_Address.Count == 1 )
+					{
+						address.IsMainAddress = true;
+					}
+
+					to.Addresses.Add( address );
+					//if (address.IsMainAddress
+					//	|| from.Organization_Address.Count == 1)
+					//{
+					//	to.Address = address;
+					//}
+
+
+				}
+			}
+
 		}
 		#endregion
 
@@ -1252,9 +1574,9 @@ namespace Factories
 					}
 					else
 					{
-						
+
 					}
-					
+
 					efEntity.OrgMemberTypeId = orgMemberTypeId;
 
 					efEntity.LastUpdatedById = createdById;
@@ -1270,7 +1592,7 @@ namespace Factories
 					if ( efEntity.Id == 0 )
 					{
 						context.Organization_Member.Add( efEntity );
-					}	
+					}
 
 					// submit the change to database
 					int count = context.SaveChanges();
@@ -1300,7 +1622,7 @@ namespace Factories
 		public bool OrganizationMember_Delete( int orgId, int userId, ref string statusMessage )
 		{
 			bool isValid = false;
-			if ( orgId == 0 || userId == 0)
+			if ( orgId == 0 || userId == 0 )
 			{
 				statusMessage = "Error - please provide a valid organization Id, and user Id";
 				return false;
@@ -1351,7 +1673,7 @@ namespace Factories
 			using ( var context = new Data.CTIEntities() )
 			{
 				var Query = from Results in context.Organization_Member
-						.Where( s => s.ParentOrgId == orgId)
+						.Where( s => s.ParentOrgId == orgId )
 						.OrderBy( s => s.Account.LastName )
 							select Results;
 
@@ -1368,7 +1690,7 @@ namespace Factories
 						entity.ParentOrgId = item.ParentOrgId;
 						entity.UserId = item.UserId;
 						entity.OrgMemberTypeId = item.OrgMemberTypeId;
-						entity.IsPrimaryOrganization = (bool) (item.IsPrimaryOrganization ?? false);
+						entity.IsPrimaryOrganization = ( bool ) ( item.IsPrimaryOrganization ?? false );
 
 						entity.Created = item.Created;
 						entity.CreatedById = item.CreatedById ?? 0;
@@ -1377,9 +1699,9 @@ namespace Factories
 
 						//Hmm no reason to map the org, as most likely in context of org
 						//OR ensure minimum
-						ToMap(item.Organization, entity.Organization, false, false, false);
+						ToMap( item.Organization, entity.Organization, false, false, false );
 						AccountManager.ToMap( item.Account, entity.Account );
-						
+
 						list.Add( entity );
 					}
 
@@ -1436,13 +1758,13 @@ namespace Factories
 				//otherwise just take first one
 				List<EM.Organization_Member> list = context.Organization_Member
 						.Where( s => s.UserId == userId )
-						.OrderBy( s => s.Organization.Name)
+						.OrderBy( s => s.Organization.Name )
 						.ToList();
 
 				if ( list != null && list.Count() > 0 )
 				{
 					int cntr = 0;
-					foreach (EM.Organization_Member item in list) 
+					foreach ( EM.Organization_Member item in list )
 					{
 						cntr++;
 						if ( ( bool ) ( item.IsPrimaryOrganization ?? false )
@@ -1453,7 +1775,7 @@ namespace Factories
 						}
 					}
 				}
-					
+
 				return org;
 			}
 		}
@@ -1484,7 +1806,7 @@ namespace Factories
 		/// <param name="userId"></param>
 		/// <param name="orgId"></param>
 		/// <returns></returns>
-		public static CM.OrganizationMember OrganizationMember_Get( int orgId, int userId)
+		public static CM.OrganizationMember OrganizationMember_Get( int orgId, int userId )
 		{
 			CM.OrganizationMember entity = new CM.OrganizationMember();
 

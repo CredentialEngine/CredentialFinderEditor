@@ -116,7 +116,7 @@ namespace Factories
 				}
 				else
 				{
-					statusMessage = "Error - delete failed, as record was not found.";
+					statusMessage = "Error - Entity delete unnecessary, as record was not found.";
 					LoggingHelper.LogError( thisClassName + string.Format( ".Delete - WIERD - delete failed, as record was not found. entityUid: {0}", entityUid ), true );
 				}
 			}
@@ -153,6 +153,7 @@ namespace Factories
 				{
 					entity.Id = item.Id;
 					entity.EntityTypeId = item.EntityTypeId;
+					entity.EntityType = item.Codes_EntityType.Title;
 					entity.EntityUid = item.EntityUid;
 					entity.Created = (DateTime)item.Created;
 

@@ -88,7 +88,7 @@ namespace MetadataRegistry
 		/// <param name="envelopeIdentifier"></param>
 		/// <param name="contents"></param>
 		/// <returns></returns>
-		public static DeleteEnvelope CreateDeleteEnvelope( string publicKeyPath, string secretKeyPath, string userName )
+		public static DeleteEnvelope CreateDeleteEnvelope( string publicKeyPath, string secretKeyPath, string ctid, string userName )
 		{
 			RsaPrivateCrtKeyParameters privateKey;
 			//string envelopeIdentifier, 
@@ -96,7 +96,12 @@ namespace MetadataRegistry
 			{
 				privateKey = ( RsaPrivateCrtKeyParameters ) ( ( AsymmetricCipherKeyPair ) new PemReader( reader ).ReadObject() ).Private;
 			}
-			string contents = "{\"delete\": true, \"deletedBy\":\"{0}\"}" ;
+			DeleteObject del = new DeleteObject();
+			del.Ctid = ctid;
+			del.Actor = userName;
+			string contents = JsonConvert.SerializeObject( del );
+
+			//string contents = string.Format("{\"delete\": true, \"ctld:ctid\":\"{0}\", \"deletedBy\":\"{1}\"}", ctid, userName) ;
 			string publicKey = File.ReadAllText( publicKeyPath );
 
 			string encoded = JWT.Encode( contents, DotNetUtilities.ToRSA( privateKey ), JwsAlgorithm.RS256 );

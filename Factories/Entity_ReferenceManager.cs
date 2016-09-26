@@ -9,7 +9,7 @@ using Models.ProfileModels;
 using EM = Data;
 using Utilities;
 using DBentity = Data.Entity_Reference;
-using Entity = Models.ProfileModels.TextValueProfile;
+using ThisEntity = Models.ProfileModels.TextValueProfile;
 
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
@@ -34,7 +34,7 @@ namespace Factories
 		/// <param name="categoryId"></param>
 		/// <param name="isTitleRequired">If true, a title must exist</param>
 		/// <returns></returns>
-		public bool EntityUpdate( List<Entity> profiles, 
+		public bool EntityUpdate( List<ThisEntity> profiles, 
 				Guid parentUid, 
 				int parentTypeId, 
 				int userId, 
@@ -59,7 +59,7 @@ namespace Factories
 			int count = 0;
 			bool hasData = false;
 			if ( profiles == null )
-				profiles = new List<Entity>();
+				profiles = new List<ThisEntity>();
 
 			DBentity efEntity = new DBentity();
 
@@ -77,7 +77,7 @@ namespace Factories
 					hasData = true;
 					bool isEmpty = false;
 
-					foreach ( Entity entity in profiles )
+					foreach ( ThisEntity entity in profiles )
 					{
 						entity.CategoryId = categoryId;
 						if ( Validate( entity, isTitleRequired, ref isEmpty, ref  messages ) == false )
@@ -169,7 +169,7 @@ namespace Factories
 				//					 join item in profiles
 				//							 on existing.Id equals item.Id
 				//							 into joinTable
-				//					 from result in joinTable.DefaultIfEmpty( new Entity { Id = 0, ParentId = 0 } )
+				//					 from result in joinTable.DefaultIfEmpty( new ThisEntity { Id = 0, ParentId = 0 } )
 				//					 select new { DeleteId = existing.Id, ParentId = ( result.ParentId ) };
 
 				//	foreach ( var v in deleteList )
@@ -192,7 +192,7 @@ namespace Factories
 			return isValid;
 		}
 
-		//public bool Entity_Update( Entity entity, Guid parentUid, int userId, ref List<string> messages, int categoryId = 25 )
+		//public bool Entity_Update( ThisEntity entity, Guid parentUid, int userId, ref List<string> messages, int categoryId = 25 )
 		//{
 		//	bool isValid = true;
 		//	int intialCount = messages.Count;
@@ -299,7 +299,7 @@ namespace Factories
 		}
 
 
-		public bool Validate( Entity profile, bool isTitleRequired, 
+		public bool Validate( ThisEntity profile, bool isTitleRequired, 
 			ref bool isEmpty, 
 			ref List<string> messages )
 		{
@@ -378,10 +378,10 @@ namespace Factories
 		/// Uses the parent Guid to retrieve the related Entity, then uses the EntityId to retrieve the child objects.
 		/// </summary>
 		/// <param name="parentUid"></param>
-		public static List<Entity> Entity_GetAll( Guid parentUid, int categoryId = 25 )
+		public static List<ThisEntity> Entity_GetAll( Guid parentUid, int categoryId = 25 )
 		{
-			Entity entity = new Entity();
-			List<Entity> list = new List<Entity>();
+			ThisEntity entity = new ThisEntity();
+			List<ThisEntity> list = new List<ThisEntity>();
 			Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
 			{
@@ -400,7 +400,7 @@ namespace Factories
 					{
 						foreach ( DBentity item in results )
 						{
-							entity = new Entity();
+							entity = new ThisEntity();
 							ToMap( item, entity );
 
 							list.Add( entity );
@@ -420,7 +420,7 @@ namespace Factories
 		/// </summary>
 		/// <param name="Ids"></param>
 		/// <returns></returns>
-		public static List<Entity> GetList( List<int> Ids )
+		public static List<ThisEntity> GetList( List<int> Ids )
 		{
 			List<TextValueProfile> entities = new List<TextValueProfile>();
 			using ( var context = new Data.CTIEntities() )
@@ -436,9 +436,45 @@ namespace Factories
 
 			return entities;
 		}
-		public static Entity Entity_Get( int profileId )
+
+		public static List<string> QuickSearch_TextValue( int entityTypeId, int categoryId, string keyword, int maxTerms = 0 )
 		{
-			Entity entity = new Entity();
+			List<string> list = new List<string>();
+			
+			keyword = keyword.Trim();
+			if ( maxTerms == 0 )
+				maxTerms = 50;
+
+			using ( var context = new ViewContext() )
+			{
+				// will only return active credentials
+				var results = context.Entity_Reference_Summary
+					.Where( s => s.EntityTypeId == entityTypeId && s.CategoryId == categoryId
+						&& (
+							( s.TextValue.Contains( keyword ) ||
+							( s.Title.Contains( keyword ) )
+							)
+						))
+					.OrderBy( s => s.TextValue )
+					.Select( m => m.TextValue ).Distinct()
+					.Take( maxTerms )
+					.ToList();
+
+				if ( results != null && results.Count > 0 )
+				{
+					foreach ( string item in results )
+					{
+						list.Add( item );
+					}
+
+				}
+			}
+
+			return list;
+		}
+		public static ThisEntity Entity_Get( int profileId )
+		{
+			ThisEntity entity = new ThisEntity();
 			if ( profileId == 0 )
 			{
 				return entity;
@@ -463,9 +499,9 @@ namespace Factories
 			return entity;
 		}//
 
-		public static Entity GetSummary( int profileId )
+		public static ThisEntity GetSummary( int profileId )
 		{
-			Entity entity = new Entity();
+			ThisEntity entity = new ThisEntity();
 			if ( profileId == 0 )
 			{
 				return entity;
@@ -489,7 +525,7 @@ namespace Factories
 			}
 			return entity;
 		}//
-		private static void FromMap( Entity from, DBentity to )
+		private static void FromMap( ThisEntity from, DBentity to )
 		{
 			//want to ensure fields from create are not wiped
 			if ( to.Id == 0 )
@@ -536,7 +572,7 @@ namespace Factories
 				to.PropertyValueId = null;
 
 		}
-		private static void ToMap( DBentity from, Entity to )
+		private static void ToMap( DBentity from, ThisEntity to )
 		{
 			to.Id = from.Id;
 			to.ParentId = from.EntityId;
@@ -585,7 +621,7 @@ namespace Factories
 
 		}
 
-		private static void ToMap( Views.Entity_Reference_Summary from, Entity to )
+		private static void ToMap( Views.Entity_Reference_Summary from, ThisEntity to )
 		{
 			to.Id = from.EntityReferenceId;
 			to.EntityId = from.EntityId;
@@ -611,7 +647,7 @@ namespace Factories
 
 		}
 
-		private static void SendNewOtherIdentityNotice( Entity entity )
+		private static void SendNewOtherIdentityNotice( ThisEntity entity )
 		{
 			string message = string.Format( "New identity. <ul><li>OrganizationId: {0}</li><li>PersonId: {1}</li><li>Title: {2}</li><li>Value: {3}</li></ul>", entity.EntityBaseId, entity.LastUpdatedById, entity.TextTitle, entity.TextValue );
 			Utilities.EmailManager.NotifyAdmin( "New Organization Identity has been created", message );

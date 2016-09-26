@@ -12,7 +12,7 @@ using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
 using Utilities;
 
-using Entity = Models.ProfileModels.OrganizationRoleProfile;
+using ThisEntity = Models.ProfileModels.OrganizationRoleProfile;
 using DBentity = Data.Views.Entity_AgentRelationshipIdCSV;
 using DBentitySummary = Data.Views.Entity_Relationship_AgentSummary;
 
@@ -167,7 +167,7 @@ namespace Factories
 			return list;
 
 		} //
-		private static void MapTo( Views.Entity_Relationship_AgentSummary from, Entity to )
+		private static void MapTo( Views.Entity_Relationship_AgentSummary from, ThisEntity to )
 		{
 
 			to.Id = from.EntityAgentRelationshipId;
@@ -232,14 +232,14 @@ namespace Factories
 				messages.Add( "Invalid request, please select an agent for selected roles." );
 				return list;
 			}
-			if ( profile.RoleType == null || profile.RoleType.Items.Count == 0 )
+			if ( profile.AgentRole == null || profile.AgentRole.Items.Count == 0 )
 			{
 				messages.Add( "Invalid request, please select one or more roles for this selected agent." );
 				return list;
 			}
 
 			//loop thru the roles
-			foreach ( EnumeratedItem e in profile.RoleType.Items )
+			foreach ( EnumeratedItem e in profile.AgentRole.Items )
 			{
 				entity = new OrganizationRoleProfile();
 				entity.ParentId = profile.ParentId;				
@@ -1156,7 +1156,7 @@ namespace Factories
 					isValidAgent = false;
 
 				//loop thru the roles
-				if ( item.RoleType != null && item.RoleType.Items.Count > 0 )
+				if ( item.AgentRole != null && item.AgentRole.Items.Count > 0 )
 				{
 					if ( !isValidAgent )
 					{
@@ -1164,7 +1164,7 @@ namespace Factories
 						messages.Add( "Invalid request, please select an agent for selected roles." );
 						continue;
 					}
-					foreach ( EnumeratedItem e in item.RoleType.Items )
+					foreach ( EnumeratedItem e in item.AgentRole.Items )
 					{
 						entity = new OrganizationRoleProfile();
 						//entity.ParentId = parentId;

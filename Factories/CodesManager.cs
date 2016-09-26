@@ -35,7 +35,7 @@ namespace Factories
 		public static int PROPERTY_CATEGORY_ENTITY_AGENT_ROLE = 13;
 		public static int PROPERTY_CATEGORY_CREDENTIAL_AGENT_ROLE = 13;
 		public static int PROPERTY_CATEGORY_AUDIENCE_TYPE = 14;
-		public static int PROPERTY_CATEGORY_CONNECTION_ROLE_TYPE = 15;
+		public static int PROPERTY_CATEGORY_CONNECTION_PROFILE_TYPE = 15;
 		public static int PROPERTY_CATEGORY_ASSESSMENT_TYPE = 16;
 		public static int PROPERTY_CATEGORY_MODALITY_TYPE = 18;
 		public static int PROPERTY_CATEGORY_ENROLLMENT_TYPE = 19;
@@ -58,6 +58,9 @@ namespace Factories
 		public static int PROPERTY_CATEGORY_SUBJECT = 34;
 		public static int PROPERTY_CATEGORY_KEYWORD = 35;
 		public static int PROPERTY_CATEGORY_ALIGNMENT_TYPE = 36;
+		public static int PROPERTY_CATEGORY_ASSESSMENT_MODE = 37;
+		public static int PROPERTY_CATEGORY_AUDIENCE_LEVEL = 38;
+
 		#endregion
 		#region constants - entity types. 
 		//An Entity is typically created only where it can have a child relationship, ex: Entity.Property
@@ -118,7 +121,7 @@ namespace Factories
 		/// <param name="datasource"></param>
 		/// <param name="getAll">If false, only return codes with Totals > 0</param>
 		/// <returns></returns>
-		public static Enumeration GetEnumeration( string datasource, bool getAll = true )
+		public static Enumeration GetEnumeration( string datasource, bool getAll = true, bool onlySubType1 = false )
 		{
 			using ( var context = new EM.CTIEntities() )
 			{
@@ -127,7 +130,7 @@ namespace Factories
 				Codes_PropertyCategory category = context.Codes_PropertyCategory
 							.SingleOrDefault( s => s.CodeName.ToLower() == datasource && s.IsActive == true );
 
-				return FillEnumeration( category, getAll );
+				return FillEnumeration( category, getAll, onlySubType1 );
 			}
 		
 		}
@@ -140,12 +143,12 @@ namespace Factories
 				Codes_PropertyCategory category = context.Codes_PropertyCategory
 							.SingleOrDefault( s => s.Id == categoryId && s.IsActive == true );
 
-				return FillEnumeration( category, getAll );
+				return FillEnumeration( category, getAll, false );
 				
 			}
 
 		}
-		private static Enumeration FillEnumeration( Codes_PropertyCategory category, bool getAll )
+		private static Enumeration FillEnumeration( Codes_PropertyCategory category, bool getAll, bool onlySubType1 )
 		{
 			Enumeration entity = new Enumeration();
 			using ( var context = new EM.CTIEntities() )
@@ -162,12 +165,18 @@ namespace Factories
 					//typically has properties, unless non-property related like SOC, NAICS, etc
 					if ( category.Codes_PropertyValue == null 
 						|| category.Codes_PropertyValue.Count == 0
-						|| getAll  == false)
+						|| getAll  == false
+						|| onlySubType1 )
 					{
 						category.Codes_PropertyValue.Clear();
 						category.Codes_PropertyValue = context.Codes_PropertyValue
 									.Where( s => s.CategoryId == category.Id && s.IsActive == true
-									&& (getAll || s.Totals > 0))
+									&& (getAll || s.Totals > 0)
+									&& ( 
+										(!onlySubType1 ) 
+										|| ( onlySubType1 && s.IsSubType1 == true )
+										)
+									)
 									.OrderBy( s => s.SortOrder ).ThenBy( s => s.Title )
 									.ToList();
 					}
@@ -211,7 +220,9 @@ namespace Factories
 					else
 					{
 						//typically categories without properties, like Naics, SOC, etc
+						if ( " 6 10 11 12 13 23".IndexOf( category.Id .ToString())  == -1) {
 						Utilities.LoggingHelper.DoTrace( 6, string.Format("$$$$$$ no properties were found for categoryId: {0}, Category: {1}", category.Id, category.Title ));
+						}
 					}
 				}
 			}
@@ -431,9 +442,68 @@ namespace Factories
 			}
 			return list;
 		}
+
+		/// <summary>
+		/// Get a code item by category and title
+		/// </summary>
+		/// <param name="categoryId"></param>
+		/// <param name="title"></param>
+		/// <returns></returns>
+		public static CodeItem Codes_PropertyValue_Get( int categoryId, string title )
+		{
+			CodeItem code = new CodeItem();
+
+			using ( var context = new EM.CTIEntities() )
+			{
+				List<Data.Codes_PropertyValue> results = context.Codes_PropertyValue
+					.Where( s => s.CategoryId == categoryId
+							&& s.Title.ToLower() == title.ToLower())
+							.ToList();
+
+				if ( results != null && results.Count > 0 )
+				{
+					foreach ( Codes_PropertyValue item in results )
+					{
+						code = new CodeItem();
+						code.Id = ( int ) item.Id;
+						code.Title = item.Title;
+						code.URL = item.SchemaUrl;
+						code.Totals = item.Totals ?? 0;
+						break;
+					}
+				}
+			}
+			return code;
+		}
 		#endregion
 
 		#region country/Currency Codes
+		public static List<CodeItem> GetCountries_AsCodes()
+		{
+			List<CodeItem> list = new List<CodeItem>();
+			CodeItem entity = new CodeItem();
+			using ( var context = new Data.CTIEntities() )
+			{
+				List<EM.Codes_Countries> results = context.Codes_Countries
+					.Where( s => s.IsActive == true )
+									.OrderBy( s => s.SortOrder ).ThenBy(s => s.CommonName)
+									.ToList();
+
+				if ( results != null && results.Count > 0 )
+				{
+					foreach ( EM.Codes_Countries item in results )
+					{
+						entity = new CodeItem();
+						entity.Id = item.Id;
+						entity.Name = item.CommonName;
+
+						list.Add( entity );
+					}
+				}
+			}
+
+			return list;
+		}
 		public static Enumeration GetCountries()
 		{
 
@@ -575,9 +645,12 @@ namespace Factories
 
 				totalRows = context.ONET_SOC
 					.Where( s => ( headerId == 0 || s.OnetSocCode.Substring( 0, 2 ) == headerId.ToString() )
-						&& ( keyword == ""
+						&& (keyword == "" 
 						|| s.OnetSocCode.Contains( keyword )
-						|| s.Title.Contains( keyword ) ) )
+						|| s.SOC_code.Contains( keyword ) 
+						|| s.Title.Contains( keyword ))
+						&& ( s.Totals > 0 || getAll )
+						)
 					.ToList().Count();
 
 				if ( results != null && results.Count > 0 )
@@ -734,7 +807,9 @@ namespace Factories
 						.Where( s => ( headerId == 0 || s.NaicsCode.Substring( 0, 2 ) == headerId.ToString() )
 						&& ( keyword == ""
 						|| s.NaicsCode.Contains( keyword )
-						|| s.NaicsTitle.Contains( keyword ) ) )
+						|| s.NaicsTitle.Contains( keyword ) )
+						&& ( s.Totals > 0 || getAll )
+						)
 					.OrderBy( s => s.NaicsCode )
 					.Skip( skip )
 					.Take( pageSize )
@@ -743,7 +818,9 @@ namespace Factories
 						.Where( s => ( headerId == 0 || s.NaicsCode.Substring( 0, 2 ) == headerId.ToString() )
 						&& ( keyword == ""
 						|| s.NaicsCode.Contains( keyword )
-						|| s.NaicsTitle.Contains( keyword ) ) )
+						|| s.NaicsTitle.Contains( keyword ) )
+						&& ( s.Totals > 0 || getAll )
+						)
 					.ToList().Count();
 				
 				if ( results != null && results.Count > 0 )

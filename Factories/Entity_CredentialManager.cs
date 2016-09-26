@@ -9,7 +9,7 @@ using Models.ProfileModels;
 using EM = Data;
 using Utilities;
 using DBentity = Data.Entity_Credential;
-using Entity = Models.ProfileModels.Entity_Credential;
+using ThisEntity = Models.ProfileModels.Entity_Credential;
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
 namespace Factories
@@ -54,7 +54,7 @@ namespace Factories
 				return false;
 			}
 			//check for duplicate
-			Entity entity = Entity_Get( parent.Id, credentialId );
+			ThisEntity entity = Entity_Get( parent.Id, credentialId );
 			if ( entity != null && entity.Id > 0 )
 			{
 				messages.Add( "Error - the credential is already part of this profile." );
@@ -150,7 +150,7 @@ namespace Factories
 
 		}
 
-		public bool ValidateEntity( Entity profile, ref bool isEmpty, ref List<string> messages )
+		public bool ValidateEntity( ThisEntity profile, ref bool isEmpty, ref List<string> messages )
 		{
 			bool isValid = true;
 
@@ -175,10 +175,10 @@ namespace Factories
 		/// Uses the parent Guid to retrieve the related Entity, then uses the EntityId to retrieve the child objects.
 		/// </summary>
 		/// <param name="parentUid"></param>
-		public static List<Entity> GetAll( int parentId )
+		public static List<ThisEntity> GetAll( int parentId )
 		{
-			Entity entity = new Entity();
-			List<Entity> list = new List<Entity>();
+			ThisEntity entity = new ThisEntity();
+			List<ThisEntity> list = new List<ThisEntity>();
 			Views.Entity_Summary parent = EntityManager.GetDBEntity( parentId );
 			if ( parent == null || parent.Id == 0 )
 			{
@@ -197,7 +197,7 @@ namespace Factories
 					{
 						foreach ( DBentity item in results )
 						{
-							entity = new Entity();
+							entity = new ThisEntity();
 							Entity_ToMap( item, entity );
 
 							list.Add( entity );
@@ -219,7 +219,7 @@ namespace Factories
 		/// <returns></returns>
 		public static List<Credential> GetAll( Guid parentUid )
 		{
-			Entity entity = new Entity();
+			ThisEntity entity = new ThisEntity();
 			List<Credential> list = new List<Credential>();
 			Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
@@ -239,7 +239,7 @@ namespace Factories
 					{
 						foreach ( DBentity item in results )
 						{
-							entity = new Entity();
+							entity = new ThisEntity();
 							Entity_ToMap( item, entity );
 
 							list.Add( entity.Credential );
@@ -254,9 +254,9 @@ namespace Factories
 			return list;
 		}//
 
-		public static Entity Entity_Get( int profileId )
+		public static ThisEntity Entity_Get( int profileId )
 		{
-			Entity entity = new Entity();
+			ThisEntity entity = new ThisEntity();
 			if ( profileId == 0 )
 			{
 				return entity;
@@ -281,9 +281,9 @@ namespace Factories
 			return entity;
 		}//
 
-		public static Entity Entity_Get( int parentId, int credentialId )
+		public static ThisEntity Entity_Get( int parentId, int credentialId )
 		{
-			Entity entity = new Entity();
+			ThisEntity entity = new ThisEntity();
 			if ( parentId < 1 || credentialId < 1 )
 			{
 				return entity;
@@ -308,7 +308,7 @@ namespace Factories
 			return entity;
 		}//
 
-		public static void Entity_FromMap( Entity from, DBentity to )
+		public static void Entity_FromMap( ThisEntity from, DBentity to )
 		{
 			//want to ensure fields from create are not wiped
 			if ( to.Id == 0 )
@@ -322,7 +322,7 @@ namespace Factories
 			to.EntityId = from.ParentId;
 			
 		}
-		public static void Entity_ToMap( DBentity from, Entity to )
+		public static void Entity_ToMap( DBentity from, ThisEntity to )
 		{
 			to.Id = from.Id;
 			to.CredentialId = from.CredentialId;

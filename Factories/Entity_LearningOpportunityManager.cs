@@ -12,7 +12,7 @@ using Models.ProfileModels;
 using EM = Data;
 using Utilities;
 using DBentity = Data.Entity_LearningOpportunity;
-using Entity = Models.ProfileModels.LearningOpportunityProfile;
+using ThisEntity = Models.ProfileModels.LearningOpportunityProfile;
 
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
@@ -30,12 +30,12 @@ namespace Factories
 		/// <param name="forEditView"></param>
 		/// <param name="newVersion"></param>
 		/// <returns></returns>
-		public static List<Entity> LearningOpps_GetAll( Guid parentUid, bool forEditView, bool newVersion = true )
+		public static List<ThisEntity> LearningOpps_GetAll( Guid parentUid, bool forEditView )
 		{
-			List<Entity> list  = new List<Entity>();
-			Entity entity = new Entity();
+			List<ThisEntity> list  = new List<ThisEntity>();
+			ThisEntity entity = new ThisEntity();
 
-			Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
+			Entity parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
 			{
 				return list;
@@ -62,15 +62,28 @@ namespace Factories
 					{
 						foreach ( DBentity item in results )
 						{
-							entity = new Entity();
-							LearningOpportunityManager.ToMap( item.LearningOpportunity, entity, 
-								includingProperties, 
-								includingProfiles,
- 								false, //forEditView
-								false, //includeWhereUsed
-								newVersion );
+							entity = new ThisEntity();
 
-							list.Add( entity );
+							if ( !forEditView
+							  && CacheManager.IsLearningOpportunityAvailableFromCache( item.Id, ref entity ) )
+							{
+								list.Add( entity );
+							}
+							else
+							{
+								LearningOpportunityManager.ToMap( item.LearningOpportunity, entity,
+									includingProperties,
+									includingProfiles,
+									forEditView, //forEditView
+									false //includeWhereUsed
+									);
+
+								list.Add( entity );
+								if ( !forEditView && entity.HasPart.Count > 0 )
+								{
+									CacheManager.AddLearningOpportunityToCache( entity );
+								}
+							}
 						}
 					}
 					return list;
@@ -90,12 +103,11 @@ namespace Factories
 		/// </summary>
 		/// <param name="parentUid"></param>
 		/// <returns></returns>
-		public static List<Entity> LearningOpps_GetAll_IsPart( int learningOpportunityId, int parentTypeId )
+		public static List<ThisEntity> LearningOpps_GetAll_IsPart( int learningOpportunityId, int parentTypeId )
 		{
-			List<Entity> list = new List<Entity>();
-			Entity entity = new Entity();
+			List<ThisEntity> list = new List<ThisEntity>();
+			ThisEntity entity = new ThisEntity();
 
-			//Views.Entity_Summary e = EntityManager.GetDBEntity( parentUid );
 			try
 			{
 				using ( var context = new ViewContext() )
@@ -110,7 +122,7 @@ namespace Factories
 					{
 						foreach ( Views.Entity_LearningOpportunity_IsPartOfSummary item in results )
 						{
-							entity = new Entity();
+							entity = new ThisEntity();
 							//LearningOpportunityManager.Entity_ToMap( item.LearningOpportunity, entity, false, false );
 
 

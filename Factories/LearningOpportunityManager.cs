@@ -11,12 +11,15 @@ using Models;
 
 using Models.Common;
 using Models.ProfileModels;
+using MN = Models.Node;
 using EM = Data;
 using Utilities;
 using DBentity = Data.LearningOpportunity;
-using Entity = Models.ProfileModels.LearningOpportunityProfile;
+using ThisEntity = Models.ProfileModels.LearningOpportunityProfile;
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
+using CondProfileMgr = Factories.Entity_ConditionProfileManager;
+using CondProfileMgrOld = Factories.ConnectionProfileManager;
 
 namespace Factories
 {
@@ -33,7 +36,7 @@ namespace Factories
 		/// <param name="entity"></param>
 		/// <param name="statusMessage"></param>
 		/// <returns></returns>
-		public int Add( Entity entity, int userId, ref string statusMessage )
+		public int Add( ThisEntity entity, int userId, ref string statusMessage )
 		{
 			DBentity efEntity = new DBentity();
 			using ( var context = new Data.CTIEntities() )
@@ -106,7 +109,7 @@ namespace Factories
 		/// <param name="entity"></param>
 		/// <param name="statusMessage"></param>
 		/// <returns></returns>
-		public bool Update( Entity entity, int userId, ref string statusMessage )
+		public bool Update( ThisEntity entity, int userId, ref string statusMessage )
 		{
 			bool isValid = true;
 			int count = 0;
@@ -199,7 +202,8 @@ namespace Factories
 						if ( count > 0 )
 						{
 							isValid = true;
-							new EntityManager().Delete( rowId, ref statusMessage );
+							//do with trigger now
+							//new EntityManager().Delete( rowId, ref statusMessage );
 						}
 					}
 					else
@@ -229,7 +233,7 @@ namespace Factories
 		}
 
 		#region LearningOpportunity properties ===================
-		public bool UpdateParts( Entity entity, int userId, ref List<string> messages )
+		public bool UpdateParts( ThisEntity entity, int userId, ref List<string> messages )
 		{
 			bool isAllValid = true;
 		
@@ -253,38 +257,27 @@ namespace Factories
 
 			if ( erm.EntityUpdate( entity.Keywords, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_KEYWORD, false ) == false )
 				isAllValid = false;
-			//if ( !entity.IsNewVersion )
-			//{
-			//	if ( new Entity_AgentRelationshipManager().Entity_UpdateAgent_SingleRole( entity.OrganizationRole,
-			//	entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, entity.LastUpdatedById, ref messages, ref count ) == false )
-			//	{
-			//		isAllValid = false;
-			//	}
-
-			//	if ( new DurationProfileManager().DurationProfileUpdate( entity.EstimatedDuration, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, userId, ref messages ) == false )
-			//	{
-			//		isAllValid = false;
-			//	}
-			//}
-
 			
-			if ( new CostProfileManager().CostProfileUpdate( entity.EstimatedCost, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, userId, ref messages ) == false )
-			{
-				isAllValid = false;
-			}
+			
+			//if ( new CostProfileManager().CostProfileUpdate( entity.EstimatedCost, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, userId, ref messages ) == false )
+			//{
+			//	isAllValid = false;
+			//}
 	
 
 			//CIP codes???
 
 			//regions
-			if ( new RegionsManager().JurisdictionProfile_Update( entity.Jurisdiction, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, userId, RegionsManager.JURISDICTION_PURPOSE_SCOPE, ref messages ) == false )
-			{
-				isAllValid = false;
-			}
-
+			//if ( !entity.IsNewVersion )
+			//{
+			//if ( new RegionsManager().JurisdictionProfile_Update( entity.Jurisdiction, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, userId, RegionsManager.JURISDICTION_PURPOSE_SCOPE, ref messages ) == false )
+			//{
+			//	isAllValid = false;
+			//}
+			//}
 			return isAllValid;
 		}
-		public bool UpdateProperties( Entity entity, int userId, ref List<string> messages )
+		public bool UpdateProperties( ThisEntity entity, int userId, ref List<string> messages )
 		{
 			bool isAllValid = true;
 			string statusMessage = "";
@@ -303,9 +296,9 @@ namespace Factories
 		#endregion
 
 		#region == Retrieval =======================
-		public static Entity GetForDetail( int id)
+		public static ThisEntity GetForDetail( int id)
 		{
-			Entity entity = new Entity();
+			ThisEntity entity = new ThisEntity();
 			bool includingProfiles = true;
 
 			using ( var context = new Data.CTIEntities() )
@@ -318,20 +311,18 @@ namespace Factories
 					ToMap( item, entity,
 						true, //includingProperties
 						includingProfiles,
-						false,
-						true,
-						true );
+						false, //forEditView
+						true);
 				}
 			}
 
 			return entity;
 		}
-		public static Entity Get( int id, 
+		public static ThisEntity Get( int id, 
 			bool forEditView = false, 
-			bool includeWhereUsed = false, 
-			bool newVersion = false )
+			bool includeWhereUsed = false)
 		{
-			Entity entity = new Entity();
+			ThisEntity entity = new ThisEntity();
 			bool includingProfiles = false;
 			if ( forEditView )
 				includingProfiles = true;
@@ -347,15 +338,54 @@ namespace Factories
 						true, //includingProperties
 						includingProfiles, 
 						forEditView,  
-						includeWhereUsed, 
-						newVersion );
+						includeWhereUsed);
 				}
 			}
 
 			return entity;
 		}
 
-		//public static List<Entity> SelectAll( int userId = 0 )
+		public static MN.ProfileLink GetAsLinkProfile( int id )
+		{
+			MN.ProfileLink entity = new MN.ProfileLink();
+
+			using ( var context = new Data.CTIEntities() )
+			{
+				DBentity item = context.LearningOpportunity
+						.SingleOrDefault( s => s.Id == id );
+
+				if ( item != null && item.Id > 0 )
+				{
+					entity.Id = item.Id;
+					entity.RowId = item.RowId;
+					entity.Name = item.Name;
+					entity.TypeName = "LearningOpportunity";
+				}
+			}
+
+			return entity;
+		}
+		public static ThisEntity GetAs_IsPartOf( Guid rowId )
+		{
+			ThisEntity entity = new ThisEntity();
+
+			using ( var context = new Data.CTIEntities() )
+			{
+				DBentity item = context.LearningOpportunity
+						.SingleOrDefault( s => s.RowId == rowId );
+
+				if ( item != null && item.Id > 0 )
+				{
+					entity.Id = item.Id;
+					entity.RowId = item.RowId;
+					entity.Name = item.Name;
+					entity.Description = item.Description;
+				}
+			}
+
+			return entity;
+		}
+		//public static List<ThisEntity> SelectAll( int userId = 0 )
 		//{
 		//	int pageSize = 0;
 		//	int startingPageNbr = 1;
@@ -368,10 +398,10 @@ namespace Factories
 		/// Search for assessments
 		/// </summary>
 		/// <returns></returns>
-		//public static List<Entity> Search( int userId, string keyword, int pageNumber, int pageSize, ref int pTotalRows )
+		//public static List<ThisEntity> Search( int userId, string keyword, int pageNumber, int pageSize, ref int pTotalRows )
 		//{
-		//	List<Entity> list = new List<Entity>();
-		//	Entity entity = new Entity();
+		//	List<ThisEntity> list = new List<ThisEntity>();
+		//	ThisEntity entity = new ThisEntity();
 		//	keyword = string.IsNullOrWhiteSpace( keyword ) ? "" : keyword.Trim();
 		//	if ( pageSize == 0 )
 		//		pageSize = 500;
@@ -399,7 +429,7 @@ namespace Factories
 		//		{
 		//			foreach ( DBentity item in results )
 		//			{
-		//				entity = new Entity();
+		//				entity = new ThisEntity();
 		//				//set forEditView to as don't want deep results for a search
 		//				ToMap( item, entity, false, true, false, true );
 		//				list.Add( entity );
@@ -411,16 +441,29 @@ namespace Factories
 
 		//	return list;
 		//}
-		public static List<Entity> Search( string pFilter, string pOrderBy, int pageNumber, int pageSize, int userId, ref int pTotalRows )
+		public static List<string> Autocomplete( string pFilter, int pageNumber, int pageSize, int userId, ref int pTotalRows )
+		{
+			bool autocomplete = true;
+			List<string> results = new List<string>();
+			List<string> competencyList = new List<string>();
+			//get minimal entity
+			List<ThisEntity> list = Search( pFilter, "", pageNumber, pageSize, userId, ref pTotalRows, ref competencyList, autocomplete );
+
+			foreach ( LearningOpportunityProfile item in list )
+				results.Add( item.Name );
+
+			return results;
+		}
+		public static List<ThisEntity> Search( string pFilter, string pOrderBy, int pageNumber, int pageSize, int userId, ref int pTotalRows )
 		{
 			List<string> competencyList = new List<string>();
 			return Search( pFilter, pOrderBy, pageNumber, pageSize, userId, ref pTotalRows, ref competencyList );
 		}
-		public static List<Entity> Search( string pFilter, string pOrderBy, int pageNumber, int pageSize, int userId, ref int pTotalRows, ref List<string> competencyList )
+		public static List<ThisEntity> Search( string pFilter, string pOrderBy, int pageNumber, int pageSize, int userId, ref int pTotalRows, ref List<string> competencyList, bool autocomplete = false )
 		{
 			string connectionString = DBConnectionRO();
-			Entity item = new Entity();
-			List<Entity> list = new List<Entity>();
+			ThisEntity item = new ThisEntity();
+			List<ThisEntity> list = new List<ThisEntity>();
 			var result = new DataTable();
 			string temp = "";
 			string org = "";
@@ -466,10 +509,18 @@ namespace Factories
 
 				foreach ( DataRow dr in result.Rows )
 				{
-					item = new Entity();
+					item = new ThisEntity();
 					item.Id = GetRowColumn( dr, "Id", 0 );
 					item.Name = GetRowColumn( dr, "Name", "missing" );
+					//for autocomplete, only need name
+					if ( autocomplete )
+					{
+						list.Add( item );
+						continue;
+					}
 					item.Description = GetRowColumn( dr, "Description", "" );
+					
+
 					string rowId = GetRowColumn( dr, "RowId" );
 					item.RowId = new Guid( rowId );
 
@@ -544,7 +595,7 @@ namespace Factories
 		} //
 		
 
-		public static void FromMap( Entity from, DBentity to )
+		public static void FromMap( ThisEntity from, DBentity to )
 		{
 
 			//want to ensure fields from create are not wiped
@@ -574,24 +625,25 @@ namespace Factories
 				to.DateEffective = DateTime.Parse( from.DateEffective );
 			else
 				to.DateEffective = null;
-			to.ProviderUid = from.ProviderUid;
+			if ( IsGuidValid( from.ProviderUid ) )
+				to.ProviderUid = from.ProviderUid;
+			else
+				to.ProviderUid = null;
 
 			if ( IsValidDate( from.LastUpdated ) )
 				to.LastUpdated = from.LastUpdated;
 			to.LastUpdatedById = from.LastUpdatedById;
 		}
-		public static void ToMap( DBentity from, Entity to, 
+		public static void ToMap( DBentity from, ThisEntity to, 
 				bool includingProperties = false, 
 				bool includingProfiles = true, 
 				bool forEditView = true, 
-				bool includeWhereUsed = true, 
-				bool newVersion = false )
+				bool includeWhereUsed = true)
 		{
 			to.Id = from.Id;
 			to.RowId = from.RowId;
 			to.StatusId = from.StatusId ?? 1;
 			to.ManagingOrgId = from.ManagingOrgId ?? 0;
-			to.IsNewVersion = newVersion;
 
 			to.Name = from.Name;
 			to.Description = from.Description == null ? "" : from.Description;
@@ -623,16 +675,7 @@ namespace Factories
 			to.Subjects = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_SUBJECT );
 
 			to.Keywords = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_KEYWORD );
-			//if ( to.LearningResourceUrl2.Count > 0 && ( to.LearningResourceUrl == null || to.LearningResourceUrl.Count == 0 ) )
-			//{
-			//	to.LearningResourceUrl = new List<TextValueProfile>();
-			//	foreach ( string item in to.LearningResourceUrl2 )
-			//	{
-			//		TextValueProfile tvp = new TextValueProfile() { TextValue = item, ProfileSummary = item, TextTitle = "TBD", CategoryId = 25 };
 
-			//		to.LearningResourceUrl.Add( tvp );
-			//	}
-			//}
 			
 			//properties
 			if ( includingProperties )
@@ -641,6 +684,8 @@ namespace Factories
 
 				to.Addresses = AddressProfileManager.GetAll( to.RowId );
 			}
+			//need to exclude in light versions
+			to.Requires = Entity_ConditionProfileManager.GetAll( to.RowId );
 
 			//if ( includingProfiles )
 			//{
@@ -660,11 +705,7 @@ namespace Factories
 					}
 					
 					to.QualityAssuranceAction = Entity_QualityAssuranceActionManager.QualityAssuranceActionProfile_GetAll( to.RowId );
-				//}
-				//else
-				//{
-				//	to.OrganizationRole = Entity_AgentRelationshipManager.AgentEntityRole_GetAll( to.RowId, false );
-				//}
+
 
 				to.EstimatedDuration = DurationProfileManager.GetAll( to.RowId );
 
@@ -672,8 +713,8 @@ namespace Factories
 
 				to.EstimatedCost = CostProfileManager.CostProfile_GetAll( to.RowId );
 				//TODO - re: forEditView, not sure about approach for learning opp parts
-				to.HasPart = Entity_LearningOpportunityManager.LearningOpps_GetAll( to.RowId, forEditView, newVersion );
-				foreach ( Entity e in to.HasPart )
+				to.HasPart = Entity_LearningOpportunityManager.LearningOpps_GetAll( to.RowId, forEditView );
+				foreach ( ThisEntity e in to.HasPart )
 				{
 					if ( e.HasCompetencies || e.ChildHasCompetencies )
 					{
@@ -683,29 +724,39 @@ namespace Factories
 				}
 			//}
 
-
-			//to.LearningCompetencies = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_COMPETENCY );
-			//if ( to.LearningCompetencies.Count > 0 )
-			//	to.HasCompetencies = true;
-
+			//TODO - remove once TeachesCompetenciesFrameworks is accepted
 			to.TeachesCompetencies = Entity_CompetencyManager.GetAll( to.RowId, "teaches" );
 			if ( to.TeachesCompetencies.Count > 0 )
 				to.HasCompetencies = true;
 			to.RequiresCompetencies = Entity_CompetencyManager.GetAll( to.RowId, "requires" );
 
+			to.TeachesCompetenciesFrameworks = Entity_CompetencyFrameworkManager.GetAll( to.RowId, "teaches" );
+			if ( to.TeachesCompetenciesFrameworks.Count > 0 )
+				to.HasCompetencies = true;
+			to.RequiresCompetenciesFrameworks = Entity_CompetencyFrameworkManager.GetAll( to.RowId, "requires" );
 			//where used ==> not really used yet??
-			if ( includeWhereUsed )
-			{
+			//16-09-02 mp - always get for now
+			//if ( includeWhereUsed )
+			//{
 				to.WhereReferenced = new List<string>();
 				if ( from.Entity_LearningOpportunity != null && from.Entity_LearningOpportunity.Count > 0 )
 				{
+					//the Entity_LearningOpportunity could be for a parent lopp, or a condition profile
 					foreach ( EM.Entity_LearningOpportunity item in from.Entity_LearningOpportunity )
 					{
 						to.WhereReferenced.Add( string.Format( "EntityUid: {0}, Type: {1}", item.Entity.EntityUid, item.Entity.Codes_EntityType.Title ) );
+						if ( item.Entity.EntityTypeId == CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE )
+						{
+							to.IsPartOf.Add( GetAs_IsPartOf( item.Entity.EntityUid ) );
+						}
+						else if ( item.Entity.EntityTypeId == CodesManager.ENTITY_TYPE_CONNECTION_PROFILE )
+						{
+							to.IsPartOfConditionProfile.Add( CondProfileMgr.GetAs_IsPartOf( item.Entity.EntityUid ) );
+						}
 
 					}
 				}
-			}
+			//}
 
 		}
 		

@@ -11,7 +11,7 @@ using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
 using Utilities;
 using DBentity = Data.Entity_CostProfile;
-using Entity = Models.ProfileModels.CostProfile;
+using ThisEntity = Models.ProfileModels.CostProfile;
 //using DBentityChild = Data.Entity_CostProfileItem;
 //using EntityChild = Models.ProfileModels.CostProfileItem;
 namespace Factories
@@ -28,159 +28,166 @@ namespace Factories
 		/// <param name="userId"></param>
 		/// <param name="messages"></param>
 		/// <returns></returns>
-		public bool CostProfileUpdate( List<Entity> profiles, Guid parentUid, int parentTypeId, int userId, ref List<string> messages )
-		{
-			bool isValid = true;
-			int intialCount = messages.Count;
+		//public bool CostProfileUpdate( List<ThisEntity> profiles, Guid parentUid, int parentTypeId, int userId, ref List<string> messages )
+		//{
+		//	bool isValid = true;
+		//	int intialCount = messages.Count;
 
-			if ( !IsValidGuid( parentUid ) )
-			{
-				messages.Add( "Error: the parent identifier was not provided." );
-			}
-			if ( parentTypeId == 0 )
-			{
-				messages.Add( "Error: the parent type was not provided." );
-			}
-			if ( messages.Count > intialCount )
-				return false;
+		//	if ( !IsValidGuid( parentUid ) )
+		//	{
+		//		messages.Add( "Error: the parent identifier was not provided." );
+		//	}
+		//	if ( parentTypeId == 0 )
+		//	{
+		//		messages.Add( "Error: the parent type was not provided." );
+		//	}
+		//	if ( messages.Count > intialCount )
+		//		return false;
 
-			//get parent entity
-			Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
-			if ( parent == null || parent.Id == 0 )
-			{
-				messages.Add( "Error - the parent entity was not found." );
-				return false;
-			}
-			int count = 0;
-			bool hasData = false;
-			if ( profiles == null )
-				profiles = new List<Entity>();
+		//	//get parent entity
+		//	Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
+		//	if ( parent == null || parent.Id == 0 )
+		//	{
+		//		messages.Add( "Error - the parent entity was not found." );
+		//		return false;
+		//	}
+		//	int count = 0;
+		//	bool hasData = false;
+		//	if ( profiles == null )
+		//		profiles = new List<ThisEntity>();
 
-			DBentity efEntity = new DBentity();
+		//	DBentity efEntity = new DBentity();
 
-			using ( var context = new EM.CTIEntities() )
-			{
-				//check add/updates first
-				if ( profiles.Count() > 0 )
-				{
-					hasData = true;
-					bool isEmpty = false;
-					foreach ( Entity entity in profiles )
-					{
-						if ( ValidateCostProfile( entity, ref isEmpty, ref  messages ) == false )
-						{
-							//can't really scrub from here - too late?
-							//at least add some identifer
-							messages.Add( "Cost profile was invalid. " + SetCostProfileSummary( entity ) );
-							continue;
-						}
-						if ( isEmpty ) //skip
-							continue;
+		//	using ( var context = new EM.CTIEntities() )
+		//	{
+		//		//check add/updates first
+		//		if ( profiles.Count() > 0 )
+		//		{
+		//			hasData = true;
+		//			bool isEmpty = false;
+		//			foreach ( ThisEntity entity in profiles )
+		//			{
+		//				if ( ValidateCostProfile( entity, ref isEmpty, ref  messages ) == false )
+		//				{
+		//					//can't really scrub from here - too late?
+		//					//at least add some identifer
+		//					messages.Add( "Cost profile was invalid. " + SetCostProfileSummary( entity ) );
+		//					continue;
+		//				}
+		//				if ( isEmpty ) //skip
+		//					continue;
 
-						//just in case
-						entity.EntityId = parent.Id;
-						entity.ParentUid = parentUid;
-						entity.ParentTypeId = parentTypeId;
+		//				//just in case
+		//				entity.EntityId = parent.Id;
+		//				entity.ParentUid = parentUid;
+		//				entity.ParentTypeId = parentTypeId;
 
-						if ( entity.Id == 0 )
-						{
-							//add
-							efEntity = new DBentity();
-							FromMap( entity, efEntity );
-							efEntity.Created = efEntity.LastUpdated = DateTime.Now;
-							efEntity.CreatedById = efEntity.LastUpdatedById = userId;
-							efEntity.RowId = Guid.NewGuid();
+		//				if ( entity.Id == 0 )
+		//				{
+		//					//add
+		//					efEntity = new DBentity();
+		//					FromMap( entity, efEntity );
+		//					efEntity.Created = efEntity.LastUpdated = DateTime.Now;
+		//					efEntity.CreatedById = efEntity.LastUpdatedById = userId;
+		//					efEntity.RowId = Guid.NewGuid();
 
-							context.Entity_CostProfile.Add( efEntity );
-							count = context.SaveChanges();
-							//update profile record so doesn't get deleted
-							entity.Id = efEntity.Id;
-							entity.RowId = efEntity.RowId;
-							if ( count == 0 )
-							{
-								ConsoleMessageHelper.SetConsoleErrorMessage( string.Format( " Unable to add Profile: {0} <br\\> ", string.IsNullOrWhiteSpace( entity.ProfileName ) ? "no description" : entity.ProfileName ) );
-							}
-							else
-							{
-								if ( !UpdateParts( entity, userId, ref messages ) )
-									isValid = false;
-							}
-						}
-						else
-						{
-							efEntity = context.Entity_CostProfile.SingleOrDefault( s => s.Id == entity.Id );
-							if ( efEntity != null && efEntity.Id > 0 )
-							{
-								entity.RowId = efEntity.RowId;
-								//update
-								FromMap( entity, efEntity );
-								//has changed?
-								if ( HasStateChanged( context ) )
-								{
-									efEntity.LastUpdated = System.DateTime.Now;
-									efEntity.LastUpdatedById = userId;
+		//					context.Entity_CostProfile.Add( efEntity );
+		//					count = context.SaveChanges();
+		//					//update profile record so doesn't get deleted
+		//					entity.Id = efEntity.Id;
+		//					entity.RowId = efEntity.RowId;
+		//					if ( count == 0 )
+		//					{
+		//						ConsoleMessageHelper.SetConsoleErrorMessage( string.Format( " Unable to add Profile: {0} <br\\> ", string.IsNullOrWhiteSpace( entity.ProfileName ) ? "no description" : entity.ProfileName ) );
+		//					}
+		//					else
+		//					{
+		//						if ( !UpdateParts( entity, userId, ref messages ) )
+		//							isValid = false;
+		//					}
+		//				}
+		//				else
+		//				{
+		//					efEntity = context.Entity_CostProfile.SingleOrDefault( s => s.Id == entity.Id );
+		//					if ( efEntity != null && efEntity.Id > 0 )
+		//					{
+		//						entity.RowId = efEntity.RowId;
+		//						//update
+		//						FromMap( entity, efEntity );
+		//						//has changed?
+		//						if ( HasStateChanged( context ) )
+		//						{
+		//							efEntity.LastUpdated = System.DateTime.Now;
+		//							efEntity.LastUpdatedById = userId;
 
-									count = context.SaveChanges();
-								}
-								//always check parts
-								if ( !UpdateParts( entity, userId, ref messages ) )
-									isValid = false;
-							}
+		//							count = context.SaveChanges();
+		//						}
+		//						//always check parts
+		//						if ( !UpdateParts( entity, userId, ref messages ) )
+		//							isValid = false;
+		//					}
 
-						}
+		//				}
 
-					} //foreach
+		//			} //foreach
 
-				}
-				//===> now direct deletes
-				//check for deletes ====================================
-				//need to ensure ones just added don't get deleted
+		//		}
+		//		//===> now direct deletes
+		//		//check for deletes ====================================
+		//		//need to ensure ones just added don't get deleted
 
-				//get existing 
-				//List<DBentity> results = context.Entity_CostProfile
-				//		.Where( s => s.ParentUid == parentUid )
-				//		.OrderBy( s => s.Id )
-				//		.ToList();
+		//		//get existing 
+		//		//List<DBentity> results = context.Entity_CostProfile
+		//		//		.Where( s => s.ParentUid == parentUid )
+		//		//		.OrderBy( s => s.Id )
+		//		//		.ToList();
 
-				////if profiles is null, need to delete all!!
-				//if ( results.Count() > 0 && profiles.Count() == 0 )
-				//{
-				//	foreach ( var item in results )
-				//		context.Entity_CostProfile.Remove( item );
+		//		////if profiles is null, need to delete all!!
+		//		//if ( results.Count() > 0 && profiles.Count() == 0 )
+		//		//{
+		//		//	foreach ( var item in results )
+		//		//		context.Entity_CostProfile.Remove( item );
 
-				//	context.SaveChanges();
-				//}
-				//else
-				//{
-				//	//should only have existing ids, where not in current list, so should be deletes
-				//	var deleteList = from existing in results
-				//					 join item in profiles
-				//							 on existing.Id equals item.Id
-				//							 into joinTable
-				//					 from result in joinTable.DefaultIfEmpty( new Entity { Id = 0, ParentTypeId = 0 } )
-				//					 select new { DeleteId = existing.Id, ParentTypeId = ( result.ParentTypeId ) };
+		//		//	context.SaveChanges();
+		//		//}
+		//		//else
+		//		//{
+		//		//	//should only have existing ids, where not in current list, so should be deletes
+		//		//	var deleteList = from existing in results
+		//		//					 join item in profiles
+		//		//							 on existing.Id equals item.Id
+		//		//							 into joinTable
+		//		//					 from result in joinTable.DefaultIfEmpty( new ThisEntity { Id = 0, ParentTypeId = 0 } )
+		//		//					 select new { DeleteId = existing.Id, ParentTypeId = ( result.ParentTypeId ) };
 
-				//	foreach ( var v in deleteList )
-				//	{
-				//		if ( v.ParentTypeId == 0 )
-				//		{
-				//			//delete item
-				//			DBentity p = context.Entity_CostProfile.FirstOrDefault( s => s.Id == v.DeleteId );
-				//			if ( p != null && p.Id > 0 )
-				//			{
-				//				context.Entity_CostProfile.Remove( p );
-				//				count = context.SaveChanges();
-				//			}
-				//		}
-				//	}
-				//}
+		//		//	foreach ( var v in deleteList )
+		//		//	{
+		//		//		if ( v.ParentTypeId == 0 )
+		//		//		{
+		//		//			//delete item
+		//		//			DBentity p = context.Entity_CostProfile.FirstOrDefault( s => s.Id == v.DeleteId );
+		//		//			if ( p != null && p.Id > 0 )
+		//		//			{
+		//		//				context.Entity_CostProfile.Remove( p );
+		//		//				count = context.SaveChanges();
+		//		//			}
+		//		//		}
+		//		//	}
+		//		//}
 
-			}
+		//	}
 
-			return isValid;
-		}
-
-		public bool CostProfile_Save( Entity entity, Guid parentUid, int userId, ref List<string> messages )
+		//	return isValid;
+		//}
+		/// <summary>
+		/// Persist Cost Profile
+		/// </summary>
+		/// <param name="entity"></param>
+		/// <param name="parentUid"></param>
+		/// <param name="userId"></param>
+		/// <param name="messages"></param>
+		/// <returns></returns>
+		public bool CostProfile_Save( ThisEntity entity, Guid parentUid, int userId, ref List<string> messages )
 		{
 			bool isValid = true;
 			int intialCount = messages.Count;
@@ -296,10 +303,7 @@ namespace Factories
 
 		}
 
-
 		#endregion
-
-
 
 		#region  retrieval ==================
 
@@ -307,11 +311,11 @@ namespace Factories
 		/// Retrieve and fill cost profiles for parent entity
 		/// </summary>
 		/// <param name="parentUid"></param>
-		public static List<Entity> CostProfile_GetAll( Guid parentUid )
+		public static List<ThisEntity> CostProfile_GetAll( Guid parentUid )
 		{
-			Entity row = new Entity();
+			ThisEntity row = new ThisEntity();
 			DurationItem duration = new DurationItem();
-			List<Entity> profiles = new List<Entity>();
+			List<ThisEntity> profiles = new List<ThisEntity>();
 
 			using ( var context = new EM.CTIEntities() )
 			{
@@ -324,7 +328,7 @@ namespace Factories
 				{
 					foreach ( DBentity item in results )
 					{
-						row = new Entity();
+						row = new ThisEntity();
 						ToMap( item, row, true );
 
 
@@ -336,9 +340,9 @@ namespace Factories
 
 		}//
 
-		public static Entity CostProfile_Get( int profileId, bool includingItems = true )
+		public static ThisEntity CostProfile_Get( int profileId, bool includingItems = true )
 		{
-			Entity entity = new Entity();
+			ThisEntity entity = new ThisEntity();
 
 			using ( var context = new EM.CTIEntities() )
 			{
@@ -352,9 +356,9 @@ namespace Factories
 			}
 			return entity;
 		}//
-		public static Entity CostProfile_Get( Guid profileUid, bool includingItems = true )
+		public static ThisEntity CostProfile_Get( Guid profileUid, bool includingItems = true )
 		{
-			Entity entity = new Entity();
+			ThisEntity entity = new ThisEntity();
 
 			using ( var context = new EM.CTIEntities() )
 			{
@@ -368,7 +372,7 @@ namespace Factories
 			}
 			return entity;
 		}//
-		public bool ValidateCostProfile( Entity profile, ref bool isEmpty, ref List<string> messages )
+		public bool ValidateCostProfile( ThisEntity profile, ref bool isEmpty, ref List<string> messages )
 		{
 			bool isValid = true;
 
@@ -402,7 +406,7 @@ namespace Factories
 			return isValid;
 		}
 
-		public static void FromMap( Entity from, DBentity to )
+		public static void FromMap( ThisEntity from, DBentity to )
 		{
 			to.Id = from.Id;
 			//make sure EntityId is not wiped out. Also can't actually chg
@@ -440,7 +444,7 @@ namespace Factories
 				to.CurrencyTypeId = null;
 
 		}
-		public static void ToMap( DBentity from, Entity to, bool includingItems = true )
+		public static void ToMap( DBentity from, ThisEntity to, bool includingItems = true )
 		{
 			to.Id = from.Id;
 			to.RowId = from.RowId;
@@ -448,8 +452,10 @@ namespace Factories
 
 			to.ParentUid = from.ParentUid;
 			to.ParentTypeId = from.ParentTypeId;
-
-			to.ProfileName = from.ProfileName;
+			if ( from.ProfileName == "*** new profile ***" )
+				to.ProfileName = "";
+			else 
+				to.ProfileName = from.ProfileName;
 			to.Description = from.Description;
 
 			if ( IsValidDate( from.ExpirationDate ) )
@@ -476,6 +482,7 @@ namespace Factories
 
 			if ( includingItems )
 			{
+				//TODO - the items should be part of the EF record
 				to.Items = CostProfileItemManager.CostProfileItem_GetAll( to.Id );
 
 				to.Jurisdiction = RegionsManager.Jurisdiction_GetAll( to.RowId );
@@ -485,7 +492,7 @@ namespace Factories
 				to.ReferenceUrl = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_REFERENCE_URLS );
 			}
 		}
-		static string SetCostProfileSummary( Entity to )
+		static string SetCostProfileSummary( ThisEntity to )
 		{
 			string summary = "Cost Profile ";
 			if ( !string.IsNullOrWhiteSpace( to.ProfileName ) )
@@ -505,17 +512,17 @@ namespace Factories
 		#endregion
 
 		#region  cost items ==================
-		private bool UpdateParts( Entity entity, int userId, ref List<string> messages )
+		private bool UpdateParts( ThisEntity entity, int userId, ref List<string> messages )
 		{
 			bool isAllValid = true;
-			if ( !entity.IsNewVersion )
-			{
-				if ( !new CostProfileItemManager().UpdateItems( entity.Items, entity.Id, userId, ref messages ) )
-					isAllValid = false;
+			//if ( !entity.IsNewVersion )
+			//{
+			//	if ( !new CostProfileItemManager().UpdateItems( entity.Items, entity.Id, userId, ref messages ) )
+			//		isAllValid = false;
 
-				if ( new RegionsManager().JurisdictionProfile_Update( entity.Jurisdiction, entity.RowId, CodesManager.ENTITY_TYPE_COST_PROFILE, userId, RegionsManager.JURISDICTION_PURPOSE_SCOPE, ref messages ) == false )
-					isAllValid = false;
-			}
+			//	if ( new RegionsManager().JurisdictionProfile_Update( entity.Jurisdiction, entity.RowId, CodesManager.ENTITY_TYPE_COST_PROFILE, userId, RegionsManager.JURISDICTION_PURPOSE_SCOPE, ref messages ) == false )
+			//		isAllValid = false;
+			//}
 
 			if ( new Entity_ReferenceManager().EntityUpdate( entity.ReferenceUrl, entity.RowId, CodesManager.ENTITY_TYPE_COST_PROFILE, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_REFERENCE_URLS ) == false )
 				isAllValid = false;

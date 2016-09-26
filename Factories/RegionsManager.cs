@@ -22,147 +22,147 @@ namespace Factories
 
 		#region JurisdictionProfile  =======================
 		#region JurisdictionProfile Core  =======================
-		public bool JurisdictionProfile_Update( List<CM.JurisdictionProfile> list,
-					Guid parentUid,
-					int parentTypeId,
-					int userId,
-					int jprofilePurposeId,
-					ref List<String> messages )
-		{
-			bool isValid = true;
-			if ( !IsValidGuid( parentUid ) )
-			{
-				messages.Add("Error - missing a parent identifier");
-				return false;
-			}
-			//check if parentType will always be in the JP
-			if ( parentTypeId  == 0)
-			{
-				messages.Add("Error - missing a parent entity type");
-				return false;
-			}
-			if ( list == null || list.Count == 0 )
-			{
-				//list could be empty, but may need to process deletes
-				//===> actually all deletes will now be handled immediately
-				return true;
-			}
+		//public bool JurisdictionProfile_Update( List<CM.JurisdictionProfile> list,
+		//			Guid parentUid,
+		//			int parentTypeId,
+		//			int userId,
+		//			int jprofilePurposeId,
+		//			ref List<String> messages )
+		//{
+		//	bool isValid = true;
+		//	if ( !IsValidGuid( parentUid ) )
+		//	{
+		//		messages.Add("Error - missing a parent identifier");
+		//		return false;
+		//	}
+		//	//check if parentType will always be in the JP
+		//	if ( parentTypeId  == 0)
+		//	{
+		//		messages.Add("Error - missing a parent entity type");
+		//		return false;
+		//	}
+		//	if ( list == null || list.Count == 0 )
+		//	{
+		//		//list could be empty, but may need to process deletes
+		//		//===> actually all deletes will now be handled immediately
+		//		return true;
+		//	}
 
-			string statusMessage = "";
+		//	string statusMessage = "";
 
-			EM.JurisdictionProfile efEntity = new EM.JurisdictionProfile();
-			int id = 0;
-			using ( var context = new Data.CTIEntities() )
-			{
-				foreach ( CM.JurisdictionProfile entity in list )
-				{
-					entity.ParentTypeId = parentTypeId;
-					if ( entity.Id == 0 )
-					{
-						//check for Empty
-						//==> not sure what is the minimum required fields!
-						if ( !IsEmpty( entity ) )
-						{
-							//add
-							entity.CreatedById = entity.LastUpdatedById = userId;
-							//prob not necessary, check
-							entity.ParentEntityId = parentUid;
-							entity.JProfilePurposeId = jprofilePurposeId;
-							//id = JurisdictionProfile_Add( entity, ref messages );
-							efEntity = new EM.JurisdictionProfile();
-							FromMap( entity, efEntity );
-							efEntity.ParentId = parentUid;
-							efEntity.RowId = Guid.NewGuid();
-							entity.RowId = efEntity.RowId;
+		//	EM.JurisdictionProfile efEntity = new EM.JurisdictionProfile();
+		//	int id = 0;
+		//	using ( var context = new Data.CTIEntities() )
+		//	{
+		//		foreach ( CM.JurisdictionProfile entity in list )
+		//		{
+		//			entity.ParentTypeId = parentTypeId;
+		//			if ( entity.Id == 0 )
+		//			{
+		//				//check for Empty
+		//				//==> not sure what is the minimum required fields!
+		//				if ( !IsEmpty( entity ) )
+		//				{
+		//					//add
+		//					entity.CreatedById = entity.LastUpdatedById = userId;
+		//					//prob not necessary, check
+		//					entity.ParentEntityId = parentUid;
+		//					entity.JProfilePurposeId = jprofilePurposeId;
+		//					//id = JurisdictionProfile_Add( entity, ref messages );
+		//					efEntity = new EM.JurisdictionProfile();
+		//					FromMap( entity, efEntity );
+		//					efEntity.ParentId = parentUid;
+		//					efEntity.RowId = Guid.NewGuid();
+		//					entity.RowId = efEntity.RowId;
 
-							id = JurisdictionProfile_Add( efEntity, ref messages );
-							if (id > 0) 
-							{
+		//					id = JurisdictionProfile_Add( efEntity, ref messages );
+		//					if (id > 0) 
+		//					{
 
-								UpdateJPRegions( entity, entity.LastUpdatedById, ref  messages );
-							}
-						}
-					}
-					else
-					{
-						//if empty, then do a delete?
-						if ( IsEmpty( entity ) )
-						{
-							if ( !JurisdictionProfile_Delete( entity.Id, ref statusMessage ) )
-							{
-								isValid = false;
-							}
-						}
-						else
-						{
-							entity.LastUpdatedById = userId;
-							//prob not necessary, check
-							entity.ParentEntityId = parentUid;
-							//??should not BE able to change the purpose??
-							entity.JProfilePurposeId = jprofilePurposeId;
-							if ( JurisdictionProfile_Update( entity, ref messages ) == false )
-							{
-								isValid = false;
-							}
-							//update regardless?
-							if ( !UpdateJPRegions( entity, entity.LastUpdatedById, ref  messages ) )
-								isValid = false;
-						}
-					}
-				}
+		//						UpdateJPRegions( entity, entity.LastUpdatedById, ref  messages );
+		//					}
+		//				}
+		//			}
+		//			else
+		//			{
+		//				//if empty, then do a delete?
+		//				if ( IsEmpty( entity ) )
+		//				{
+		//					if ( !JurisdictionProfile_Delete( entity.Id, ref statusMessage ) )
+		//					{
+		//						isValid = false;
+		//					}
+		//				}
+		//				else
+		//				{
+		//					entity.LastUpdatedById = userId;
+		//					//prob not necessary, check
+		//					entity.ParentEntityId = parentUid;
+		//					//??should not BE able to change the purpose??
+		//					entity.JProfilePurposeId = jprofilePurposeId;
+		//					if ( JurisdictionProfile_Update( entity, ref messages ) == false )
+		//					{
+		//						isValid = false;
+		//					}
+		//					//update regardless?
+		//					if ( !UpdateJPRegions( entity, entity.LastUpdatedById, ref  messages ) )
+		//						isValid = false;
+		//				}
+		//			}
+		//		}
 
-			}
+		//	}
 
-			return isValid;
-		}
+		//	return isValid;
+		//}
 
-		/// <summary>
-		/// Probably want to combine with region to have access to keys
-		/// </summary>
-		/// <param name="efEntity"></param>
-		/// <param name="statusMessage"></param>
-		/// <returns></returns>
-		private int JurisdictionProfile_Add( EM.JurisdictionProfile efEntity, ref List<String> messages )
-		{
+		///// <summary>
+		///// Probably want to combine with region to have access to keys
+		///// </summary>
+		///// <param name="efEntity"></param>
+		///// <param name="statusMessage"></param>
+		///// <returns></returns>
+		//private int JurisdictionProfile_Add( EM.JurisdictionProfile efEntity, ref List<String> messages )
+		//{
 
-			using ( var context = new Data.CTIEntities() )
-			{
-				try
-				{
-					if ( !IsValidGuid( efEntity.ParentId ) )
-					{
-						messages.Add("Error - missing a parent identifier");
-						return 0;
-					}
-					if ( efEntity.JProfilePurposeId == null || efEntity.JProfilePurposeId == 0 )
-						efEntity.JProfilePurposeId = 1;
+		//	using ( var context = new Data.CTIEntities() )
+		//	{
+		//		try
+		//		{
+		//			if ( !IsValidGuid( efEntity.ParentId ) )
+		//			{
+		//				messages.Add("Error - missing a parent identifier");
+		//				return 0;
+		//			}
+		//			if ( efEntity.JProfilePurposeId == null || efEntity.JProfilePurposeId == 0 )
+		//				efEntity.JProfilePurposeId = 1;
 
-					efEntity.Created = System.DateTime.Now;
-					efEntity.LastUpdated = System.DateTime.Now;
+		//			efEntity.Created = System.DateTime.Now;
+		//			efEntity.LastUpdated = System.DateTime.Now;
 					
-					context.JurisdictionProfile.Add( efEntity );
+		//			context.JurisdictionProfile.Add( efEntity );
 
-					// submit the change to database
-					int count = context.SaveChanges();
-					if ( count > 0 )
-					{
-						//statusMessage = "successful";
-						return efEntity.Id;
-					}
-					else
-					{
-						//?no info on error
-					}
-				}
+		//			// submit the change to database
+		//			int count = context.SaveChanges();
+		//			if ( count > 0 )
+		//			{
+		//				//statusMessage = "successful";
+		//				return efEntity.Id;
+		//			}
+		//			else
+		//			{
+		//				//?no info on error
+		//			}
+		//		}
 
-				catch ( Exception ex )
-				{
-					LoggingHelper.LogError( ex, thisClassName + string.Format( ".JurisdictionProfile_Add(), Name: {0}, ParentId: {1)", efEntity.Name, efEntity.ParentId ) );
-				}
-			}
+		//		catch ( Exception ex )
+		//		{
+		//			LoggingHelper.LogError( ex, thisClassName + string.Format( ".JurisdictionProfile_Add(), Name: {0}, ParentId: {1)", efEntity.Name, efEntity.ParentId ) );
+		//		}
+		//	}
 
-			return 0;
-		}
+		//	return 0;
+		//}
 		public bool JurisdictionProfile_Add( CM.JurisdictionProfile entity, ref List<String> messages )
 		{
 			bool isValid = true;

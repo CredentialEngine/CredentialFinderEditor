@@ -27,6 +27,19 @@ namespace CTI.Directory
 
 
 		}
+		protected void Application_BeginRequest( object sender, EventArgs e )
+		{
+			//if ( Request.Url.Host.StartsWith( "www" ) && !Request.Url.IsLoopback )
+			//{
+				//LoggingHelper.DoTrace( 4, string.Format("Doing redirect from {0}",  Request.Url.Host));
+				//now handled in _header.cshtml
+				//UriBuilder builder = new UriBuilder( Request.Url );
+				//builder.Host = Request.Url.Host.Replace( "www.", "" );
+				//Response.StatusCode = 301;
+				//Response.AddHeader( "Location", builder.ToString() );
+				//Response.End();
+			//}
+		}
 		private void Application_EndRequest( object sender, EventArgs e )
 		{
 			//Response.Headers[ "X-FRAME-OPTIONS" ] = string.Empty;

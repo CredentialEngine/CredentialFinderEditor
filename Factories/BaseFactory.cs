@@ -261,6 +261,12 @@ namespace Factories
 
 			return value;
 		} // end method
+		protected static decimal GetField( decimal? field, decimal defaultValue = 0 )
+		{
+			decimal value = field != null ? ( decimal ) field : defaultValue;
+
+			return value;
+		} // end method
 		protected static Guid GetField( Guid? field, Guid defaultValue )
 		{
 			Guid value = field != null ? ( Guid ) field : defaultValue;

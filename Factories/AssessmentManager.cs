@@ -14,10 +14,11 @@ using Models.ProfileModels;
 using EM = Data;
 using Utilities;
 using DBentity = Data.Assessment;
-using Entity = Models.ProfileModels.AssessmentProfile;
+using ThisEntity = Models.ProfileModels.AssessmentProfile;
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
-
+using CondProfileMgr = Factories.Entity_ConditionProfileManager;
+using CondProfileMgrOld = Factories.ConnectionProfileManager;
 namespace Factories
 {
 	public class AssessmentManager : BaseFactory
@@ -33,7 +34,7 @@ namespace Factories
 		/// <param name="entity"></param>
 		/// <param name="statusMessage"></param>
 		/// <returns></returns>
-		public int Assessment_Add( Entity entity, ref string statusMessage )
+		public int Assessment_Add( ThisEntity entity, ref string statusMessage )
 		{
 			DBentity efEntity = new DBentity();
 			//AssessmentPropertyManager opMgr = new AssessmentPropertyManager();
@@ -108,7 +109,7 @@ namespace Factories
 		/// <param name="entity"></param>
 		/// <param name="statusMessage"></param>
 		/// <returns></returns>
-		public bool Assessment_Update( Entity entity, ref string statusMessage )
+		public bool Assessment_Update( ThisEntity entity, ref string statusMessage )
 		{
 			bool isValid = true;
 			int count = 0;
@@ -177,7 +178,7 @@ namespace Factories
 		/// <param name="Id"></param>
 		/// <param name="statusMessage"></param>
 		/// <returns></returns>
-		public bool Assessment_Delete( int Id, ref string statusMessage )
+		public bool Delete( int Id, ref string statusMessage )
 		{
 			bool isValid = false;
 			if ( Id == 0 )
@@ -196,12 +197,17 @@ namespace Factories
 					{
 						Guid rowId = efEntity.RowId;
 
+						//need to remove from Entity.
+						//could use a pre-delete trigger?
+						//what about roles
+
 						context.Assessment.Remove( efEntity );
 						int count = context.SaveChanges();
 						if ( count > 0 )
 						{
 							isValid = true;
-							new EntityManager().Delete( rowId, ref statusMessage );
+							//do with trigger now
+							///new EntityManager().Delete( rowId, ref statusMessage );
 						}
 					}
 					else
@@ -230,10 +236,9 @@ namespace Factories
 		}
 
 		#region Assessment properties ===================
-		public bool UpdateParts( Entity entity, ref List<string> messages )
+		public bool UpdateParts( ThisEntity entity, ref List<string> messages )
 		{
 			bool isAllValid = true;
-			int count = 0;
 			EntityPropertyManager mgr = new EntityPropertyManager();
 			Entity_ReferenceManager erm = new Entity_ReferenceManager();
 
@@ -241,8 +246,10 @@ namespace Factories
 				isAllValid = false;
 
 			if ( mgr.UpdateProperties( entity.Modality, entity.RowId, CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE, CodesManager.PROPERTY_CATEGORY_MODALITY_TYPE, entity.LastUpdatedById, ref messages ) == false )
-				isAllValid = false;	
+				isAllValid = false;
 
+			if ( mgr.UpdateProperties( entity.DeliveryType, entity.RowId, CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE, CodesManager.PROPERTY_CATEGORY_LEARNING_OPP_DELIVERY_TYPE, entity.LastUpdatedById, ref messages ) == false )
+				isAllValid = false;	
 			//if ( UpdateProperties( entity, ref messages ) == false )
 			//{
 			//	isAllValid = false;
@@ -257,10 +264,10 @@ namespace Factories
 			if ( erm.EntityUpdate( entity.Keywords, entity.RowId, CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_KEYWORD, false ) == false )
 				isAllValid = false;
 
-			if ( new DurationProfileManager().DurationProfileUpdate( entity.EstimatedDuration, entity.RowId, CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE, entity.LastUpdatedById, ref messages ) == false )
-			{
-				isAllValid = false;
-			}
+			//if ( new DurationProfileManager().DurationProfileUpdate( entity.EstimatedDuration, entity.RowId, CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE, entity.LastUpdatedById, ref messages ) == false )
+			//{
+			//	isAllValid = false;
+			//}
 
 			//if ( !entity.IsNewVersion )
 			//{
@@ -271,15 +278,15 @@ namespace Factories
 			//	}
 			//}
 
-			if ( new RegionsManager().JurisdictionProfile_Update( entity.Jurisdiction, entity.RowId, CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE, entity.LastUpdatedById, RegionsManager.JURISDICTION_PURPOSE_SCOPE, ref messages ) == false )
-			{
-				isAllValid = false;
-			}
+			//if ( new RegionsManager().JurisdictionProfile_Update( entity.Jurisdiction, entity.RowId, CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE, entity.LastUpdatedById, RegionsManager.JURISDICTION_PURPOSE_SCOPE, ref messages ) == false )
+			//{
+			//	isAllValid = false;
+			//}
 
-			if ( new CostProfileManager().CostProfileUpdate( entity.EstimatedCost, entity.RowId, CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE, entity.LastUpdatedById, ref messages ) == false )
-			{
-				isAllValid = false;
-			}
+			//if ( new CostProfileManager().CostProfileUpdate( entity.EstimatedCost, entity.RowId, CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE, entity.LastUpdatedById, ref messages ) == false )
+			//{
+			//	isAllValid = false;
+			//}
 			return isAllValid;
 		}
 
@@ -289,12 +296,12 @@ namespace Factories
 
 		#region == Retrieval =======================
 
-		public static Entity Assessment_Get( int id, 
+		public static ThisEntity Assessment_Get( int id, 
 			bool forEditView = false, 
 			bool includeWhereUsed = false, 
 			bool isNewVersion = false )
 		{
-			Entity entity = new Entity();
+			ThisEntity entity = new ThisEntity();
 			using ( var context = new Data.CTIEntities() )
 			{
 				DBentity item = context.Assessment
@@ -314,7 +321,7 @@ namespace Factories
 			return entity;
 		}
 	
-		public static List<Entity> Assessment_SelectAll( int userId = 0 )
+		public static List<ThisEntity> Assessment_SelectAll( int userId = 0 )
 		{
 			int pageSize = 0;
 			int startingPageNbr = 1;
@@ -323,14 +330,27 @@ namespace Factories
 			return QuickSearch( userId, "", startingPageNbr, pageSize, ref pTotalRows );
 		}
 
+		public static List<string> Autocomplete( string pFilter, int pageNumber, int pageSize, int userId, ref int pTotalRows )
+		{
+			bool autocomplete = true;
+			List<string> results = new List<string>();
+			List<string> competencyList = new List<string>();
+			//ref competencyList, 
+			List<ThisEntity> list = Search( pFilter, "", pageNumber, pageSize, userId, ref pTotalRows, autocomplete );
+
+			foreach ( AssessmentProfile item in list )
+				results.Add( item.Name );
+
+			return results;
+		}
 		/// <summary>
 		/// Search for assessments
 		/// </summary>
 		/// <returns></returns>
-		public static List<Entity> QuickSearch( int userId, string keyword, int pageNumber, int pageSize, ref int pTotalRows )
+		public static List<ThisEntity> QuickSearch( int userId, string keyword, int pageNumber, int pageSize, ref int pTotalRows )
 		{
-			List<Entity> list = new List<Entity>();
-			Entity entity = new Entity();
+			List<ThisEntity> list = new List<ThisEntity>();
+			ThisEntity entity = new ThisEntity();
 			keyword = string.IsNullOrWhiteSpace( keyword ) ? "" : keyword.Trim();
 			if ( pageSize == 0 )
 				pageSize = 500;
@@ -358,7 +378,7 @@ namespace Factories
 				{
 					foreach ( DBentity item in results )
 					{
-						entity = new Entity();
+						entity = new ThisEntity();
 						ToMap( item, entity,
 								false, //includingProperties
 								false, //includingRoles
@@ -375,11 +395,11 @@ namespace Factories
 			return list;
 		}
 
-		public static List<Entity> Search( string pFilter, string pOrderBy, int pageNumber, int pageSize, int userId, ref int pTotalRows )
+		public static List<ThisEntity> Search( string pFilter, string pOrderBy, int pageNumber, int pageSize, int userId, ref int pTotalRows, bool autocomplete = false )
 		{
 			string connectionString = DBConnectionRO();
-			Entity item = new Entity();
-			List<Entity> list = new List<Entity>();
+			ThisEntity item = new ThisEntity();
+			List<ThisEntity> list = new List<ThisEntity>();
 			var result = new DataTable();
 			string temp = "";
 			using ( SqlConnection c = new SqlConnection( connectionString ) )
@@ -422,9 +442,16 @@ namespace Factories
 
 				foreach ( DataRow dr in result.Rows )
 				{
-					item = new Entity();
+					item = new ThisEntity();
 					item.Id = GetRowColumn( dr, "Id", 0 );
 					item.Name = GetRowColumn( dr, "Name", "missing" );
+					//for autocomplete, only need name
+					if ( autocomplete )
+					{
+						list.Add( item );
+						continue;
+					}
+
 					item.Description = GetRowColumn( dr, "Description", "" );
 					string rowId = GetRowColumn( dr, "RowId" );
 					item.RowId = new Guid( rowId );
@@ -466,7 +493,7 @@ namespace Factories
 			}
 		} //
 		
-		public static void FromMap( Entity from, DBentity to )
+		public static void FromMap( ThisEntity from, DBentity to )
 		{
 
 			//want to ensure fields from create are not wiped
@@ -504,7 +531,7 @@ namespace Factories
 			to.LastUpdatedById = from.LastUpdatedById;
 		}
 
-		public static void ToMap( DBentity from, Entity to, 
+		public static void ToMap( DBentity from, ThisEntity to, 
 				bool includingProperties = false, 
 				bool includingRoles = true, 
 				bool forEditView = true,
@@ -563,7 +590,7 @@ namespace Factories
 
 				to.Modality = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_MODALITY_TYPE );
 
-				//to.AssessmentType = Entity_FrameworkItemManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_ASSESSMENT_TYPE );
+				to.DeliveryType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_LEARNING_OPP_DELIVERY_TYPE );
 
 
 				//to.Modality = Entity_FrameworkItemManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_MODALITY_TYPE );
@@ -576,94 +603,55 @@ namespace Factories
 				to.HasCompetencies = true;
 			to.RequiresCompetencies = Entity_CompetencyManager.GetAll( to.RowId, "requires" );
 
+			to.AssessesCompetenciesFrameworks = Entity_CompetencyFrameworkManager.GetAll( to.RowId, "assesses" );
+			if ( to.AssessesCompetenciesFrameworks.Count > 0 )
+				to.HasCompetencies = true;
+			to.RequiresCompetenciesFrameworks = Entity_CompetencyFrameworkManager.GetAll( to.RowId, "requires" );
+
+
 			if (includingRoles) 
 			{
-				
-				//if ( to.IsNewVersion )
-				//{
-					if ( forEditView )
-					{
-						//just get profile links
-						to.OrganizationRole = Entity_AgentRelationshipManager.AgentEntityRole_GetAllSummary( to.RowId, false );
-					}
-					else
-					{
-						//get as ennumerations
-						to.OrganizationRole = Entity_AgentRelationshipManager.AgentEntityRole_GetAll_ToEnumeration( to.RowId, true );
-					}
-					to.QualityAssuranceAction = Entity_QualityAssuranceActionManager.QualityAssuranceActionProfile_GetAll( to.RowId );
-				//}
-				//else
-				//{
-				//	to.OrganizationRole = Entity_AgentRelationshipManager.AgentEntityRole_GetAll( to.RowId, false );
-				//}
 
-				to.EstimatedDuration = DurationProfileManager.GetAll( to.RowId );
-
-				to.Jurisdiction = RegionsManager.Jurisdiction_GetAll( to.RowId );
-
-				to.EstimatedCost = CostProfileManager.CostProfile_GetAll( to.RowId );
-			}
-			//where used?
-			if ( includeWhereUsed )
-			{
-				to.WhereReferenced = new List<string>();
-				if ( from.Entity_Assessment != null && from.Entity_Assessment.Count > 0 )
+				if ( forEditView )
 				{
-					foreach (EM.Entity_Assessment item in from.Entity_Assessment) 
-					{
-						to.WhereReferenced.Add( string.Format("EntityUid: {0}, Type: {1}", item.Entity.EntityUid, item.Entity.Codes_EntityType.Title ));
+					//just get profile links
+					to.OrganizationRole = Entity_AgentRelationshipManager.AgentEntityRole_GetAllSummary( to.RowId, false );
+				}
+				else
+				{
+					//get as ennumerations
+					to.OrganizationRole = Entity_AgentRelationshipManager.AgentEntityRole_GetAll_ToEnumeration( to.RowId, true );
+				}
+			to.QualityAssuranceAction = Entity_QualityAssuranceActionManager.QualityAssuranceActionProfile_GetAll( to.RowId );
 
+			to.EstimatedDuration = DurationProfileManager.GetAll( to.RowId );
+
+			to.Jurisdiction = RegionsManager.Jurisdiction_GetAll( to.RowId );
+
+			to.EstimatedCost = CostProfileManager.CostProfile_GetAll( to.RowId );
+
+			//need to exclude in light versions
+			to.Requires = Entity_ConditionProfileManager.GetAll( to.RowId );
+
+			}
+
+			to.WhereReferenced = new List<string>();
+			if ( from.Entity_Assessment != null && from.Entity_Assessment.Count > 0 )
+			{
+				foreach (EM.Entity_Assessment item in from.Entity_Assessment) 
+				{
+					to.WhereReferenced.Add( string.Format("EntityUid: {0}, Type: {1}", item.Entity.EntityUid, item.Entity.Codes_EntityType.Title ));
+					//only parent for now
+					if ( item.Entity.EntityTypeId == CodesManager.ENTITY_TYPE_CONNECTION_PROFILE )
+					{
+						to.IsPartOfConditionProfile.Add( CondProfileMgr.GetAs_IsPartOf( item.Entity.EntityUid ) );
 					}
 				}
 			}
+		
 
 		}
-		//public static void FillAssessmentType( DBentity fromEntity, Entity to )
-		//{
-		//	to.AssessmentType = CodesManager.GetEnumeration( CodesManager.PROPERTY_CATEGORY_ASSESSMENT_TYPE );
-
-		//	to.AssessmentType.ParentId = to.Id;
-		//	to.AssessmentType.Items = new List<EnumeratedItem>();
-		//	EnumeratedItem item = new EnumeratedItem();
-
-		//	foreach ( EM.AssessmentProfile_Property prop in fromEntity.AssessmentProfile_Property )
-		//	{
-		//		if ( prop.Codes_PropertyValue.CategoryId == CodesManager.PROPERTY_CATEGORY_ASSESSMENT_TYPE )
-		//		{
-		//			item = new EnumeratedItem();
-		//			item.Id = prop.PropertyValueId;
-		//			item.Value = prop.PropertyValueId.ToString();
-		//			item.Description = prop.Codes_PropertyValue.Description!= null ?  prop.Codes_PropertyValue.Description : "Missing";
-		//			item.Selected = true;
-		//			to.AssessmentType.Items.Add( item );
-		//		}
-
-		//	}
-		//}
-		//public static void FillModalityType( DBentity fromEntity, Entity to )
-		//{
-		//	to.Modality = CodesManager.GetEnumeration( CodesManager.PROPERTY_CATEGORY_MODALITY_TYPE );
-
-		//	to.Modality.ParentId = to.Id;
-		//	to.Modality.Items = new List<EnumeratedItem>();
-		//	EnumeratedItem item = new EnumeratedItem();
-
-		//	foreach ( EM.AssessmentProfile_Property prop in fromEntity.AssessmentProfile_Property )
-		//	{
-		//		if ( prop.Codes_PropertyValue.CategoryId == CodesManager.PROPERTY_CATEGORY_MODALITY_TYPE )
-		//		{
-		//			item = new EnumeratedItem();
-		//			item.Id = prop.PropertyValueId;
-		//			item.Value = prop.PropertyValueId.ToString();
-		//			item.Description = prop.Codes_PropertyValue.Description != null ? prop.Codes_PropertyValue.Description : "Missing";
-		//			item.Selected = true;
-		//			to.Modality.Items.Add( item );
-		//		}
-
-		//	}
-		//}
-
+		
 		#endregion
 
 	}
