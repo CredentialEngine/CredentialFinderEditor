@@ -15,14 +15,18 @@ namespace Models.Node
 		public string Version { get; set; }
 		public string LatestVersionUrl { get; set; }
 		public string ReplacesVersionUrl { get; set; }
+		public int ManagingOrgId { get; set; }
 		
 		//List-based Info
 		[Property( DBName = "CredentialType", DBType = typeof( Models.Common.Enumeration ) )]
 		public int CredentialTypeId { get { return CredentialTypeIds.FirstOrDefault(); } set { CredentialTypeIds = new List<int>() { value }; } }
+
 		[Property( DBName = "null" )] //Database processes need to skip this item
 		public List<int> CredentialTypeIds { get; set; }
+
 		[Property( DBName = "Purpose", DBType = typeof( Models.Common.Enumeration ) )]
 		public List<int> CredentialPurposeTypeIds { get; set; }
+
 		[Property( DBName = "CredentialLevel", DBType = typeof( Models.Common.Enumeration ) )]
 		public List<int> CredentialLevelTypeIds { get; set; }
 
@@ -30,7 +34,8 @@ namespace Models.Node
 
 		public List<TextValueProfile> Subjects { get; set; }
 		public List<TextValueProfile> Keywords { get; set; }
-
+		public List<TextValueProfile> OtherIndustries { get; set; }
+		public List<TextValueProfile> OtherOccupations { get; set; }
 		//Text Value Info
 		[Property( Type = typeof( MicroProfile ), DBType = typeof( Models.Common.Enumeration ) )]
 		public List<ProfileLink> Industry { get; set; }

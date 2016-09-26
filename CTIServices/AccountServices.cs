@@ -361,7 +361,7 @@ namespace CTIServices
 				user.IsActive = true;
 				if ( new AccountManager().Account_Update( user, ref statusMessage ) )
 				{
-					EmailManager.NotifyAdmin( "User Activated Account", string.Format( "{0} activated CTI account. <br/>Email: {1}", user.FullName(), user.Email ) );
+					EmailManager.NotifyAdmin( "User Activated Account", string.Format( "{0} activated a CTI account. <br/>Email: {1}", user.FullName(), user.Email ) );
 					return true;
 				}
 				else
@@ -385,10 +385,10 @@ namespace CTIServices
 			return users;
 
 		}
-		public void ImportUsers_SetCompleted( int importId, int userId )
+		public void ImportUsers_SetCompleted( int importId, int userId, string initialPassword )
 		{
 			string statusMessage = "";
-			bool isOk = new AccountManager().ImportUsers_Update( importId, userId, ref statusMessage );
+			bool isOk = new AccountManager().ImportUsers_Update( importId, userId, initialPassword , ref statusMessage);
 		}
 
 		public bool Account_AddRole( int userId, int roleId, int createdByUserId, ref string statusMessage ) 
@@ -640,7 +640,7 @@ namespace CTIServices
 		} //
 		public static AppUser GetUserFromSession()
 		{
-			if ( HttpContext.Current.Session != null )
+			if (HttpContext.Current != null && HttpContext.Current.Session != null )
 			{
 				return GetUserFromSession( HttpContext.Current.Session );
 			}

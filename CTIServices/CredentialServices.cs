@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
+using System.Web;
 
 using Factories;
 using Mgr = Factories.CredentialManager;
@@ -31,12 +32,63 @@ namespace CTIServices
 
 
 		#region search 
-		public static List<MC.CredentialSummary> QuickSearch( string keyword = "" )
+		/// <summary>
+		/// Credential autocomplete
+		/// Needs to check authorization level for credential
+		/// </summary>
+		/// <param name="keyword"></param>
+		/// <param name="maxTerms"></param>
+		/// <returns></returns>
+		public static List<string> Autocomplete( string keyword,  int maxTerms = 25 )
 		{
-			int userId = AccountServices.GetCurrentUserId();
+			int userId = 0;
+			string where = "";
+			int pTotalRows = 0;
+			AppUser user = AccountServices.GetCurrentUser();
+			if ( user != null && user.Id > 0 )
+				userId = user.Id;
+			SetAuthorizationFilter( user, ref where );
 
-			return CredentialManager.QuickSearch( keyword, userId );
+			SetKeywordFilter( keyword, true, ref where );
+			
+			return CredentialManager.Autocomplete( where, 1, maxTerms, userId, ref pTotalRows );
 		}
+
+		public static List<string> Autocomplete_Subjects( string keyword, int maxTerms = 25 )
+		{
+			//tough to do the user specific stuff
+
+			//int userId = 0;
+			//string where = "";
+			//int pTotalRows = 0;
+			//AppUser user = AccountServices.GetCurrentUser();
+			//if ( user != null && user.Id > 0 )
+			//	userId = user.Id;
+			//SetAuthorizationFilter( user, ref where );
+
+			List<string> list = 
+			Entity_ReferenceManager.QuickSearch_TextValue(1, 34, keyword, maxTerms );
+
+			//return CredentialManager.Autocomplete( where, 1, maxTerms, userId, ref pTotalRows );
+
+			return list;
+		}
+		//public static List<MC.CredentialSummary> QuickSearch( string keyword = "" )
+		//{
+		//	int userId = 0;
+		//	string where = "";
+		//	int pTotalRows = 0;
+		//	AppUser user = AccountServices.GetCurrentUser();
+		//	if ( user != null && user.Id > 0 )
+		//		userId = user.Id;
+		//	SetAuthorizationFilter( user, ref where );
+
+		//	SetKeywordFilter( keyword, true, ref where );
+
+		//	//return CredentialManager.QuickSearch( keyword, userId );
+
+		//	return CredentialManager.Search( where, "", 1, 25, ref pTotalRows, userId );
+		//}
 
 		public static List<MC.CredentialSummary> QACredentialsSearch( int orgId = 0, string keywords = "" )
 		{
@@ -98,38 +150,41 @@ namespace CTIServices
 
 		public static List<MC.CredentialSummary> Search( MainSearchInput data, ref int pTotalRows )
 		{
-			string pOrderBy = "";
 			string where = "";
 			int userId = 0;
+			List<string> competencies = new List<string>();
+
 			AppUser user = AccountServices.GetCurrentUser();
 			if ( user != null && user.Id > 0 )
 				userId = user.Id;
-			if ( !string.IsNullOrWhiteSpace( data.Keywords ) )
-			{
-				SetKeyFilter( data.Keywords, ref where );
-			}
-			SetKeyFilter( data.Keywords, ref where );
+
+			SetKeywordFilter( data.Keywords, false, ref where );
+			SearchServices.SetSubjectsFilter( data, "Credential", ref where );
 
 			SetAuthorizationFilter( user, ref where );
 
 			SetPropertiesFilter( data, ref where );
 
-			SetBoundariesFilter( data, ref where );
+			SearchServices.SetRolesFilter( data, ref where );
+			SearchServices.SetBoundariesFilter( data, ref where );
+			//SetBoundariesFilter( data, ref where );
 
 			//naics, ONET
 			SetFrameworksFilter( data, ref where );
-
+			//Competencies
+			SetCompetenciesFilter( data, ref where, ref competencies );
 			SetCredCategoryFilter( data, ref where );
 
-			return CredentialManager.Search( where, pOrderBy, data.StartPage, data.PageSize, ref pTotalRows, userId );
+			return CredentialManager.Search( where, data.SortOrder, data.StartPage, data.PageSize, ref pTotalRows, userId );
 		}
 	
-		private static void SetKeyFilter(string keywords, ref string where)
+		private static void SetKeywordFilter(string keywords, bool isBasic, ref string where)
 		{
 			if ( string.IsNullOrWhiteSpace( keywords ) )
 				return;
 			string text = " (base.name like '{0}' OR base.Description like '{0}'  OR organizationName like '{0}' OR owingOrganization like '{0}' ) ";
-			string subjectsEtc = " OR (base.Id in (SELECT c.id FROM [dbo].[Entity.Reference] a inner join Entity b on a.EntityId = b.Id inner join Credential c on b.EntityUid = c.RowId where [CategoryId] in (34 ,35) and a.TextValue like '{0}' )) ";
+			string subjectsEtc = " OR (base.Id in (SELECT c.id FROM [dbo].[Entity.Reference] a inner join Entity b on a.EntityId = b.Id inner join Credential c on b.EntityUid = c.RowId where [CategoryId] in (10,11,34 ,35) and a.TextValue like '{0}' )) ";
+			string frameworkItems = " OR (EntityUid in (SELECT EntityUid FROM [dbo].[Entity.FrameworkItemSummary_ForCredentials] a where  a.title like '{0}' )) ";
 			string AND = "";
 			if ( where.Length > 0 )
 				AND = " AND ";
@@ -139,26 +194,13 @@ namespace CTIServices
 				keywords = "%" + keywords.Trim() + "%";
 
 			//skip url  OR base.Url like '{0}' 
-
-			where = where + AND + string.Format( " ( " + text + subjectsEtc + " ) ", keywords );
+			if ( isBasic )
+				where = where + AND + string.Format( " ( " + text + " ) ", keywords );
+			else 
+				where = where + AND + string.Format( " ( " + text + subjectsEtc + frameworkItems + " ) ", keywords );
 			
 		}
-
-		private static void SetBoundariesFilter( MainSearchInput data, ref string where )
-		{
-			string AND = "";
-			if ( where.Length > 0 )
-				AND = " AND ";
-			string template = " ( base.EntityUid in ( SELECT  b.EntityUid FROM [dbo].[Entity.Address] a inner join Entity b on a.EntityId = b.Id    where [Longitude] < {0} and [Longitude] > {1} and [Latitude] < {2} and [Latitude] > {3} ) ) ";
-
-			var boundaries = SearchServices.GetBoundaries( data, "bounds" );
-			if ( boundaries.IsDefined )
-			{
-				where = where + AND + string.Format( template, boundaries.East, boundaries.West, boundaries.North, boundaries.South );
-			}
-		}
-		//
-
+		
 		/// <summary>
 		/// determine which results a user may view, and eventually edit
 		/// </summary>
@@ -210,7 +252,7 @@ namespace CTIServices
 		{
 			string AND = "";
 			string codeTemplate = "  (base.Id in (SELECT c.id FROM [dbo].[Entity.FrameworkItemSummary] a inner join Entity b on a.EntityId = b.Id inner join Credential c on b.EntityUid = c.RowId where [CategoryId] = {0} and ([CodeGroup] in ({1})  OR ([CodeId] in ({1}) )  )) ) ";
-			string codeTemplate1 = "  (base.Id in (SELECT c.id FROM [dbo].[Entity.FrameworkItemSummary] a inner join Entity b on a.EntityId = b.Id inner join Credential c on b.EntityUid = c.RowId where [CategoryId] = {0} and [CodeId] in ({1}))  ) ";
+			//string codeTemplate1 = "  (base.Id in (SELECT c.id FROM [dbo].[Entity.FrameworkItemSummary] a inner join Entity b on a.EntityId = b.Id inner join Credential c on b.EntityUid = c.RowId where [CategoryId] = {0} and [CodeId] in ({1}))  ) ";
 			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.CategoryId == 10 || s.CategoryId == 11 ) )
 			{
 				string next = "";
@@ -223,8 +265,63 @@ namespace CTIServices
 				next = next.Trim( ',' );
 				where = where + AND + string.Format( codeTemplate, filter.CategoryId, next );
 			}
-		}
+}
+		private static void SetCompetenciesAutocompleteFilter( string keywords, ref string where)
+		{
+			List<string> competencies = new List<string>();
+			MainSearchInput data = new MainSearchInput();
+			MainSearchFilter filter = new MainSearchFilter() {Name = "competencies", CategoryId=29};
+			filter.Items.Add(keywords);
+			SetCompetenciesFilter( data, ref where, ref competencies );
 
+		}
+		private static void SetCompetenciesFilter( MainSearchInput data, ref string where, ref List<string> competencies )
+		{
+			string AND = "";
+			string OR = "";
+			string keyword = "";
+			string template = " ( base.Id in (SELECT distinct  CredentialId FROM [dbo].[ConditionProfile_LearningOpp_Competencies_Summary]  where AlignmentType in ('teaches', 'assesses') AND ({0}) ) ) ";
+			string phraseTemplate = " ([Name] like '%{0}%' OR [Description] like '%{0}%') ";
+			//
+			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.Name == "competencies" ) )
+			{
+				string next = "";
+				if ( where.Length > 0 )
+					AND = " AND ";
+				foreach ( string item in filter.Items )
+				{
+					keyword = ServiceHelper.HandleApostrophes( item );
+					//if ( keyword.IndexOf( "%" ) == -1 )
+					//	keyword = "%" + keyword.Trim() + "%";
+					if ( keyword.IndexOf( ";" ) > -1 )
+					{
+						var words = keyword.Split( ';' );
+						foreach ( string word in words )
+						{
+							competencies.Add( word.Trim() );
+							next += OR + string.Format( phraseTemplate, word.Trim() );
+							OR = " OR ";
+						}
+
+					}
+					else
+					{
+						competencies.Add( keyword.Trim() );
+						//next = "%" + keyword.Trim() + "%";
+						next = string.Format( phraseTemplate, keyword.Trim() );
+					}
+					//next += keyword;	//					+",";
+					//just handle one for now
+					break;
+				}
+				//next = next.Trim( ',' );
+				if ( !string.IsNullOrWhiteSpace( next ) )
+					where = where + AND + string.Format( template, next );
+
+				break;
+			}
+		}
+		//
 		private static void SetCredCategoryFilter( MainSearchInput data, ref string where )
 		{
 			string AND = "";
@@ -242,11 +339,7 @@ namespace CTIServices
 					where = where + AND + " ( base.CredentialTypeSchema = 'qualityAssurance') ";
 			}
 		}
-		public static List<MC.CredentialSummary> Credential_Autocomplete( string keyword = "", int maxTerms = 25 )
-		{
-			int userId = AccountServices.GetCurrentUserId();
-			return CredentialManager.QuickSearch( keyword, userId, maxTerms );
-		}
+
 		#endregion
 
 		#region Retrievals
@@ -268,21 +361,18 @@ namespace CTIServices
 
 			MC.Credential cred = CredentialManager.Credential_GetBasic( id, false, false );
 
-			//get properties
 			return cred;
 		}
 		public static MC.Credential GetBasicCredential( Guid uid, bool forEditView = false, bool isNewVersion = true )
 		{
-
-			MC.Credential cred = CredentialManager.Credential_GetByRowId( uid,false, false, forEditView );
-
-			//get properties
-			return cred;
+			return CredentialManager.Credential_GetByRowId( uid,false, false, forEditView );
+		
 		}
 
 		/// <summary>
-		/// Get a 'light' credential by rowId
+		/// Get a 'light' credential by Id
 		/// This will return mimimum information, and NO child properties
+		/// Used by search, so user check is not necessary as done by search
 		/// </summary>
 		/// <param name="rowId"></param>
 		/// <returns></returns>
@@ -301,6 +391,14 @@ namespace CTIServices
 			else
 				return null;
 		}
+
+		/// <summary>
+		/// Get a 'light' credential by Id
+		/// This will return mimimum information, and NO child properties
+		/// Used by search, so user check is not necessary as done by search
+		/// </summary>
+		/// <param name="credentialId"></param>
+		/// <returns></returns>
 		public static MC.CredentialSummary GetLightCredentialById( int credentialId )
 		{
 			if ( credentialId < 1 )
@@ -324,13 +422,156 @@ namespace CTIServices
 		public static MC.Credential GetCredentialDetail( int id, AppUser user )
 		{
 			string statusMessage = "";
+			int cacheMinutes= UtilityManager.GetAppKeyValue( "credentialCacheMinutes", 0 );
+			DateTime maxTime  = DateTime.Now.AddMinutes( cacheMinutes * -1 );
+
+			string key = "credential_" + id.ToString();
+
+			if ( HttpRuntime.Cache[ key ] != null && cacheMinutes > 0 )
+			{
+				var cache = ( CachedCredential ) HttpRuntime.Cache[ key ];
+				try
+				{
+					if ( cache.lastUpdated > maxTime )
+					{
+						LoggingHelper.DoTrace( 6, string.Format( "===CredentialServices.GetCredentialDetail === Using cached version of Credential, Id: {0}, {1}", cache.Item.Id, cache.Item.Name ) );
+
+						//check if user can update the object
+						string status = "";
+						if ( !CanUserUpdateCredential( id, user, ref status ) )
+							cache.Item.CanEditRecord = false;
+
+						return cache.Item;
+					}
+				}
+				catch ( Exception ex )
+				{
+					LoggingHelper.DoTrace( 6, "===CredentialServices.GetCredentialDetail === exception " + ex.Message );
+				}
+			}
+			else
+			{
+				LoggingHelper.DoTrace( 6, string.Format( "****** CredentialServices.GetCredentialDetail === Retrieving full version of credential, Id: {0}", id ) );
+			}
+
+			DateTime start = DateTime.Now;
+
 			MC.Credential entity = CredentialManager.Credential_Get( id, false, true );
 			if ( CanUserUpdateCredential( entity, user, ref statusMessage ) )
 				entity.CanUserEditEntity = true;
-			
+
+			DateTime end = DateTime.Now;
+			int elasped = ( end - start ).Seconds;
+			//Cache the output if more than 3? seconds
+			if ( key.Length > 0 && cacheMinutes > 0 && elasped > 3)
+			{
+				var newCache = new CachedCredential()
+				{
+					Item = entity,
+					lastUpdated = DateTime.Now
+				};
+				if ( HttpContext.Current != null )
+				{
+					if ( HttpContext.Current.Cache[ key ] != null )
+					{
+						HttpRuntime.Cache.Remove( key );
+						HttpRuntime.Cache.Insert( key, newCache );
+
+						LoggingHelper.DoTrace( 5, string.Format( "===CredentialServices.GetCredentialDetail $$$ Updating cached version of credential, Id: {0}, {1}", entity.Id, entity.Name ) );
+
+					}
+					else
+					{
+						LoggingHelper.DoTrace( 5, string.Format( "===CredentialServices.GetCredentialDetail ****** Inserting new cached version of credential, Id: {0}, {1}", entity.Id, entity.Name ) );
+
+						System.Web.HttpRuntime.Cache.Insert( key, newCache, null, DateTime.Now.AddHours( cacheMinutes ), TimeSpan.Zero );
+					}
+				}
+			}
+			else
+			{
+				LoggingHelper.DoTrace( 5, string.Format( "===CredentialServices.GetCredentialDetail $$$$$$ skipping caching of credential, Id: {0}, {1}, elasped:{2}", entity.Id, entity.Name, elasped ) );
+			}
+
 			return entity;
 		}
 
+		/// <summary>
+		/// Retrieve Credential for compare purposes
+		/// - name, description, cred type, education level, 
+		/// - industries, occupations
+		/// - owner role
+		/// - duration
+		/// - estimated costs
+		/// </summary>
+		/// <param name="id"></param>
+		/// <returns></returns>
+		public static MC.Credential GetCredentialForCompare( int id )
+		{
+			//not clear if checks necessary, as interface only allows selection of those to which the user has access.
+			AppUser user = AccountServices.GetCurrentUser();
+			if ( Utilities.UtilityManager.GetAppKeyValue( "usingNewCompareMethod", true ) == false )
+			{
+				LoggingHelper.DoTrace( 2, string.Format( "GetCredentialForCompare - using OLD GetCredentialDetail for cred: {0}", id ) );
+
+				return GetCredentialDetail( id, user );
+			}
+
+			LoggingHelper.DoTrace( 2, string.Format( "GetCredentialForCompare - using new compare get for cred: {0}", id ) );
+			//================================================
+			string statusMessage = "";
+			string key = "credentialCompare_" + id.ToString();
+
+			 MC.Credential entity = new MC.Credential();
+
+			 if ( CacheManager.IsCredentialAvailableFromCache( id, key, ref entity ) )
+			 {
+				 //check if user can update the object
+				 string status = "";
+				 if ( !CanUserUpdateCredential( id, user, ref status ) )
+					 entity.CanEditRecord = false;
+				 return entity;
+			 }
+				
+			CredentialRequest cr = new CredentialRequest();
+			cr.IsCompareRequest();
+			
+
+			DateTime start = DateTime.Now;
+
+			entity = CredentialManager.Credential_Get( id, cr );
+
+			if ( CanUserUpdateCredential( entity, user, ref statusMessage ) )
+				entity.CanUserEditEntity = true;
+
+			DateTime end = DateTime.Now;
+			int elasped = ( end - start ).Seconds;
+			if ( elasped > 1)
+				CacheManager.AddCredentialToCache( entity, key );
+
+			return entity;
+		} //
+
+
+		private void RemoveCredentialFromCache( int credentialId )
+		{
+			CacheManager.RemoveItemFromCache( "credential", credentialId );
+			CacheManager.RemoveItemFromCache( "credentialCompare", credentialId );
+		} //
+
+
+		//private void RemoveFromCache( string type, int id)
+		//{
+		//	string key = string.Format("{0}_{1}", type, id);
+		//	if ( HttpContext.Current != null 
+		//		&& HttpContext.Current.Cache[ key ] != null )
+		//	{
+		//		HttpRuntime.Cache.Remove( key );
+
+		//		LoggingHelper.DoTrace( 6, string.Format( "===CredentialServices.RemoveFromCache $$$ Removed cached version of a {0}, Id: {1}", type, id ) );
+
+		//	}
+		//}
 		#endregion
 		//public MC.Credential GetDemoCredential( int id )
 		//{
@@ -410,6 +651,8 @@ namespace CTIServices
 			bool isValid = false;
 			if ( entity.Id == 0 )
 				return true;
+			else if (user == null || user.Id == 0)
+				return false;
 			else if ( AccountServices.IsUserSiteStaff( user ) )
 				return true;
 
@@ -525,6 +768,11 @@ namespace CTIServices
 				{
 					ConsoleMessageHelper.SetConsoleInfoMessage( "Successfully Updated Credential" );
 					activityMgr.AddActivity( "Credential", "Update", string.Format( "{0} updated credential (or parts of): {1}", user.FullName(), entity.Name ), user.Id, 0, entity.Id );
+
+					//remove from cache
+					//RemoveFromCache( "credential",entity.Id );
+					RemoveCredentialFromCache( entity.Id );
+					
 				}
 			}
 			catch ( Exception ex )
@@ -1407,6 +1655,8 @@ namespace CTIServices
 						status = "Successfully Saved Credential - Condition Profile";
 						activityMgr.AddActivity( "Condition Profile", action, string.Format( "{0} added/updated credential connection profile: {1}", user.FullName(), entity.ProfileName ), user.Id, 0, entity.Id );
 					}
+
+					RemoveCredentialFromCache( credential.Id );
 				}
 
 
@@ -1457,6 +1707,7 @@ namespace CTIServices
 						//if valid, log
 						activityMgr.AddActivity( "Condition Profile", "Delete", string.Format( "{0} deleted Condition Profile {1} ({2}) from Credential: {3}", user.FullName(), profile.ProfileName, conditionProfileId, profile.ParentId ), user.Id, 0, conditionProfileId );
 						status = "";
+						RemoveCredentialFromCache( credentialId );
 					}
 					else
 					{
@@ -1901,5 +2152,16 @@ namespace CTIServices
 		//	return valid;
 		//}
 		#endregion
+	}
+
+	public class CachedCredential
+	{
+		public CachedCredential()
+		{
+			lastUpdated = DateTime.Now;
+		}
+		public DateTime lastUpdated { get; set; }
+		public MC.Credential Item { get; set; }
+
 	}
 }

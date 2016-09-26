@@ -34,5 +34,6 @@ namespace Data
         public string Country { get; set; }
     
         public virtual Entity Entity { get; set; }
+        public virtual Codes_Countries Codes_Countries { get; set; }
     }
 }

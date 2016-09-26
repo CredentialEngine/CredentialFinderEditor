@@ -18,34 +18,8 @@ namespace CTIServices
 {
 	public class AssessmentServices
 	{
-		public static AssessmentProfile Get( int id, bool newVersion = true )
-		{
-			AssessmentProfile entity = Mgr.Assessment_Get( id, false, false, newVersion );
-			return entity;
-		}
-		public static AssessmentProfile GetDetail( int id )
-		{
-			AppUser user = AccountServices.GetCurrentUser();
-			return GetDetail( id, user );
-
-		}
-		public static AssessmentProfile GetDetail( int id, AppUser user )
-		{
-			bool newVersion = true;
-			string statusMessage = "";
-			AssessmentProfile entity = Mgr.Assessment_Get( id, false, false, newVersion );
-			if ( CanUserUpdateAssessment( entity, user, ref statusMessage ) )
-				entity.CanUserEditEntity = true;
-
-			return entity;
-		}
-		public static AssessmentProfile GetForEdit( int id, bool newVersion = true )
-		{
-			AssessmentProfile entity = Mgr.Assessment_Get( id, true, true, newVersion );
-
-
-			return entity;
-		}
+	
+		#region Searches 
 		public static List<CodeItem> SearchAsCodeItem( string keyword, int startingPageNbr, int pageSize, ref int totalRows )
 		{
 			List<AssessmentProfile> list = Search( keyword, startingPageNbr, pageSize, ref totalRows );
@@ -60,6 +34,33 @@ namespace CTIServices
 			}
 			return codes;
 	}
+		public static List<string> Autocomplete( string keyword, int maxTerms = 25 )
+		{
+			//List<string> results = new List<string>();
+			int userId = 0;
+			string where = "";
+			int totalRows = 0;
+			AppUser user = AccountServices.GetCurrentUser();
+			if ( user != null && user.Id > 0 )
+				userId = user.Id;
+			SetAuthorizationFilter( user, ref where );
+
+			//if ( type == "assessment" )
+			//{
+				//SetKeywordFilter( keyword, true, ref where );
+				string keywords = ServiceHelper.HandleApostrophes( keyword );
+				if ( keywords.IndexOf( "%" ) == -1 )
+					keywords = "%" + keywords.Trim() + "%";
+				where = string.Format( " (base.name like '{0}') ", keywords );
+			//}
+			//else if ( type == "subjects" )
+			//	SearchServices.SetSubjectsAutocompleteFilter( keyword, type, ref where );
+			//else if ( type == "competencies" )
+			//	SetCompetenciesAutocompleteFilter( keyword, ref where );
+
+			return Mgr.Autocomplete( where, 1, maxTerms, userId, ref totalRows );
+
+		}
 		public static List<AssessmentProfile> Search( string keywords, int startingPageNbr, int pageSize, ref int totalRows )
 		{
 			MainSearchInput data = new MainSearchInput();
@@ -71,7 +72,6 @@ namespace CTIServices
 		}
 		public static List<AssessmentProfile> Search( MainSearchInput data, ref int totalRows )
 		{
-			string pOrderBy = "";
 			string where = "";
 			List<string> competencies = new List<string>();
 			int userId = 0;
@@ -79,25 +79,21 @@ namespace CTIServices
 			if ( user != null && user.Id > 0 )
 				userId = user.Id;
 
-			if ( !string.IsNullOrWhiteSpace( data.Keywords ) )
-			{
-				SetKeyFilter( data.Keywords, ref where );
-				//string keywords = ServiceHelper.HandleApostrophes( data.Keywords );
-				//if ( keywords.IndexOf( "%" ) == -1 )
-				//	keywords = "%" + keywords.Trim() + "%";
-				//where = string.Format( " (base.name like '{0}' OR base.Description like '{0}'  OR base.Url like '{0}'  OR base.Organization like '{0}')", keywords );
-			}
+			SetKeywordFilter( data.Keywords, false, ref where );
+
+			SearchServices.SetSubjectsFilter( data, "Assessment", ref where );
 			SetAuthorizationFilter( user, ref where );
 
 			SetPropertiesFilter( data, ref where );
-			SetBoundariesFilter( data, ref where );
+			SearchServices.SetRolesFilter( data, ref where );
+			SearchServices.SetBoundariesFilter( data, ref where );
 			//Competencies
 			SetCompetenciesFilter( data, ref where, ref competencies );
 
-			return Mgr.Search( where, pOrderBy, data.StartPage, data.PageSize, userId, ref totalRows );
+			return Mgr.Search( where, data.SortOrder, data.StartPage, data.PageSize, userId, ref totalRows );
 		}
 		
-		private static void SetKeyFilter( string keywords, ref string where )
+		private static void SetKeywordFilter( string keywords, bool isBasic, ref string where )
 		{
 			if ( string.IsNullOrWhiteSpace( keywords ) )
 				return;
@@ -112,25 +108,13 @@ namespace CTIServices
 				keywords = "%" + keywords.Trim() + "%";
 
 			//skip url  OR base.Url like '{0}' 
-
-			where = where + AND + string.Format( " ( " + text + subjectsEtc + " ) ", keywords );
+			if ( isBasic )
+				where = where + AND + string.Format( " ( " + text + " ) ", keywords );
+			else 
+				where = where + AND + string.Format( " ( " + text + subjectsEtc + " ) ", keywords );
 
 		}
 
-		private static void SetBoundariesFilter( MainSearchInput data, ref string where )
-		{
-			string AND = "";
-			if ( where.Length > 0 )
-				AND = " AND ";
-			string template = " ( base.RowId in ( SELECT  b.EntityUid FROM [dbo].[Entity.Address] a inner join Entity b on a.EntityId = b.Id    where [Longitude] < {0} and [Longitude] > {1} and [Latitude] < {2} and [Latitude] > {3} ) ) ";
-
-			var boundaries = SearchServices.GetBoundaries( data, "bounds" );
-			if ( boundaries.IsDefined )
-			{
-				where = where + AND + string.Format( template, boundaries.East, boundaries.West, boundaries.North, boundaries.South );
-			}
-		}
-		//
 		private static void SetAuthorizationFilter( AppUser user, ref string where )
 		{
 			string AND = "";
@@ -154,12 +138,22 @@ namespace CTIServices
 			where = where + AND + string.Format( "((base.StatusId = {0}) OR (base.Id in (SELECT cs.Id FROM [dbo].[Organization.Member] om inner join [Assessment_Summary] cs on om.ParentOrgId = cs.ManagingOrgId where userId = {1}) ))", CF.CodesManager.ENTITY_STATUS_PUBLISHED, user.Id );
 
 		}
+
+		private static void SetCompetenciesAutocompleteFilter( string keywords, ref string where )
+		{
+			List<string> competencies = new List<string>();
+			MainSearchInput data = new MainSearchInput();
+			MainSearchFilter filter = new MainSearchFilter() { Name = "competencies", CategoryId = 29 };
+			filter.Items.Add( keywords );
+			SetCompetenciesFilter( data, ref where, ref competencies );
+
+		}
 		private static void SetCompetenciesFilter( MainSearchInput data, ref string where, ref List<string> competencies )
 		{
 			string AND = "";
 			string OR = "";
 			string keyword = "";
-			string template = " ( base.Id in (SELECT LearningOpportunityId FROM [dbo].Assessment_Competency_Summary  where AlignmentType = 'assesses' AND ({0}) ) )";
+			string template = " ( base.Id in (SELECT distinct  AssessmentId FROM [dbo].Assessment_Competency_Summary  where AlignmentType = 'assesses' AND ({0}) ) )";
 			string phraseTemplate = " ([Name] like '%{0}%' OR [Description] like '%{0}%') ";
 			//
 			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.Name == "competencies" ) )
@@ -234,6 +228,37 @@ namespace CTIServices
 			//}
 			return Mgr.QuickSearch( userId, data.Keywords, data.StartPage, data.PageSize, ref totalRows );
 		}
+		#endregion 
+
+		#region Retrievals
+		public static AssessmentProfile Get( int id, bool newVersion = true )
+		{
+			AssessmentProfile entity = Mgr.Assessment_Get( id, false, false, newVersion );
+			return entity;
+		}
+		public static AssessmentProfile GetDetail( int id )
+		{
+			AppUser user = AccountServices.GetCurrentUser();
+			return GetDetail( id, user );
+
+		}
+		public static AssessmentProfile GetDetail( int id, AppUser user )
+		{
+			bool newVersion = true;
+			string statusMessage = "";
+			AssessmentProfile entity = Mgr.Assessment_Get( id, false, false, newVersion );
+			if ( CanUserUpdateAssessment( entity, user, ref statusMessage ) )
+				entity.CanUserEditEntity = true;
+
+			return entity;
+		}
+		public static AssessmentProfile GetForEdit( int id, bool newVersion = true )
+		{
+			AssessmentProfile entity = Mgr.Assessment_Get( id, true, true, newVersion );
+
+
+			return entity;
+		}
 
 		public static AssessmentProfile GetLightAssessmentByRowId( string rowId )
 		{
@@ -263,6 +288,8 @@ namespace CTIServices
 			else
 				return null;
 		}
+
+		#endregion 
 		#region === add/update/delete =============
 		public static bool CanUserUpdateAssessment( int asmtId, ref string status )
 		{
@@ -389,7 +416,7 @@ namespace CTIServices
 			Mgr mgr = new Mgr();
 			try
 			{
-				valid = mgr.Assessment_Delete( assessmentId, ref status );
+				valid = mgr.Delete( assessmentId, ref status );
 			}
 			catch ( Exception ex )
 			{
@@ -401,55 +428,55 @@ namespace CTIServices
 			return valid;
 		}
 
-		public bool DeleteProfile( int profileId, string profileName, AppUser user, ref bool valid, ref string status )
-		{
+		//public bool DeleteProfile( int profileId, string profileName, AppUser user, ref bool valid, ref string status )
+		//{
 
-			try
-			{
-				switch ( profileName.ToLower() )
-				{
+		//	try
+		//	{
+		//		switch ( profileName.ToLower() )
+		//		{
 
-					case "durationprofile":
-						valid = new CF.DurationProfileManager().DurationProfile_Delete( profileId, ref status );
-						break;
-					case "geocoordinates":
-						valid = new CF.RegionsManager().GeoCoordinate_Delete( profileId, ref status );
-						break;
-					case "jurisdictionprofile":
-						valid = new CF.RegionsManager().JurisdictionProfile_Delete( profileId, ref status );
-						break;
-					case "organizationrole":
-					case "entityrole":
-						valid = new CF.Entity_AgentRelationshipManager().EntityAgentRole_Delete( profileId, ref status );
-						break;
-					case "costprofilesplit":
-						valid = new CF.CostProfileManager().CostProfile_Delete( profileId, ref status );
-						break;
-					case "costprofileitem":
-						valid = new CF.CostProfileItemManager().CostProfileItem_Delete( profileId, ref status );
-						break;
-					default:
-						valid = false;
-						status = "Deleting the requested clientProfile is not handled at this time.";
-						return false;
-				}
+		//			case "durationprofile":
+		//				valid = new CF.DurationProfileManager().DurationProfile_Delete( profileId, ref status );
+		//				break;
+		//			case "geocoordinates":
+		//				valid = new CF.RegionsManager().GeoCoordinate_Delete( profileId, ref status );
+		//				break;
+		//			case "jurisdictionprofile":
+		//				valid = new CF.RegionsManager().JurisdictionProfile_Delete( profileId, ref status );
+		//				break;
+		//			case "organizationrole":
+		//			case "entityrole":
+		//				valid = new CF.Entity_AgentRelationshipManager().EntityAgentRole_Delete( profileId, ref status );
+		//				break;
+		//			case "costprofilesplit":
+		//				valid = new CF.CostProfileManager().CostProfile_Delete( profileId, ref status );
+		//				break;
+		//			case "costprofileitem":
+		//				valid = new CF.CostProfileItemManager().CostProfileItem_Delete( profileId, ref status );
+		//				break;
+		//			default:
+		//				valid = false;
+		//				status = "Deleting the requested clientProfile is not handled at this time.";
+		//				return false;
+		//		}
 			
-				if ( valid )
-				{
-					//if valid, status contains the cred name and id
-					ActivityServices.SiteActivityAdd( "Assessment Profile", "Delete profileName", string.Format( "{0} deleted Assessment clientProfile {1}", user.FullName(), profileName ), user.Id, 0, profileId );
-					status = "";
-				}
-			}
-			catch ( Exception ex )
-			{
-				LoggingHelper.LogError( ex, "AssessmentServices.DeleteProfile" );
-				status = ex.Message;
-				valid = false;
-			}
+		//		if ( valid )
+		//		{
+		//			//if valid, status contains the cred name and id
+		//			ActivityServices.SiteActivityAdd( "Assessment Profile", "Delete profileName", string.Format( "{0} deleted Assessment clientProfile {1}", user.FullName(), profileName ), user.Id, 0, profileId );
+		//			status = "";
+		//		}
+		//	}
+		//	catch ( Exception ex )
+		//	{
+		//		LoggingHelper.LogError( ex, "AssessmentServices.DeleteProfile" );
+		//		status = ex.Message;
+		//		valid = false;
+		//	}
 
-			return valid;
-		}
+		//	return valid;
+		//}
 		#endregion
 	}
 }

@@ -11,7 +11,7 @@ using EM = Data;
 using Views = Data.Views;
 using Utilities;
 using DBentity = Data.Entity_QA_Action;
-using Entity = Models.ProfileModels.QualityAssuranceActionProfile;
+using ThisEntity = Models.ProfileModels.QualityAssuranceActionProfile;
 using ViewContext = Data.Views.CTIEntities1;
 
 namespace Factories
@@ -266,7 +266,7 @@ namespace Factories
 		}
 		public static List<QualityAssuranceActionProfile> QualityAssuranceActionProfile_GetAll( Guid pParentUid )
 		{
-			Entity entity = new QualityAssuranceActionProfile();
+			ThisEntity entity = new QualityAssuranceActionProfile();
 			List<QualityAssuranceActionProfile> list = new List<QualityAssuranceActionProfile>();
 
 			//Views.Entity_Summary parent = EntityManager.GetDBEntity( pParentUid );
@@ -278,7 +278,7 @@ namespace Factories
 
 				foreach ( Views.Entity_QAAction_Summary dbEntity in results )
 				{
-					entity = new Entity();
+					entity = new ThisEntity();
 					MapTo( dbEntity, entity );
 					list.Add(entity);
 				}
@@ -316,7 +316,7 @@ namespace Factories
 		}
 
 
-		//private static void MapTo( DBentity from, Entity to )
+		//private static void MapTo( DBentity from, ThisEntity to )
 		//{
 		//	//QualityAssuranceActionProfile to = new QualityAssuranceActionProfile();
 		//	to.Id = from.Id;
@@ -359,7 +359,7 @@ namespace Factories
 		//	to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
 		//}
 
-		private static void MapTo( Views.Entity_QAAction_Summary from, Entity to )
+		private static void MapTo( Views.Entity_QAAction_Summary from, ThisEntity to )
 		{
 			
 			to.Id = from.EntityQAActionId;
@@ -367,11 +367,15 @@ namespace Factories
 
 			to.ParentId = from.EntityId;
 			to.ActingAgentUid = from.AgentUid;
-			to.RoleTypeId = from.RelationshipTypeId;
-			to.Description = from.Description;
 
-			string relation = from.Relationship;
-			
+			to.RoleTypeId = from.RelationshipTypeId;
+
+			to.QAAction = from.Relationship;
+			to.QAActionSchema = from.RelationshipSchema;
+			to.ReverseQAAction = from.ReverseRelation;
+			to.ReverseQAActionSchema = from.ReverseRelationSchema;
+
+			to.Description = from.Description;
 			to.IssuedCredentialId = from.IssuedCredentialId;
 
 			to.IssuedCredential = new Credential() { Id = (int)from.IssuedCredentialId, RowId = from.CredentialRowId, Name = from.CredentialName };
@@ -380,7 +384,7 @@ namespace Factories
 				RowId = from.AgentUid, 
 				Name = from.AgentName };
 
-			to.ProfileSummary = string.Format( "{0} - {1}; credential:{1}", relation, from.AgentName, from.CredentialName );
+			to.ProfileSummary = string.Format( "{0} - {1}; credential:{1}", to.QAAction, from.AgentName, from.CredentialName );
 			to.ProfileName = to.ProfileSummary;
 
 			if ( IsValidDate( from.StartDate ) )

@@ -23,147 +23,147 @@ namespace Factories
 		/// <remarks>16-06-29 mparsons - adding storing of EntityId
 		/// </remarks>
 		/// <returns></returns>
-		public bool DurationProfileUpdate( List<DurationProfile> profiles, Guid parentUid, int parentTypeId, int userId, ref List<string> messages )
-		{
-			bool isValid = true;
-			if ( !IsValidGuid( parentUid ) )
-			{
-				messages.Add( "Error: the parent identifier was not provided." );
-			}
-			//soon to to obsolete
-			if ( parentTypeId == 0 )
-			{
-				messages.Add( "Error: the parent type was not provided." );
-			}
-			if ( messages.Count > 0 )
-				return false;
+		//public bool DurationProfileUpdate( List<DurationProfile> profiles, Guid parentUid, int parentTypeId, int userId, ref List<string> messages )
+		//{
+		//	bool isValid = true;
+		//	if ( !IsValidGuid( parentUid ) )
+		//	{
+		//		messages.Add( "Error: the parent identifier was not provided." );
+		//	}
+		//	//soon to to obsolete
+		//	if ( parentTypeId == 0 )
+		//	{
+		//		messages.Add( "Error: the parent type was not provided." );
+		//	}
+		//	if ( messages.Count > 0 )
+		//		return false;
 
-			int count = 0;
-			if ( profiles == null )
-				profiles = new List<DurationProfile>();
+		//	int count = 0;
+		//	if ( profiles == null )
+		//		profiles = new List<DurationProfile>();
 
-			EM.Entity_DurationProfile efEntity = new EM.Entity_DurationProfile();
-			//get parent entity
-			Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
-			if ( parent == null || parent.Id == 0 )
-			{
-				messages.Add( "Error - the parent entity was not found." );
-				return false;
-			}
-			using ( var context = new Data.CTIEntities() )
-			{
-				//check add/updates first
-				if ( profiles.Count() > 0 )
-				{
-					bool isEmpty = false;
-					foreach ( DurationProfile dp in profiles )
-					{
-						if ( ValidateDurationProfile( dp, ref isEmpty, ref messages ) == false )
-						{
-							continue;
-						}
-						if ( isEmpty ) //skip
-							continue;
+		//	EM.Entity_DurationProfile efEntity = new EM.Entity_DurationProfile();
+		//	//get parent entity
+		//	Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
+		//	if ( parent == null || parent.Id == 0 )
+		//	{
+		//		messages.Add( "Error - the parent entity was not found." );
+		//		return false;
+		//	}
+		//	using ( var context = new Data.CTIEntities() )
+		//	{
+		//		//check add/updates first
+		//		if ( profiles.Count() > 0 )
+		//		{
+		//			bool isEmpty = false;
+		//			foreach ( DurationProfile dp in profiles )
+		//			{
+		//				if ( ValidateDurationProfile( dp, ref isEmpty, ref messages ) == false )
+		//				{
+		//					continue;
+		//				}
+		//				if ( isEmpty ) //skip
+		//					continue;
 
-						//just in case
-						dp.ParentUid = parentUid;
-						dp.ParentTypeId = parentTypeId;
-						dp.EntityId = parent.Id;
+		//				//just in case
+		//				dp.ParentUid = parentUid;
+		//				dp.ParentTypeId = parentTypeId;
+		//				dp.EntityId = parent.Id;
 
-						if ( dp.Id == 0 )
-						{
-							//add
-							efEntity = new EM.Entity_DurationProfile();
-							FromMap( dp, efEntity );
-							efEntity.Created = efEntity.LastUpdated = DateTime.Now;
-							efEntity.CreatedById = efEntity.LastUpdatedById = userId;
+		//				if ( dp.Id == 0 )
+		//				{
+		//					//add
+		//					efEntity = new EM.Entity_DurationProfile();
+		//					FromMap( dp, efEntity );
+		//					efEntity.Created = efEntity.LastUpdated = DateTime.Now;
+		//					efEntity.CreatedById = efEntity.LastUpdatedById = userId;
 
-							context.Entity_DurationProfile.Add( efEntity );
-							count = context.SaveChanges();
-							//update profile record so doesn't get deleted
-							dp.Id = efEntity.Id;
+		//					context.Entity_DurationProfile.Add( efEntity );
+		//					count = context.SaveChanges();
+		//					//update profile record so doesn't get deleted
+		//					dp.Id = efEntity.Id;
 
-							if ( count == 0 )
-							{
-								ConsoleMessageHelper.SetConsoleErrorMessage( string.Format( " Unable to add Time to Earn: {0} <br\\> ", string.IsNullOrWhiteSpace( dp.Conditions ) ? "no description" : dp.Conditions ) );
-								//isAllValid = false;
-							}
-						}
-						else
-						{
-							efEntity = context.Entity_DurationProfile.SingleOrDefault( s => s.Id == dp.Id );
-							if ( efEntity != null && efEntity.Id > 0 )
-							{
-								//update
-								FromMap( dp, efEntity );
-								//has changed?
-								if ( HasStateChanged( context ) )
-								{
-									//note: testing - the latter may be true if the child has changed - but shouldn't as the mapping only updates the parent
-									efEntity.LastUpdated = System.DateTime.Now;
-									efEntity.LastUpdatedById = userId;
+		//					if ( count == 0 )
+		//					{
+		//						ConsoleMessageHelper.SetConsoleErrorMessage( string.Format( " Unable to add Time to Earn: {0} <br\\> ", string.IsNullOrWhiteSpace( dp.Conditions ) ? "no description" : dp.Conditions ) );
+		//						//isAllValid = false;
+		//					}
+		//				}
+		//				else
+		//				{
+		//					efEntity = context.Entity_DurationProfile.SingleOrDefault( s => s.Id == dp.Id );
+		//					if ( efEntity != null && efEntity.Id > 0 )
+		//					{
+		//						//update
+		//						FromMap( dp, efEntity );
+		//						//has changed?
+		//						if ( HasStateChanged( context ) )
+		//						{
+		//							//note: testing - the latter may be true if the child has changed - but shouldn't as the mapping only updates the parent
+		//							efEntity.LastUpdated = System.DateTime.Now;
+		//							efEntity.LastUpdatedById = userId;
 
-									count = context.SaveChanges();
-								}
-							}
-							else
-							{
-								//??? shouldn't happen unless deleted somehow
+		//							count = context.SaveChanges();
+		//						}
+		//					}
+		//					else
+		//					{
+		//						//??? shouldn't happen unless deleted somehow
 
-							}
-						}
+		//					}
+		//				}
 
-					} //foreach
+		//			} //foreach
 
-				}
+		//		}
 
-				//check for deletes ====================================
-				//need to ensure ones just added don't get deleted
+		//		////check for deletes ====================================
+		//		////need to ensure ones just added don't get deleted
 
-				//get existing 
-				List<EM.Entity_DurationProfile> results = context.Entity_DurationProfile
-						.Where( s => s.ParentUid == parentUid )
-						.OrderBy( s => s.Id )
-						.ToList();
+		//		////get existing 
+		//		//List<EM.Entity_DurationProfile> results = context.Entity_DurationProfile
+		//		//		.Where( s => s.ParentUid == parentUid )
+		//		//		.OrderBy( s => s.Id )
+		//		//		.ToList();
 
-				//if profiles is null, need to delete all!!
-				if ( results.Count() > 0 && profiles.Count() == 0 )
-				{
-					foreach ( var item in results )
-						context.Entity_DurationProfile.Remove( item );
+		//		////if profiles is null, need to delete all!!
+		//		//if ( results.Count() > 0 && profiles.Count() == 0 )
+		//		//{
+		//		//	foreach ( var item in results )
+		//		//		context.Entity_DurationProfile.Remove( item );
 
-					context.SaveChanges();
-				}
-				else
-				{
-					//should only have existing ids, where not in current list, so should be deletes
-					var deleteList = from existing in results
-									 join item in profiles
-											 on existing.Id equals item.Id
-											 into joinTable
-									 from result in joinTable.DefaultIfEmpty( new DurationProfile { Id = 0, ParentTypeId = 0 } )
-									 select new { DeleteId = existing.Id, ParentTypeId = ( result.ParentTypeId ) };
+		//		//	context.SaveChanges();
+		//		//}
+		//		//else
+		//		//{
+		//		//	//should only have existing ids, where not in current list, so should be deletes
+		//		//	var deleteList = from existing in results
+		//		//					 join item in profiles
+		//		//							 on existing.Id equals item.Id
+		//		//							 into joinTable
+		//		//					 from result in joinTable.DefaultIfEmpty( new DurationProfile { Id = 0, ParentTypeId = 0 } )
+		//		//					 select new { DeleteId = existing.Id, ParentTypeId = ( result.ParentTypeId ) };
 
-					foreach ( var v in deleteList )
-					{
-						if (v.ParentTypeId == 0)
-					//	if ( v.ParentUid.ToString() == DEFAULT_GUID )
-						{
-							//delete item
-							EM.Entity_DurationProfile p = context.Entity_DurationProfile.FirstOrDefault( s => s.Id == v.DeleteId );
-							if ( p != null && p.Id > 0 )
-							{
-								context.Entity_DurationProfile.Remove( p );
-								count = context.SaveChanges();
-							}
-						}
-					}
-				}
+		//		//	foreach ( var v in deleteList )
+		//		//	{
+		//		//		if (v.ParentTypeId == 0)
+		//		//	//	if ( v.ParentUid.ToString() == DEFAULT_GUID )
+		//		//		{
+		//		//			//delete item
+		//		//			EM.Entity_DurationProfile p = context.Entity_DurationProfile.FirstOrDefault( s => s.Id == v.DeleteId );
+		//		//			if ( p != null && p.Id > 0 )
+		//		//			{
+		//		//				context.Entity_DurationProfile.Remove( p );
+		//		//				count = context.SaveChanges();
+		//		//			}
+		//		//		}
+		//		//	}
+		//		//}
 
-			}
+		//	}
 
-			return isValid;
-		}
+		//	return isValid;
+		//}
 
 		public bool DurationProfileUpdate( DurationProfile profile, int userId, ref List<string> messages )
 		{

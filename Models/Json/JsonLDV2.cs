@@ -41,24 +41,26 @@ namespace Models.JsonV2
 		public PropertyData Jurisdiction = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:jurisdiction", Source = "Jurisdiction", Label = "Jurisdiction", ProfileType = typeof( JurisdictionProfile ) };
 		public PropertyData Keyword = new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:keyword", Source = "Keywords", Label = "Keywords", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "TextValue" };
 		public PropertyData Subject = new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:subject", Source = "Subjects", Label = "Subjects", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "TextValue" };
+		public PropertyData EstimatedCosts = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:estimatedCost", Source = "EstimatedCosts", Label = "Estimated Costs", ProfileType = typeof( CostProfile ), SourceType = SourceType.FROM_METHOD, InnerSource = "FlattenCosts" };
 
 		//Roles
-		public PropertyData AccreditedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:accreditedBy", Source = "accredits", Label = "Accredited By" };
-		public PropertyData ApprovedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:approvedBy", Source = "approves", Label = "Approved By" };
-		public PropertyData AssessedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:assessedBy", Source = "assesses", Label = "Assessed By" };
-		public PropertyData ConferredBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:conferredBy", Source = "approves", Label = "Conferred By" };
-		public PropertyData EndorsedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:endorsedBy", Source = "endorses", Label = "Endorsed By" };
-		public PropertyData MonitoredBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:monitoredBy", Source = "monitors", Label = "Monitored By" };
-		public PropertyData OfferedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:offeredBy", Source = "offers", Label = "Offered By" };
-		public PropertyData Owner = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:owner", Source = "owns", Label = "Owner" };
-		public PropertyData RecognizedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:recognizedBy", Source = "recognizes", Label = "Recognized By" };
-		public PropertyData RegulatedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:regulatedBy", Source = "regulates", Label = "Regulated By" };
-		public PropertyData RenewalBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:renewalBy", Source = "renews", Label = "Renewal By" };
-		public PropertyData RevocationBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:revocationBy", Source = "revokes", Label = "Revocation By" };
-		public PropertyData UpdatedVersionBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:updatedVersionBy", Source = "updatesVersion", Label = "Updated Version By" };
-		public PropertyData ValidatedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:validatedBy", Source = "validates", Label = "Validated By" };
-		public PropertyData VerifiedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:verifiedBy", Source = "verifies", Label = "Verified By" };
-		public PropertyData Creator = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "schema:creator", Source = "creator", Label = "Creator" };
+		public PropertyData AccreditedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:accreditedBy", Source = "OrganizationRole", Label = "Accredited By" };
+		public PropertyData ApprovedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:approvedBy", Source = "OrganizationRole", Label = "Approved By" };
+		public PropertyData AssessedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:assessedBy", Source = "OrganizationRole", Label = "Assessed By" };
+		public PropertyData ConferredBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:conferredBy", Source = "OrganizationRole", Label = "Conferred By" };
+		public PropertyData EndorsedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:endorsedBy", Source = "OrganizationRole", Label = "Endorsed By" };
+		public PropertyData MonitoredBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:monitoredBy", Source = "OrganizationRole", Label = "Monitored By" };
+		public PropertyData OfferedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:offeredBy", Source = "OrganizationRole", Label = "Offered By" };
+		public PropertyData Owner = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:owner", Source = "OrganizationRole", Label = "Owner" };
+		public PropertyData RecognizedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:recognizedBy", Source = "OrganizationRole", Label = "Recognized By" };
+		public PropertyData RegulatedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:regulatedBy", Source = "OrganizationRole", Label = "Regulated By" };
+		public PropertyData RenewalBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:renewalsBy", Source = "OrganizationRole", Label = "Renewals By" };
+		public PropertyData RevocationBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:revocationBy", Source = "OrganizationRole", Label = "Revocation By" };
+		public PropertyData UpdatedVersionBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:updatedVersionBy", Source = "OrganizationRole", Label = "Updated Version By" };
+		public PropertyData ValidatedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:validatedBy", Source = "OrganizationRole", Label = "Validated By" };
+		public PropertyData VerifiedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ctdl:verifiedBy", Source = "OrganizationRole", Label = "Verified By" };
+		public PropertyData Creator = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "schema:creator", Source = "OrganizationRole", Label = "Creator" };
+		public PropertyData Contributor = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "schema:contributor", Source = "OrganizationRole", Label = "Contributor" };
 	}
 	//
 
@@ -100,18 +102,24 @@ namespace Models.JsonV2
 				CommonProperties.ValidatedBy,
 				CommonProperties.VerifiedBy,
 				CommonProperties.Creator,
+				CommonProperties.Contributor,
+				CommonProperties.Subject,
+				CommonProperties.Keyword,
+				CommonProperties.EstimatedCosts,
+				new PropertyData() { Type = PropertyType.PARENT_TYPE_OVERRIDE, SchemaName = "ctdl:", Source = "CredentialType", Label = "Credential Type", SourceType = SourceType.FROM_ENUMERATION },
 				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:alternateName", Source = "AlternateName", Label = "Alternate Name" },
 				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:versionIdentifier", Source = "Version", Label = "Version" },
 				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:ctid", Source = "ctid", Label = "CTID" },
 				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:latestVersion", Source = "LatestVersionUrl", Label = "Latest Version" },
 				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:previousVersion", Source = "ReplacesVersionUrl", Label = "Previous Version" },
 				new PropertyData() { Type = PropertyType.URL, SchemaName = "schema:hasPart", Source = "EmbeddedCredentials", Label = "Embedded Credential", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "Url" },
-				new PropertyData() { Type = PropertyType.URL, SchemaName = "schema:image", Source = "Image", Label = "Image" },
+				new PropertyData() { Type = PropertyType.URL, SchemaName = "schema:image", Source = "ImageUrl", Label = "Image URL" },
+				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:availableOnlineAt", Source = "AvailableOnlineAt", Label = "Available Online At" },
 				new PropertyData() { Type = PropertyType.ENUMERATION, SchemaName = "ctdl:typicalAudienceLevelType", Source = "CredentialLevel", Label = "Credential Level" },
 				new PropertyData() { Type = PropertyType.ENUMERATION, SchemaName = "ctdl:purposeType", Source = "Purpose", Label = "Purpose" },
 				new PropertyData() { Type = PropertyType.ENUMERATION_EXTERNAL, SchemaName = "ctdl:industryType", Source = "Industry", Label = "Industry Category" },
 				new PropertyData() { Type = PropertyType.ENUMERATION_EXTERNAL, SchemaName = "ctdl:occupationType", Source = "Occupation", Label = "Occupation Category" },
-				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:estimatedDuration", Source = "EstimatedTimeToEarn", Label = "Estimated Time to Earn" },
+				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:estimatedDuration", Source = "EstimatedTimeToEarn", Label = "Estimated Time to Earn", ProfileType = typeof( DurationProfile ) },
 				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:recommendedFor", Source = "IsRecommendedFor", Label = "Recommended For", ProfileType = typeof( ConditionProfile ) },
 				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:requiredFor", Source = "IsRequiredFor", Label = "Required For", ProfileType = typeof( ConditionProfile ) },
 				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:recommends", Source = "Recommends", Label = "Recommends", ProfileType = typeof( ConditionProfile ) },
@@ -119,6 +127,10 @@ namespace Models.JsonV2
 				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:requires", Source = "Requires", Label = "Requires", ProfileType = typeof( ConditionProfile ) },
 				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:revocation", Source = "Revocation", Label = "Revocation", ProfileType = typeof( RevocationProfile ) },
 				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:relatedAction", Source = "QualityAssuranceAction", Label = "Related Action", ProfileType = typeof( QualityAssuranceActionProfile ) },
+				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:availableAt", Source = "Addresses", Label = "Available At", ProfileType = typeof( GeoCoordinates ), SourceType = SourceType.FROM_METHOD, InnerSource = "WrapAddress" },
+				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:industryTypeOther", Source = "OtherIndustries", Label = "Other Industries", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "TextValue" },
+				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:occupationTypeOther", Source = "OtherOccupations", Label = "Other Occupations", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "TextValue" },
+
 				//Not Implemented Yet
 				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:codedNotation", Source = "MISSING", Label = "Coded Notation" },
 				new PropertyData() { Type = PropertyType.ENUMERATION, SchemaName = "ctdl:credentialStatusType", Source = "MISSING", Label = "Credential Status" },
@@ -131,8 +143,7 @@ namespace Models.JsonV2
 				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:validationProcess", Source = "MISSING", Label = "Validation Process" },
 				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:contributor", Source = "MISSING", Label = "Contributor", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "Url" },
 				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:copyrightHolder", Source = "MISSING", Label = "Copyright Holder", SourceType = SourceType.FROM_OBJECT, InnerSource = "Url" },
-				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:sameAs", Source = "MISSING", Label = "Same As" },
-				new PropertyData() { Type = PropertyType.ENUMERATION, SchemaName = "ctdl:credentialCategory", Source = "NEED TO HANDLE SUBCLASSING", Label = "Credential Category" }
+				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:sameAs", Source = "MISSING", Label = "Same As" }
 			};
 		}
 	}
@@ -165,6 +176,7 @@ namespace Models.JsonV2
 				CommonProperties.RecognizedBy,
 				CommonProperties.RegulatedBy,
 				new PropertyData() { Type = PropertyType.ENUMERATION, SchemaName = "ctdl:agentType", Source = "OrganizationType", Label = "Organization Type" },
+				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:ctid", Source = "ctid", Label = "CTID" },
 				new PropertyData() { Type = PropertyType.ENUMERATION, SchemaName = "ctdl:agentSectorType", Source = "OrganizationSectorType", Label = "Organization Sector Type" },
 				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:hasVerificationService", Source = "Authentication", Label = "Verification Services" },
 				new PropertyData() { Type = PropertyType.ENUMERATION, SchemaName = "ctdl:agentQualityAssurancePurpose", Source = "QAPurposeType", Label = "Quality Assurance Purpose Type" },
@@ -232,7 +244,9 @@ namespace Models.JsonV2
 				CommonProperties.UpdatedVersionBy,
 				CommonProperties.ValidatedBy,
 				CommonProperties.VerifiedBy,
-				CommonProperties.Creator
+				CommonProperties.Creator,
+				CommonProperties.Subject,
+				CommonProperties.Keyword
 			};
 
 		}
@@ -275,7 +289,7 @@ namespace Models.JsonV2
 				CommonProperties.Creator,
 				CommonProperties.Keyword,
 				CommonProperties.Subject,
-				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:targetCompetency", Source = "LearningCompetencies", Label = "Competencies", ProfileType = typeof( CredentialAlignmentObjectProfile ), OverrideMapping = new Dictionary<string,string>() { { "TextTitle", "Name" }, { "TextValue", "Description" } } },
+				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:targetCompetency", Source = "TeachesCompetencies", Label = "Competencies", ProfileType = typeof( CredentialAlignmentObjectProfile ), IsMultiSource = true },
 				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:codedNotation", Source = "IdentificationCode", Label = "Identification Code" },
 				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:estimatedCost", Source = "EstimatedCost", Label = "Estimated Cost", ProfileType = typeof( CostProfile ) },
 				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:estimatedDuration", Source = "EstimatedDuration", Label = "Estimated Duration", ProfileType = typeof( DurationProfile ) },
@@ -308,10 +322,13 @@ namespace Models.JsonV2
 				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:experience", Source = "ConditionItem", Label = "Experience" },
 				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:residentOf", Source = "ResidentOf", Label = "Residency" },
 				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:resourceUrl", Source = "ReferenceUrl", Label = "Reference URL", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "TextValue" },
-				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:targetAssessment", Source = "TargetAssessment.Url", Label = "Assessments", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "Url" },
-				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:targetCompetency", Source = "TargetMiniCompetency", Label = "Competencies", ProfileType = typeof( CredentialAlignmentObjectProfile ), OverrideMapping = new Dictionary<string,string>() { { "TextTitle", "TargetName" }, { "TextValue", "TargetUrl" } } },
-				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:targetCredential", Source = "TargetCredential.Url", Label = "Credentials", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "Url" },
-				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:targetLearningOpportunity", Source = "TargetLearningOpportunity.Url", Label = "Learning Opportunities", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "Url" },
+				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:targetAssessment", Source = "TargetAssessment", Label = "Assessments", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "Url" },
+				new PropertyData() { Type = PropertyType.NUMBER, SchemaName = "ctdl:minimumAge", Source = "MinimumAge", Label = "Minimum Age" },
+				new PropertyData() { Type = PropertyType.NUMBER, SchemaName = "ctdl:yearsOfExperience", Source = "YearsOfExperience", Label = "Years of Experience" },
+				//new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:targetCompetency", Source = "TargetMiniCompetency", Label = "Competencies", ProfileType = typeof( CredentialAlignmentObjectProfile ), OverrideMapping = new Dictionary<string,string>() { { "TextTitle", "TargetName" }, { "TextValue", "TargetUrl" } } },
+				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:targetCompetency", Source = "RequiresCompetencies", Label = "Competencies", ProfileType = typeof( CredentialAlignmentObjectProfile ) },
+				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:targetCredential", Source = "TargetCredential", Label = "Credentials", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "Url" },
+				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:targetLearningOpportunity", Source = "TargetLearningOpportunity", Label = "Learning Opportunities", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "Url" },
 				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:targetTask", Source = "TargetTask", Label = "Tasks", ProfileType = typeof( TaskProfile ) },
 			};
 		}
@@ -328,10 +345,9 @@ namespace Models.JsonV2
 				CommonProperties.ProfileName,
 				CommonProperties.Description,
 				CommonProperties.Jurisdiction,
+				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:revocationCriteria", Source = "RevocationCriteriaUrl", Label = "Revocation Criteria" },
 				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:resourceUrl", Source = "RevocationResourceUrl", Label = "Reference URL", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "TextValue" },
-				new PropertyData() { Type = PropertyType.DATE, SchemaName = "ctdl:startDate", Source = "RemovalDateEffective", Label = "Effective Date" },
-				new PropertyData() { Type = PropertyType.DATE, SchemaName = "ctdl:endDate", Source = "RenewalDateEffective", Label = "Expiration Date" },
-				new PropertyData() { Type = PropertyType.ENUMERATION, SchemaName = "ctdl:revocationCriteriaType", Source = "RevocationCriteriaType", Label = "Revocation Criteria" }
+				new PropertyData() { Type = PropertyType.DATE, SchemaName = "ctdl:dateEffective", Source = "RemovalDateEffective", Label = "Effective Date" },
 			};
 		}
 	}
@@ -390,7 +406,13 @@ namespace Models.JsonV2
 		{
 			Properties = new List<PropertyData>() 
 			{
-				CommonProperties.Description
+				CommonProperties.Description,
+				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:agent", Source = "ActingAgent", Label = "Conditions Asserted By", SourceType = SourceType.FROM_OBJECT, InnerSource = "Url" },
+				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:instrument", Source = "IssuedCredential", Label = "Awarded Credential", SourceType = SourceType.FROM_OBJECT, InnerSource = "Url" },
+				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:object", Source = "TargetOverride", Label = "Quality Assurance Recipient", SourceType = SourceType.FROM_OBJECT, InnerSource = "Url" },
+				new PropertyData() { Type = PropertyType.DATE, SchemaName = "ctdl:startTime", Source = "StartDate", Label = "Start Date" },
+				new PropertyData() { Type = PropertyType.DATE, SchemaName = "ctdl:endTime", Source = "EndDate", Label = "End Date" },
+				new PropertyData() { Type = PropertyType.PARENT_TYPE_OVERRIDE, SchemaName = "ctdl:", Source = "QAAction", Label = "Quality Assurance Type" }
 			};
 		}
 	}
@@ -403,7 +425,12 @@ namespace Models.JsonV2
 			Type = "ctdl:JurisdictionProfile";
 			Properties = new List<PropertyData>()
 			{
-				CommonProperties.Description
+				//No name?
+				CommonProperties.Description,
+				new PropertyData() { Type = PropertyType.BOOLEAN, SchemaName = "ctdl:onlineJurisdiction", Source = "IsOnlineJurisdiction", Label = "Is Online Jurisdiction" },
+				new PropertyData() { Type = PropertyType.BOOLEAN, SchemaName = "ctdl:globalJurisdiction", Source = "IsGlobalJurisdiction", Label = "Is Global Jurisdiction" },
+				new PropertyData() { Type = PropertyType.PROFILE, SchemaName = "ctdl:mainJurisdiction", Source = "MainJurisdiction", Label = "Main Jurisdiction", ProfileType = typeof( GeoCoordinates ) },
+				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ctdl:jurisdictionException", Source = "JurisdictionException", Label = "Jurisdiction Exceptions", ProfileType = typeof( GeoCoordinates ) },
 			};
 		}
 	}
@@ -413,10 +440,17 @@ namespace Models.JsonV2
 	{
 		public AddressProfile()
 		{
-			Type = "ctdl:AddressProfile";
+			Type = "ctdl:PostalAddress";
 			Properties = new List<PropertyData>()
 			{
-				
+				CommonProperties.Name,
+				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:addressCountry", Source = "Country", Label = "Country" },
+				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:addressRegion", Source = "AddressRegion", Label = "State, Province, or Region" },
+				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:addressLocality", Source = "City", Label = "City or Locality" },
+				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:streetAddress", Source = "StreetAddress", Label = "Street Address" },
+				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:postalCode", Source = "PostalCode", Label = "Postal Code" },
+				//Not Implemented
+				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:postOfficeBoxNumber", Source = "", Label = "Post Office Box" }
 			};
 		}
 	}
@@ -426,7 +460,7 @@ namespace Models.JsonV2
 	{
 		public ProcessProfile()
 		{
-			Type = "ProcessProfile";
+			Type = "ctdl:ProcessProfile";
 			Properties = new List<PropertyData>()
 			{
 				CommonProperties.ProfileName,
@@ -440,10 +474,39 @@ namespace Models.JsonV2
 	{
 		public CostProfile()
 		{
-			Type = "ctdl:costProfile";
+			Type = "ctdl:CostProfile";
 			Properties = new List<PropertyData>()
 			{
-				CommonProperties.Description
+				CommonProperties.ProfileName,
+				CommonProperties.Description,
+				CommonProperties.Jurisdiction,
+				new PropertyData() { Type = PropertyType.DATE, SchemaName = "ctdl:startTime", Source = "DateEffective", Label = "Start Date" },
+				new PropertyData() { Type = PropertyType.DATE, SchemaName = "ctdl:endTime", Source = "ExpirationDate", Label = "End Date" },
+				new PropertyData() { Type = PropertyType.URL, SchemaName = "ctdl:resourceUrl", Source = "ReferenceUrl", Label = "Reference URL", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "TextValue" },
+				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:paymentPattern", Source = "PaymentPattern", Label = "Payment Pattern" },
+				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:currency", Source = "Currency", Label = "Currency" },
+				new PropertyData() { Type = PropertyType.NUMBER, SchemaName = "ctdl:price", Source = "Price", Label = "Price" },
+				new PropertyData() { Type = PropertyType.ENUMERATION, SchemaName = "ctdl:costType", Source = "CostType", Label = "Cost Type Type" },
+				new PropertyData() { Type = PropertyType.ENUMERATION, SchemaName = "ctdl:residencyType", Source = "ResidencyType", Label = "Residency Type" },
+				new PropertyData() { Type = PropertyType.ENUMERATION, SchemaName = "ctdl:scheduleType", Source = "EnrollmentType", Label = "Enrollment Type" },
+				new PropertyData() { Type = PropertyType.ENUMERATION, SchemaName = "ctdl:audienceType", Source = "ApplicableAudienceType", Label = "Applicable Audience Type" },
+			};
+		}
+	}
+	//
+
+	public class GeoCoordinates : JsonLDObject
+	{
+		public GeoCoordinates()
+		{
+			Type = "ctdl:GeoCoordinates";
+			Properties = new List<PropertyData>()
+			{
+				CommonProperties.Name,
+				CommonProperties.Url,
+				new PropertyData() { Type = PropertyType.PROFILE, SchemaName = "ctdl:address", Source = "Address", Label = "Address", ProfileType = typeof( AddressProfile ) },
+				new PropertyData() { Type = PropertyType.NUMBER, SchemaName = "ctdl:latitude", Source = "Latitude", Label = "Latitude" },
+				new PropertyData() { Type = PropertyType.NUMBER, SchemaName = "ctdl:longitude", Source = "Longitude", Label = "Longitude" },
 			};
 		}
 	}
@@ -453,10 +516,14 @@ namespace Models.JsonV2
 	{
 		public DurationProfile()
 		{
-			Type = "ctdl:costProfile";
+			Type = "ctdl:DurationProfile";
 			Properties = new List<PropertyData>()
 			{
-				CommonProperties.Description
+				CommonProperties.ProfileName,
+				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "schema:description", Source = "Conditions", Label = "Description" },
+				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:minimumDuration", Source = "MinimumDurationISO8601", Label = "Minimum Duration" },
+				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:maximumDuration", Source = "MaximumDurationISO8601", Label = "Maximum Duration" },
+				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ctdl:exactDuration", Source = "ExactDurationISO8601", Label = "Exact Duration" }
 			};
 		}
 	}
@@ -464,12 +531,12 @@ namespace Models.JsonV2
 
 	public enum PropertyType
 	{
-		TEXT, URL, NUMBER, DATE, ENUMERATION, ENUMERATION_EXTERNAL, PROFILE, PROFILE_LIST, ROLE, TEXTVALUE_LIST
+		TEXT, URL, NUMBER, DATE, BOOLEAN, ENUMERATION, ENUMERATION_EXTERNAL, PROFILE, PROFILE_LIST, ROLE, TEXTVALUE_LIST, PARENT_TYPE_OVERRIDE
 	}
 
 	public enum SourceType
 	{
-		DIRECT, FROM_OBJECT, FROM_OBJECT_LIST
+		DIRECT, FROM_OBJECT, FROM_OBJECT_LIST, FROM_ENUMERATION, FROM_METHOD
 	}
 
 	public class PropertyData
@@ -485,6 +552,7 @@ namespace Models.JsonV2
 			InnerSource = "";
 			InnerFilter = "";
 			OverrideMapping = new Dictionary<string, string>();
+			IsMultiSource = false;
 		}
 		public string SchemaName { get; set; }
 		public string Label { get; set; }
@@ -494,6 +562,7 @@ namespace Models.JsonV2
 		public SourceType SourceType { get; set; }
 		public string InnerSource { get; set; }
 		public string InnerFilter { get; set; }
+		public bool IsMultiSource { get; set; }
 		public Dictionary<string, string> OverrideMapping { get; set; } //Override automatic mapping for properties. Primarily for use with TextValueProfiles when they need to map to an object and not just a string. Values should always take the form of { "MyProperty", "ForeginProperty" } where "MyProperty" belongs to the object that contains the mapping and "ForeignProperty" belongs to the other object (for instance, "MyProperty" might be "TextTitle" and "ForeignProperty" might be "TargetName")
 	}
 

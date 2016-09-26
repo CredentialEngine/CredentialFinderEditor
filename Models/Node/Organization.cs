@@ -16,6 +16,7 @@ namespace Models.Node
 		public string FoundingDay { get; set; }
 		public string Purpose { get; set; }
 		public string ImageUrl { get; set; }
+		public int ManagingOrgId { get; set; }
 
 		//List-based Info
 		[Property( DBName = "OrganizationType", DBType = typeof( Models.Common.Enumeration ) )]

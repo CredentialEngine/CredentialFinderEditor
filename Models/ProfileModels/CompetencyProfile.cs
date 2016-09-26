@@ -8,12 +8,12 @@ namespace Models.ProfileModels
 {
 	public class CompetencyProfile : BaseProfile
 	{
-		public CompetencyProfile()
-		{
-			Name = "";
-			CodeValue = "";
-			Url = "";
-		}
+		//public CompetencyProfile()
+		//{
+		//	Name = "";
+		//	CodeValue = "";
+		//	Url = "";
+		//}
 
 		public int CompetencyFrameworkId { get; set; }
 		public string Name

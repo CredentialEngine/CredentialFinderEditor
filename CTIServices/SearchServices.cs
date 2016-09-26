@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using CTIServices;
+using CF = Factories;
 using Models;
 using Models.Search;
 using Models.Common;
@@ -23,14 +24,14 @@ namespace CTIServices
 			data.Keywords = data.Keywords.Trim();
 
 			//Sanitize input
-			var sortOrder = "relevance";
-			switch ( data.SortOrder )
-			{
-				case "relevance": sortOrder = "relevance"; break;
-				case "alpha": sortOrder = "alpha"; break;
-				default: break;
-			}
-			data.SortOrder = sortOrder;
+			//var sortOrder = "relevance";
+			//switch ( data.SortOrder )
+			//{
+			//	case "relevance": sortOrder = "relevance"; break;
+			//	case "alpha": sortOrder = "alpha"; break;
+			//	default: break;
+			//}
+			//data.SortOrder = sortOrder;
 
 			//Determine search type
 			var searchType = data.SearchType;
@@ -77,6 +78,67 @@ namespace CTIServices
 						return null;
 					}
 			}
+		}
+		//
+
+		//Do an autocomplete
+		public static List<string> DoAutoComplete( string text, string context, string searchType )
+		{
+		var results = new List<string>();
+
+			switch ( searchType.ToLower() )
+			{
+				case "credential":
+					{
+						switch ( context.ToLower() )
+						{
+							//case "mainsearch": return CredentialServices.Autocomplete( text, 10 ).Select( m => m.Name ).ToList();
+							case "mainsearch":
+								return CredentialServices.Autocomplete( text, 10 );
+							//case "competencies":
+							//	return CredentialServices.Autocomplete( text, "competencies", 10 );
+							case "subjects":
+								return Autocomplete_Subjects( CF.CodesManager.ENTITY_TYPE_CREDENTIAL, CF.CodesManager.PROPERTY_CATEGORY_SUBJECT, text, 10 );
+							default: break;
+						}
+						break;
+					}
+				case "organization":
+					{
+						return OrganizationServices.Autocomplete( text, 10 );
+					}
+				case "assessment":
+					{
+						switch ( context.ToLower() )
+						{
+							case "mainsearch":
+								return AssessmentServices.Autocomplete( text, 10 );
+							//case "competencies":
+							//	return AssessmentServices.Autocomplete( text, "competencies", 10 );
+							case "subjects":
+								return Autocomplete_Subjects( CF.CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE, CF.CodesManager.PROPERTY_CATEGORY_SUBJECT, text, 10 );
+							default: break;
+						}
+						break;
+					}
+				case "learningopportunity":
+					{
+						switch ( context.ToLower() )
+						{
+							case "mainsearch":
+								return LearningOpportunityServices.Autocomplete( text, 10 );
+							//case "competencies":
+							//	return LearningOpportunityServices.Autocomplete( text, "competencies", 10 );
+							case "subjects":
+								return Autocomplete_Subjects( CF.CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, CF.CodesManager.PROPERTY_CATEGORY_SUBJECT, text, 10 );
+							default: break;
+						}
+						break;
+					}
+				default: break;
+			}
+
+			return results;
 		}
 		//
 
@@ -247,5 +309,162 @@ namespace CTIServices
 			return result;
 		}
 		//
+
+		public static List<string> Autocomplete_Subjects( int entityTypeId, int categoryId, string keyword, int maxTerms = 25 )
+		{
+			//tough to do the user specific stuff
+
+			//int userId = 0;
+			//string where = "";
+			//int pTotalRows = 0;
+			//AppUser user = AccountServices.GetCurrentUser();
+			//if ( user != null && user.Id > 0 )
+			//	userId = user.Id;
+			//SetAuthorizationFilter( user, ref where );
+
+			List<string> list =
+			CF.Entity_ReferenceManager.QuickSearch_TextValue( entityTypeId, categoryId, keyword, maxTerms );
+
+			return list;
+		}
+
+		#region Common filters
+		/// <summary>
+		/// Generic
+		/// </summary>
+		/// <param name="data"></param>
+		/// <param name="where"></param>
+		public static void SetSubjectsFilter( MainSearchInput data, string entity, ref string where )
+		{
+			string subjects = " (base.RowId in (SELECT b.EntityUid FROM [dbo].[Entity.Reference] a inner join Entity b on a.EntityId = b.Id inner join {0} c on b.EntityUid = c.RowId where [CategoryId] = 34 and ({1}) )) ";
+			string phraseTemplate = " (a.TextValue like '%{0}%') ";
+
+			string AND = "";
+			string OR = "";
+			string keyword = "";
+
+			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.Name == "subjects" ) )
+			{
+				string next = "";
+				if ( where.Length > 0 )
+					AND = " AND ";
+				foreach ( string item in filter.Items )
+				{
+					keyword = ServiceHelper.HandleApostrophes( item );
+					if ( keyword.IndexOf( ";" ) > -1 )
+					{
+						var words = keyword.Split( ';' );
+						foreach ( string word in words )
+						{
+							next += OR + string.Format( phraseTemplate, word.Trim() );
+							OR = " OR ";
+						}
+					}
+					else
+					{
+						next = string.Format( phraseTemplate, keyword.Trim() );
+					}
+					//next += keyword;	//					+",";
+					//just handle one for now
+					break;
+				}
+				//next = next.Trim( ',' );
+				if ( !string.IsNullOrWhiteSpace( next ) )
+					where = where + AND + string.Format( subjects, entity, next );
+
+				break;
+			}
+		}
+		public static void SetSubjectsAutocompleteFilter( string keywords, string entity, ref string where )
+		{
+			string subjects = " (base.RowId in (SELECT b.EntityUid FROM [dbo].[Entity.Reference] a inner join Entity b on a.EntityId = b.Id inner join {0} c on b.EntityUid = c.RowId where [CategoryId] = 34 and a.TextValue like '{1}' )) ";
+
+			string AND = "";
+			keywords = ServiceHelper.HandleApostrophes( keywords );
+			if ( keywords.IndexOf( "%" ) == -1 )
+				keywords = "%" + keywords.Trim() + "%";
+
+			where = where + AND + string.Format( " ( " + subjects + " ) ", entity, keywords );
+		}
+		public static void SetBoundariesFilter( MainSearchInput data, ref string where )
+		{
+			string AND = "";
+			if ( where.Length > 0 )
+				AND = " AND ";
+			string template = " ( base.RowId in ( SELECT  b.EntityUid FROM [dbo].[Entity.Address] a inner join Entity b on a.EntityId = b.Id    where [Longitude] < {0} and [Longitude] > {1} and [Latitude] < {2} and [Latitude] > {3} ) ) ";
+
+			var boundaries = SearchServices.GetBoundaries( data, "bounds" );
+			if ( boundaries.IsDefined )
+			{
+				where = where + AND + string.Format( template, boundaries.East, boundaries.West, boundaries.North, boundaries.South );
+			}
+		}
+		//
+		public static void SetRolesFilter( MainSearchInput data, ref string where )
+		{
+			string AND = "";
+			if ( where.Length > 0 )
+				AND = " AND ";
+			string template = " ( base.RowId in ( SELECT distinct b.EntityUid FROM [dbo].[Entity.AgentRelationship] a inner join Entity b on a.EntityId = b.Id   where [RelationshipTypeId] in ({0})   ) ) ";
+
+			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.CategoryId == 13  ) )
+			{
+				string next = "";
+				if ( where.Length > 0 )
+					AND = " AND ";
+				foreach ( string item in filter.Items )
+				{
+					next += item + ",";
+				}
+				next = next.Trim( ',' );
+				where = where + AND + string.Format( template, next );
+			}
+		}
+
+		public static void SetOrgRolesFilter( MainSearchInput data, ref string where )
+		{
+			string AND = "";
+			if ( where.Length > 0 )
+				AND = " AND ";
+			string template = " ( base.RowId in ( SELECT distinct EntityUid FROM [dbo].[Entity.AgentRelationship] a inner join Entity b on a.EntityId = b.Id   where [RelationshipTypeId] in ({0})   ) ) ";
+
+			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.CategoryId == 13 ) )
+			{
+				string next = "";
+				if ( where.Length > 0 )
+					AND = " AND ";
+				foreach ( string item in filter.Items )
+				{
+					next += item + ",";
+				}
+				next = next.Trim( ',' );
+				where = where + AND + string.Format( template, next );
+			}
+		}
+
+		private static void SetAuthorizationFilter( AppUser user, string summaryView, ref string where )
+		{
+			string AND = "";
+			if ( where.Length > 0 )
+				AND = " AND ";
+			if ( user == null || user.Id == 0 )
+			{
+				//public only records
+				where = where + AND + string.Format( " (base.StatusId = {0}) ", CF.CodesManager.ENTITY_STATUS_PUBLISHED );
+				return;
+			}
+
+			if ( AccountServices.IsUserSiteStaff( user )
+			  || AccountServices.CanUserViewAllContent( user ) )
+			{
+				//can view all, edit all
+				return;
+			}
+
+			//can only view where status is published, or associated with 
+			where = where + AND + string.Format( "((base.StatusId = {0}) OR (base.Id in (SELECT cs.Id FROM [dbo].[Organization.Member] om inner join [{1}] cs on om.ParentOrgId = cs.ManagingOrgId where userId = {2}) ))", CF.CodesManager.ENTITY_STATUS_PUBLISHED, summaryView,user.Id );
+
+		}
+		#endregion 
 	}
 }

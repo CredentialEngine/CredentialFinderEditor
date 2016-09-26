@@ -16,18 +16,18 @@ using Views = Data.Views;
 using Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
 using DBentity = Data.Credential_ConnectionProfile;
-using Entity = Models.ProfileModels.ConditionProfile;
+using ThisEntity = Models.ProfileModels.ConditionProfile;
 
 namespace Factories
 {
 	public class ConnectionProfileManager : BaseFactory
 	{
 		static string thisClassName = "ConditionProfileManager";
-		static int ConnectionProfileType_Requirement = 1;
-		static int ConnectionProfileType_Recommendation = 2;
-		static int ConnectionProfileType_NextIsRequiredFor = 3;
-		static int ConnectionProfileType_NextIsRecommendedFor = 4;
-		static int ConnectionProfileType_Renewal = 5;
+		public static int ConnectionProfileType_Requirement = 1;
+		public static int ConnectionProfileType_Recommendation = 2;
+		public static int ConnectionProfileType_NextIsRequiredFor = 3;
+		public static int ConnectionProfileType_NextIsRecommendedFor = 4;
+		public static int ConnectionProfileType_Renewal = 5;
 
 		#region persistance ==================
 		public bool Credential_UpdateCondition( Credential credential, string type, ref List<string> messages, ref int count )
@@ -247,7 +247,7 @@ namespace Factories
 		/// <param name="entity"></param>
 		/// <param name="statusMessage"></param>
 		/// <returns></returns>
-		public int Entity_Add(Credential credential, Entity entity, ref List<String> messages )
+		public int Entity_Add(Credential credential, ThisEntity entity, ref List<String> messages )
 		{
 			DBentity efEntity = new DBentity();
 			entity.ParentId = credential.Id;
@@ -313,7 +313,7 @@ namespace Factories
 			return efEntity.Id;
 		}
 
-		public bool UpdateParts( Entity entity, ref List<String> messages )
+		public bool UpdateParts( ThisEntity entity, ref List<String> messages )
 		{
 			bool isAllValid = true;
 		
@@ -440,19 +440,30 @@ namespace Factories
 		public static void FillProfiles( EM.Credential fromEntity, Credential to, bool forEditView = false )
 		{
 			to.InitializeConnectionProfiles();
-			ConditionProfile entity = new Entity();
+			ConditionProfile entity = new ThisEntity();
 			using ( var context = new Data.CTIEntities() )
 			{
-				List<EM.Credential_ConnectionProfile> results = context.Credential_ConnectionProfile
-						.Where( s => s.CredentialId == to.Id )
-						.OrderBy( s => s.CredentialId ).ThenBy(s => s.ConnectionTypeId).ThenBy(s => s.Created)
-						.ToList();
+				List<EM.Credential_ConnectionProfile> results = new List<DBentity>();
+
+				//credential should already have the conditions
+				//the order should not matter
+				if ( fromEntity.Credential_ConnectionProfile != null && fromEntity.Credential_ConnectionProfile.Count > 0 )
+				{
+					results = fromEntity.Credential_ConnectionProfile.ToList();
+				}
+				//else
+				//{
+				//	results = context.Credential_ConnectionProfile
+				//		.Where( s => s.CredentialId == to.Id )
+				//		.OrderBy( s => s.CredentialId ).ThenBy( s => s.ConnectionTypeId ).ThenBy( s => s.Created )
+				//		.ToList();
+				//}
 
 				if ( results != null && results.Count > 0 )
 				{
 					foreach ( EM.Credential_ConnectionProfile item in results )
 					{
-						entity = new Entity();
+						entity = new ThisEntity();
 						ToMap( item, entity, true, true, forEditView );
 
 						if ( entity.HasCompetencies || entity.ChildHasCompetencies )
@@ -483,12 +494,12 @@ namespace Factories
 		/// <param name="includeProperties">If true (default), include properties</param>
 		/// /// <param name="incudingResources">If true, include resources like assessments, learning opps,</param>
 		/// <returns></returns>
-		public static Entity ConditionProfile_Get( int id, 
+		public static ThisEntity ConditionProfile_Get( int id, 
 				bool includeProperties = true,
 				bool incudingResources = false, 
 				bool forEditView = false )
 		{
-			Entity entity = new Entity();
+			ThisEntity entity = new ThisEntity();
 			using ( var context = new Data.CTIEntities() )
 			{
 
@@ -528,7 +539,33 @@ namespace Factories
 
 			return entity;
 		}
-		private static void FromMap( Entity fromEntity, DBentity to )
+		public static ThisEntity GetAs_IsPartOf( Guid rowId )
+		{
+			ThisEntity entity = new ThisEntity();
+
+			using ( var context = new Data.CTIEntities() )
+			{
+				DBentity item = context.Credential_ConnectionProfile
+						.SingleOrDefault( s => s.RowId == rowId );
+
+				if ( item != null && item.Id > 0 )
+				{
+					entity.Id = item.Id;
+					entity.RowId = item.RowId;
+					entity.ParentId = item.CredentialId;
+
+					if ( !string.IsNullOrWhiteSpace( item.Name ) )
+						entity.ProfileName = item.Name;
+					else
+						entity.ProfileName = item.Codes_PropertyValue.Title + " ( for " + item.Credential + " )";
+
+					entity.Description = item.Description;
+				}
+			}
+
+			return entity;
+		}
+		private static void FromMap( ThisEntity fromEntity, DBentity to )
 		{
 
 			//want to ensure fields from create are not wiped
@@ -562,8 +599,8 @@ namespace Factories
 
 			to.Experience = fromEntity.Experience;
 
-			if ( fromEntity.IsNewVersion )
-			{
+			//if ( fromEntity.IsNewVersion )
+			//{
 				//don't overwrite properties not in the interface
 				if ( fromEntity.ApplicableAudienceType != null )
 					to.OtherAudienceType = fromEntity.ApplicableAudienceType.OtherValue ?? "";
@@ -576,17 +613,17 @@ namespace Factories
 					to.OtherCredentialType = "";
 
 				to.MinimumAge = fromEntity.MinimumAge;
+				to.YearsOfExperience = fromEntity.YearsOfExperience;
+			//}
+			//else
+			//{
 
-			}
-			else
-			{
+			//	to.OtherAudienceType = fromEntity.OtherAudienceType;
+			//	to.OtherCredentialType = fromEntity.OtherCredentialType;
 
-				to.OtherAudienceType = fromEntity.OtherAudienceType;
-				to.OtherCredentialType = fromEntity.OtherCredentialType;
-
-				to.MinimumAge = fromEntity.MinimumAge;
-				//to.TargetCredentials = GetMessages( fromEntity.RequiredCredential );
-			}
+			//	to.MinimumAge = fromEntity.MinimumAge;
+			//	//to.RequiredCredentials = GetMessages( fromEntity.RequiredCredential );
+			//}
 			
 			//to.DateEffective = DateTime.Parse( fromEntity.DateEffective);
 			if ( IsValidDate( fromEntity.DateEffective ) )
@@ -596,7 +633,7 @@ namespace Factories
 
 
 		}
-		private static void ToMap( DBentity fromEntity, Entity to
+		public static void ToMap( DBentity fromEntity, ThisEntity to
 				,bool includingProperties = false
 				,bool incudingResources = false
 				,bool forEditView = false)
@@ -620,8 +657,10 @@ namespace Factories
 
 			to.Experience = fromEntity.Experience;
 			to.MinimumAge = GetField(fromEntity.MinimumAge, 0);
+			to.YearsOfExperience = GetField(fromEntity.YearsOfExperience, 0m);
 
-			//to.RequiredCredential = CommaSeparatedListToStringList( fromEntity.TargetCredentials );
+
+			//to.RequiredCredential = CommaSeparatedListToStringList( fromEntity.RequiredCredentials );
 			to.OtherAudienceType = fromEntity.OtherAudienceType;
 			to.OtherCredentialType = fromEntity.OtherCredentialType;
 
@@ -661,7 +700,7 @@ namespace Factories
 
 				to.ResidentOf = RegionsManager.Jurisdiction_GetAll( to.RowId, RegionsManager.JURISDICTION_PURPOSE_RESIDENT );
 
-				to.TargetCredential = Entity_CredentialManager.GetAll( to.RowId );
+				to.RequiredCredential = Entity_CredentialManager.GetAll( to.RowId );
 			}
 
 			if ( incudingResources )
@@ -684,10 +723,11 @@ namespace Factories
 			}
 		}
 
+		
 		#endregion
 
 
-		//private static void FillCredentialType( DBentity fromEntity, Entity to )
+		//private static void FillCredentialType( DBentity fromEntity, ThisEntity to )
 		//{
 		//	to.CredentialType = CodesManager.GetEnumeration( CodesManager.PROPERTY_CATEGORY_CREDENTIAL_TYPE );
 			
@@ -724,7 +764,7 @@ namespace Factories
 
 		//}
 
-		//private static void FillAudienceType( DBentity fromEntity, Entity to )
+		//private static void FillAudienceType( DBentity fromEntity, ThisEntity to )
 		//{
 		//	to.ApplicableAudienceType = CodesManager.GetEnumeration( CodesManager.PROPERTY_CATEGORY_AUDIENCE_TYPE );
 
@@ -762,7 +802,7 @@ namespace Factories
 		//}
 
 		#region == Assessments =======================
-		//private static void FillAssessments( DBentity fromEntity, Entity to )
+		//private static void FillAssessments( DBentity fromEntity, ThisEntity to )
 		//{
 		//	to.TargetAssessment = new List<AssessmentProfile>();
 		//	to.TargetAssessment = Entity_AssessmentManager.EntityAssessments_GetAll( to.RowId );

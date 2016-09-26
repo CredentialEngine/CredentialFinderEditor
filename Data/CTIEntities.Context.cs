@@ -77,6 +77,10 @@ namespace Data
         public virtual DbSet<Person> Person { get; set; }
         public virtual DbSet<AspNetUser_Import> AspNetUser_Import { get; set; }
         public virtual DbSet<Entity_Address> Entity_Address { get; set; }
+        public virtual DbSet<Entity_JurisdictionProfile> Entity_JurisdictionProfile { get; set; }
+        public virtual DbSet<Entity_CompetencyFramework> Entity_CompetencyFramework { get; set; }
+        public virtual DbSet<Entity_CompetencyFrameworkItem> Entity_CompetencyFrameworkItem { get; set; }
+        public virtual DbSet<Entity_ConditionProfile> Entity_ConditionProfile { get; set; }
     
         public virtual int OrganizationSearch(string filter, string sortOrder, Nullable<int> startPageIndex, Nullable<int> pageSize, Nullable<int> currentUserId, ObjectParameter totalRows)
         {

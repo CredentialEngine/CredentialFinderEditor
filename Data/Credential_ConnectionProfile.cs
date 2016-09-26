@@ -31,7 +31,9 @@ namespace Data
         public string TargetCredentials { get; set; }
         public string OtherAudienceType { get; set; }
         public string OtherCredentialType { get; set; }
+        public Nullable<decimal> YearsOfExperience { get; set; }
     
         public virtual Credential Credential { get; set; }
+        public virtual Codes_PropertyValue Codes_PropertyValue { get; set; }
     }
 }

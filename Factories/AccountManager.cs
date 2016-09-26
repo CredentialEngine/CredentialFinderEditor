@@ -406,7 +406,7 @@ namespace Factories
 		public static List<AppUser> ImportUsers_GetAll( int maxRecords = 0 )
 		{
 			if ( maxRecords == 0 )
-				maxRecords = 50;
+				maxRecords = 60;
 			int pTotalRows = 0;
 			AppUser item = new AppUser();
 			List<AppUser> list = new List<AppUser>();
@@ -437,12 +437,11 @@ namespace Factories
 						list.Add( item );
 
 					}
-
 				}
 			}
 			return list;
 		}
-		public bool ImportUsers_Update( int importId, int userId, ref string statusMessage )
+		public bool ImportUsers_Update( int importId, int userId, string initialPassword, ref string statusMessage )
 		{
 			using ( var context = new EM.CTIEntities() )
 			{
@@ -455,12 +454,29 @@ namespace Factories
 					{
 						efEntity.IsImported = true;
 						efEntity.UserId = userId;
-
+						efEntity.InitialPassword = initialPassword;
 						// submit the change to database
 						int count = context.SaveChanges();
 						if ( count > 0 )
 						{
 							statusMessage = "successful";
+
+							//set email confirmed
+							EM.AspNetUsers acct = context.Account
+							.SingleOrDefault( s => s.Id == userId )
+							.AspNetUsers;
+							if ( acct != null && acct.UserId > 0 )
+							{
+								acct.EmailConfirmed = true;
+								count = context.SaveChanges();
+								if ( count == 0 )
+								{
+									//?no info on error
+									statusMessage = "Error - the update to set EmailConfirmed was not successful. ";
+									string message = string.Format( thisClassName + ".ImportUsers_Update Failed to update EmailConfirmed", "Attempted to update AspNetUsers email confirmed. The process appeared to not work, but was not an exception, so we have no message, or no clue.Email: {0}", userId );
+									EmailManager.NotifyAdmin( thisClassName + "AspNetUsers_Update Failed to update EmailConfirmed", message );
+								}
+							}
 							return true;
 						}
 						else

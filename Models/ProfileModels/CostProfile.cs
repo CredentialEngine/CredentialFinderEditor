@@ -70,4 +70,26 @@ namespace Models.ProfileModels
 	}
 	//
 
+	//Used for publishing
+	public class CostProfileMerged : BaseProfile
+	{
+		public CostProfileMerged()
+		{
+			CostType = new Enumeration();
+			ResidencyType = new Enumeration();
+			EnrollmentType = new Enumeration();
+			ApplicableAudienceType = new Enumeration();
+			ReferenceUrl = new List<TextValueProfile>();
+		}
+		public Enumeration CostType { get; set; }
+		public Enumeration ResidencyType { get; set; }
+		public Enumeration EnrollmentType { get; set; }
+		public Enumeration ApplicableAudienceType { get; set; }
+		public List<TextValueProfile> ReferenceUrl { get; set; }
+		public string PaymentPattern { get; set; }
+		public string Currency { get; set; }
+		public string ExpirationDate { get; set; }
+		public decimal Price { get; set; }
+	}
+	//
 }

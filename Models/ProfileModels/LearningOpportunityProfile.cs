@@ -23,6 +23,7 @@ namespace Models.ProfileModels
 			InstructionalProgramCategory = new Enumeration();
 			HasPart = new List<LearningOpportunityProfile>();
 			IsPartOf = new List<LearningOpportunityProfile>();
+			IsPartOfConditionProfile = new List<ConditionProfile>();
 			OrganizationRole = new List<OrganizationRoleProfile>();
 			QualityAssuranceAction = new List<QualityAssuranceActionProfile>();
 			WhereReferenced = new List<string>();
@@ -30,6 +31,8 @@ namespace Models.ProfileModels
 			Subjects = new List<TextValueProfile>();
 			Keywords = new List<TextValueProfile>();
 			Addresses = new List<Address>();
+			Requires = new List<ConditionProfile>();
+			IsPartOfConditionProfile = new List<ConditionProfile>();
 		}
 
 		public string Name { get; set; }
@@ -53,17 +56,28 @@ namespace Models.ProfileModels
 		public Enumeration LearningOpportunityDeliveryType { get; set; }
 		public Enumeration InstructionalProgramCategory { get; set; }
 
-		//public List<TextValueProfile> LearningCompetencies { get; set; }
-		public List<CredentialAlignmentObjectProfile> TeachesCompetencies { get; set; }
-		public List<CredentialAlignmentObjectProfile> RequiresCompetencies { get; set; }
+
 		public List<LearningOpportunityProfile> HasPart { get; set; }
 		public List<LearningOpportunityProfile> IsPartOf { get; set; }
+
 		public List<OrganizationRoleProfile> OrganizationRole { get; set; }
 		public List<QualityAssuranceActionProfile> QualityAssuranceAction { get; set; }
 		public List<TextValueProfile> Keywords { get; set; }
 		public List<TextValueProfile> Subjects { get; set; }
 		public List<string> WhereReferenced { get; set; }
 		public List<Address> Addresses { get; set; }
+
+		public List<ConditionProfile> Requires { get; set; }
+		public List<ConditionProfile> IsPartOfConditionProfile { get; set; }
+
+		//public List<TextValueProfile> LearningCompetencies { get; set; }
+		public List<CredentialAlignmentObjectProfile> TeachesCompetencies { get; set; }
+		public List<CredentialAlignmentObjectProfile> RequiresCompetencies { get; set; }
+		public List<CredentialAlignmentObjectProfile> TargetCompetency { get { return TeachesCompetencies.Concat( RequiresCompetencies ).ToList(); } }
+
+
+		public List<CredentialAlignmentObjectFrameworkProfile> TeachesCompetenciesFrameworks { get; set; }
+		public List<CredentialAlignmentObjectFrameworkProfile> RequiresCompetenciesFrameworks { get; set; }
 	}
 	//
 

@@ -374,13 +374,13 @@ namespace CTIServices
 					jurisdiction = GetJsonLDJurisdictions( profile.Jurisdiction ),
 					residentOf = GetJsonLDJurisdictions( profile.Jurisdiction ),
 					targetTask = GetJsonLDTaskProfiles( profile.TargetTask ),
-					targetCompetency = profile.TargetCompetency != null ? profile.TargetCompetency.Select( m => m.Url ).ToList() : null,
+					
 					targetAssessment = GetJsonLDAssessmentProfiles( profile.TargetAssessment ),
 					targetLearningOpportunity = profile.TargetLearningOpportunity != null ? profile.TargetLearningOpportunity.Select( m => m.Url ).ToList() : null,
-					targetCredential = profile.TargetCredential != null ? profile.TargetCredential.Select( m => m.Url ).ToList() : null,
+					targetCredential = profile.RequiredCredential != null ? profile.RequiredCredential.Select( m => m.Url ).ToList() : null,
 				} );
 			}
-
+			//targetCompetency = profile.TargetCompetency != null ? profile.TargetCompetency.Select( m => m.Url ).ToList() : null,
 			return output;
 		}
 		//
@@ -591,6 +591,7 @@ namespace CTIServices
 			var result = new Dictionary<string, object>();
 
 			result.Add( "@context", jsonTemplate.Context );
+			FixQAActionProfiles( data );
 
 			ConvertToJson( data, jsonTemplate, roleCodes, result );
 
@@ -605,48 +606,6 @@ namespace CTIServices
 
 			result.Add( "@type", jsonTemplate.Type );
 
-			//Add roles
-			try
-			{
-				//Get all role profiles for the object
-				var roleProfiles = dataProperties.Where( m => m.PropertyType == typeof( List<PM.OrganizationRoleProfile> ) )
-					.SelectMany( m => ( List<PM.OrganizationRoleProfile> ) m.GetValue( data ) ).ToList();
-
-				//For each role profile...
-				foreach ( var roleProfile in roleProfiles )
-				{
-					try
-					{
-						//Populate agent
-						if ( roleProfile.ActingAgent == null || roleProfile.ActingAgent.Id == 0 )
-						{
-							roleProfile.ActingAgent = OrganizationServices.GetLightOrgByRowId( roleProfile.ActingAgentUid.ToString() );
-						}
-
-						//Match and add roles
-						foreach ( var role in roleProfile.AgentRole.Items )
-						{
-							var matchedRole = roleCodes.FirstOrDefault( m => m.Id == role.Id );
-							//Control roles - maybe not necessary?
-							if ( jsonProperties.FirstOrDefault( m => m.SchemaName == matchedRole.SchemaName ) != null )
-							{
-								//Add the agent URL, and the role, if necessary
-								if ( result[ matchedRole.SchemaName ] == null )
-								{
-									result.Add( matchedRole.SchemaName, new List<string>() { roleProfile.ActingAgent.Url } );
-								}
-								else
-								{
-									( ( List<string> ) result[ matchedRole.SchemaName ] ).Add( roleProfile.ActingAgent.Url );
-								}
-							}
-						}
-					}
-					catch { }
-				}
-			}
-			catch { }
-
 			//Convert the properties
 			foreach ( var property in jsonTemplate.Properties )
 			{
@@ -659,24 +618,59 @@ namespace CTIServices
 					{
 						case V2.PropertyType.TEXT:
 						case V2.PropertyType.NUMBER:
+						case V2.PropertyType.URL:
 							{
-								var test = (string) sourceValue;
-								if ( !string.IsNullOrWhiteSpace( test ) && test != "0" && test != "0.0" )
+								switch ( property.SourceType )
 								{
-									result.Add( property.SchemaName, sourceValue );
-								}
-								break;
-							}
+									case V2.SourceType.DIRECT:
+										{
+											AddBasicData( result, sourceValue, property.SchemaName, property.Type );
+											break;
+										}
 
-						case V2.PropertyType.DATE:
-							{
-								var test = ( string ) sourceValue;
-								if ( !string.IsNullOrWhiteSpace( test ) )
-								{
-									result.Add( property.SchemaName, GetIso8601Date( test ) );
+									case V2.SourceType.FROM_OBJECT:
+										{
+											var innerSource = sourceValue.GetType().GetProperties().FirstOrDefault( m => m.Name == property.InnerSource );
+											AddBasicData( result, innerSource.GetValue( sourceValue ), property.SchemaName, property.Type );
+											break;
+										}
+
+									case V2.SourceType.FROM_OBJECT_LIST:
+										{
+											var itemList = ( List<object> ) ( sourceValue as IEnumerable<object> ).Cast<dynamic>().ToList();
+											var test = new List<string>();
+											foreach ( var item in itemList )
+											{
+												var innerSource = item.GetType().GetProperties().FirstOrDefault( m => m.Name == property.InnerSource );
+												var testItem = ( string ) innerSource.GetValue( item );
+												if ( !string.IsNullOrWhiteSpace( testItem ) )
+												{
+													test.Add( testItem );
+												}
+											}
+											if ( test.Count() > 0 )
+											{
+												result.Add( property.SchemaName, test );
+											}
+											break;
+										}
+
+									case V2.SourceType.FROM_METHOD:
+										{
+											sourceValue = typeof( JsonLDServices ).GetMethod( property.InnerSource ).Invoke( this, new object[] { sourceValue } );
+											break;
+										}
+
+									default: break;
 								}
-								break;
 							}
+							break;
+
+						case V2.PropertyType.BOOLEAN:
+							{
+								result.Add( property.SchemaName, sourceValue );
+							}
+							break;
 
 						case V2.PropertyType.ENUMERATION:
 							{
@@ -748,6 +742,13 @@ namespace CTIServices
 									catch { }
 								}
 
+								//Apply override method
+								if ( property.SourceType == V2.SourceType.FROM_METHOD )
+								{
+									sourceValue = typeof( JsonLDServices ).GetMethod( property.InnerSource ).Invoke( this, new object[] { sourceValue } );
+								}
+
+								//Do the conversion
 								foreach ( var profile in ( sourceValue as IEnumerable<object> ).Cast<dynamic>().ToList() )
 								{
 									var newResult = new Dictionary<string, object>();
@@ -764,59 +765,173 @@ namespace CTIServices
 							}
 							break;
 
-						case V2.PropertyType.URL:
+						case V2.PropertyType.ROLE:
+							{
+								var test = ( List<OrganizationRoleProfile> ) sourceValue;
+								var items = new List<string>();
+								if ( result.ContainsKey( property.SchemaName ) )
+								{
+									items = ( List<string> ) result[ property.SchemaName ];
+								}
+								var matches = test.Where( m => m.AgentRole.Items.Where( n => n.SchemaName.Contains( property.SchemaName ) ).Count() > 0 ).Select( m => m.ActingAgent.Url ).ToList();
+								foreach ( var match in matches )
+								{
+									if ( !items.Contains( match ) ) 
+									{
+										items.Add( match );
+									}
+								}
+								if ( result.ContainsKey( property.SchemaName ) )
+								{
+									result[ property.SchemaName ] = items;
+								}
+								else
+								{
+									if ( items.Count() > 0 )
+									{
+										result.Add( property.SchemaName, items );
+									}
+								}
+							}
+						break;
+
+						case V2.PropertyType.PARENT_TYPE_OVERRIDE:
 							{
 								switch ( property.SourceType )
 								{
 									case V2.SourceType.DIRECT:
 										{
-											var test = ( string ) sourceValue;
-											if ( !string.IsNullOrWhiteSpace( test ) )
-											{
-												result.Add( property.SchemaName, test );
-											}
-											break;
-										}
-											
-									case V2.SourceType.FROM_OBJECT:
-										{
-											var innerSource = sourceValue.GetType().GetProperties().FirstOrDefault( m => m.Name == property.InnerSource );
-											var test = (string) innerSource.GetValue( sourceValue );
-											if ( !string.IsNullOrWhiteSpace( test ) )
-											{
-												result.Add( property.SchemaName, test );
-											}
+											result[ "@type" ] = ( string ) sourceValue;
 											break;
 										}
 
-									case V2.SourceType.FROM_OBJECT_LIST:
+									case V2.SourceType.FROM_METHOD:
 										{
-											var itemList = (List<object>) ( sourceValue as IEnumerable<object> ).Cast<dynamic>().ToList();
-											var test = new List<string>();
-											foreach ( var item in itemList )
-											{
-												var innerSource = item.GetType().GetProperties().FirstOrDefault( m => m.Name == property.InnerSource );
-												var testItem = ( string ) innerSource.GetValue( item );
-												if ( !string.IsNullOrWhiteSpace( testItem ) )
-												{
-													test.Add( testItem );
-												}
-											}
-											if( test.Count() > 0 )
-											{
-												result.Add( property.SchemaName, test );
-											}
+											result[ "@type" ] = typeof( JsonLDServices ).GetMethod( property.InnerSource ).Invoke( this, new object[] { sourceValue } );
 											break;
 										}
 
+									case V2.SourceType.FROM_ENUMERATION:
+										{
+											var test = ( Models.Common.Enumeration ) sourceValue;
+											var item = test.Items.FirstOrDefault( m => test.Items.Count() == 1 || m.Selected == true );
+											if ( item != null )
+											{
+												result[ "@type" ] = item.SchemaName;
+											}
+											break;
+										}
 									default: break;
 								}
 							}
 						break;
+
 						default: break;
 					}
 				}
 		
+				catch { }
+			}
+		}
+		//
+
+		public void AddBasicData( Dictionary<string, object> result, object sourceValue, string propertyName, V2.PropertyType type )
+		{
+			switch ( type )
+			{
+				case V2.PropertyType.TEXT: 
+				case V2.PropertyType.URL:
+				case V2.PropertyType.DATE:
+					{
+						var test = ( string ) sourceValue;
+						if ( !string.IsNullOrWhiteSpace( test ) )
+						{
+							if ( type == V2.PropertyType.DATE )
+							{
+								result.Add( propertyName, GetIso8601Date( test ) );
+							}
+							else
+							{
+								result.Add( propertyName, test );
+							}
+						}
+						break;
+					}
+				case V2.PropertyType.NUMBER:
+					{
+						if ( ( dynamic ) sourceValue != 0 )
+						{
+							result.Add( propertyName, sourceValue );
+						}
+						break;
+					}
+				default: break;
+			}
+		}
+		//
+
+		public List<Models.Common.GeoCoordinates> WrapAddress( object data )
+		{
+			var result = new List<Models.Common.GeoCoordinates>();
+			
+			foreach ( var address in data as List<Address>  )
+			{
+				result.Add( new CM.GeoCoordinates()
+				{
+					Address = address,
+					Latitude = address.Latitude,
+					Longitude = address.Longitude
+				} );
+			}
+
+			return result;
+		}
+		//
+
+		public List<Models.ProfileModels.CostProfileMerged> FlattenCosts( object data )
+		{
+			var result = new List<Models.ProfileModels.CostProfileMerged>();
+
+			foreach ( var cost in data as List<CostProfile> )
+			{
+				foreach ( var costItem in cost.Items )
+				{
+					result.Add( new CostProfileMerged()
+					{
+						ProfileName = cost.ProfileName,
+						Description = cost.Description,
+						DateEffective = cost.DateEffective,
+						ExpirationDate = cost.ExpirationDate,
+						ReferenceUrl = cost.ReferenceUrl,
+						Currency = ( cost.CurrencyTypes.Items.FirstOrDefault( m => m.Selected == true || m.CodeId == cost.CurrencyTypeId ) ?? cost.CurrencyTypes.Items.First() ).Name,
+						Jurisdiction = cost.Jurisdiction,
+						CostType = costItem.CostType,
+						ResidencyType = costItem.ResidencyType,
+						EnrollmentType = costItem.EnrollmentType,
+						ApplicableAudienceType = costItem.ApplicableAudienceType,
+						PaymentPattern = costItem.PaymentPattern,
+						Price = costItem.Price
+					} );
+				}
+			}
+
+			return result;
+		}
+		//
+
+		public void FixQAActionProfiles( object data )
+		{
+			var qaList = data.GetType().GetProperties().FirstOrDefault( m => m.Name == "QualityAssuranceAction" );
+			foreach ( var item in qaList.GetValue(data) as List<QualityAssuranceActionProfile> )
+			{
+				try
+				{
+					item.TargetOverride = data;
+					var credentialData = CredentialServices.GetLightCredentialById( item.IssuedCredentialId );
+					item.IssuedCredential = new Models.Common.Credential() { Id = credentialData.Id, Url = credentialData.Url, Name = credentialData.Name };
+					item.ActingAgent = OrganizationServices.GetLightOrgByRowId( item.ActingAgentUid.ToString() );
+					item.QAAction = "ctdl:" + new EnumerationServices().GetCredentialAgentQAActions( EnumerationType.CUSTOM, data.GetType().Name ).Items.FirstOrDefault( m => m.CodeId == item.RoleTypeId ).Name.Split( new string[] { "ed By" }, StringSplitOptions.RemoveEmptyEntries )[ 0 ] + "Action";
+				}
 				catch { }
 			}
 		}

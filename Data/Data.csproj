@@ -173,6 +173,15 @@
     <Compile Include="Entity_Competency.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
+    <Compile Include="Entity_CompetencyFramework.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_CompetencyFrameworkItem.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_ConditionProfile.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
     <Compile Include="Entity_CostProfile.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
@@ -186,6 +195,9 @@
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
     <Compile Include="Entity_FrameworkItem.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_JurisdictionProfile.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
     <Compile Include="Entity_LearningOpportunity.cs">
@@ -325,9 +337,6 @@
       <DependentUpon>CTI_Views.tt</DependentUpon>
     </Compile>
     <Compile Include="Views\Entity_Summary.cs">
-      <DependentUpon>CTI_Views.tt</DependentUpon>
-    </Compile>
-    <Compile Include="Views\JurisdictionProfile_Summary.cs">
       <DependentUpon>CTI_Views.tt</DependentUpon>
     </Compile>
     <Compile Include="Views\LearningOpportunity_Summary.cs">

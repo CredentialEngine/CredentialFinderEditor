@@ -9,7 +9,7 @@ using Models.ProfileModels;
 using EM = Data;
 using Utilities;
 using DBentity = Data.Entity_RevocationProfile;
-using Entity = Models.ProfileModels.RevocationProfile;
+using ThisEntity = Models.ProfileModels.RevocationProfile;
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
 namespace Factories
@@ -28,7 +28,7 @@ namespace Factories
 		/// <param name="userId"></param>
 		/// <param name="messages"></param>
 		/// <returns></returns>
-		//public bool Update( List<Entity> profiles, int credentialId,  int userId, ref List<string> messages )
+		//public bool Update( List<ThisEntity> profiles, int credentialId,  int userId, ref List<string> messages )
 		//{
 		//	bool isValid = true;
 		//	int intialCount = messages.Count;
@@ -44,7 +44,7 @@ namespace Factories
 		//	int count = 0;
 		//	bool hasData = false;
 		//	if ( profiles == null )
-		//		profiles = new List<Entity>();
+		//		profiles = new List<ThisEntity>();
 
 		//	DBentity efEntity = new DBentity();
 
@@ -63,7 +63,7 @@ namespace Factories
 		//			bool isEmpty = false;
 		//			int profNbr = 0;
 
-		//			foreach ( Entity entity in profiles )
+		//			foreach ( ThisEntity entity in profiles )
 		//			{
 		//				profNbr++;
 		//				if ( ValidateProfile( entity, ref isEmpty, ref  messages ) == false )
@@ -154,7 +154,7 @@ namespace Factories
 		//							 join item in profiles
 		//									 on existing.Id equals item.Id
 		//									 into joinTable
-		//							 from result in joinTable.DefaultIfEmpty( new Entity { Id = 0, ParentId = 0 } )
+		//							 from result in joinTable.DefaultIfEmpty( new ThisEntity { Id = 0, ParentId = 0 } )
 		//							 select new { DeleteId = existing.Id, ParentId = ( result.ParentId ) };
 
 		//			foreach ( var v in deleteList )
@@ -185,7 +185,7 @@ namespace Factories
 		/// <param name="userId"></param>
 		/// <param name="messages"></param>
 		/// <returns></returns>
-		public bool Update( Entity entity, Credential credential, int userId, ref List<string> messages )
+		public bool Update( ThisEntity entity, Credential credential, int userId, ref List<string> messages )
 		{
 			bool isValid = true;
 			int intialCount = messages.Count;
@@ -218,7 +218,8 @@ namespace Factories
 				profNbr++;
 				if ( ValidateProfile( entity, ref isEmpty, ref  messages ) == false )
 				{
-					messages.Add( string.Format( "Revocation Profile ({0}) was invalid. ", profNbr ) + SetEntitySummary( entity ) );
+					if (messages.Count == 0)
+						messages.Add( string.Format( "Revocation Profile ({0}) was invalid. ", profNbr ) + SetEntitySummary( entity ) );
 					return false;
 				}
 				if ( isEmpty ) //skip
@@ -283,15 +284,14 @@ namespace Factories
 
 			return isValid;
 		}
-		private bool UpdateParts( Entity entity, int userId, ref List<string> messages )
+		private bool UpdateParts( ThisEntity entity, int userId, ref List<string> messages )
 		{
 			bool isAllValid = true;
 			//properties
 			if ( new EntityPropertyManager().UpdateProperties( entity.RevocationCriteriaType, entity.RowId, CodesManager.ENTITY_TYPE_REVOCATION_PROFILE, CodesManager.PROPERTY_CATEGORY_REVOCATION_CRITERIA_TYPE, userId, ref messages ) == false )
 				isAllValid = false;
 
-			Entity_ReferenceManager erm = new 
-				Entity_ReferenceManager();
+			Entity_ReferenceManager erm = new Entity_ReferenceManager();
 
 			if ( erm.EntityUpdate( entity.RevocationResourceUrl, entity.RowId, CodesManager.ENTITY_TYPE_REVOCATION_PROFILE, userId, ref messages, 25, false ) == false )
 				isAllValid = false;
@@ -299,12 +299,12 @@ namespace Factories
 
 			if ( !entity.IsNewVersion )
 			{
-				if ( new RegionsManager().JurisdictionProfile_Update( entity.Jurisdiction, entity.RowId, CodesManager.ENTITY_TYPE_REVOCATION_PROFILE, userId, RegionsManager.JURISDICTION_PURPOSE_SCOPE, ref messages ) == false )
-					isAllValid = false;
+				//if ( new RegionsManager().JurisdictionProfile_Update( entity.Jurisdiction, entity.RowId, CodesManager.ENTITY_TYPE_REVOCATION_PROFILE, userId, RegionsManager.JURISDICTION_PURPOSE_SCOPE, ref messages ) == false )
+				//	isAllValid = false;
 
 
-				if ( new Entity_ReferenceManager().EntityUpdate( entity.RevocationResourceUrl, entity.RowId, CodesManager.ENTITY_TYPE_REVOCATION_PROFILE, userId, ref messages ) == false )
-					isAllValid = false;
+				//if ( new Entity_ReferenceManager().EntityUpdate( entity.RevocationResourceUrl, entity.RowId, CodesManager.ENTITY_TYPE_REVOCATION_PROFILE, userId, ref messages ) == false )
+				//	isAllValid = false;
 			}
 
 			return isAllValid;
@@ -331,7 +331,7 @@ namespace Factories
 
 		}
 		
-		public bool ValidateProfile( Entity profile, ref bool isEmpty, ref List<string> messages )
+		public bool ValidateProfile( ThisEntity profile, ref bool isEmpty, ref List<string> messages )
 		{
 			bool isValid = true;
 
@@ -341,8 +341,7 @@ namespace Factories
 				&& string.IsNullOrWhiteSpace( profile.Description )
 				&& ( (profile.RevocationCriteriaType == null || profile.RevocationCriteriaType.Items.Count == 0 ) && string.IsNullOrWhiteSpace(profile.OtherRevocationCriteriaType))
 				&& ( profile.RevocationResourceUrl == null || profile.RevocationResourceUrl.Count == 0 )
-				&& string.IsNullOrWhiteSpace( profile.RemovalDateEffective )
-				&& string.IsNullOrWhiteSpace( profile.RenewalDateEffective )
+				&& string.IsNullOrWhiteSpace( profile.DateEffective )
 				&& ( profile.Jurisdiction == null || profile.Jurisdiction.Count == 0 )
 				)
 			{
@@ -350,19 +349,20 @@ namespace Factories
 				return isValid;
 			}
 
-			//required
-			if ( string.IsNullOrWhiteSpace( profile.ProfileName ) )
+			//date check, can this be in the future?
+			if ( !string.IsNullOrWhiteSpace( profile.DateEffective )
+				&& !IsValidDate( profile.DateEffective ) )
 			{
-				messages.Add( "Please enter a profile name" );
+				messages.Add( "Please enter a valid effective date" );
 				isValid = false;
 			}
 
-			if ( ( profile.RevocationCriteriaType == null || profile.RevocationCriteriaType.Items.Count == 0 ) && string.IsNullOrWhiteSpace( profile.OtherRevocationCriteriaType ) 
-				)
-			{
-				messages.Add( "Please select a criteria type, or enter Other Criteria" );
-				isValid = false;
-			}
+			//if ( ( profile.RevocationCriteriaType == null || profile.RevocationCriteriaType.Items.Count == 0 ) && string.IsNullOrWhiteSpace( profile.OtherRevocationCriteriaType ) 
+			//	)
+			//{
+			//	messages.Add( "Please select a criteria type, or enter Other Criteria" );
+			//	isValid = false;
+			//}
 
 			return isValid;
 		}
@@ -375,10 +375,10 @@ namespace Factories
 		/// Uses the parent Guid to retrieve the related Entity, then uses the EntityId to retrieve the child objects.
 		/// </summary>
 		/// <param name="parentUid"></param>
-		public static List<Entity> GetAll( Guid parentUid )
+		public static List<ThisEntity> GetAll( Guid parentUid )
 		{
-			Entity entity = new Entity();
-			List<Entity> list = new List<Entity>();
+			ThisEntity entity = new ThisEntity();
+			List<ThisEntity> list = new List<ThisEntity>();
 			Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
 			{
@@ -398,7 +398,7 @@ namespace Factories
 					{
 						foreach ( DBentity item in results )
 						{
-							entity = new Entity();
+							entity = new ThisEntity();
 							ToMap( item, entity, true );
 
 							list.Add( entity );
@@ -413,9 +413,9 @@ namespace Factories
 			return list;
 		}//
 
-		public static Entity Get( int profileId )
+		public static ThisEntity Get( int profileId )
 		{
-			Entity entity = new Entity();
+			ThisEntity entity = new ThisEntity();
 
 			try
 			{
@@ -438,7 +438,7 @@ namespace Factories
 			return entity;
 		}//
 
-		public static void FromMap( Entity from, DBentity to )
+		public static void FromMap( ThisEntity from, DBentity to )
 		{
 			//want to ensure fields from create are not wiped
 			if ( to.Id == 0 )
@@ -450,19 +450,20 @@ namespace Factories
 			to.Id = from.Id;
 			to.ProfileName = from.ProfileName;
 			to.Description = from.Description;
+			to.RevocationCriteriaUrl = from.RevocationCriteriaUrl;
 
 			if ( IsValidDate( from.DateEffective ) )
-				to.RemovalDateEffective = DateTime.Parse( from.DateEffective );
+				to.DateEffective = DateTime.Parse( from.DateEffective );
 			else
-				to.RemovalDateEffective = null;
-			if ( IsValidDate( from.RenewalDateEffective ) )
-				to.RenewalDateEffective = DateTime.Parse( from.RenewalDateEffective );
-			else
-				to.RenewalDateEffective = null;
+				to.DateEffective = null;
+			//if ( IsValidDate( from.RenewalDateEffective ) )
+			//	to.RenewalDateEffective = DateTime.Parse( from.RenewalDateEffective );
+			//else
+			//	to.RenewalDateEffective = null;
 			
 
 		}
-		public static void ToMap( DBentity from, Entity to, bool includingItems = true )
+		public static void ToMap( DBentity from, ThisEntity to, bool includingItems = true )
 		{
 			to.Id = from.Id;
 			to.RowId = from.RowId;
@@ -470,15 +471,16 @@ namespace Factories
 			to.ProfileName = from.ProfileName;
 			to.Description = from.Description;
 
-			if ( IsValidDate( from.RemovalDateEffective ) )
-				to.RemovalDateEffective = ( ( DateTime ) from.RemovalDateEffective ).ToShortDateString();
+			if ( IsValidDate( from.DateEffective ) )
+				to.DateEffective = ( ( DateTime ) from.DateEffective ).ToShortDateString();
 			else
-				to.RemovalDateEffective = "";
-			if ( IsValidDate( from.RenewalDateEffective ) )
-				to.RenewalDateEffective = ( ( DateTime ) from.RenewalDateEffective ).ToShortDateString();
-			else
-				to.RenewalDateEffective = "";
-			
+				to.DateEffective = "";
+			//if ( IsValidDate( from.RenewalDateEffective ) )
+			//	to.RenewalDateEffective = ( ( DateTime ) from.RenewalDateEffective ).ToShortDateString();
+			//else
+			//	to.RenewalDateEffective = "";
+
+			to.RevocationCriteriaUrl = from.RevocationCriteriaUrl;
 
 			to.ProfileSummary = SetEntitySummary( to );
 
@@ -501,7 +503,7 @@ namespace Factories
 				}
 			}
 		}
-		static string SetEntitySummary( Entity to )
+		static string SetEntitySummary( ThisEntity to )
 		{
 			string summary = "Revocation Profile ";
 			if ( !string.IsNullOrWhiteSpace( to.ProfileName ) )

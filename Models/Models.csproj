@@ -61,6 +61,14 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Elasticsearch.Net, Version=2.0.0.0, Culture=neutral, PublicKeyToken=96c599bbe3e70f5d, processorArchitecture=MSIL">
+      <HintPath>..\packages\Elasticsearch.Net.2.4.5\lib\net45\Elasticsearch.Net.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Nest, Version=2.0.0.0, Culture=neutral, PublicKeyToken=96c599bbe3e70f5d, processorArchitecture=MSIL">
+      <HintPath>..\packages\NEST.2.4.5\lib\net45\Nest.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="Newtonsoft.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
@@ -95,6 +103,11 @@
     <Compile Include="Common\OrganizationQAProfile.cs" />
     <Compile Include="Common\Person.cs" />
     <Compile Include="Common\PhoneNumber.cs" />
+    <Compile Include="Elastic\Assessment.cs" />
+    <Compile Include="Elastic\Credential.cs" />
+    <Compile Include="Elastic\ElasticBaseObject.cs" />
+    <Compile Include="Elastic\LearningOpportunity.cs" />
+    <Compile Include="Elastic\Organization.cs" />
     <Compile Include="Helpers\Compare.cs" />
     <Compile Include="Helpers\ToolTip.cs" />
     <Compile Include="Json\JsonLDV2.cs" />
@@ -114,11 +127,13 @@
     <Compile Include="Json\JurisdictionProfile.cs" />
     <Compile Include="Json\Organization.cs" />
     <Compile Include="Json\ProcessProfile.cs" />
+    <Compile Include="Json\QualityAssuranceAction.cs" />
     <Compile Include="Json\RevocationProfile.cs" />
     <Compile Include="Json\TaskProfile.cs" />
     <Compile Include="Node\Assessment.cs" />
     <Compile Include="Node\BaseProfile.cs" />
     <Compile Include="Node\Credential.cs" />
+    <Compile Include="Node\Experimental.cs" />
     <Compile Include="Node\Interface.cs" />
     <Compile Include="Node\LearningOpportunity.cs" />
     <Compile Include="Node\Organization.cs" />
@@ -128,8 +143,6 @@
     <Compile Include="ProfileModels\AuthenticationProfile.cs" />
     <Compile Include="ProfileModels\BaseProfile.cs" />
     <Compile Include="Common\Enumeration.cs" />
-    <Compile Include="ProfileModels\CompetencyFrameworkProfile.cs" />
-    <Compile Include="ProfileModels\CompetencyProfile.cs" />
     <Compile Include="ProfileModels\ConditionProfile.cs" />
     <Compile Include="ProfileModels\CostProfile.cs" />
     <Compile Include="ProfileModels\EntityAgentRelationship.cs" />

@@ -24,7 +24,7 @@ namespace Models.Search.ThirdPartyApiModels
 			public string countryCode { get; set; } //Country abbreviation
 			public string lat { get; set; } //Latitude
 			public string lng { get; set; } //Longitude
-			public int population { get; set; } //Population Size
+			public long population { get; set; } //Population Size
 			public string countryId { get; set; } //GeoNames country ID. Appears to be an integer, but is returned as a string
 			public string fclName { get; set; } //Type of place (e.g., "city, village...")
 			public string fcl { get; set; } //Unknown

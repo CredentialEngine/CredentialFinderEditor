@@ -39,5 +39,7 @@ namespace Data.Views
         public Nullable<System.DateTime> LastUpdated { get; set; }
         public Nullable<int> LastUpdatedById { get; set; }
         public System.Guid RowId { get; set; }
+        public string RelationshipSchema { get; set; }
+        public string ReverseRelationSchema { get; set; }
     }
 }

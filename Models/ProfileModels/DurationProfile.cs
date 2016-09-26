@@ -26,7 +26,6 @@ namespace Models.ProfileModels
 		public Guid ParentUid { get; set; }
 		public int ParentTypeId { get; set; }
 		public string ParentType { get; set; }
-		public string ProfileName { get; set; }
 		public string Conditions { get; set; }
 		public DurationItem MinimumDuration { get; set; }
 		public DurationItem MaximumDuration { get; set; }

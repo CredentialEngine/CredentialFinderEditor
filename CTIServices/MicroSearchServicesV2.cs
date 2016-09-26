@@ -44,7 +44,7 @@ namespace CTIServices
 					}
 				case "IndustrySearch":
 					{
-						//TODO - getAll should be set to false if used by a search view (ie credential
+						//TODO - getAll should be set to false if used by a search view (ie credential)
 						bool getAll = query.IncludeAllCodes;
 						var results = EnumerationServices.NAICS_Search( query.GetFilterValueInt( "HeaderId" ), query.GetFilterValueString( "Keywords" ), query.PageNumber, query.PageSize, ref totalResults, getAll );
 						return results.ConvertAll( m => ConvertCodeItemToMicroProfile( m ) );
@@ -162,7 +162,7 @@ namespace CTIServices
 
 				//		return ConvertEnumeratedItemToMicroProfile( rawData );
 				//	}
-				case "AssessmentSearch":
+				case "AssessmentSearchOLD":
 					{
 						var target = GetProfileLinkFromSelectors( selectors );
 						var rawData = new CredentialServices().ConditionProfile_AddAsmt( context.Profile.Id, target.Id, AccountServices.GetUserFromSession(), ref valid, ref status );
@@ -177,10 +177,41 @@ namespace CTIServices
 							return ConvertProfileToMicroProfile( results );
 						}
 					}
-				case "LearningOpportunitySearch":
+				case "AssessmentSearch":
+					{
+						var target = GetProfileLinkFromSelectors( selectors );
+						var rawData = new ConditionProfileServices().Assessment_Add( context.Profile.Id, target.Id, AccountServices.GetUserFromSession(), ref valid, ref status );
+						if ( rawData == 0 )
+						{
+							valid = false;
+							return null;
+						}
+						else
+						{
+							var results = AssessmentServices.Get( target.Id );
+							return ConvertProfileToMicroProfile( results );
+						}
+					}
+				case "LearningOpportunitySearchOLD":
 					{
 						var target = GetProfileLinkFromSelectors( selectors );
 						var rawData = new CredentialServices().ConditionProfile_AddLearningOpportunity( context.Profile.Id, target.Id, AccountServices.GetUserFromSession(), ref valid, ref status );
+
+						if ( rawData == 0 )
+						{
+							valid = false;
+							return null;
+						}
+						else
+						{
+							var results = LearningOpportunityServices.Get( target.Id );
+							return ConvertProfileToMicroProfile( results );
+						}
+					}
+				case "LearningOpportunitySearch":
+					{
+						var target = GetProfileLinkFromSelectors( selectors );
+						var rawData = new ConditionProfileServices().LearningOpportunity_Add( context.Profile.Id, target.Id, AccountServices.GetUserFromSession(), ref valid, ref status );
 
 						if ( rawData == 0 )
 						{
@@ -375,16 +406,28 @@ namespace CTIServices
 						valid = new ProfileServices().FrameworkItem_Delete( context.Profile.RowId, targetID, user, ref status );
 						break;
 					}
-				case "AssessmentSearch":
+				case "AssessmentSearchOLD":
 					{
 						var target = GetProfileLinkFromSelectors( selectors );
 						valid = new CredentialServices().ConditionProfile_DeleteAsmt( context.Profile.Id, target.Id, user, ref status );
 						break;
 					}
-				case "LearningOpportunitySearch":
+				case "AssessmentSearch":
+					{
+						var target = GetProfileLinkFromSelectors( selectors );
+						valid = new ConditionProfileServices().Assessment_Delete( context.Profile.Id, target.Id, user, ref status );
+						break;
+					}
+				case "LearningOpportunitySearchOLD":
 					{
 						var target = GetProfileLinkFromSelectors( selectors );
 						valid = new CredentialServices().ConditionProfile_DeleteLearningOpportunity( context.Profile.Id, target.Id, user, ref status );
+						break;
+					}
+				case "LearningOpportunitySearch":
+					{
+						var target = GetProfileLinkFromSelectors( selectors );
+						valid = new ConditionProfileServices().LearningOpportunity_Delete( context.Profile.Id, target.Id, user, ref status );
 						break;
 					}
 				case "LearningOpportunityHasPartSearch":

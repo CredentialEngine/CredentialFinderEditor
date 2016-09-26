@@ -133,6 +133,7 @@ namespace Models.Search
 		public int CategoryId { get; set; }
 		public Models.Common.Enumeration Enumeration { get; set; }
 		public Dictionary<int, List<int>> PreselectedFilters { get; set; }
+		public string Guidance { get; set; }
 	}
 	//
 
@@ -162,6 +163,7 @@ namespace Models.Search
 		public string MicroSearchType { get; set; }
 		public List<MicroSearchSettings_FilterV2> Filters { get; set; }
 		public Dictionary<int, List<int>> PreselectedFilters { get; set; }
+		public string Guidance { get; set; }
 	}
 	//
 
@@ -178,6 +180,7 @@ namespace Models.Search
 		}
 
 		public string InputTitle { get; set; }
+		public string TagTitle { get; set; }
 		public string Guidance { get; set; }
 		public string SearchType { get; set; }
 		public string FilterName { get; set; }

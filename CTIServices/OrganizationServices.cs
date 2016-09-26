@@ -87,9 +87,25 @@ namespace CTIServices
 			return Mgr.Search( where, "", startPage, pageSize, ref pTotalRows, userId );
 		}
 
+		public static List<string> Autocomplete( string keyword = "", int maxTerms = 25 )
+		{
+			int userId = 0;
+			string where = "";
+			int totalRows = 0;
+			AppUser user = AccountServices.GetCurrentUser();
+			if ( user != null && user.Id > 0 )
+				userId = user.Id;
+			SetAuthorizationFilter( user, ref where );
+
+			//SetKeywordFilter( keyword, true, ref where );
+			string keywords = ServiceHelper.HandleApostrophes( keyword );
+			if ( keywords.IndexOf( "%" ) == -1 )
+				keywords = "%" + keywords.Trim() + "%";
+			where = string.Format( " (base.name like '{0}') ", keywords );
+			return Mgr.Autocomplete( where, 1, maxTerms, userId, ref totalRows );
+		}
 		public static List<CM.Organization> Search( MainSearchInput data, ref int pTotalRows )
 		{
-			string pOrderBy = "";
 			string where = "";
 			int userId = 0;
 
@@ -97,18 +113,13 @@ namespace CTIServices
 			if ( user != null && user.Id > 0 )
 				userId = user.Id;
 
-			if ( !string.IsNullOrWhiteSpace( data.Keywords ) )
-			{
-				string keywords = ServiceHelper.HandleApostrophes( data.Keywords );
-				if ( keywords.IndexOf( "%" ) == -1 )
-					keywords = "%" + keywords.Trim() + "%";
-				where = string.Format( " (base.name like '{0}' OR base.Description like '{0}'  OR base.Url like '{0}')", keywords );
-			}
+			SetKeywordFilter( data.Keywords, true, ref where );
 
 			SetAuthorizationFilter( user, ref where );
 
 			SetOrgPropertiesFilter( data, ref where );
-
+			SearchServices.SetRolesFilter( data, ref where );
+			//SearchServices.SetOrgRolesFilter( data, ref where );
 			SetBoundariesFilter( data, ref where );
 
 			SetOrgServicesFilter( data, ref where );
@@ -116,10 +127,17 @@ namespace CTIServices
 			//check for org category (credentially, or QA). Only valid if one item
 			SetOrgCategoryFilter( data, ref where );
 
-			return Mgr.Search( where, pOrderBy, data.StartPage, data.PageSize, ref pTotalRows, userId );
+			return Mgr.Search( where, data.SortOrder, data.StartPage, data.PageSize, ref pTotalRows, userId );
 		}
-	
 
+		public static List<CM.Organization> Search( string keywords, int pageNumber, int pageSize, ref int pTotalRows )
+		{
+			string pOrderBy = "";
+			string filter = "";
+			SetKeywordFilter( keywords, true, ref filter );
+
+			return Mgr.Search( filter, pOrderBy, pageNumber, pageSize, ref pTotalRows );
+		}
 		private static void SetBoundariesFilter( MainSearchInput data, ref string where )
 		{
 			string AND = "";
@@ -162,10 +180,31 @@ namespace CTIServices
 			where = where + AND + string.Format( "((base.StatusId = {0}) OR (base.Id in (SELECT ParentOrgId FROM [dbo].[Organization.Member] where userId  = {1}) ))", CF.CodesManager.ENTITY_STATUS_PUBLISHED, user.Id );
 
 		}
+		private static void SetKeywordFilter( string keywords, bool isBasic, ref string where )
+		{
+			if ( string.IsNullOrWhiteSpace( keywords ) )
+				return;
+			string text = " (base.name like '{0}' OR base.Description like '{0}'  OR base.Url like '{0}') ";
+			string AND = "";
+			if ( where.Length > 0 )
+				AND = " AND ";
+
+			keywords = ServiceHelper.HandleApostrophes( keywords );
+			if ( keywords.IndexOf( "%" ) == -1 )
+				keywords = "%" + keywords.Trim() + "%";
+
+			//same for now, but will chg
+			if ( isBasic )
+				where = where + AND + string.Format( " ( " + text + " ) ", keywords );
+			else
+				where = where + AND + string.Format( " ( " + text + " ) ", keywords );
+
+		}
+
 		private static void SetOrgPropertiesFilter( MainSearchInput data, ref string where )
 		{
 			string AND = "";
-			//string template = " ( base.Id in ( SELECT  [OrganizationId] FROM [dbo].[OrganizationProperty.Summary]  where [PropertyValueId] in ({0}))) ";
+
 			string template = " ( base.RowId in ( SELECT  [ParentUid] FROM [dbo].[Entity.Property] where [PropertyValueId] in ({0}))) ";
 			//don't really need categoryId - yet
 			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.CategoryId >= 7 && s.CategoryId < 10 ) )
@@ -216,19 +255,7 @@ namespace CTIServices
 					where = where + AND + " ([IsAQAOrganization] = 1) ";
 			}
 		}
-		public static List<CM.Organization> Search( string keywords, int pageNumber, int pageSize, ref int pTotalRows )
-		{
-			string pOrderBy = "";
-			string filter = "";
-			if ( !string.IsNullOrWhiteSpace( keywords ) )
-			{
-				keywords = ServiceHelper.HandleApostrophes( keywords );
-				if ( keywords.IndexOf( "%" ) == -1 )
-					keywords = "%" + keywords.Trim() + "%";
-				filter = string.Format( " (base.name like '{0}' OR base.Description like '{0}'  OR base.Url like '{0}')", keywords );
-			}
-			return Mgr.Search( filter, pOrderBy, pageNumber, pageSize, ref pTotalRows );
-		}
+		
 		public static List<CM.Organization> Organization_QAOrgs( string keyword = "" )
 		{
 			//TBD: only return items use has access to
@@ -240,16 +267,7 @@ namespace CTIServices
 
 			return Mgr.Organization_SelectQAOrgs( userId, keyword );
 		}
-		public static List<CM.Organization> Organization_Autocomplete( AppUser user, string keyword = "", int maxTerms = 25 )
-		{
-			//TBD: only return items use has access to
-			//or this may be a short lived method. For the search all may see, but only auth people may be able to edit an org
-			int userId = 0;
-			if ( user != null && user.Id > 0 )
-				userId = user.Id;
-
-			return Mgr.Organization_ListByName( userId, keyword, maxTerms );
-		}
+		
 		/// <summary>
 		/// get all orgs as code item to display in a list
 		/// Assuming for a drop down, so will only return those the user has access to. 
@@ -306,6 +324,9 @@ namespace CTIServices
 		public static CM.Organization GetOrganizationDetail( int id, AppUser user  )
 		{
 			CM.Organization entity = Mgr.Organization_GetDetail( id );
+			if (user == null || user.Id == 0)
+				return entity;
+
 			if ( CanUserUpdateOrganization( user, entity.Id ) )
 				entity.CanUserEditEntity = true;
 
@@ -322,6 +343,9 @@ namespace CTIServices
 		/// <returns></returns>
 		public static bool CanUserUpdateOrganization( AppUser user,  int orgId )
 		{
+			if (user == null || user.Id == 0)
+				return false;
+
 			if ( orgId == 0 )
 				return true;
 			else if ( AccountServices.IsUserSiteStaff( user ) )
@@ -337,6 +361,8 @@ namespace CTIServices
 		{
 			if ( entity.Id == 0 )
 				return true;
+			else if (user == null || user.Id == 0)
+				return false;
 			else if ( AccountServices.IsUserSiteStaff( user ) )
 				return true;
 
@@ -761,6 +787,8 @@ namespace CTIServices
 		{
 			if ( entityId == 0 )
 				return true;
+			if (user == null || user.Id == 0)
+				return false;
 			else if ( AccountServices.IsUserSiteStaff( user ) )
 				return true;
 

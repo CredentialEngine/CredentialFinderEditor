@@ -11,8 +11,11 @@ namespace Models.ProfileModels
 	{
 		public Credential IssuedCredential { get; set; } //QA credential (used by QA roles)
 
+		//QA actions only have one instance, so the Agent Role enumeration will only have one entry, so expose at the object level
 		public string QAAction { get; set; }
+		public string QAActionSchema { get; set; }
 		public string ReverseQAAction { get; set; }
+		public string ReverseQAActionSchema { get; set; }
 		///QA credential (used by QA roles)
 		public int IssuedCredentialId { get; set; }
 		public int QualityAssuranceTypeId { get; set; }

@@ -24,5 +24,6 @@ namespace Data.Views
         public string ParentName { get; set; }
         public string ParentDescription { get; set; }
         public string ParentUrl { get; set; }
+        public string LearningOpportunity { get; set; }
     }
 }

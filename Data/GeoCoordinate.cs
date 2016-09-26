@@ -29,6 +29,5 @@ namespace Data
         public Nullable<int> LastUpdatedById { get; set; }
         public Nullable<int> JurisdictionId { get; set; }
         public Nullable<bool> IsException { get; set; }
-        public Nullable<System.Guid> OldParentId { get; set; }
     }
 }

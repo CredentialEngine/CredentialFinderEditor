@@ -87,6 +87,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AddressProfileManager.cs" />
+    <Compile Include="CacheManager.cs" />
     <Compile Include="CostProfileItemManager.cs" />
     <Compile Include="CostProfileManager.cs" />
     <Compile Include="DurationProfileManager.cs" />
@@ -94,9 +95,12 @@
     <Compile Include="EntityPropertyManager.cs" />
     <Compile Include="Entity_AgentRelationshipManager.cs" />
     <Compile Include="Entity_AssessmentManager.cs" />
+    <Compile Include="Entity_CompetencyFrameworkManager.cs" />
     <Compile Include="Entity_CompetencyManager.cs" />
+    <Compile Include="Entity_ConditionProfileManager.cs" />
     <Compile Include="Entity_CredentialManager.cs" />
     <Compile Include="Entity_FrameworkItemManager.cs" />
+    <Compile Include="Entity_JurisdictionProfileManager.cs" />
     <Compile Include="Entity_LearningOpportunityManager.cs" />
     <Compile Include="Entity_QualityAssuranceActionManager.cs" />
     <Compile Include="Entity_ReferenceManager.cs" />

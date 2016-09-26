@@ -4,7 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using Mgr = Factories.RegionsManager;
+using MgrOld = Factories.RegionsManager;
+using Mgr = Factories.Entity_JurisdictionProfileManager;
 using Factories;
 using Models;
 using Models.Common;
@@ -26,7 +27,7 @@ namespace CTIServices
 		public List<JurisdictionProfile>  GetAll( Guid parentId )
 		{
 
-			List<JurisdictionProfile> list = RegionsManager.Jurisdiction_GetAll( parentId );
+			List<JurisdictionProfile> list = Mgr.Jurisdiction_GetAll( parentId );
 			return list;
 		}
 
@@ -38,7 +39,7 @@ namespace CTIServices
 		public JurisdictionProfile Get( int id )
 		{
 
-			JurisdictionProfile profile = RegionsManager.Jurisdiction_Get( id );
+			JurisdictionProfile profile = Mgr.Jurisdiction_Get( id );
 			return profile;
 		}
 
@@ -50,7 +51,7 @@ namespace CTIServices
 		public JurisdictionProfile Get( Guid rowId )
 		{
 
-			JurisdictionProfile profile = RegionsManager.Jurisdiction_Get( rowId );
+			JurisdictionProfile profile = Mgr.Jurisdiction_Get( rowId );
 			return profile;
 		}
 
@@ -73,7 +74,7 @@ namespace CTIServices
 			entity.CreatedById = entity.LastUpdatedById = userId;
 			entity.JProfilePurposeId = jprofilePurposeId;
 
-			bool isValid = new RegionsManager().JurisdictionProfile_Add( entity, ref messages );
+			bool isValid = new Mgr().JurisdictionProfile_Add( entity, ref messages );
 
 			return isValid;
 
@@ -109,7 +110,7 @@ namespace CTIServices
 			}
 			try
 			{
-				JurisdictionProfile profile = RegionsManager.Jurisdiction_Get( profileID );
+				JurisdictionProfile profile = Mgr.Jurisdiction_Get( profileID );
 
 				valid = mgr.JurisdictionProfile_Delete( profileID, ref status );
 				if ( valid )
@@ -141,7 +142,7 @@ namespace CTIServices
 		public GeoCoordinates GeoCoordiates_Get( int id )
 		{
 
-			GeoCoordinates profile = RegionsManager.GeoCoordinates_Get( id );
+			GeoCoordinates profile = Mgr.GeoCoordinates_Get( id );
 			return profile;
 		}
 
@@ -153,7 +154,7 @@ namespace CTIServices
 		/// <returns></returns>
 		public List<GeoCoordinates> GeoCoordinates_GetList( List<int> ids )
 		{
-			List<GeoCoordinates> profiles = RegionsManager.GeoCoordinates_GetList( ids );
+			List<GeoCoordinates> profiles = Mgr.GeoCoordinates_GetList( ids );
 			return profiles;
 		}
 		//
@@ -168,7 +169,7 @@ namespace CTIServices
 			entity.ParentEntityId = parentId;
 			entity.CreatedById = entity.LastUpdatedById = userId;
 
-			int id = new RegionsManager().GeoCoordinates_Add( entity, ref statusMessage );
+			int id = new Mgr().GeoCoordinates_Add( entity, ref statusMessage );
 			if ( id > 0 )
 			{
 				entity.Id = id;
@@ -208,7 +209,7 @@ namespace CTIServices
 			}
 			try
 			{
-				//GeoCoordinates profile = RegionsManager.Jurisdiction_Get( profileID );
+				//GeoCoordinates profile = Mgr.Jurisdiction_Get( profileID );
 
 				valid = mgr.GeoCoordinate_Delete( profileID, ref status );
 				if ( valid )

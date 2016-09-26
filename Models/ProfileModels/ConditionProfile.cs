@@ -19,11 +19,11 @@ namespace Models.ProfileModels
 			ApplicableAudienceType = new Enumeration();
 			//ResidentOf = new List<GeoCoordinates>();
 			ResidentOf = new List<JurisdictionProfile>();
-			TargetCompetency = new List<Enumeration>();
+			//TargetCompetency = new List<Enumeration>();
 			TargetAssessment = new List<AssessmentProfile>();
 			TargetLearningOpportunity = new List<LearningOpportunityProfile>();
 			TargetTask = new List<TaskProfile>();
-			TargetCredential = new List<Credential>();
+			RequiredCredential = new List<Credential>();
 			ReferenceUrl = new List<TextValueProfile>();
 			AssertedByOrgProfileLink = new MN.ProfileLink();
 			//ReferenceUrl = new List<TextValueProfile>();
@@ -39,21 +39,22 @@ namespace Models.ProfileModels
 		public Guid AssertedByAgentUid { get; set; }
 		public string Experience { get; set; }
 		public int MinimumAge { get; set; }
-
+		public decimal YearsOfExperience { get; set; }
+		
 		public Enumeration CredentialType { get; set; }
 		public string OtherCredentialType { get; set; }
 		public Enumeration ApplicableAudienceType { get; set; }
 		public string OtherAudienceType { get; set; }
 		//public List<GeoCoordinates> ResidentOf { get; set; }
 		public List<JurisdictionProfile> ResidentOf { get; set; }
-		public List<Enumeration> TargetCompetency { get; set; }
+		//public List<Enumeration> TargetCompetency { get; set; }
 		public List<TextValueProfile> TargetMiniCompetency { get; set; }
 		public List<CredentialAlignmentObjectProfile> RequiresCompetencies { get; set; }
 		public List<AssessmentProfile> TargetAssessment { get; set; }
 		public List<LearningOpportunityProfile> TargetLearningOpportunity { get; set; }
 		public List<TaskProfile> TargetTask { get; set; }
 
-		public List<Credential> TargetCredential { get; set; } //holds values of RequiredCredential
+		public List<Credential> RequiredCredential { get; set; } //holds values of RequiredCredential
 		public string IdentificationCode { get; set; }
 
 		public List<TextValueProfile> RequiredCredentialUrl { get; set; }

@@ -21,7 +21,7 @@ namespace Models.Node
 		//List-based Info
 		[Property( DBName = "LearningOpportunityDeliveryType", DBType = typeof( Models.Common.Enumeration ) )]
 		public List<int> DeliveryTypeIds { get; set; }
-
+		public int ManagingOrgId { get; set; }
 		//Text Value Info
 		//public List<TextValueProfile> IdentificationCode { get; set; }
 		public string IdentificationCode { get; set; }
@@ -48,8 +48,17 @@ namespace Models.Node
 		[Property( DBName = "IsPartOf" )]
 		public List<ProfileLink> ParentLearningOpportunity { get; set; }
 
-		[Property( DBName = "LearningCompetencies" )]
-		public List<TextValueProfile> LearningCompetencies { get; set; }
+		[Property( DBName = "Addresses", DBType = typeof( Models.Common.Address ) )]
+		public List<ProfileLink> Addresses { get; set; }
+
+		//[Property( DBName = "Requires", DBType = typeof( Models.ProfileModels.ConditionProfile ) )]
+		//public List<ConditionProfile> Requires { get; set; }
+		//OR
+		[Property(Type = typeof(ConditionProfile))]
+		public List<ProfileLink> Requires { get; set; }
+
+		//[Property( DBName = "LearningCompetencies" )]
+		//public List<TextValueProfile> LearningCompetencies { get; set; }
 
 		[Property( DBName = "RequiresCompetencies", DBType= typeof( Models.Common.CredentialAlignmentObjectProfile  ))]
 		public List<ProfileLink> RequiresCompetencies { get; set; }
@@ -57,9 +66,12 @@ namespace Models.Node
 		[Property( DBName = "TeachesCompetencies", DBType= typeof( Models.Common.CredentialAlignmentObjectProfile ))]
 		public List<ProfileLink> TeachesCompetencies { get; set; }
 
+		[Property( DBName = "RequiresCompetenciesFrameworks", DBType = typeof( Models.Common.CredentialAlignmentObjectFrameworkProfile ) )]
+		public List<ProfileLink> RequiresCompetenciesFrameworks { get; set; }
 
-		[Property( DBName = "Addresses", DBType = typeof( Models.Common.Address ) )]
-		public List<ProfileLink> Addresses { get; set; }
+		[Property( DBName = "TeachesCompetenciesFrameworks", DBType = typeof( Models.Common.CredentialAlignmentObjectFrameworkProfile ) )]
+		public List<ProfileLink> TeachesCompetenciesFrameworks { get; set; }
+
 	}
 	//
 }

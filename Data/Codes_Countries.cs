@@ -14,6 +14,12 @@ namespace Data
     
     public partial class Codes_Countries
     {
+        public Codes_Countries()
+        {
+            this.Entity_Address = new HashSet<Entity_Address>();
+            this.Organization_Address = new HashSet<Organization_Address>();
+        }
+    
         public int Id { get; set; }
         public int CountryNumber { get; set; }
         public string CommonName { get; set; }
@@ -31,5 +37,8 @@ namespace Data
         public string IANACountryCodeTLD { get; set; }
         public bool IsActive { get; set; }
         public int SortOrder { get; set; }
+    
+        public virtual ICollection<Entity_Address> Entity_Address { get; set; }
+        public virtual ICollection<Organization_Address> Organization_Address { get; set; }
     }
 }

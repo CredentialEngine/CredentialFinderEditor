@@ -13,6 +13,7 @@ namespace Models.Node
 		{
 			AssessmentTypeIds = new List<int>();
 			AssessmentModalityTypeIds = new List<int>();
+			DeliveryTypeIds = new List<int>();
 			Subjects = new List<TextValueProfile>();
 			Keywords = new List<TextValueProfile>();
 		}
@@ -26,6 +27,10 @@ namespace Models.Node
 		[Property( DBName = "Modality", DBType = typeof( Models.Common.Enumeration ) )]
 		public List<int> AssessmentModalityTypeIds { get; set; }
 
+		[Property( DBName = "DeliveryType", DBType = typeof( Models.Common.Enumeration ) )]
+		public List<int> DeliveryTypeIds { get; set; }
+
+		public int ManagingOrgId { get; set; }
 		public List<TextValueProfile> Subjects { get; set; }
 		public List<TextValueProfile> Keywords { get; set; }
 
@@ -51,6 +56,12 @@ namespace Models.Node
 
 		[Property( DBName = "Addresses", DBType = typeof( Models.Common.Address ) )]
 		public List<ProfileLink> Addresses { get; set; }
+
+		//[Property( DBName = "Requires", DBType = typeof( Models.ProfileModels.ConditionProfile ) )]
+		//public List<ConditionProfile> Requires { get; set; }
+		//OR
+		[Property(Type = typeof(ConditionProfile))]
+		public List<ProfileLink> Requires { get; set; }
 
 	}
 	//

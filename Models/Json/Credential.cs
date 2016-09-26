@@ -90,35 +90,55 @@ namespace Models.Json
 
 
 		//Quality Assurance Roles
-		[DataMember( Name="ctdl:accreditedBy" )]
-		public object accreditedBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		[DataMember( Name = "ctdl:accreditedBy" )]
+		public List<string> accreditedBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		[DataMember( Name = "ctdl:accreditedBy" )]
+		public List<QualityAssuranceAction> accreditedByAction { get; set; }
 
 		[DataMember( Name = "ctdl:approvedBy" )]
-		public object approvedBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		public List<string> approvedBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		[DataMember( Name = "ctdl:approvedBy" )]
+		public List<QualityAssuranceAction> approvedByAction { get; set; }
 
 		[DataMember( Name = "ctdl:conferredBy" )]
-		public object conferredBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		public List<string> conferredBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		[DataMember( Name = "ctdl:conferredBy" )]
+		public List<QualityAssuranceAction> conferredByAction { get; set; }
 
 		[DataMember( Name = "ctdl:endorsedBy" )]
-		public object endorsedBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		public List<string> endorsedBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		[DataMember( Name = "ctdl:endorsedBy" )]
+		public List<QualityAssuranceAction> endorsedByAction { get; set; }
 
 		[DataMember( Name = "ctdl:recognizedBy" )]
-		public object recognizedBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		public List<string> recognizedBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		[DataMember( Name = "ctdl:recognizedBy" )]
+		public List<QualityAssuranceAction> recognizedByAction { get; set; }
 
 		[DataMember( Name = "ctdl:regulatedBy" )]
-		public object regulatedBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		public List<string> regulatedBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		[DataMember( Name = "ctdl:regulatedBy" )]
+		public List<QualityAssuranceAction> regulatedByAction { get; set; }
 
 		[DataMember( Name = "ctdl:revocationBy" )]
-		public object revocationBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		public List<string> revocationBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		[DataMember( Name = "ctdl:revocationBy" )]
+		public List<QualityAssuranceAction> revocationByAction { get; set; }
 
 		[DataMember( Name = "ctdl:renewalBy" )]
-		public object renewalBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		public List<string> renewalBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		[DataMember( Name = "ctdl:renewalBy" )]
+		public List<QualityAssuranceAction> renewalByAction { get; set; }
 
 		[DataMember( Name = "ctdl:validatedBy" )]
-		public object validatedBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		public List<string> validatedBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		[DataMember( Name = "ctdl:validatedBy" )]
+		public List<QualityAssuranceAction> validatedByAction { get; set; }
 
 		[DataMember( Name = "schema:contributor" )]
-		public object contributor { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		public List<string> contributor { get; set; } //QualityAssuranceAction, Organization URL, Person URL
+		[DataMember( Name = "ctdl:contributor" )]
+		public List<QualityAssuranceAction> contributorAction { get; set; }
 
 
 		//Enumerations

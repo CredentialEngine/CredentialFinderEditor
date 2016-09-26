@@ -167,7 +167,10 @@ namespace CTIServices
 			}
 			else
 			{
-
+				//ensure a message is returned
+				if (string.IsNullOrWhiteSpace(statusMessage))
+					statusMessage = "The document was not saved in the Metadata Registry.";
+				successful = false;
 			}
 			return successful;
 		}
@@ -238,6 +241,8 @@ namespace CTIServices
 					RegistryHandler.CreateEnvelope( publicKeyPath, privateKeyPath, payload, envelope );
 
 					postBody = JsonConvert.SerializeObject( envelope );
+
+					LoggingHelper.DoTrace( 4, "RegistryServices.MetadataRegistry_Publish - ADD envelope: \r\n" + postBody );
 				} else 
 				{
 					UpdateEnvelope envelope = new UpdateEnvelope();
@@ -246,6 +251,8 @@ namespace CTIServices
 					//now embed 
 					envelope.EnvelopeIdentifier = crEnvelopeId;
 					postBody = JsonConvert.SerializeObject( envelope );
+
+					LoggingHelper.DoTrace( 4, "RegistryServices.MetadataRegistry_Publish - update envelope: \r\n" + postBody );
 				}
 
 				//Do publish
@@ -388,7 +395,7 @@ namespace CTIServices
 				return false;
 			}
 
-			successful = MetadataRegistry_Delete( entity.CredentialRegistryId, user.FullName(), ref statusMessage );
+			successful = MetadataRegistry_Delete( entity.CredentialRegistryId, entity.CTID, user.FullName(), ref statusMessage );
 			if ( successful )
 			{
 				//reset envelope id and status
@@ -405,6 +412,22 @@ namespace CTIServices
 				//ensure a message is returned
 				if ( string.IsNullOrWhiteSpace( statusMessage ) )
 					statusMessage = "The document was not removed from the Metadata Registry.";
+				else 
+				{
+					if ( statusMessage == "Couldn't find Envelope" )
+					{
+						statusMessage = "";
+						//just remove the CredentialRegistryId regardless
+						if ( new CredentialManager().UnPublish( credentialId, user.Id, ref statusMessage ) )
+						{
+							statusMessage = "Couldn't find Envelope in registry. The credential has been set to unregistered regardless.";
+						}
+						else
+						{
+							statusMessage = "Couldn't find Envelope in registry, and an issue was encountered while attempting to unregister the credential. " + statusMessage;
+						}
+					}
+				}
 				successful = false;
 			}
 			return successful;
@@ -436,7 +459,7 @@ namespace CTIServices
 				return false;
 			}
 
-			successful = MetadataRegistry_Delete( entity.CredentialRegistryId, user.FullName(), ref statusMessage );
+			successful = MetadataRegistry_Delete( entity.CredentialRegistryId, entity.ctid, user.FullName(), ref statusMessage );
 			if ( successful )
 			{
 				//reset envelope id and status
@@ -459,14 +482,29 @@ namespace CTIServices
 				//ensure a message is returned
 				if ( string.IsNullOrWhiteSpace( statusMessage ) )
 					statusMessage = "The document was not removed from the Metadata Registry.";
+				else
+				{
+					if ( statusMessage == "Couldn't find Envelope" )
+					{
+						statusMessage = "";
+						//just remove the CredentialRegistryId regardless
+						 if ( new OrganizationManager().UnPublish( orgId, user.Id, ref statusMessage ) )
+						{
+							statusMessage = "Couldn't find Envelope in registry. The organization has been set to unregistered regardless.";
+						}
+						else
+						{
+							statusMessage = "Couldn't find Envelope in registry, and an issue was encountered while attempting to unregister the organization. " + statusMessage;
+						}
+					}
+				}
 				successful = false;
 			}
 			return successful;
 
 		}
-		public bool MetadataRegistry_Delete( string crEnvelopeId,
-									string requestedBy,
-									ref string statusMessage)
+
+		public bool MetadataRegistry_Delete( string crEnvelopeId, string ctid, string requestedBy, ref string statusMessage)
 		{
 			string publicKeyPath = "";
 			string privateKeyPath = "";
@@ -475,7 +513,7 @@ namespace CTIServices
 				return false;
 			}
 			//crEnvelopeId, 
-			DeleteEnvelope envelope = RegistryHandler.CreateDeleteEnvelope( publicKeyPath, privateKeyPath, requestedBy );
+			DeleteEnvelope envelope = RegistryHandler.CreateDeleteEnvelope( publicKeyPath, privateKeyPath, ctid, requestedBy );
 
 			string serviceUri = string.Format( UtilityManager.GetAppKeyValue( "metadataRegistryGet" ), crEnvelopeId );
 

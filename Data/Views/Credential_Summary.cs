@@ -41,5 +41,6 @@ namespace Data.Views
         public string CTID { get; set; }
         public string CredentialRegistryId { get; set; }
         public string availableOnlineAt { get; set; }
+        public System.Guid RowId { get; set; }
     }
 }

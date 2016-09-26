@@ -59,7 +59,15 @@ namespace CTIServices
 			return e;
 		}
 		//
+		public MC.Enumeration GetEducationCredentialType( MC.EnumerationType interfaceType, bool getAll = true )
+		{
 
+			MC.Enumeration e = CodesManager.GetEnumeration( "credentialType", getAll, true );
+			e.ShowOtherValue = true;
+			e.InterfaceType = interfaceType;
+			return e;
+		}
+		//
 		public MC.Enumeration GetCredentialPurpose( MC.EnumerationType interfaceType, bool getAll = true )
 		{
 			MC.Enumeration e = CodesManager.GetEnumeration( "purpose", getAll );
@@ -167,12 +175,20 @@ namespace CTIServices
 		/// <param name="interfaceType"></param>
 		/// <param name="entityType"></param>
 		/// <returns></returns>
-		public MC.Enumeration GetCredentialAgentQAActions( MC.EnumerationType interfaceType, string entityType = "Credential" )
+		public MC.Enumeration GetCredentialAgentQAActions( MC.EnumerationType interfaceType, string entityType = "Credential", bool getAll = true )
 		{
 			//get roles as entity to org
-			MC.Enumeration e = OrganizationRoleManager.GetCredentialAgentQAActions( false, entityType );
+			MC.Enumeration e = OrganizationRoleManager.GetEntityAgentQAActions( false, getAll, entityType );
 			e.InterfaceType = interfaceType;
 			e.ShowOtherValue = true;
+			return e;
+		}
+		public MC.Enumeration GetEntityAgentQAActionFilters( MC.EnumerationType interfaceType, string entityType, bool getAll = true )
+		{
+			//get roles as entity to org
+			MC.Enumeration e = OrganizationRoleManager.GetEntityAgentQAActionFilters( false, getAll, entityType );
+			e.InterfaceType = interfaceType;
+			e.ShowOtherValue = false;
 			return e;
 		}
 		public MC.Enumeration GetCredentialAgentRoles( MC.EnumerationType interfaceType, string entityType = "Credential" )
@@ -226,7 +242,13 @@ namespace CTIServices
 		}
 	
 		//
-	
+		public List<CodeItem> GetOrganizationsAsCodes(bool insertSelectTitle = false)
+		{
+			
+			List<CodeItem> list = OrganizationManager.Organization_SelectAllAsCodes( insertSelectTitle );
+
+			return list;
+		}
 		public MC.Enumeration GetOrganizations( string schemaName, bool includeDefaultOption, bool forCurrentUser, MC.EnumerationType interfaceType )
 		{
 			var result = new MC.Enumeration()
@@ -282,13 +304,12 @@ namespace CTIServices
 		#endregion 		//End Temporary
 
 		#region currencies/countries
-		public MC.Enumeration GetCountries( MC.EnumerationType interfaceType )
+		public List<CodeItem> GetCountries()
 		{
-			MC.Enumeration e = CodesManager.GetCountries();
-			e.ShowOtherValue = false;
-			e.InterfaceType = interfaceType;
-			return e;
+			List<CodeItem> list = CodesManager.GetCountries_AsCodes();
+			return list;
 		}
+	
 		//GetCurrencies
 		public MC.Enumeration GetCurrencies( MC.EnumerationType interfaceType )
 		{

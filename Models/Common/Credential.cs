@@ -41,7 +41,7 @@ namespace Models.Common
 			MilitaryOccupation = new Enumeration();
 			Revocation = new List<RevocationProfile>();
 			OrganizationRole = new List<OrganizationRoleProfile>();
-			OrganizationRole2 = new List<OrganizationRoleProfile>();
+			//OrganizationRole2 = new List<OrganizationRoleProfile>();
 			QualityAssuranceAction = new List<QualityAssuranceActionProfile>();
 			CredentialAgentRelationships = new List<CredentialAgentRelationship>();
 			Keywords = new List<TextValueProfile>();
@@ -81,11 +81,13 @@ namespace Models.Common
 		public List<EmploymentOutcomeProfile> EmploymentOutcome { get; set; }
 		public List<HoldersProfile> Holders { get; set; }
 		public Enumeration Industry { get; set; }
+		public List<TextValueProfile> OtherIndustries { get; set; }
 		public Enumeration Occupation { get; set; }
+		public List<TextValueProfile> OtherOccupations { get; set; }
 		public Enumeration MilitaryOccupation { get; set; }
 
 		public List<OrganizationRoleProfile> OrganizationRole { get; set; }
-		public List<OrganizationRoleProfile> OrganizationRole2 { get; set; }
+		//public List<OrganizationRoleProfile> OrganizationRole2 { get; set; }
 		public List<QualityAssuranceActionProfile> QualityAssuranceAction { get; set; }
 
 		public List<ConditionProfile> Requires { get; set; }
@@ -97,8 +99,8 @@ namespace Models.Common
 		public List<ConditionProfile> IsRecommendedFor { get; set; }
 
 		public List<RevocationProfile> Revocation { get; set; }
-		public int CreatorOrganizationId { get; set; }
-		public int OwnerOrganizationId { get; set; }
+		//public int CreatorOrganizationId { get; set; }
+		//public int OwnerOrganizationId { get; set; }
 		public int ManagingOrgId { get; set; }
 		public Organization CreatorOrganization
 		{

@@ -42,6 +42,7 @@ namespace Models.Common
 		public string UniqueURI { get; set; }
 		public string ImageUrl { get; set; }
 		public string CredentialRegistryId { get; set; }
+		public string ctid { get; set; }
 		public string Email { get; set; }
 		public string MainPhoneNumber { get; set; }
 		//public string FaxNumber { get; set; }

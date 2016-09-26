@@ -15,7 +15,7 @@ namespace Models.ProfileModels
 		{
 			RevocationCriteriaType = new Enumeration();
 			RemovalDateEffective = "";
-			RenewalDateEffective = "";
+			//RenewalDateEffective = "";
 		}
 		public Enumeration RevocationCriteriaType { get; set; }
 		public string OtherRevocationCriteriaType { get; set; }
@@ -24,10 +24,9 @@ namespace Models.ProfileModels
 			get { return DateEffective; }
 			set { DateEffective = value; }
 		}
-		public string RenewalDateEffective { get; set; }
-		//????
-		//public string RevocationCriteriaUrl { get; set; }
+		//public string RenewalDateEffective { get; set; }
 		public List<TextValueProfile> RevocationResourceUrl { get; set; }
+		public string RevocationCriteriaUrl { get; set; }
 	}
 	//
 

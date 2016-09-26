@@ -17,6 +17,8 @@ namespace CTIServices
 	public class LearningOpportunityServices
 	{
 		static string thisClassName = "LearningOpportunityServices";
+
+		#region retrievals
 		public static LearningOpportunityProfile Get( int id, bool forEditView = false )
 		{
 			LearningOpportunityProfile entity = Mgr.Get( id, forEditView );
@@ -38,12 +40,46 @@ namespace CTIServices
 				entity.CanUserEditEntity = true;
 			return entity;
 		}
-		public static LearningOpportunityProfile GetForEdit( int id, bool newVersion = false )
+		public static LearningOpportunityProfile GetForEdit( int id )
 		{
-			LearningOpportunityProfile entity = Mgr.Get( id, true, false, newVersion );
+			LearningOpportunityProfile entity = Mgr.Get( id, true, false );
 
 			return entity;
 		}
+		public static LearningOpportunityProfile GetLightLearningOpportunityByRowId( string rowId )
+		{
+			if ( !Mgr.IsValidGuid( rowId ) )
+				return null;
+
+			string where = string.Format( " RowId = '{0}'", rowId );
+			int pTotalRows = 0;
+
+			List<LearningOpportunityProfile> list = Mgr.Search( where, "", 1, 50, 0, ref pTotalRows );
+
+			if ( list.Count > 0 )
+				return list[ 0 ];
+			else
+				return null;
+		}
+
+		public static LearningOpportunityProfile GetLightLearningOpportunityById( int entityId )
+		{
+			if ( entityId < 1 )
+				return null;
+			string where = string.Format( " base.Id = {0}", entityId );
+			int pTotalRows = 0;
+
+			List<LearningOpportunityProfile> list = Mgr.Search( where, "", 1, 50, 0, ref pTotalRows );
+
+			if ( list.Count > 0 )
+				return list[ 0 ];
+			else
+				return null;
+		}
+		#endregion
+
+
+		#region Searches
 		public static List<CodeItem> SearchAsCodeItem( string keyword, int startingPageNbr, int pageSize, ref int totalRows )
 		{
 			List<LearningOpportunityProfile> list = Search( keyword, startingPageNbr, pageSize, ref totalRows );
@@ -58,6 +94,32 @@ namespace CTIServices
 				} );
 			}
 			return codes;
+		}
+		public static List<string> Autocomplete( string keyword, int maxTerms = 25 )
+		{
+			int userId = 0;
+			string where = "";
+			int totalRows = 0;
+			AppUser user = AccountServices.GetCurrentUser();
+			if ( user != null && user.Id > 0 )
+				userId = user.Id;
+			SetAuthorizationFilter( user, ref where );
+
+			//if ( type == "learningopp" ) 
+			//{
+				//SetKeywordFilter( keyword, true, ref where );
+				string keywords = ServiceHelper.HandleApostrophes( keyword );
+				if ( keywords.IndexOf( "%" ) == -1 )
+					keywords = "%" + keywords.Trim() + "%";
+				where = string.Format( " (base.name like '{0}') ", keywords );
+			//}
+			//else if ( type == "subjects" )
+			//	SearchServices.SetSubjectsAutocompleteFilter( keyword, type, ref where );
+			//else if ( type == "competencies" )
+			//	SetCompetenciesAutocompleteFilter( keyword, ref where );
+
+			return Mgr.Autocomplete( where, 1, maxTerms, userId, ref totalRows );
+			;
 		}
 		public static List<LearningOpportunityProfile> Search( string keywords, int startingPageNbr, int pageSize, ref int totalRows )
 		{
@@ -78,15 +140,14 @@ namespace CTIServices
 				userId = user.Id;
 
 			//string pOrderBy = "";
-			if ( !string.IsNullOrWhiteSpace( data.Keywords ) )
-			{
-				SetKeyFilter( data.Keywords, ref where );
-			}
-
+			SetKeywordFilter( data.Keywords, false, ref where );
+			SearchServices.SetSubjectsFilter( data, "LearningOpportunity", ref where );
 			SetAuthorizationFilter( user, ref where );
 
 			SetPropertiesFilter( data, ref where );
-			SetBoundariesFilter( data, ref where );
+			SearchServices.SetRolesFilter( data, ref where );
+			SearchServices.SetBoundariesFilter( data, ref where );
+			//SetBoundariesFilter( data, ref where );
 
 			//CIP
 			SetFrameworksFilter( data, ref where );
@@ -96,7 +157,7 @@ namespace CTIServices
 
 			return Mgr.Search( where, data.SortOrder, data.StartPage, data.PageSize, userId, ref totalRows, ref competencies );
 		}
-		private static void SetKeyFilter( string keywords, ref string where )
+		private static void SetKeywordFilter( string keywords,  bool isBasic, ref string where )
 		{
 			if ( string.IsNullOrWhiteSpace( keywords ) )
 				return;
@@ -112,25 +173,14 @@ namespace CTIServices
 				keywords = "%" + keywords.Trim() + "%";
 
 			//skip url  OR base.Url like '{0}' 
-
-			where = where + AND + string.Format( " ( " + text + subjectsEtc + competencies + " ) ", keywords );
+			if ( isBasic )
+				where = where + AND + string.Format( " ( " + text + " ) ", keywords );
+			else 
+				where = where + AND + string.Format( " ( " + text + subjectsEtc + competencies + " ) ", keywords );
+				
 
 		}
 
-		private static void SetBoundariesFilter( MainSearchInput data, ref string where )
-		{
-			string AND = "";
-			if ( where.Length > 0 )
-				AND = " AND ";
-			string template = " ( base.RowId in ( SELECT  b.EntityUid FROM [dbo].[Entity.Address] a inner join Entity b on a.EntityId = b.Id    where [Longitude] < {0} and [Longitude] > {1} and [Latitude] < {2} and [Latitude] > {3} ) ) ";
-
-			var boundaries = SearchServices.GetBoundaries( data, "bounds" );
-			if ( boundaries.IsDefined )
-			{
-				where = where + AND + string.Format( template, boundaries.East, boundaries.West, boundaries.North, boundaries.South );
-			}
-		}
-		//
 		private static void SetAuthorizationFilter( AppUser user, ref string where )
 		{
 			string AND = "";
@@ -155,13 +205,21 @@ namespace CTIServices
 
 		}
 
+		private static void SetCompetenciesAutocompleteFilter( string keywords, ref string where )
+		{
+			List<string> competencies = new List<string>();
+			MainSearchInput data = new MainSearchInput();
+			MainSearchFilter filter = new MainSearchFilter() { Name = "competencies", CategoryId = 29 };
+			filter.Items.Add( keywords );
+			SetCompetenciesFilter( data, ref where, ref competencies );
 
+		}
 		private static void SetCompetenciesFilter( MainSearchInput data, ref string where, ref List<string> competencies )
 		{
 			string AND = "";
 			string OR = "";
 			string keyword = "";
-			string template = " ( base.Id in (SELECT LearningOpportunityId FROM [dbo].LearningOpportunity_Competency_Summary  where AlignmentType = 'teaches' AND ({0}) ) )";
+			string template = " ( base.Id in (SELECT distinct LearningOpportunityId FROM [dbo].LearningOpportunity_Competency_Summary  where AlignmentType = 'teaches' AND ({0}) ) )";
 			string phraseTemplate = " ([Name] like '%{0}%' OR [Description] like '%{0}%') ";
 			//
 			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.Name == "competencies" ) )
@@ -237,36 +295,7 @@ namespace CTIServices
 				where = where + AND + string.Format( codeTemplate, filter.CategoryId, next );
 			}
 		}
-		public static LearningOpportunityProfile GetLightLearningOpportunityByRowId( string rowId )
-		{
-			if ( !Mgr.IsValidGuid( rowId ) )
-				return null;
-
-			string where = string.Format( " RowId = '{0}'", rowId );
-			int pTotalRows = 0;
-
-			List<LearningOpportunityProfile> list = Mgr.Search( where, "", 1, 50, 0,ref pTotalRows );
-
-			if ( list.Count > 0 )
-				return list[ 0 ];
-			else
-				return null;
-		}
-
-		public static LearningOpportunityProfile GetLightLearningOpportunityById( int entityId )
-		{
-			if ( entityId < 1 )
-				return null;
-			string where = string.Format( " base.Id = {0}", entityId );
-			int pTotalRows = 0;
-
-			List<LearningOpportunityProfile> list = Mgr.Search( where, "", 1, 50, 0, ref pTotalRows );
-
-			if ( list.Count > 0 )
-				return list[ 0 ];
-			else
-				return null;
-		}
+#endregion 
 		#region === add/update/delete =============
 		public static bool CanUserUpdateLearningOpportunity( int entityId, ref string status )
 		{
@@ -382,6 +411,8 @@ namespace CTIServices
 				isOK = mgr.Update( entity, entity.LastUpdatedById, ref statusMessage );
 				if ( isOK )
 					statusMessage = "Successfully Updated Learning Opportunity";
+
+				CF.CacheManager.RemoveItemFromCache( "LearningOpportunity", entity.Id );
 			}
 			catch ( Exception ex )
 			{
@@ -410,6 +441,7 @@ namespace CTIServices
 			try
 			{
 				valid = mgr.Delete( recordId, ref status );
+				CF.CacheManager.RemoveItemFromCache( "LearningOpportunity", recordId );
 			}
 			catch ( Exception ex )
 			{
@@ -421,51 +453,52 @@ namespace CTIServices
 			return valid;
 		}
 
-		public bool DeleteProfile( int profileId, string profileName, AppUser user, ref bool valid, ref string status )
-		{
+		//[Obsolete]
+		//public bool DeleteProfile( int profileId, string profileName, AppUser user, ref bool valid, ref string status )
+		//{
 
-			try
-			{
-				switch ( profileName.ToLower() )
-				{
+		//	try
+		//	{
+		//		switch ( profileName.ToLower() )
+		//		{
 
-					case "durationprofile":
-						valid = new CF.DurationProfileManager().DurationProfile_Delete( profileId, ref status );
-						break;
-					case "geocoordinates":
-						valid = new CF.RegionsManager().GeoCoordinate_Delete( profileId, ref status );
-						break;
-					case "jurisdictionprofile":
-						valid = new CF.RegionsManager().JurisdictionProfile_Delete( profileId, ref status );
-						break;
-					case "costprofilesplit":
-						valid = new CF.CostProfileManager().CostProfile_Delete( profileId, ref status );
-						break;
-					case "CostProfileItem":
-						valid = new CF.CostProfileItemManager().CostProfileItem_Delete( profileId, ref status );
-						break;
-					default:
-						valid = false;
-						status = "Deleting the requested clientProfile is not handled at this time.";
-						return false;
-				}
+		//			case "durationprofile":
+		//				valid = new CF.DurationProfileManager().DurationProfile_Delete( profileId, ref status );
+		//				break;
+		//			case "geocoordinates":
+		//				valid = new CF.RegionsManager().GeoCoordinate_Delete( profileId, ref status );
+		//				break;
+		//			case "jurisdictionprofile":
+		//				valid = new CF.RegionsManager().JurisdictionProfile_Delete( profileId, ref status );
+		//				break;
+		//			case "costprofilesplit":
+		//				valid = new CF.CostProfileManager().CostProfile_Delete( profileId, ref status );
+		//				break;
+		//			case "CostProfileItem":
+		//				valid = new CF.CostProfileItemManager().CostProfileItem_Delete( profileId, ref status );
+		//				break;
+		//			default:
+		//				valid = false;
+		//				status = "Deleting the requested clientProfile is not handled at this time.";
+		//				return false;
+		//		}
 
-				if ( valid )
-				{
-					//if valid, status contains the cred name and id
-					ActivityServices.SiteActivityAdd( "LearningOpportunity", "Delete profileName", string.Format( "{0} deleted Learning Opportunity Profile {1}", user.FullName(), profileName ), user.Id, 0, profileId );
-					status = "";
-				}
-			}
-			catch ( Exception ex )
-			{
-				LoggingHelper.LogError( ex, "LearningOpportunityServices.DeleteProfile" );
-				status = ex.Message;
-				valid = false;
-			}
+		//		if ( valid )
+		//		{
+		//			//if valid, status contains the cred name and id
+		//			ActivityServices.SiteActivityAdd( "LearningOpportunity", "Delete profileName", string.Format( "{0} deleted Learning Opportunity Profile {1}", user.FullName(), profileName ), user.Id, 0, profileId );
+		//			status = "";
+		//		}
+		//	}
+		//	catch ( Exception ex )
+		//	{
+		//		LoggingHelper.LogError( ex, "LearningOpportunityServices.DeleteProfile" );
+		//		status = ex.Message;
+		//		valid = false;
+		//	}
 
-			return valid;
-		}
+		//	return valid;
+		//}
 		#endregion
 
 		#region Entity FrameworkItems==> moved TO Profile services

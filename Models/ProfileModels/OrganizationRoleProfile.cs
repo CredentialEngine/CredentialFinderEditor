@@ -14,7 +14,7 @@ namespace Models.ProfileModels
 	{
 		public OrganizationRoleProfile()
 		{
-			RoleType = new Enumeration();
+			AgentRole = new Enumeration();
 			TargetOrganization = new Organization();
 		}
 		public Guid ParentUid { get; set; }
@@ -38,12 +38,12 @@ namespace Models.ProfileModels
 			set { ActingAgentUid = value; }
 		}
 		public bool IsQAActionRole { get; set; }
-		public Enumeration RoleType { get; set; }
-		public Enumeration AgentRole 
-		{ 
-			get { return RoleType; }
-			set { RoleType = value; } 
-		}
+		public Enumeration AgentRole { get; set; }
+		//public Enumeration RoleType 
+		//{ 
+		//	get { return AgentRole; }
+		//	set { AgentRole = value; } 
+		//}
 		public int RoleTypeId { get; set; }
 		public string AllRoleIds { get; set; }
 		public string AllRoles { get; set; } 
@@ -68,6 +68,19 @@ namespace Models.ProfileModels
 		public int TargetLearningOpportunityId { get; set; }
 		public string TargetCompetency { get; set; } // url
 		public string TargetCompetencyFramework { get; set; } // url
+
+		//Used for publishing
+		public object TargetDetermined
+		{
+			get
+			{
+				if ( TargetCredentialId > 0 ) { return new Credential() { Id = TargetCredentialId }; }
+				else if ( TargetOrganizationId > 0 ) { return new Organization() { Id = TargetOrganizationId }; }
+				else if ( TargetAssessmentId > 0 ) { return new AssessmentProfile() { Id = TargetAssessmentId }; }
+				else if ( TargetLearningOpportunityId > 0 ) { return new LearningOpportunityProfile() { Id = TargetLearningOpportunityId }; }
+				else { return null; }
+		} }
+		public object TargetOverride { get; set; }
 	}
 	//
 

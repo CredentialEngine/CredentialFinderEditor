@@ -4,12 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using Models;
 using Models.Common;
 using Models.ProfileModels;
 using EM = Data;
 using Utilities;
 using DBentity = Data.Entity_Competency;
-using Entity = Models.Common.CredentialAlignmentObjectProfile;
+using ThisEntity = Models.Common.CredentialAlignmentObjectProfile;
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
 
@@ -28,7 +29,7 @@ namespace Factories
 		/// <param name="userId"></param>
 		/// <param name="messages"></param>
 		/// <returns></returns>
-		public bool Save( Entity entity, 
+		public bool Save( ThisEntity entity, 
 				Guid parentUid, 
 				int userId, 
 				ref List<string> messages )
@@ -118,190 +119,6 @@ namespace Factories
 			return isValid;
 		}
 
-
-		/// <summary>
-		/// Persist Competencies
-		/// </summary>
-		/// <param name="profiles"></param>
-		/// <param name="parentUid"></param>
-		/// <param name="parentTypeId"></param>
-		/// <param name="userId"></param>
-		/// <param name="messages"></param>
-		/// <returns></returns>
-		//public bool Update( List<Enumeration> profiles, Guid parentUid, int parentTypeId, int userId, ref List<string> messages )
-		//{
-		//	bool isValid = true;
-		//	int intialCount = messages.Count;
-
-		//	if ( !IsValidGuid( parentUid ) )
-		//	{
-		//		messages.Add( "Error: the parent identifier was not provided." );
-		//	}
-		//	if ( parentTypeId == 0 )
-		//	{
-		//		messages.Add( "Error: the parent type was not provided." );
-		//	}
-		//	if ( messages.Count > intialCount )
-		//		return false;
-
-		//	int count = 0;
-		//	bool hasData = false;
-		//	if ( profiles == null )
-		//		profiles = new List<Enumeration>();
-
-		//	DBentity efEntity = new DBentity();
-
-		//	Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
-		//	if ( parent == null || parent.Id == 0 )
-		//	{
-		//		messages.Add( "Error - the parent entity was not found." );
-		//		return false;
-		//	}
-
-		//	return isValid;
-		//}
-		//public bool Update( List<Entity> profiles, Guid parentUid, int parentTypeId, int userId, ref List<string> messages )
-		//{
-		//	bool isValid = true;
-		//	int intialCount = messages.Count;
-
-		//	if ( !IsValidGuid( parentUid ) )
-		//	{
-		//		messages.Add( "Error: the parent identifier was not provided." );
-		//	}
-		//	if ( parentTypeId == 0 )
-		//	{
-		//		messages.Add( "Error: the parent type was not provided." );
-		//	}
-		//	if ( messages.Count > intialCount )
-		//		return false;
-
-		//	int count = 0;
-		//	bool hasData = false;
-		//	if ( profiles == null )
-		//		profiles = new List<Entity>();
-
-		//	DBentity efEntity = new DBentity();
-
-		//	Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
-		//	if ( parent == null || parent.Id == 0 )
-		//	{
-		//		messages.Add( "Error - the parent entity was not found." );
-		//		return false;
-		//	}
-		//	using ( var context = new Data.CTIEntities() )
-		//	{
-		//		//check add/updates first
-		//		if ( profiles.Count() > 0 )
-		//		{
-		//			hasData = true;
-		//			bool isEmpty = false;
-
-		//			foreach ( Entity entity in profiles )
-		//			{
-		//				if ( ValidateProfile( entity, ref isEmpty, ref  messages ) == false )
-		//				{
-		//					messages.Add( "Competency was invalid. " + SetEntitySummary( entity ) );
-		//					continue;
-		//				}
-		//				if ( isEmpty ) //skip
-		//					continue;
-
-		//				if ( entity.Id == 0 )
-		//				{
-		//					//add
-		//					efEntity = new DBentity();
-		//					FromMap( entity, efEntity );
-		//					efEntity.EntityId = parent.Id;
-
-		//					efEntity.Created = efEntity.LastUpdated = DateTime.Now;
-		//					efEntity.CreatedById = efEntity.LastUpdatedById = userId;
-		//					efEntity.RowId = Guid.NewGuid();
-
-		//					context.Entity_Competency.Add( efEntity );
-		//					count = context.SaveChanges();
-		//					//update profile record so doesn't get deleted
-		//					entity.Id = efEntity.Id;
-		//					entity.ParentId = parent.Id;
-		//					entity.RowId = efEntity.RowId;
-		//					if ( count == 0 )
-		//					{
-		//						ConsoleMessageHelper.SetConsoleErrorMessage( string.Format( " Unable to add Profile: {0} <br\\> ", string.IsNullOrWhiteSpace( entity.ProfileName ) ? "no description" : entity.ProfileName ) );
-		//					}
-		//				}
-		//				else
-		//				{
-		//					entity.ParentId = parent.Id;
-
-		//					efEntity = context.Entity_Competency.SingleOrDefault( s => s.Id == entity.Id );
-		//					if ( efEntity != null && efEntity.Id > 0 )
-		//					{
-		//						entity.RowId = efEntity.RowId;
-		//						//update
-		//						FromMap( entity, efEntity );
-		//						//has changed?
-		//						if ( HasStateChanged( context ) )
-		//						{
-		//							efEntity.LastUpdated = System.DateTime.Now;
-		//							efEntity.LastUpdatedById = userId;
-
-		//							count = context.SaveChanges();
-		//						}
-		//					}
-
-		//				}
-
-		//			} //foreach
-
-		//		}
-
-		//		//check for deletes ====================================
-		//		//need to ensure ones just added don't get deleted
-
-		//		//get existing 
-		//		List<DBentity> results = context.Entity_Competency
-		//				.Where( s => s.EntityId == parent.Id )
-		//				.OrderBy( s => s.Id )
-		//				.ToList();
-
-		//		//if profiles is null, need to delete all!!
-		//		if ( results.Count() > 0 && profiles.Count() == 0 )
-		//		{
-		//			foreach ( var item in results )
-		//				context.Entity_Competency.Remove( item );
-
-		//			context.SaveChanges();
-		//		}
-		//		else
-		//		{
-		//			//deletes should be direct??
-		//			//should only have existing ids, where not in current list, so should be deletes
-		//			var deleteList = from existing in results
-		//							 join item in profiles
-		//									 on existing.Id equals item.Id
-		//									 into joinTable
-		//							 from result in joinTable.DefaultIfEmpty( new Entity { Id = 0, ParentId = 0 } )
-		//							 select new { DeleteId = existing.Id, ParentId = ( result.ParentId ) };
-
-		//			foreach ( var v in deleteList )
-		//			{
-		//				if ( v.ParentId == 0 )
-		//				{
-		//					//delete item
-		//					DBentity p = context.Entity_Competency.FirstOrDefault( s => s.Id == v.DeleteId );
-		//					if ( p != null && p.Id > 0 )
-		//					{
-		//						context.Entity_Competency.Remove( p );
-		//						count = context.SaveChanges();
-		//					}
-		//				}
-		//			}
-		//		}
-
-		//	}
-
-		//	return isValid;
-		//}
 		/// <summary>
 		/// Delete a competency
 		/// </summary>
@@ -330,7 +147,7 @@ namespace Factories
 		}
 
 
-		public bool ValidateProfile( Entity profile, ref bool isEmpty, ref List<string> messages )
+		public bool ValidateProfile( ThisEntity profile, ref bool isEmpty, ref List<string> messages )
 		{
 			bool isValid = true;
 
@@ -365,14 +182,14 @@ namespace Factories
 
 		/// <summary>
 		/// Get all Task profiles for the parent
-		/// Uses the parent Guid to retrieve the related Entity, then uses the EntityId to retrieve the child objects.
+		/// Uses the parent Guid to retrieve the related ThisEntity, then uses the EntityId to retrieve the child objects.
 		/// </summary>
 		/// <param name="parentUid"></param>
 		/// <param name="alignmentType">If blank, get all types</param>
-		public static List<Entity> GetAll( Guid parentUid, string alignmentType )
+		public static List<ThisEntity> GetAll( Guid parentUid, string alignmentType )
 		{
-			Entity entity = new Entity();
-			List<Entity> list = new List<Entity>();
+			ThisEntity entity = new ThisEntity();
+			List<ThisEntity> list = new List<ThisEntity>();
 			Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
 			{
@@ -392,7 +209,7 @@ namespace Factories
 					{
 						foreach ( DBentity item in results )
 						{
-							entity = new Entity();
+							entity = new ThisEntity();
 							ToMap( item, entity, true );
 							list.Add( entity );
 						}
@@ -411,9 +228,9 @@ namespace Factories
 		/// </summary>
 		/// <param name="profileId"></param>
 		/// <returns></returns>
-		public static Entity Get( int profileId )
+		public static ThisEntity Get( int profileId )
 		{
-			Entity entity = new Entity();
+			ThisEntity entity = new ThisEntity();
 			if ( profileId == 0 )
 				return entity;
 			try
@@ -437,7 +254,7 @@ namespace Factories
 		}//
 
 
-		public static void FromMap( Entity from, DBentity to )
+		public static void FromMap( ThisEntity from, DBentity to )
 		{
 			//want to ensure fields from create are not wiped
 			if ( to.Id == 0 )
@@ -458,9 +275,17 @@ namespace Factories
 			to.TargetUrl = from.TargetUrl;
 
 			to.AlignmentType = from.AlignmentType;
+			if ( from.AlignmentTypeId > 0 )
+				to.AlignmentTypeId = from.AlignmentTypeId;
+			else if ( !string.IsNullOrWhiteSpace(from.AlignmentType))
+			{
+				CodeItem item = CodesManager.Codes_PropertyValue_Get( CodesManager.PROPERTY_CATEGORY_ALIGNMENT_TYPE, from.AlignmentType );
+				if (item != null && item.Id > 0)
+					to.AlignmentTypeId = item.Id;
+			}
 
 		}
-		public static void ToMap( DBentity from, Entity to, bool includingItems = true )
+		public static void ToMap( DBentity from, ThisEntity to, bool includingItems = true )
 		{
 			to.Id = from.Id;
 			to.RowId = from.RowId;
@@ -474,6 +299,9 @@ namespace Factories
 			to.TargetDescription = from.TargetDescription;
 			to.TargetUrl = from.TargetUrl;
 
+			to.AlignmentTypeId = from.AlignmentTypeId ?? 0;
+			to.AlignmentType = from.AlignmentType;
+
 			if ( !string.IsNullOrWhiteSpace( to.Name ) )
 				to.ProfileName = to.Name;
 			else if ( !string.IsNullOrWhiteSpace( to.TargetUrl ) )
@@ -485,7 +313,7 @@ namespace Factories
 			else
 				to.ProfileName = "Competency";
 
-			to.AlignmentType = from.AlignmentType;
+			
 
 			if ( IsValidDate( from.Created ) )
 				to.Created = ( DateTime ) from.Created;

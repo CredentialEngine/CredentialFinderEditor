@@ -43,8 +43,9 @@ namespace Models.Common
 			get { return AddressRegion; }
 			set { AddressRegion = value; }
 		}
+		public string StreetAddress { get { return Address1 + ( string.IsNullOrWhiteSpace( Address2 ) ? "" : " " + Address2 ); } }
 		public string Country { get; set; }
-		public int CountryNumber { get; set; }
+		public int CountryId { get; set; }
 		public string PostalCode { get; set; }
 		public double Latitude { get; set; }
 		public double Longitude { get; set; }

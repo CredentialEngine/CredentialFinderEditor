@@ -18,13 +18,13 @@ namespace Data
         public int EntityId { get; set; }
         public string ProfileName { get; set; }
         public string Description { get; set; }
-        public Nullable<System.DateTime> RemovalDateEffective { get; set; }
-        public Nullable<System.DateTime> RenewalDateEffective { get; set; }
         public Nullable<System.DateTime> Created { get; set; }
         public Nullable<int> CreatedById { get; set; }
         public Nullable<System.DateTime> LastUpdated { get; set; }
         public Nullable<int> LastUpdatedById { get; set; }
         public System.Guid RowId { get; set; }
+        public string RevocationCriteriaUrl { get; set; }
+        public Nullable<System.DateTime> DateEffective { get; set; }
     
         public virtual Entity Entity { get; set; }
     }

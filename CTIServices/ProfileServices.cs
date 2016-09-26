@@ -704,7 +704,7 @@ namespace CTIServices
 					else
 					{
 						//if valid, status contains the cred id, category, and codeId
-						status = "Successfully Saved Credential - Verification Profile";
+						status = "Successfully Saved Verification Profile";
 						activityMgr.AddActivity( "Verification Profile", action, string.Format( "{0} added/updated credential connection task profile: {1}", user.FullName(), entity.ProfileName ), user.Id, 0, entity.Id );
 					}
 				}
@@ -953,8 +953,8 @@ namespace CTIServices
 				if ( new Entity_CompetencyManager().Save( entity, parentUid, user.Id, ref messages ) )
 				{
 					//if valid, status contains the cred id, category, and codeId
-					status = "Successfully Saved CredentialAlignmentObjectProfile Profile";
-					activityMgr.AddActivity( "CredentialAlignmentObjectProfile Profile", action, string.Format( "{0} added/updated CredentialAlignmentObjectProfile profile: {1}", user.FullName(), entity.Name ), user.Id, 0, entity.Id );
+					status = "Successfully Saved CredentialAlignmentObject Profile";
+					activityMgr.AddActivity( "CredentialAlignmentObject Profile", action, string.Format( "{0} added/updated CredentialAlignmentObject profile: {1}", user.FullName(), entity.Name ), user.Id, 0, entity.Id );
 				}
 				else
 				{
@@ -1004,7 +1004,7 @@ namespace CTIServices
 				if ( valid )
 				{
 					//if valid, status contains the cred id, category, and codeId
-					activityMgr.AddActivity( "CredentialAlignmentObjectProfile", "Delete", string.Format( "{0} deleted CredentialAlignmentObjectProfile Profile {1} from Profile  {2}", user.FullName(), profileId, conditionProfileId ), user.Id, 0, profileId );
+					activityMgr.AddActivity( "CredentialAlignmentObjectProfile", "Delete", string.Format( "{0} deleted CredentialAlignmentObject Profile {1} from Profile  {2}", user.FullName(), profileId, conditionProfileId ), user.Id, 0, profileId );
 					status = "";
 				}
 			}
@@ -1018,6 +1018,233 @@ namespace CTIServices
 			return valid;
 		}
 
+		#endregion
+
+	
+		#region competencies 
+
+		#region CredentialAlignmentObjectFrameworkProfile 
+		/// <summary>
+		/// Get a CredentialAlignmentObjectFramework profile
+		/// </summary>
+		/// <param name="profileId"></param>
+		/// <returns></returns>
+		public static CredentialAlignmentObjectFrameworkProfile CredentialAlignmentObjectFrameworkProfile_Get( int profileId )
+		{
+			CredentialAlignmentObjectFrameworkProfile profile = Entity_CompetencyFrameworkManager.Get( profileId );
+
+			return profile;
+		}
+		/// <summary>
+		/// Add/Update CredentialAlignmentObjectFrameworkProfile
+		/// </summary>
+		/// <param name="entity"></param>
+		/// <param name="parentUid"></param>
+		/// <param name="action"></param>
+		/// <param name="user"></param>
+		/// <param name="status"></param>
+		/// <returns></returns>
+		public bool CredentialAlignmentObjectFrameworkProfile_Save( CredentialAlignmentObjectFrameworkProfile entity, Guid parentUid, string action, AppUser user, ref string status )
+		{
+			bool isValid = true;
+			List<String> messages = new List<string>();
+			if ( entity == null || !BaseFactory.IsGuidValid( parentUid ) )
+			{
+				messages.Add( "Error - missing an identifier for the Competency Framework Profile" );
+				return false;
+			}
+			if ( string.IsNullOrWhiteSpace( entity.AlignmentType ) )
+			{
+				status = "Error - missing an alignment type" ;
+				return false;
+			}
+			try
+			{
+				Entity e = EntityManager.GetEntity( parentUid );
+				//remove this if properly passed from client
+				//plus need to migrate to the use of EntityId
+				entity.ParentId = e.Id;
+				entity.CreatedById = entity.LastUpdatedById = user.Id;
+
+				if ( new Entity_CompetencyFrameworkManager().Save( entity, parentUid, user.Id, ref messages ) )
+				{
+					//if valid, status contains the cred id, category, and codeId
+					status = "Successfully Saved Profile";
+					activityMgr.AddActivity( "CredentialAlignmentObjectFrameworkProfile Profile", action, string.Format( "{0} added/updated CredentialAlignmentObjectFrameworkProfile profile: {1}", user.FullName(), entity.EducationalFrameworkName ), user.Id, 0, entity.Id );
+				}
+				else
+				{
+					status += string.Join( ",", messages.ToArray() );
+					return false;
+				}
+			}
+			catch ( Exception ex )
+			{
+				LoggingHelper.LogError( ex, thisClassName + ".CredentialAlignmentObjectFrameworkProfile_Save" );
+				status = ex.Message;
+				isValid = false;
+
+				if ( ex.InnerException != null && ex.InnerException.Message != null )
+				{
+					status = ex.InnerException.Message;
+
+					if ( ex.InnerException.InnerException != null && ex.InnerException.InnerException.Message != null )
+						status = ex.InnerException.InnerException.Message;
+				}
+			}
+
+			return isValid;
+		}
+
+		/// <summary>
+		/// Delete CredentialAlignmentObjectFrameworkProfile
+		/// </summary>
+		/// <param name="conditionProfileId"></param>
+		/// <param name="profileId"></param>
+		/// <param name="user"></param>
+		/// <param name="status"></param>
+		/// <returns></returns>
+		public bool CredentialAlignmentObjectFrameworkProfile_Delete( int recordId, int profileId, AppUser user, ref string status )
+		{
+			bool valid = true;
+
+			Entity_CompetencyFrameworkManager mgr = new Entity_CompetencyFrameworkManager();
+			try
+			{
+				//get first to validate (soon)
+				//to do match to the conditionProfileId
+				CredentialAlignmentObjectFrameworkProfile profile = Entity_CompetencyFrameworkManager.Get( recordId );
+
+				valid = mgr.Delete( recordId, ref status );
+
+				if ( valid )
+				{
+					//if valid, status contains the cred id, category, and codeId
+					activityMgr.AddActivity( "CredentialAlignmentObjectFrameworkProfile", "Delete", string.Format( "{0} deleted CredentialAlignmentObjectFrameworkProfile Profile {1} from Profile  {2}", user.FullName(), profileId, recordId ), user.Id, 0, profileId );
+					status = "";
+				}
+			}
+			catch ( Exception ex )
+			{
+				LoggingHelper.LogError( ex, thisClassName + ".CredentialAlignmentObjectFrameworkProfile_Delete" );
+				status = ex.Message;
+				valid = false;
+			}
+
+			return valid;
+		}
+		#endregion
+
+		#region CredentialAlignmentObjectItemProfile Profile
+		/// <summary>
+		/// Get a Credential Alignment profile
+		/// </summary>
+		/// <param name="profileId"></param>
+		/// <returns></returns>
+		public static CredentialAlignmentObjectItemProfile CredentialAlignmentObjectItemProfile_Get( int profileId )
+		{
+			CredentialAlignmentObjectItemProfile profile = Entity_CompetencyFrameworkManager.Entity_Competency_Get( profileId );
+
+			return profile;
+		}
+		/// <summary>
+		/// Add/Update CredentialAlignmentObjectItemProfile
+		/// </summary>
+		/// <param name="entity"></param>
+		/// <param name="parentUid"></param>
+		/// <param name="action"></param>
+		/// <param name="user"></param>
+		/// <param name="status"></param>
+		/// <returns></returns>
+		public bool CredentialAlignmentObjectItemProfile_Save( CredentialAlignmentObjectItemProfile entity, Guid parentUid, string action, AppUser user, ref string status )
+		{
+			bool isValid = true;
+			List<String> messages = new List<string>();
+			if ( entity == null || !BaseFactory.IsGuidValid( parentUid ) )
+			{
+				messages.Add( "Error - missing an identifier for the Competency Profile" );
+				return false;
+			}
+
+			try
+			{
+				Entity e = EntityManager.GetEntity( parentUid );
+				//remove this if properly passed from client
+				//plus need to migrate to the use of EntityId
+				//entity.ParentId = e.Id;
+				entity.CreatedById = entity.LastUpdatedById = user.Id;
+
+				//entity.IsNewVersion = true;
+
+				if ( new Entity_CompetencyFrameworkManager().Entity_Competency_Save( entity, user.Id, ref messages ) )
+				{
+					//if valid, status contains the cred id, category, and codeId
+					status = "Successfully Saved Profile";
+					activityMgr.AddActivity( "CredentialAlignmentObjectItemProfile Profile", action, string.Format( "{0} added/updated CredentialAlignmentObjectItemProfile profile: {1}", user.FullName(), entity.Name ), user.Id, 0, entity.Id );
+				}
+				else
+				{
+					status += string.Join( ",", messages.ToArray() );
+					return false;
+				}
+			}
+			catch ( Exception ex )
+			{
+				LoggingHelper.LogError( ex, thisClassName + ".CredentialAlignmentObjectItemProfile_Save" );
+				status = ex.Message;
+				isValid = false;
+
+				if ( ex.InnerException != null && ex.InnerException.Message != null )
+				{
+					status = ex.InnerException.Message;
+
+					if ( ex.InnerException.InnerException != null && ex.InnerException.InnerException.Message != null )
+						status = ex.InnerException.InnerException.Message;
+				}
+			}
+
+			return isValid;
+		}
+
+		/// <summary>
+		/// Delete CredentialAlignmentObjectItemProfile
+		/// </summary>
+		/// <param name="conditionProfileId"></param>
+		/// <param name="profileId"></param>
+		/// <param name="user"></param>
+		/// <param name="status"></param>
+		/// <returns></returns>
+		public bool CredentialAlignmentObjectItemProfile_Delete( int conditionProfileId, int profileId, AppUser user, ref string status )
+		{
+			bool valid = true;
+
+			Entity_CompetencyFrameworkManager mgr = new Entity_CompetencyFrameworkManager();
+			try
+			{
+				//get first to validate (soon)
+				//to do match to the conditionProfileId
+				CredentialAlignmentObjectItemProfile profile = Entity_CompetencyFrameworkManager.Entity_Competency_Get( profileId );
+
+				valid = mgr.Entity_Competency_Delete( profileId, ref status );
+
+				if ( valid )
+				{
+					//if valid, status contains the cred id, category, and codeId
+					activityMgr.AddActivity( "CredentialAlignmentObjectItemProfile", "Delete", string.Format( "{0} deleted CredentialAlignmentObjectItemProfile Profile {1} from Profile  {2}", user.FullName(), profileId, conditionProfileId ), user.Id, 0, profileId );
+					status = "";
+				}
+			}
+			catch ( Exception ex )
+			{
+				LoggingHelper.LogError( ex, thisClassName + ".CredentialAlignmentObjectItemProfile_Delete" );
+				status = ex.Message;
+				valid = false;
+			}
+
+			return valid;
+		}
+
+		#endregion
 		#endregion
 	}
 }

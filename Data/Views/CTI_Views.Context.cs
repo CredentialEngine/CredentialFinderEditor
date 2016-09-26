@@ -36,7 +36,6 @@ namespace Data.Views
         public virtual DbSet<Assessment_Summary> Assessment_Summary { get; set; }
         public virtual DbSet<CodesProperty_Summary> CodesProperty_Summary { get; set; }
         public virtual DbSet<EntityProperty_Summary> EntityProperty_Summary { get; set; }
-        public virtual DbSet<JurisdictionProfile_Summary> JurisdictionProfile_Summary { get; set; }
         public virtual DbSet<LearningOpportunity_Summary> LearningOpportunity_Summary { get; set; }
         public virtual DbSet<Organization_Summary> Organization_Summary { get; set; }
         public virtual DbSet<Entity_LearningOpportunity_IsPartOfSummary> Entity_LearningOpportunity_IsPartOfSummary { get; set; }

@@ -10,7 +10,7 @@ using Models.ProfileModels;
 using EM = Data;
 using Utilities;
 using DBentity = Data.Entity_CostProfileItem;
-using Entity = Models.ProfileModels.CostProfileItem;
+using ThisEntity = Models.ProfileModels.CostProfileItem;
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
 namespace Factories
@@ -28,7 +28,7 @@ namespace Factories
 		/// <param name="userId"></param>
 		/// <param name="messages"></param>
 		/// <returns></returns>
-		public bool UpdateItems( List<Entity> profiles, int parentId, int userId, ref List<string> messages )
+		public bool UpdateItems( List<ThisEntity> profiles, int parentId, int userId, ref List<string> messages )
 		{
 			bool isValid = true;
 			int intialCount = messages.Count;
@@ -41,7 +41,7 @@ namespace Factories
 
 			int count = 0;
 			if ( profiles == null )
-				profiles = new List<Entity>();
+				profiles = new List<ThisEntity>();
 
 			DBentity efEntity = new DBentity();
 
@@ -51,7 +51,7 @@ namespace Factories
 				if ( profiles.Count() > 0 )
 				{
 					bool isEmpty = false;
-					foreach ( Entity entity in profiles )
+					foreach ( ThisEntity entity in profiles )
 					{
 						if ( ValidateItem( entity, ref isEmpty, ref  messages ) == false )
 						{
@@ -144,7 +144,7 @@ namespace Factories
 				//					 join item in profiles
 				//							 on existing.Id equals item.Id
 				//							 into joinTable
-				//					 from result in joinTable.DefaultIfEmpty( new Entity { Id = 0, ParentId = 0 } )
+				//					 from result in joinTable.DefaultIfEmpty( new ThisEntity { Id = 0, ParentId = 0 } )
 				//					 select new { DeleteId = existing.Id, ParentId = ( result.ParentId ) };
 
 				//	foreach ( var v in deleteList )
@@ -168,7 +168,7 @@ namespace Factories
 
 			return isValid;
 		}
-		public bool CostProfileItem_Save( Entity entity, int parentId, int userId, ref List<string> messages )
+		public bool CostProfileItem_Save( ThisEntity entity, int parentId, int userId, ref List<string> messages )
 		{
 			bool isValid = true;
 			int intialCount = messages.Count;
@@ -271,7 +271,7 @@ namespace Factories
 
 		}
 
-		private bool UpdateParts( Entity entity, int userId, ref List<string> messages )
+		private bool UpdateParts( ThisEntity entity, int userId, ref List<string> messages )
 		{
 			bool isAllValid = true;
 			string statusMessage = "";
@@ -305,10 +305,10 @@ namespace Factories
 		/// Retrieve and fill cost profile items for parent entity
 		/// </summary>
 		/// <param name="parentUid"></param>
-		public static List<Entity> CostProfileItem_GetAll( int parentId )
+		public static List<ThisEntity> CostProfileItem_GetAll( int parentId )
 		{
-			Entity row = new Entity();
-			List<Entity> profiles = new List<Entity>();
+			ThisEntity row = new ThisEntity();
+			List<ThisEntity> profiles = new List<ThisEntity>();
 
 			using ( var context = new Data.CTIEntities() )
 			{
@@ -321,7 +321,7 @@ namespace Factories
 				{
 					foreach ( DBentity item in results )
 					{
-						row = new Entity();
+						row = new ThisEntity();
 						ToMap( item, row, true );
 
 
@@ -332,9 +332,9 @@ namespace Factories
 			}
 
 		}//
-		public static Entity CostProfileItem_Get( int profileId, bool includingProperties = true )
+		public static ThisEntity CostProfileItem_Get( int profileId, bool includingProperties = true )
 		{
-			Entity entity = new Entity();
+			ThisEntity entity = new ThisEntity();
 
 			using ( var context = new Data.CTIEntities() )
 			{
@@ -349,7 +349,7 @@ namespace Factories
 			}
 
 		}//
-		public bool ValidateItem( Entity profile, ref bool isEmpty, ref List<string> messages )
+		public bool ValidateItem( ThisEntity profile, ref bool isEmpty, ref List<string> messages )
 		{
 			bool isValid = true;
 			int count = messages.Count;
@@ -400,17 +400,26 @@ namespace Factories
 			return isValid;
 		}
 
-		public static void ToMap( DBentity from, Entity to, bool includingProperties = false )
+		public static void ToMap( DBentity from, ThisEntity to, bool includingProperties = false )
 		{
 			to.Id = from.Id;
 			to.RowId = from.RowId;
 			to.CostProfileId = from.CostProfileId;
 			to.CostTypeId = from.CostTypeId;
 			to.ProfileName = from.ProfileName;
-			
+			if ( to.ProfileName.Length == 0 )
+			{
+				if ( from.Codes_PropertyValue != null )
+				{
+					to.ProfileName = from.Codes_PropertyValue.Title;
+					if ( !string.IsNullOrEmpty( from.CostTypeOther ) )
+						to.ProfileName += " - " + from.CostTypeOther;
+				}
+			}
 			to.CostTypeOther = from.CostTypeOther;
 			to.Price = from.Price == null ? 0 : ( decimal ) from.Price;
-
+			if ( to.Price > 0 )
+				to.ProfileName += " - " + to.Price.ToString();
 			to.Description = from.Description;
 
 			to.PaymentPattern = from.PaymentPattern;
@@ -441,7 +450,7 @@ namespace Factories
 			}
 
 		}
-		public static void FromMap( Entity from, DBentity to )
+		public static void FromMap( ThisEntity from, DBentity to )
 		{
 			to.Id = from.Id;
 			to.CostProfileId = from.CostProfileId;
@@ -469,7 +478,7 @@ namespace Factories
 			//to.LastUpdatedById = from.LastUpdatedById;
 
 		}
-		//private static void FillAudienceType( DBentity from, Entity to )
+		//private static void FillAudienceType( DBentity from, ThisEntity to )
 		//{
 		//	to.ApplicableAudienceType = CodesManager.GetEnumeration( CodesManager.PROPERTY_CATEGORY_AUDIENCE_TYPE );
 
@@ -504,7 +513,7 @@ namespace Factories
 		//	}
 
 		//}
-		static string SetProfileSummary( Entity to )
+		static string SetProfileSummary( ThisEntity to )
 		{
 			string summary = "Cost Profile Item ";
 			if ( !string.IsNullOrWhiteSpace( to.ProfileName ) )

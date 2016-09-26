@@ -32,6 +32,9 @@ namespace Data
             this.Entity_TaskProfile = new HashSet<Entity_TaskProfile>();
             this.Entity_VerificationProfile = new HashSet<Entity_VerificationProfile>();
             this.Entity_Address = new HashSet<Entity_Address>();
+            this.Entity_JurisdictionProfile = new HashSet<Entity_JurisdictionProfile>();
+            this.Entity_CompetencyFramework = new HashSet<Entity_CompetencyFramework>();
+            this.Entity_ConditionProfile = new HashSet<Entity_ConditionProfile>();
         }
     
         public int Id { get; set; }
@@ -56,5 +59,8 @@ namespace Data
         public virtual ICollection<Entity_TaskProfile> Entity_TaskProfile { get; set; }
         public virtual ICollection<Entity_VerificationProfile> Entity_VerificationProfile { get; set; }
         public virtual ICollection<Entity_Address> Entity_Address { get; set; }
+        public virtual ICollection<Entity_JurisdictionProfile> Entity_JurisdictionProfile { get; set; }
+        public virtual ICollection<Entity_CompetencyFramework> Entity_CompetencyFramework { get; set; }
+        public virtual ICollection<Entity_ConditionProfile> Entity_ConditionProfile { get; set; }
     }
 }

@@ -177,6 +177,7 @@ warning 6002: The table/view 'CTI.dbo.Credential_Summary' does not have a primar
           <Key>
             <PropertyRef Name="Id" />
             <PropertyRef Name="EntityUid" />
+            <PropertyRef Name="RowId" />
             <PropertyRef Name="Name" />
             <PropertyRef Name="CredentialType" />
             <PropertyRef Name="CredentialTypeSchema" />
@@ -187,6 +188,7 @@ warning 6002: The table/view 'CTI.dbo.Credential_Summary' does not have a primar
           </Key>
           <Property Name="Id" Type="int" Nullable="false" />
           <Property Name="EntityUid" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="RowId" Type="uniqueidentifier" Nullable="false" />
           <Property Name="Name" Type="nvarchar" MaxLength="300" Nullable="false" />
           <Property Name="CredentialType" Type="varchar" MaxLength="200" Nullable="false" />
           <Property Name="CredentialTypeSchema" Type="varchar" MaxLength="100" Nullable="false" />
@@ -326,6 +328,7 @@ warning 6002: The table/view 'CTI.dbo.Entity_LearningOpportunity_IsPartOfSummary
             <PropertyRef Name="Id" />
             <PropertyRef Name="EntityId" />
             <PropertyRef Name="LearningOpportunityId" />
+            <PropertyRef Name="LearningOpportunity" />
             <PropertyRef Name="EntityUid" />
             <PropertyRef Name="EntityTypeId" />
             <PropertyRef Name="parentLoppId" />
@@ -334,13 +337,14 @@ warning 6002: The table/view 'CTI.dbo.Entity_LearningOpportunity_IsPartOfSummary
           <Property Name="Id" Type="int" Nullable="false" />
           <Property Name="EntityId" Type="int" Nullable="false" />
           <Property Name="LearningOpportunityId" Type="int" Nullable="false" />
+          <Property Name="LearningOpportunity" Type="varchar" MaxLength="200" Nullable="false" />
           <Property Name="EntityUid" Type="uniqueidentifier" Nullable="false" />
           <Property Name="EntityTypeId" Type="int" Nullable="false" />
           <Property Name="Title" Type="varchar" MaxLength="100" />
           <Property Name="parentLoppId" Type="int" Nullable="false" />
           <Property Name="ParentName" Type="varchar" MaxLength="200" Nullable="false" />
           <Property Name="ParentDescription" Type="varchar(max)" />
-          <Property Name="ParentUrl" Type="varchar" MaxLength="300" />
+          <Property Name="ParentUrl" Type="varchar" MaxLength="500" />
         </EntityType>
         <!--Errors Found During Generation:
 warning 6002: The table/view 'CTI.dbo.Entity_LearningOpportunity_Summary' does not have a primary key defined. The key has been inferred and the definition was created as a read-only table/view.-->
@@ -399,6 +403,7 @@ warning 6002: The table/view 'CTI.dbo.Entity_QAAction_Summary' does not have a p
             <PropertyRef Name="RelationshipTypeId" />
             <PropertyRef Name="Relationship" />
             <PropertyRef Name="ReverseRelation" />
+            <PropertyRef Name="RelationshipSchema" />
             <PropertyRef Name="AgentUid" />
             <PropertyRef Name="AgentEntityId" />
             <PropertyRef Name="AgentTypeId" />
@@ -416,6 +421,8 @@ warning 6002: The table/view 'CTI.dbo.Entity_QAAction_Summary' does not have a p
           <Property Name="RelationshipTypeId" Type="int" Nullable="false" />
           <Property Name="Relationship" Type="varchar" MaxLength="100" Nullable="false" />
           <Property Name="ReverseRelation" Type="varchar" MaxLength="100" Nullable="false" />
+          <Property Name="RelationshipSchema" Type="varchar" MaxLength="200" Nullable="false" />
+          <Property Name="ReverseRelationSchema" Type="varchar" MaxLength="200" />
           <Property Name="AgentUid" Type="uniqueidentifier" Nullable="false" />
           <Property Name="AgentEntityId" Type="int" Nullable="false" />
           <Property Name="AgentTypeId" Type="int" Nullable="false" />
@@ -604,37 +611,6 @@ warning 6002: The table/view 'CTI.dbo.EntityProperty_Summary' does not have a pr
           <Property Name="CreatedById" Type="int" />
           <Property Name="Description" Type="varchar" MaxLength="500" />
           <Property Name="IsActive" Type="bit" />
-        </EntityType>
-        <!--Errors Found During Generation:
-warning 6002: The table/view 'CTI.dbo.JurisdictionProfile_Summary' does not have a primary key defined. The key has been inferred and the definition was created as a read-only table/view.-->
-        <EntityType Name="JurisdictionProfile_Summary">
-          <Key>
-            <PropertyRef Name="Id" />
-            <PropertyRef Name="BaseId" />
-            <PropertyRef Name="Name" />
-            <PropertyRef Name="JurisdictionProfileId" />
-            <PropertyRef Name="ParentId" />
-            <PropertyRef Name="JurisdictionName" />
-            <PropertyRef Name="GeoCoordinateName" />
-            <PropertyRef Name="Latitude" />
-            <PropertyRef Name="Longitude" />
-          </Key>
-          <Property Name="Id" Type="int" Nullable="false" />
-          <Property Name="EntityType" Type="varchar" MaxLength="100" />
-          <Property Name="BaseId" Type="int" Nullable="false" />
-          <Property Name="Name" Type="varchar" MaxLength="200" Nullable="false" />
-          <Property Name="JurisdictionProfileId" Type="int" Nullable="false" />
-          <Property Name="ParentId" Type="uniqueidentifier" Nullable="false" />
-          <Property Name="ParentTypeId" Type="int" />
-          <Property Name="JurisdictionName" Type="varchar" MaxLength="100" Nullable="false" />
-          <Property Name="GeoNamesId" Type="int" />
-          <Property Name="IsException" Type="bit" />
-          <Property Name="GeoCoordinateName" Type="varchar" MaxLength="100" Nullable="false" />
-          <Property Name="AddressRegion" Type="varchar" MaxLength="100" />
-          <Property Name="Country" Type="varchar" MaxLength="100" />
-          <Property Name="Latitude" Type="float" Nullable="false" />
-          <Property Name="Longitude" Type="float" Nullable="false" />
-          <Property Name="Url" Type="varchar" MaxLength="300" />
         </EntityType>
         <!--Errors Found During Generation:
 warning 6002: The table/view 'CTI.dbo.LearningOpportunity_Summary' does not have a primary key defined. The key has been inferred and the definition was created as a read-only table/view.-->
@@ -935,6 +911,7 @@ warning 6002: The table/view 'CTI.dbo.OrganizationProperty.Summary' does not hav
             <DefiningQuery>SELECT 
     [Credential_Summary].[Id] AS [Id], 
     [Credential_Summary].[EntityUid] AS [EntityUid], 
+    [Credential_Summary].[RowId] AS [RowId], 
     [Credential_Summary].[Name] AS [Name], 
     [Credential_Summary].[CredentialType] AS [CredentialType], 
     [Credential_Summary].[CredentialTypeSchema] AS [CredentialTypeSchema], 
@@ -1037,6 +1014,7 @@ warning 6002: The table/view 'CTI.dbo.OrganizationProperty.Summary' does not hav
     [Entity_LearningOpportunity_IsPartOfSummary].[Id] AS [Id], 
     [Entity_LearningOpportunity_IsPartOfSummary].[EntityId] AS [EntityId], 
     [Entity_LearningOpportunity_IsPartOfSummary].[LearningOpportunityId] AS [LearningOpportunityId], 
+    [Entity_LearningOpportunity_IsPartOfSummary].[LearningOpportunity] AS [LearningOpportunity], 
     [Entity_LearningOpportunity_IsPartOfSummary].[EntityUid] AS [EntityUid], 
     [Entity_LearningOpportunity_IsPartOfSummary].[EntityTypeId] AS [EntityTypeId], 
     [Entity_LearningOpportunity_IsPartOfSummary].[Title] AS [Title], 
@@ -1087,6 +1065,8 @@ warning 6002: The table/view 'CTI.dbo.OrganizationProperty.Summary' does not hav
     [Entity_QAAction_Summary].[RelationshipTypeId] AS [RelationshipTypeId], 
     [Entity_QAAction_Summary].[Relationship] AS [Relationship], 
     [Entity_QAAction_Summary].[ReverseRelation] AS [ReverseRelation], 
+    [Entity_QAAction_Summary].[RelationshipSchema] AS [RelationshipSchema], 
+    [Entity_QAAction_Summary].[ReverseRelationSchema] AS [ReverseRelationSchema], 
     [Entity_QAAction_Summary].[AgentUid] AS [AgentUid], 
     [Entity_QAAction_Summary].[AgentEntityId] AS [AgentEntityId], 
     [Entity_QAAction_Summary].[AgentTypeId] AS [AgentTypeId], 
@@ -1218,26 +1198,6 @@ warning 6002: The table/view 'CTI.dbo.OrganizationProperty.Summary' does not hav
     [EntityProperty_Summary].[Description] AS [Description], 
     [EntityProperty_Summary].[IsActive] AS [IsActive]
     FROM [dbo].[EntityProperty_Summary] AS [EntityProperty_Summary]</DefiningQuery>
-          </EntitySet>
-          <EntitySet Name="JurisdictionProfile_Summary" EntityType="Self.JurisdictionProfile_Summary" store:Type="Views" store:Schema="dbo">
-            <DefiningQuery>SELECT 
-    [JurisdictionProfile_Summary].[Id] AS [Id], 
-    [JurisdictionProfile_Summary].[EntityType] AS [EntityType], 
-    [JurisdictionProfile_Summary].[BaseId] AS [BaseId], 
-    [JurisdictionProfile_Summary].[Name] AS [Name], 
-    [JurisdictionProfile_Summary].[JurisdictionProfileId] AS [JurisdictionProfileId], 
-    [JurisdictionProfile_Summary].[ParentId] AS [ParentId], 
-    [JurisdictionProfile_Summary].[ParentTypeId] AS [ParentTypeId], 
-    [JurisdictionProfile_Summary].[JurisdictionName] AS [JurisdictionName], 
-    [JurisdictionProfile_Summary].[GeoNamesId] AS [GeoNamesId], 
-    [JurisdictionProfile_Summary].[IsException] AS [IsException], 
-    [JurisdictionProfile_Summary].[GeoCoordinateName] AS [GeoCoordinateName], 
-    [JurisdictionProfile_Summary].[AddressRegion] AS [AddressRegion], 
-    [JurisdictionProfile_Summary].[Country] AS [Country], 
-    [JurisdictionProfile_Summary].[Latitude] AS [Latitude], 
-    [JurisdictionProfile_Summary].[Longitude] AS [Longitude], 
-    [JurisdictionProfile_Summary].[Url] AS [Url]
-    FROM [dbo].[JurisdictionProfile_Summary] AS [JurisdictionProfile_Summary]</DefiningQuery>
           </EntitySet>
           <EntitySet Name="LearningOpportunity_Summary" EntityType="Self.LearningOpportunity_Summary" store:Type="Views" store:Schema="dbo">
             <DefiningQuery>SELECT 
@@ -1387,6 +1347,7 @@ warning 6002: The table/view 'CTI.dbo.OrganizationProperty.Summary' does not hav
             <PropertyRef Name="CredentialName" />
             <PropertyRef Name="CredentialRowId" />
             <PropertyRef Name="RowId" />
+            <PropertyRef Name="RelationshipSchema" />
           </Key>
           <Property Name="EntityQAActionId" Type="Int32" Nullable="false" />
           <Property Name="EntityId" Type="Int32" Nullable="false" />
@@ -1413,6 +1374,8 @@ warning 6002: The table/view 'CTI.dbo.OrganizationProperty.Summary' does not hav
           <Property Name="LastUpdated" Type="DateTime" Precision="3" />
           <Property Name="LastUpdatedById" Type="Int32" />
           <Property Name="RowId" Type="Guid" Nullable="false" />
+          <Property Name="RelationshipSchema" Type="String" Nullable="false" MaxLength="200" FixedLength="false" Unicode="false" />
+          <Property Name="ReverseRelationSchema" Type="String" MaxLength="200" FixedLength="false" Unicode="false" />
         </EntityType>
         <EntityType Name="Entity_Relationship_AgentSummary">
           <Key>
@@ -1474,7 +1437,6 @@ warning 6002: The table/view 'CTI.dbo.OrganizationProperty.Summary' does not hav
           <EntitySet Name="Assessment_Summary" EntityType="CTI_Views.Assessment_Summary" />
           <EntitySet Name="CodesProperty_Summary" EntityType="CTI_Views.CodesProperty_Summary" />
           <EntitySet Name="EntityProperty_Summary" EntityType="CTI_Views.EntityProperty_Summary" />
-          <EntitySet Name="JurisdictionProfile_Summary" EntityType="CTI_Views.JurisdictionProfile_Summary" />
           <EntitySet Name="LearningOpportunity_Summary" EntityType="CTI_Views.LearningOpportunity_Summary" />
           <EntitySet Name="Organization_Summary" EntityType="CTI_Views.Organization_Summary" />
           <EntitySet Name="Entity_LearningOpportunity_IsPartOfSummary" EntityType="CTI_Views.Entity_LearningOpportunity_IsPartOfSummary" />
@@ -1545,6 +1507,7 @@ warning 6002: The table/view 'CTI.dbo.OrganizationProperty.Summary' does not hav
             <PropertyRef Name="owingOrgId" />
             <PropertyRef Name="CreatedById" />
             <PropertyRef Name="LastUpdatedById" />
+            <PropertyRef Name="RowId" />
           </Key>
           <Property Name="Id" Type="Int32" Nullable="false" />
           <Property Name="EntityUid" Type="Guid" Nullable="false" />
@@ -1573,6 +1536,7 @@ warning 6002: The table/view 'CTI.dbo.OrganizationProperty.Summary' does not hav
           <Property Name="CTID" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
           <Property Name="CredentialRegistryId" Type="String" MaxLength="100" FixedLength="false" Unicode="false" />
           <Property Name="availableOnlineAt" Type="String" MaxLength="500" FixedLength="false" Unicode="false" />
+          <Property Name="RowId" Type="Guid" Nullable="false" />
         </EntityType>
         <EntityType Name="Entity_AgentRelationshipIdCSV">
           <Key>
@@ -1738,35 +1702,6 @@ warning 6002: The table/view 'CTI.dbo.OrganizationProperty.Summary' does not hav
           <Property Name="Description" Type="String" MaxLength="500" FixedLength="false" Unicode="false" />
           <Property Name="IsActive" Type="Boolean" />
         </EntityType>
-        <EntityType Name="JurisdictionProfile_Summary">
-          <Key>
-            <PropertyRef Name="Id" />
-            <PropertyRef Name="BaseId" />
-            <PropertyRef Name="Name" />
-            <PropertyRef Name="JurisdictionProfileId" />
-            <PropertyRef Name="ParentId" />
-            <PropertyRef Name="JurisdictionName" />
-            <PropertyRef Name="GeoCoordinateName" />
-            <PropertyRef Name="Latitude" />
-            <PropertyRef Name="Longitude" />
-          </Key>
-          <Property Name="Id" Type="Int32" Nullable="false" />
-          <Property Name="EntityType" Type="String" MaxLength="100" FixedLength="false" Unicode="false" />
-          <Property Name="BaseId" Type="Int32" Nullable="false" />
-          <Property Name="Name" Type="String" Nullable="false" MaxLength="200" FixedLength="false" Unicode="false" />
-          <Property Name="JurisdictionProfileId" Type="Int32" Nullable="false" />
-          <Property Name="ParentId" Type="Guid" Nullable="false" />
-          <Property Name="ParentTypeId" Type="Int32" />
-          <Property Name="JurisdictionName" Type="String" Nullable="false" MaxLength="100" FixedLength="false" Unicode="false" />
-          <Property Name="GeoNamesId" Type="Int32" />
-          <Property Name="IsException" Type="Boolean" />
-          <Property Name="GeoCoordinateName" Type="String" Nullable="false" MaxLength="100" FixedLength="false" Unicode="false" />
-          <Property Name="AddressRegion" Type="String" MaxLength="100" FixedLength="false" Unicode="false" />
-          <Property Name="Country" Type="String" MaxLength="100" FixedLength="false" Unicode="false" />
-          <Property Name="Latitude" Type="Double" Nullable="false" />
-          <Property Name="Longitude" Type="Double" Nullable="false" />
-          <Property Name="Url" Type="String" MaxLength="300" FixedLength="false" Unicode="false" />
-        </EntityType>
         <EntityType Name="LearningOpportunity_Summary">
           <Key>
             <PropertyRef Name="Id" />
@@ -1841,6 +1776,7 @@ warning 6002: The table/view 'CTI.dbo.OrganizationProperty.Summary' does not hav
             <PropertyRef Name="EntityTypeId" />
             <PropertyRef Name="parentLoppId" />
             <PropertyRef Name="ParentName" />
+            <PropertyRef Name="LearningOpportunity" />
           </Key>
           <Property Name="Id" Type="Int32" Nullable="false" />
           <Property Name="EntityId" Type="Int32" Nullable="false" />
@@ -1851,7 +1787,8 @@ warning 6002: The table/view 'CTI.dbo.OrganizationProperty.Summary' does not hav
           <Property Name="parentLoppId" Type="Int32" Nullable="false" />
           <Property Name="ParentName" Type="String" Nullable="false" MaxLength="200" FixedLength="false" Unicode="false" />
           <Property Name="ParentDescription" Type="String" MaxLength="Max" FixedLength="false" Unicode="false" />
-          <Property Name="ParentUrl" Type="String" MaxLength="300" FixedLength="false" Unicode="false" />
+          <Property Name="ParentUrl" Type="String" MaxLength="500" FixedLength="false" Unicode="false" />
+          <Property Name="LearningOpportunity" Type="String" Nullable="false" MaxLength="200" FixedLength="false" Unicode="false" />
         </EntityType>
         <EntityType Name="Entity_LearningOpportunity_Summary">
           <Key>
@@ -2161,6 +2098,8 @@ warning 6002: The table/view 'CTI.dbo.OrganizationProperty.Summary' does not hav
           <EntitySetMapping Name="Entity_QAAction_Summary">
             <EntityTypeMapping TypeName="CTI_Views.Entity_QAAction_Summary">
               <MappingFragment StoreEntitySet="Entity_QAAction_Summary">
+                <ScalarProperty Name="ReverseRelationSchema" ColumnName="ReverseRelationSchema" />
+                <ScalarProperty Name="RelationshipSchema" ColumnName="RelationshipSchema" />
                 <ScalarProperty Name="EntityQAActionId" ColumnName="EntityQAActionId" />
                 <ScalarProperty Name="EntityId" ColumnName="EntityId" />
                 <ScalarProperty Name="EntityUid" ColumnName="EntityUid" />
@@ -2257,6 +2196,7 @@ warning 6002: The table/view 'CTI.dbo.OrganizationProperty.Summary' does not hav
           <EntitySetMapping Name="Credential_Summary">
             <EntityTypeMapping TypeName="CTI_Views.Credential_Summary">
               <MappingFragment StoreEntitySet="Credential_Summary">
+                <ScalarProperty Name="RowId" ColumnName="RowId" />
                 <ScalarProperty Name="availableOnlineAt" ColumnName="availableOnlineAt" />
                 <ScalarProperty Name="CredentialRegistryId" ColumnName="CredentialRegistryId" />
                 <ScalarProperty Name="CTID" ColumnName="CTID" />
@@ -2420,28 +2360,6 @@ warning 6002: The table/view 'CTI.dbo.OrganizationProperty.Summary' does not hav
               </MappingFragment>
             </EntityTypeMapping>
           </EntitySetMapping>
-          <EntitySetMapping Name="JurisdictionProfile_Summary">
-            <EntityTypeMapping TypeName="CTI_Views.JurisdictionProfile_Summary">
-              <MappingFragment StoreEntitySet="JurisdictionProfile_Summary">
-                <ScalarProperty Name="Url" ColumnName="Url" />
-                <ScalarProperty Name="Longitude" ColumnName="Longitude" />
-                <ScalarProperty Name="Latitude" ColumnName="Latitude" />
-                <ScalarProperty Name="Country" ColumnName="Country" />
-                <ScalarProperty Name="AddressRegion" ColumnName="AddressRegion" />
-                <ScalarProperty Name="GeoCoordinateName" ColumnName="GeoCoordinateName" />
-                <ScalarProperty Name="IsException" ColumnName="IsException" />
-                <ScalarProperty Name="GeoNamesId" ColumnName="GeoNamesId" />
-                <ScalarProperty Name="JurisdictionName" ColumnName="JurisdictionName" />
-                <ScalarProperty Name="ParentTypeId" ColumnName="ParentTypeId" />
-                <ScalarProperty Name="ParentId" ColumnName="ParentId" />
-                <ScalarProperty Name="JurisdictionProfileId" ColumnName="JurisdictionProfileId" />
-                <ScalarProperty Name="Name" ColumnName="Name" />
-                <ScalarProperty Name="BaseId" ColumnName="BaseId" />
-                <ScalarProperty Name="EntityType" ColumnName="EntityType" />
-                <ScalarProperty Name="Id" ColumnName="Id" />
-              </MappingFragment>
-            </EntityTypeMapping>
-          </EntitySetMapping>
           <EntitySetMapping Name="LearningOpportunity_Summary">
             <EntityTypeMapping TypeName="CTI_Views.LearningOpportunity_Summary">
               <MappingFragment StoreEntitySet="LearningOpportunity_Summary">
@@ -2504,6 +2422,7 @@ warning 6002: The table/view 'CTI.dbo.OrganizationProperty.Summary' does not hav
           <EntitySetMapping Name="Entity_LearningOpportunity_IsPartOfSummary">
             <EntityTypeMapping TypeName="CTI_Views.Entity_LearningOpportunity_IsPartOfSummary">
               <MappingFragment StoreEntitySet="Entity_LearningOpportunity_IsPartOfSummary">
+                <ScalarProperty Name="LearningOpportunity" ColumnName="LearningOpportunity" />
                 <ScalarProperty Name="ParentUrl" ColumnName="ParentUrl" />
                 <ScalarProperty Name="ParentDescription" ColumnName="ParentDescription" />
                 <ScalarProperty Name="ParentName" ColumnName="ParentName" />

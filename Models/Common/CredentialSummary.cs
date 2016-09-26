@@ -25,6 +25,8 @@ namespace Models.Common
 		public string AvailableOnlineAt { get; set; }
 		
 		public string Url { get; set; }
+		public string ImageUrl { get; set; }
+		
 		public string NaicsList2 { get; set; }
 		public string CredentialType { get; set; }
 		public string CredentialTypeSchema { get; set; }

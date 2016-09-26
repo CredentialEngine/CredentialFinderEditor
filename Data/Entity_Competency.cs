@@ -29,6 +29,9 @@ namespace Data
         public string TargetUrl { get; set; }
         public string CodedNotation { get; set; }
         public string AlignmentType { get; set; }
+        public Nullable<int> AlignmentTypeId { get; set; }
+        public Nullable<System.DateTime> AlignmentDate { get; set; }
+        public Nullable<int> EntityFrameworkId { get; set; }
     
         public virtual Entity Entity { get; set; }
     }

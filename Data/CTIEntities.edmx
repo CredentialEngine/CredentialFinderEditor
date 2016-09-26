@@ -60,6 +60,7 @@
           <Property Name="LastName" Type="nvarchar" MaxLength="50" Nullable="false" />
           <Property Name="Email" Type="nvarchar" MaxLength="50" Nullable="false" />
           <Property Name="OrgId" Type="int" />
+          <Property Name="InitialPassword" Type="varchar" MaxLength="50" />
           <Property Name="Created" Type="datetime" />
           <Property Name="IsImported" Type="bit" />
           <Property Name="UserId" Type="int" />
@@ -258,6 +259,7 @@
           <Property Name="SchemaUrl" Type="varchar" MaxLength="200" />
           <Property Name="Created" Type="datetime" />
           <Property Name="Totals" Type="int" />
+          <Property Name="IsSubType1" Type="bit" />
         </EntityType>
         <EntityType Name="Codes_Status">
           <Key>
@@ -313,6 +315,7 @@
           <Property Name="TargetCredentials" Type="varchar(max)" />
           <Property Name="OtherAudienceType" Type="varchar" MaxLength="500" />
           <Property Name="OtherCredentialType" Type="varchar" MaxLength="500" />
+          <Property Name="YearsOfExperience" Type="decimal" Precision="5" Scale="2" />
         </EntityType>
         <EntityType Name="Entity">
           <Key>
@@ -390,7 +393,66 @@
           <Property Name="TargetDescription" Type="nvarchar(max)" />
           <Property Name="TargetUrl" Type="varchar" MaxLength="300" />
           <Property Name="CodedNotation" Type="nvarchar" MaxLength="300" />
+          <Property Name="AlignmentTypeId" Type="int" />
+          <Property Name="Created" Type="datetime" />
+          <Property Name="CreatedById" Type="int" />
+          <Property Name="LastUpdated" Type="datetime" />
+          <Property Name="LastUpdatedById" Type="int" />
+          <Property Name="RowId" Type="uniqueidentifier" Nullable="false" />
           <Property Name="AlignmentType" Type="nvarchar" MaxLength="50" />
+          <Property Name="AlignmentDate" Type="datetime" />
+          <Property Name="EntityFrameworkId" Type="int" />
+        </EntityType>
+        <EntityType Name="Entity_CompetencyFramework">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="EntityId" Type="int" Nullable="false" />
+          <Property Name="EducationalFrameworkName" Type="nvarchar" MaxLength="300" />
+          <Property Name="EducationalFrameworkUrl" Type="varchar" MaxLength="300" />
+          <Property Name="AlignmentTypeId" Type="int" />
+          <Property Name="Created" Type="datetime" />
+          <Property Name="CreatedById" Type="int" />
+          <Property Name="LastUpdated" Type="datetime" />
+          <Property Name="LastUpdatedById" Type="int" />
+          <Property Name="RowId" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="AlignmentType" Type="nvarchar" MaxLength="50" />
+        </EntityType>
+        <EntityType Name="Entity_CompetencyFrameworkItem">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="EntityFrameworkId" Type="int" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="600" />
+          <Property Name="Description" Type="nvarchar(max)" />
+          <Property Name="TargetName" Type="nvarchar" MaxLength="300" />
+          <Property Name="TargetDescription" Type="nvarchar(max)" />
+          <Property Name="TargetUrl" Type="varchar" MaxLength="300" />
+          <Property Name="CodedNotation" Type="nvarchar" MaxLength="300" />
+          <Property Name="AlignmentDate" Type="datetime" />
+          <Property Name="Created" Type="datetime" />
+          <Property Name="CreatedById" Type="int" />
+          <Property Name="LastUpdated" Type="datetime" />
+          <Property Name="LastUpdatedById" Type="int" />
+          <Property Name="RowId" Type="uniqueidentifier" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Entity_ConditionProfile">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="EntityId" Type="int" Nullable="false" />
+          <Property Name="ConnectionTypeId" Type="int" Nullable="false" />
+          <Property Name="AgentUid" Type="uniqueidentifier" />
+          <Property Name="Name" Type="varchar" MaxLength="100" />
+          <Property Name="Description" Type="varchar(max)" />
+          <Property Name="Experience" Type="varchar(max)" />
+          <Property Name="MinimumAge" Type="int" />
+          <Property Name="YearsOfExperience" Type="decimal" Precision="5" Scale="2" />
+          <Property Name="DateEffective" Type="datetime" />
+          <Property Name="OtherAudienceType" Type="varchar" MaxLength="500" />
           <Property Name="Created" Type="datetime" />
           <Property Name="CreatedById" Type="int" />
           <Property Name="LastUpdated" Type="datetime" />
@@ -492,6 +554,23 @@
           <Property Name="Created" Type="datetime" />
           <Property Name="CreatedById" Type="int" />
         </EntityType>
+        <EntityType Name="Entity_JurisdictionProfile">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="EntityId" Type="int" Nullable="false" />
+          <Property Name="Name" Type="varchar" MaxLength="100" Nullable="false" />
+          <Property Name="Description" Type="varchar" MaxLength="1000" />
+          <Property Name="IsOnlineJurisdiction" Type="bit" />
+          <Property Name="IsGlobalJurisdiction" Type="bit" />
+          <Property Name="JProfilePurposeId" Type="int" />
+          <Property Name="Created" Type="datetime" />
+          <Property Name="CreatedById" Type="int" />
+          <Property Name="LastUpdated" Type="datetime" />
+          <Property Name="LastUpdatedById" Type="int" />
+          <Property Name="RowId" Type="uniqueidentifier" Nullable="false" />
+        </EntityType>
         <EntityType Name="Entity_LearningOpportunity">
           <Key>
             <PropertyRef Name="Id" />
@@ -566,13 +645,13 @@
           <Property Name="EntityId" Type="int" Nullable="false" />
           <Property Name="ProfileName" Type="varchar" MaxLength="100" />
           <Property Name="Description" Type="varchar(max)" />
-          <Property Name="RemovalDateEffective" Type="datetime" />
-          <Property Name="RenewalDateEffective" Type="datetime" />
+          <Property Name="DateEffective" Type="datetime" />
           <Property Name="Created" Type="datetime" />
           <Property Name="CreatedById" Type="int" />
           <Property Name="LastUpdated" Type="datetime" />
           <Property Name="LastUpdatedById" Type="int" />
           <Property Name="RowId" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="RevocationCriteriaUrl" Type="varchar" MaxLength="300" />
         </EntityType>
         <EntityType Name="Entity_TaskProfile">
           <Key>
@@ -627,7 +706,6 @@
           <Property Name="LastUpdatedById" Type="int" />
           <Property Name="JurisdictionId" Type="int" />
           <Property Name="IsException" Type="bit" />
-          <Property Name="OldParentId" Type="uniqueidentifier" />
         </EntityType>
         <EntityType Name="JurisdictionProfile">
           <Key>
@@ -640,12 +718,12 @@
           <Property Name="Description" Type="varchar" MaxLength="1000" />
           <Property Name="IsOnlineJurisdiction" Type="bit" />
           <Property Name="IsGlobalJurisdiction" Type="bit" />
+          <Property Name="JProfilePurposeId" Type="int" />
           <Property Name="Created" Type="datetime" />
           <Property Name="CreatedById" Type="int" />
           <Property Name="LastUpdated" Type="datetime" />
           <Property Name="LastUpdatedById" Type="int" />
           <Property Name="RowId" Type="uniqueidentifier" Nullable="false" />
-          <Property Name="JProfilePurposeId" Type="int" />
         </EntityType>
         <EntityType Name="LearningOpportunity">
           <Key>
@@ -811,6 +889,7 @@
           <Property Name="CreatedById" Type="int" />
           <Property Name="LastUpdated" Type="datetime" />
           <Property Name="LastUpdatedById" Type="int" />
+          <Property Name="StatusId" Type="int" />
         </EntityType>
         <Association Name="FK_Account_AspNetUsers">
           <End Role="AspNetUsers" Type="Self.AspNetUsers" Multiplicity="0..1">
@@ -849,6 +928,18 @@
             </Principal>
             <Dependent Role="Codes_PropertyValue">
               <PropertyRef Name="CategoryId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Credential_ConnectionProfile_Codes_PropertyValue">
+          <End Role="Codes_PropertyValue" Type="Self.Codes_PropertyValue" Multiplicity="1" />
+          <End Role="Credential_ConnectionProfile" Type="Self.Credential_ConnectionProfile" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Codes_PropertyValue">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Credential_ConnectionProfile">
+              <PropertyRef Name="ConnectionTypeId" />
             </Dependent>
           </ReferentialConstraint>
         </Association>
@@ -946,6 +1037,18 @@
             </Dependent>
           </ReferentialConstraint>
         </Association>
+        <Association Name="FK_Entity_Address_Codes_Countries">
+          <End Role="Codes_Countries" Type="Self.Codes_Countries" Multiplicity="0..1" />
+          <End Role="Entity_Address" Type="Self.Entity_Address" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Codes_Countries">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Entity_Address">
+              <PropertyRef Name="CountryId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
         <Association Name="FK_Entity_Address_Entity">
           <End Role="Entity" Type="Self.Entity" Multiplicity="1">
             <OnDelete Action="Cascade" />
@@ -1028,6 +1131,58 @@
             </Dependent>
           </ReferentialConstraint>
         </Association>
+        <Association Name="FK_Entity_CompetencyFramework_Entity">
+          <End Role="Entity" Type="Self.Entity" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="Entity_CompetencyFramework" Type="Self.Entity_CompetencyFramework" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Entity">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Entity_CompetencyFramework">
+              <PropertyRef Name="EntityId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Entity_CompetencyFrameworkItem_Entity_CompetencyFramework">
+          <End Role="Entity_CompetencyFramework" Type="Self.Entity_CompetencyFramework" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="Entity_CompetencyFrameworkItem" Type="Self.Entity_CompetencyFrameworkItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Entity_CompetencyFramework">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Entity_CompetencyFrameworkItem">
+              <PropertyRef Name="EntityFrameworkId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Entity_ConditionProfile_Codes_PropertyValue">
+          <End Role="Codes_PropertyValue" Type="Self.Codes_PropertyValue" Multiplicity="1" />
+          <End Role="Entity_ConditionProfile" Type="Self.Entity_ConditionProfile" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Codes_PropertyValue">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Entity_ConditionProfile">
+              <PropertyRef Name="ConnectionTypeId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Entity_ConditionProfile_Entity">
+          <End Role="Entity" Type="Self.Entity" Multiplicity="1" />
+          <End Role="Entity_ConditionProfile" Type="Self.Entity_ConditionProfile" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Entity">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Entity_ConditionProfile">
+              <PropertyRef Name="EntityId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
         <Association Name="FK_Entity_CostProfile_Codes_Currency">
           <End Role="Codes_Currency" Type="Self.Codes_Currency" Multiplicity="0..1" />
           <End Role="Entity_CostProfile" Type="Self.Entity_CostProfile" Multiplicity="*" />
@@ -1081,7 +1236,9 @@
           </ReferentialConstraint>
         </Association>
         <Association Name="FK_Entity_Credential_Credential">
-          <End Role="Credential" Type="Self.Credential" Multiplicity="1" />
+          <End Role="Credential" Type="Self.Credential" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
           <End Role="Entity_Credential" Type="Self.Entity_Credential" Multiplicity="*" />
           <ReferentialConstraint>
             <Principal Role="Credential">
@@ -1142,6 +1299,20 @@
               <PropertyRef Name="Id" />
             </Principal>
             <Dependent Role="Entity_FrameworkItem">
+              <PropertyRef Name="EntityId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Entity_JurisdictionProfile_Entity">
+          <End Role="Entity" Type="Self.Entity" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="Entity_JurisdictionProfile" Type="Self.Entity_JurisdictionProfile" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Entity">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Entity_JurisdictionProfile">
               <PropertyRef Name="EntityId" />
             </Dependent>
           </ReferentialConstraint>
@@ -1277,8 +1448,8 @@
           </ReferentialConstraint>
         </Association>
         <!--Errors Found During Generation:
-warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that are not part of the key of the table on the primary side of the relationship. The relationship was excluded.
-        <Association Name="FK_Entity_QA_Action_Entity1" />-->
+warning 6035: The relationship 'FK_Entity.QA_Action_EntityAgent' has columns that are not part of the key of the table on the primary side of the relationship. The relationship was excluded.
+        <Association Name="FK_Entity_QA_Action_EntityAgent" />-->
         <Association Name="FK_Entity_Reference_Codes_PropertyCategory">
           <End Role="Codes_PropertyCategory" Type="Self.Codes_PropertyCategory" Multiplicity="1" />
           <End Role="Entity_Reference" Type="Self.Entity_Reference" Multiplicity="*" />
@@ -1346,7 +1517,9 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           </ReferentialConstraint>
         </Association>
         <Association Name="FK_Entity_VerificationProfile_Credential">
-          <End Role="Credential" Type="Self.Credential" Multiplicity="0..1" />
+          <End Role="Credential" Type="Self.Credential" Multiplicity="0..1">
+            <OnDelete Action="Cascade" />
+          </End>
           <End Role="Entity_VerificationProfile" Type="Self.Entity_VerificationProfile" Multiplicity="*" />
           <ReferentialConstraint>
             <Principal Role="Credential">
@@ -1404,6 +1577,18 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
             </Principal>
             <Dependent Role="LearningOpportunity">
               <PropertyRef Name="ManagingOrgId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Organization_Address_Codes_Countries">
+          <End Role="Codes_Countries" Type="Self.Codes_Countries" Multiplicity="0..1" />
+          <End Role="Organization_Address" Type="Self.Organization_Address" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Codes_Countries">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Organization_Address">
+              <PropertyRef Name="CountryId" />
             </Dependent>
           </ReferentialConstraint>
         </Association>
@@ -1555,11 +1740,15 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <EntitySet Name="Entity_AgentRelationship" EntityType="Self.Entity_AgentRelationship" Schema="dbo" Table="Entity.AgentRelationship" store:Type="Tables" />
           <EntitySet Name="Entity_Assessment" EntityType="Self.Entity_Assessment" Schema="dbo" Table="Entity.Assessment" store:Type="Tables" />
           <EntitySet Name="Entity_Competency" EntityType="Self.Entity_Competency" Schema="dbo" Table="Entity.Competency" store:Type="Tables" />
+          <EntitySet Name="Entity_CompetencyFramework" EntityType="Self.Entity_CompetencyFramework" Schema="dbo" Table="Entity.CompetencyFramework" store:Type="Tables" />
+          <EntitySet Name="Entity_CompetencyFrameworkItem" EntityType="Self.Entity_CompetencyFrameworkItem" Schema="dbo" Table="Entity.CompetencyFrameworkItem" store:Type="Tables" />
+          <EntitySet Name="Entity_ConditionProfile" EntityType="Self.Entity_ConditionProfile" Schema="dbo" Table="Entity.ConditionProfile" store:Type="Tables" />
           <EntitySet Name="Entity_CostProfile" EntityType="Self.Entity_CostProfile" Schema="dbo" Table="Entity.CostProfile" store:Type="Tables" />
           <EntitySet Name="Entity_CostProfileItem" EntityType="Self.Entity_CostProfileItem" Schema="dbo" Table="Entity.CostProfileItem" store:Type="Tables" />
           <EntitySet Name="Entity_Credential" EntityType="Self.Entity_Credential" Schema="dbo" Table="Entity.Credential" store:Type="Tables" />
           <EntitySet Name="Entity_DurationProfile" EntityType="Self.Entity_DurationProfile" Schema="dbo" Table="Entity.DurationProfile" store:Type="Tables" />
           <EntitySet Name="Entity_FrameworkItem" EntityType="Self.Entity_FrameworkItem" Schema="dbo" Table="Entity.FrameworkItem" store:Type="Tables" />
+          <EntitySet Name="Entity_JurisdictionProfile" EntityType="Self.Entity_JurisdictionProfile" Schema="dbo" Table="Entity.JurisdictionProfile" store:Type="Tables" />
           <EntitySet Name="Entity_LearningOpportunity" EntityType="Self.Entity_LearningOpportunity" Schema="dbo" Table="Entity.LearningOpportunity" store:Type="Tables" />
           <EntitySet Name="Entity_Property" EntityType="Self.Entity_Property" Schema="dbo" Table="Entity.Property" store:Type="Tables" />
           <EntitySet Name="Entity_PropertyOther" EntityType="Self.Entity_PropertyOther" Schema="dbo" Table="Entity.PropertyOther" store:Type="Tables" />
@@ -1592,6 +1781,10 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
             <End Role="Codes_PropertyCategory" EntitySet="Codes_PropertyCategory" />
             <End Role="Codes_PropertyValue" EntitySet="Codes_PropertyValue" />
           </AssociationSet>
+          <AssociationSet Name="FK_Credential_ConnectionProfile_Codes_PropertyValue" Association="Self.FK_Credential_ConnectionProfile_Codes_PropertyValue">
+            <End Role="Codes_PropertyValue" EntitySet="Codes_PropertyValue" />
+            <End Role="Credential_ConnectionProfile" EntitySet="Credential_ConnectionProfile" />
+          </AssociationSet>
           <AssociationSet Name="FK_Credential_ConnectionProfile_Credential" Association="Self.FK_Credential_ConnectionProfile_Credential">
             <End Role="Credential" EntitySet="Credential" />
             <End Role="Credential_ConnectionProfile" EntitySet="Credential_ConnectionProfile" />
@@ -1620,6 +1813,10 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
             <End Role="AspNetUsers" EntitySet="AspNetUsers" />
             <End Role="AspNetUserRoles" EntitySet="AspNetUserRoles" />
           </AssociationSet>
+          <AssociationSet Name="FK_Entity_Address_Codes_Countries" Association="Self.FK_Entity_Address_Codes_Countries">
+            <End Role="Codes_Countries" EntitySet="Codes_Countries" />
+            <End Role="Entity_Address" EntitySet="Entity_Address" />
+          </AssociationSet>
           <AssociationSet Name="FK_Entity_Address_Entity" Association="Self.FK_Entity_Address_Entity">
             <End Role="Entity" EntitySet="Entity" />
             <End Role="Entity_Address" EntitySet="Entity_Address" />
@@ -1643,6 +1840,22 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <AssociationSet Name="FK_Entity_Competency_Entity" Association="Self.FK_Entity_Competency_Entity">
             <End Role="Entity" EntitySet="Entity" />
             <End Role="Entity_Competency" EntitySet="Entity_Competency" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Entity_CompetencyFramework_Entity" Association="Self.FK_Entity_CompetencyFramework_Entity">
+            <End Role="Entity" EntitySet="Entity" />
+            <End Role="Entity_CompetencyFramework" EntitySet="Entity_CompetencyFramework" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Entity_CompetencyFrameworkItem_Entity_CompetencyFramework" Association="Self.FK_Entity_CompetencyFrameworkItem_Entity_CompetencyFramework">
+            <End Role="Entity_CompetencyFramework" EntitySet="Entity_CompetencyFramework" />
+            <End Role="Entity_CompetencyFrameworkItem" EntitySet="Entity_CompetencyFrameworkItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Entity_ConditionProfile_Codes_PropertyValue" Association="Self.FK_Entity_ConditionProfile_Codes_PropertyValue">
+            <End Role="Codes_PropertyValue" EntitySet="Codes_PropertyValue" />
+            <End Role="Entity_ConditionProfile" EntitySet="Entity_ConditionProfile" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Entity_ConditionProfile_Entity" Association="Self.FK_Entity_ConditionProfile_Entity">
+            <End Role="Entity" EntitySet="Entity" />
+            <End Role="Entity_ConditionProfile" EntitySet="Entity_ConditionProfile" />
           </AssociationSet>
           <AssociationSet Name="FK_Entity_CostProfile_Codes_Currency" Association="Self.FK_Entity_CostProfile_Codes_Currency">
             <End Role="Codes_Currency" EntitySet="Codes_Currency" />
@@ -1679,6 +1892,10 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <AssociationSet Name="FK_Entity_FrameworkItem_Entity" Association="Self.FK_Entity_FrameworkItem_Entity">
             <End Role="Entity" EntitySet="Entity" />
             <End Role="Entity_FrameworkItem" EntitySet="Entity_FrameworkItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Entity_JurisdictionProfile_Entity" Association="Self.FK_Entity_JurisdictionProfile_Entity">
+            <End Role="Entity" EntitySet="Entity" />
+            <End Role="Entity_JurisdictionProfile" EntitySet="Entity_JurisdictionProfile" />
           </AssociationSet>
           <AssociationSet Name="FK_Entity_LearningOpportunity_Entity" Association="Self.FK_Entity_LearningOpportunity_Entity">
             <End Role="Entity" EntitySet="Entity" />
@@ -1759,6 +1976,10 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <AssociationSet Name="FK_LearningOpportunity_Organization" Association="Self.FK_LearningOpportunity_Organization">
             <End Role="Organization" EntitySet="Organization" />
             <End Role="LearningOpportunity" EntitySet="LearningOpportunity" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Organization_Address_Codes_Countries" Association="Self.FK_Organization_Address_Codes_Countries">
+            <End Role="Codes_Countries" EntitySet="Codes_Countries" />
+            <End Role="Organization_Address" EntitySet="Organization_Address" />
           </AssociationSet>
           <AssociationSet Name="FK_Organization_Address_Organization" Association="Self.FK_Organization_Address_Organization">
             <End Role="Organization" EntitySet="Organization" />
@@ -2076,6 +2297,42 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
             <End Role="Entity" EntitySet="Entity" />
             <End Role="Entity_Address" EntitySet="Entity_Address" />
           </AssociationSet>
+          <AssociationSet Name="FK_Credential_ConnectionProfile_Codes_PropertyValue" Association="CTIModel.FK_Credential_ConnectionProfile_Codes_PropertyValue">
+            <End Role="Codes_PropertyValue" EntitySet="Codes_PropertyValue" />
+            <End Role="Credential_ConnectionProfile" EntitySet="Credential_ConnectionProfile" />
+          </AssociationSet>
+          <EntitySet Name="Entity_JurisdictionProfile" EntityType="CTIModel.Entity_JurisdictionProfile" />
+          <AssociationSet Name="FK_Entity_Address_Codes_Countries" Association="CTIModel.FK_Entity_Address_Codes_Countries">
+            <End Role="Codes_Countries" EntitySet="Codes_Countries" />
+            <End Role="Entity_Address" EntitySet="Entity_Address" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Organization_Address_Codes_Countries" Association="CTIModel.FK_Organization_Address_Codes_Countries">
+            <End Role="Codes_Countries" EntitySet="Codes_Countries" />
+            <End Role="Organization_Address" EntitySet="Organization_Address" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Entity_JurisdictionProfile_Entity" Association="CTIModel.FK_Entity_JurisdictionProfile_Entity">
+            <End Role="Entity" EntitySet="Entity" />
+            <End Role="Entity_JurisdictionProfile" EntitySet="Entity_JurisdictionProfile" />
+          </AssociationSet>
+          <EntitySet Name="Entity_CompetencyFramework" EntityType="CTIModel.Entity_CompetencyFramework" />
+          <EntitySet Name="Entity_CompetencyFrameworkItem" EntityType="CTIModel.Entity_CompetencyFrameworkItem" />
+          <AssociationSet Name="FK_Entity_CompetencyFramework_Entity" Association="CTIModel.FK_Entity_CompetencyFramework_Entity">
+            <End Role="Entity" EntitySet="Entity" />
+            <End Role="Entity_CompetencyFramework" EntitySet="Entity_CompetencyFramework" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Entity_CompetencyFrameworkItem_Entity_CompetencyFramework" Association="CTIModel.FK_Entity_CompetencyFrameworkItem_Entity_CompetencyFramework">
+            <End Role="Entity_CompetencyFramework" EntitySet="Entity_CompetencyFramework" />
+            <End Role="Entity_CompetencyFrameworkItem" EntitySet="Entity_CompetencyFrameworkItem" />
+          </AssociationSet>
+          <EntitySet Name="Entity_ConditionProfile" EntityType="CTIModel.Entity_ConditionProfile" />
+          <AssociationSet Name="FK_Entity_ConditionProfile_Codes_PropertyValue" Association="CTIModel.FK_Entity_ConditionProfile_Codes_PropertyValue">
+            <End Role="Codes_PropertyValue" EntitySet="Codes_PropertyValue" />
+            <End Role="Entity_ConditionProfile" EntitySet="Entity_ConditionProfile" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Entity_ConditionProfile_Entity" Association="CTIModel.FK_Entity_ConditionProfile_Entity">
+            <End Role="Entity" EntitySet="Entity" />
+            <End Role="Entity_ConditionProfile" EntitySet="Entity_ConditionProfile" />
+          </AssociationSet>
           </EntityContainer>
         <EntityType Name="Account">
           <Key>
@@ -2260,6 +2517,8 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <Property Name="IANACountryCodeTLD" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
           <Property Name="IsActive" Type="Boolean" Nullable="false" />
           <Property Name="SortOrder" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="Entity_Address" Relationship="CTIModel.FK_Entity_Address_Codes_Countries" FromRole="Codes_Countries" ToRole="Entity_Address" />
+          <NavigationProperty Name="Organization_Address" Relationship="CTIModel.FK_Organization_Address_Codes_Countries" FromRole="Codes_Countries" ToRole="Organization_Address" />
         </EntityType>
         <EntityType Name="Codes_CredentialAgentRelationship">
           <Key>
@@ -2345,6 +2604,9 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <NavigationProperty Name="Entity_Property" Relationship="CTIModel.FK_Entity_Property_Codes_PropertyValue" FromRole="Codes_PropertyValue" ToRole="Entity_Property" />
           <NavigationProperty Name="Entity_Reference" Relationship="CTIModel.FK_Entity_Reference_Codes_PropertyValue" FromRole="Codes_PropertyValue" ToRole="Entity_Reference" />
           <Property Name="Totals" Type="Int32" />
+          <Property Name="IsSubType1" Type="Boolean" />
+          <NavigationProperty Name="Credential_ConnectionProfile" Relationship="CTIModel.FK_Credential_ConnectionProfile_Codes_PropertyValue" FromRole="Codes_PropertyValue" ToRole="Credential_ConnectionProfile" />
+          <NavigationProperty Name="Entity_ConditionProfile" Relationship="CTIModel.FK_Entity_ConditionProfile_Codes_PropertyValue" FromRole="Codes_PropertyValue" ToRole="Entity_ConditionProfile" />
         </EntityType>
         <EntityType Name="Codes_Status">
           <Key>
@@ -2409,6 +2671,8 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <Property Name="OtherAudienceType" Type="String" MaxLength="500" FixedLength="false" Unicode="false" />
           <Property Name="OtherCredentialType" Type="String" MaxLength="500" FixedLength="false" Unicode="false" />
           <NavigationProperty Name="Credential" Relationship="CTIModel.FK_Credential_ConnectionProfile_Credential" FromRole="Credential_ConnectionProfile" ToRole="Credential" />
+          <Property Name="YearsOfExperience" Type="Decimal" Precision="5" Scale="2" />
+          <NavigationProperty Name="Codes_PropertyValue" Relationship="CTIModel.FK_Credential_ConnectionProfile_Codes_PropertyValue" FromRole="Credential_ConnectionProfile" ToRole="Codes_PropertyValue" />
         </EntityType>
         <EntityType Name="Entity">
           <Key>
@@ -2435,6 +2699,9 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <NavigationProperty Name="Entity_TaskProfile" Relationship="CTIModel.FK_Entity_TaskProfile_Entity" FromRole="Entity" ToRole="Entity_TaskProfile" />
           <NavigationProperty Name="Entity_VerificationProfile" Relationship="CTIModel.FK_Entity_VerificationProfile_Entity" FromRole="Entity" ToRole="Entity_VerificationProfile" />
           <NavigationProperty Name="Entity_Address" Relationship="CTIModel.FK_Entity_Address_Entity" FromRole="Entity" ToRole="Entity_Address" />
+          <NavigationProperty Name="Entity_JurisdictionProfile" Relationship="CTIModel.FK_Entity_JurisdictionProfile_Entity" FromRole="Entity" ToRole="Entity_JurisdictionProfile" />
+          <NavigationProperty Name="Entity_CompetencyFramework" Relationship="CTIModel.FK_Entity_CompetencyFramework_Entity" FromRole="Entity" ToRole="Entity_CompetencyFramework" />
+          <NavigationProperty Name="Entity_ConditionProfile" Relationship="CTIModel.FK_Entity_ConditionProfile_Entity" FromRole="Entity" ToRole="Entity_ConditionProfile" />
         </EntityType>
         <EntityType Name="Entity_AgentRelationship">
           <Key>
@@ -2491,6 +2758,9 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <Property Name="TargetUrl" Type="String" MaxLength="300" FixedLength="false" Unicode="false" />
           <Property Name="CodedNotation" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
           <Property Name="AlignmentType" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
+          <Property Name="AlignmentTypeId" Type="Int32" />
+          <Property Name="AlignmentDate" Type="DateTime" Precision="3" />
+          <Property Name="EntityFrameworkId" Type="Int32" />
         </EntityType>
         <EntityType Name="Entity_CostProfile">
           <Key>
@@ -2684,14 +2954,14 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <Property Name="EntityId" Type="Int32" Nullable="false" />
           <Property Name="ProfileName" Type="String" MaxLength="100" FixedLength="false" Unicode="false" />
           <Property Name="Description" Type="String" MaxLength="Max" FixedLength="false" Unicode="false" />
-          <Property Name="RemovalDateEffective" Type="DateTime" Precision="3" />
-          <Property Name="RenewalDateEffective" Type="DateTime" Precision="3" />
           <Property Name="Created" Type="DateTime" Precision="3" />
           <Property Name="CreatedById" Type="Int32" />
           <Property Name="LastUpdated" Type="DateTime" Precision="3" />
           <Property Name="LastUpdatedById" Type="Int32" />
           <Property Name="RowId" Type="Guid" Nullable="false" />
           <NavigationProperty Name="Entity" Relationship="CTIModel.FK_Entity_RevocationProfile_Entity" FromRole="Entity_RevocationProfile" ToRole="Entity" />
+          <Property Name="RevocationCriteriaUrl" Type="String" MaxLength="300" FixedLength="false" Unicode="false" />
+          <Property Name="DateEffective" Type="DateTime" Precision="3" />
         </EntityType>
         <EntityType Name="Entity_TaskProfile">
           <Key>
@@ -2749,7 +3019,6 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <Property Name="LastUpdatedById" Type="Int32" />
           <Property Name="JurisdictionId" Type="Int32" />
           <Property Name="IsException" Type="Boolean" />
-          <Property Name="OldParentId" Type="Guid" />
         </EntityType>
         <EntityType Name="JurisdictionProfile">
           <Key>
@@ -2883,6 +3152,7 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <Property Name="LastUpdatedById" Type="Int32" />
           <Property Name="Country" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
           <NavigationProperty Name="Organization" Relationship="CTIModel.FK_Organization_Address_Organization" FromRole="Organization_Address" ToRole="Organization" />
+          <NavigationProperty Name="Codes_Countries" Relationship="CTIModel.FK_Organization_Address_Codes_Countries" FromRole="Organization_Address" ToRole="Codes_Countries" />
         </EntityType>
         <EntityType Name="Organization_Member">
           <Key>
@@ -2951,6 +3221,7 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <Property Name="CreatedById" Type="Int32" />
           <Property Name="LastUpdated" Type="DateTime" Precision="3" />
           <Property Name="LastUpdatedById" Type="Int32" />
+          <Property Name="StatusId" Type="Int32" />
         </EntityType>
         <Association Name="FK_Account_AspNetUsers">
           <End Type="CTIModel.AspNetUsers" Role="AspNetUsers" Multiplicity="0..1">
@@ -3649,6 +3920,7 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <Property Name="IsImported" Type="Boolean" />
           <Property Name="UserId" Type="Int32" />
           <Property Name="DefaultRoleId" Type="Int32" />
+          <Property Name="InitialPassword" Type="String" MaxLength="50" FixedLength="false" Unicode="false" />
         </EntityType>
         <EntityType Name="Entity_Address">
           <Key>
@@ -3673,6 +3945,7 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <Property Name="LastUpdatedById" Type="Int32" />
           <Property Name="Country" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
           <NavigationProperty Name="Entity" Relationship="CTIModel.FK_Entity_Address_Entity" FromRole="Entity_Address" ToRole="Entity" />
+          <NavigationProperty Name="Codes_Countries" Relationship="CTIModel.FK_Entity_Address_Codes_Countries" FromRole="Entity_Address" ToRole="Codes_Countries" />
         </EntityType>
         <Association Name="FK_Entity_Address_Entity">
           <End Type="CTIModel.Entity" Role="Entity" Multiplicity="1">
@@ -3684,6 +3957,187 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
               <PropertyRef Name="Id" />
             </Principal>
             <Dependent Role="Entity_Address">
+              <PropertyRef Name="EntityId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Credential_ConnectionProfile_Codes_PropertyValue">
+          <End Type="CTIModel.Codes_PropertyValue" Role="Codes_PropertyValue" Multiplicity="1" />
+          <End Type="CTIModel.Credential_ConnectionProfile" Role="Credential_ConnectionProfile" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Codes_PropertyValue">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Credential_ConnectionProfile">
+              <PropertyRef Name="ConnectionTypeId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityType Name="Entity_JurisdictionProfile">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="EntityId" Type="Int32" Nullable="false" />
+          <Property Name="Name" Type="String" Nullable="false" MaxLength="100" FixedLength="false" Unicode="false" />
+          <Property Name="Description" Type="String" MaxLength="1000" FixedLength="false" Unicode="false" />
+          <Property Name="IsOnlineJurisdiction" Type="Boolean" />
+          <Property Name="IsGlobalJurisdiction" Type="Boolean" />
+          <Property Name="JProfilePurposeId" Type="Int32" />
+          <Property Name="Created" Type="DateTime" Precision="3" />
+          <Property Name="CreatedById" Type="Int32" />
+          <Property Name="LastUpdated" Type="DateTime" Precision="3" />
+          <Property Name="LastUpdatedById" Type="Int32" />
+          <Property Name="RowId" Type="Guid" Nullable="false" />
+          <NavigationProperty Name="Entity" Relationship="CTIModel.FK_Entity_JurisdictionProfile_Entity" FromRole="Entity_JurisdictionProfile" ToRole="Entity" />
+        </EntityType>
+        <Association Name="FK_Entity_Address_Codes_Countries">
+          <End Type="CTIModel.Codes_Countries" Role="Codes_Countries" Multiplicity="0..1" />
+          <End Type="CTIModel.Entity_Address" Role="Entity_Address" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Codes_Countries">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Entity_Address">
+              <PropertyRef Name="CountryId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Organization_Address_Codes_Countries">
+          <End Type="CTIModel.Codes_Countries" Role="Codes_Countries" Multiplicity="0..1" />
+          <End Type="CTIModel.Organization_Address" Role="Organization_Address" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Codes_Countries">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Organization_Address">
+              <PropertyRef Name="CountryId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Entity_JurisdictionProfile_Entity">
+          <End Type="CTIModel.Entity" Role="Entity" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Type="CTIModel.Entity_JurisdictionProfile" Role="Entity_JurisdictionProfile" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Entity">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Entity_JurisdictionProfile">
+              <PropertyRef Name="EntityId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityType Name="Entity_CompetencyFramework">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="EntityId" Type="Int32" Nullable="false" />
+          <Property Name="EducationalFrameworkName" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="EducationalFrameworkUrl" Type="String" MaxLength="300" FixedLength="false" Unicode="false" />
+          <Property Name="AlignmentTypeId" Type="Int32" />
+          <Property Name="Created" Type="DateTime" Precision="3" />
+          <Property Name="CreatedById" Type="Int32" />
+          <Property Name="LastUpdated" Type="DateTime" Precision="3" />
+          <Property Name="LastUpdatedById" Type="Int32" />
+          <Property Name="RowId" Type="Guid" Nullable="false" />
+          <Property Name="AlignmentType" Type="String" MaxLength="50" FixedLength="false" Unicode="true" />
+          <NavigationProperty Name="Entity" Relationship="CTIModel.FK_Entity_CompetencyFramework_Entity" FromRole="Entity_CompetencyFramework" ToRole="Entity" />
+          <NavigationProperty Name="Entity_CompetencyFrameworkItem" Relationship="CTIModel.FK_Entity_CompetencyFrameworkItem_Entity_CompetencyFramework" FromRole="Entity_CompetencyFramework" ToRole="Entity_CompetencyFrameworkItem" />
+        </EntityType>
+        <EntityType Name="Entity_CompetencyFrameworkItem">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="EntityFrameworkId" Type="Int32" Nullable="false" />
+          <Property Name="Name" Type="String" MaxLength="600" FixedLength="false" Unicode="true" />
+          <Property Name="Description" Type="String" MaxLength="Max" FixedLength="false" Unicode="true" />
+          <Property Name="TargetName" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="TargetDescription" Type="String" MaxLength="Max" FixedLength="false" Unicode="true" />
+          <Property Name="TargetUrl" Type="String" MaxLength="300" FixedLength="false" Unicode="false" />
+          <Property Name="CodedNotation" Type="String" MaxLength="300" FixedLength="false" Unicode="true" />
+          <Property Name="Created" Type="DateTime" Precision="3" />
+          <Property Name="CreatedById" Type="Int32" />
+          <Property Name="LastUpdated" Type="DateTime" Precision="3" />
+          <Property Name="LastUpdatedById" Type="Int32" />
+          <Property Name="RowId" Type="Guid" Nullable="false" />
+          <NavigationProperty Name="Entity_CompetencyFramework" Relationship="CTIModel.FK_Entity_CompetencyFrameworkItem_Entity_CompetencyFramework" FromRole="Entity_CompetencyFrameworkItem" ToRole="Entity_CompetencyFramework" />
+          <Property Name="AlignmentDate" Type="DateTime" Precision="3" />
+        </EntityType>
+        <Association Name="FK_Entity_CompetencyFramework_Entity">
+          <End Type="CTIModel.Entity" Role="Entity" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Type="CTIModel.Entity_CompetencyFramework" Role="Entity_CompetencyFramework" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Entity">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Entity_CompetencyFramework">
+              <PropertyRef Name="EntityId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Entity_CompetencyFrameworkItem_Entity_CompetencyFramework">
+          <End Type="CTIModel.Entity_CompetencyFramework" Role="Entity_CompetencyFramework" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Type="CTIModel.Entity_CompetencyFrameworkItem" Role="Entity_CompetencyFrameworkItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Entity_CompetencyFramework">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Entity_CompetencyFrameworkItem">
+              <PropertyRef Name="EntityFrameworkId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityType Name="Entity_ConditionProfile">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="EntityId" Type="Int32" Nullable="false" />
+          <Property Name="ConnectionTypeId" Type="Int32" Nullable="false" />
+          <Property Name="AgentUid" Type="Guid" />
+          <Property Name="Name" Type="String" MaxLength="100" FixedLength="false" Unicode="false" />
+          <Property Name="Description" Type="String" MaxLength="Max" FixedLength="false" Unicode="false" />
+          <Property Name="Experience" Type="String" MaxLength="Max" FixedLength="false" Unicode="false" />
+          <Property Name="MinimumAge" Type="Int32" />
+          <Property Name="YearsOfExperience" Type="Decimal" Precision="5" Scale="2" />
+          <Property Name="DateEffective" Type="DateTime" Precision="3" />
+          <Property Name="OtherAudienceType" Type="String" MaxLength="500" FixedLength="false" Unicode="false" />
+          <Property Name="Created" Type="DateTime" Precision="3" />
+          <Property Name="CreatedById" Type="Int32" />
+          <Property Name="LastUpdated" Type="DateTime" Precision="3" />
+          <Property Name="LastUpdatedById" Type="Int32" />
+          <Property Name="RowId" Type="Guid" Nullable="false" />
+          <NavigationProperty Name="Codes_PropertyValue" Relationship="CTIModel.FK_Entity_ConditionProfile_Codes_PropertyValue" FromRole="Entity_ConditionProfile" ToRole="Codes_PropertyValue" />
+          <NavigationProperty Name="Entity" Relationship="CTIModel.FK_Entity_ConditionProfile_Entity" FromRole="Entity_ConditionProfile" ToRole="Entity" />
+        </EntityType>
+        <Association Name="FK_Entity_ConditionProfile_Codes_PropertyValue">
+          <End Type="CTIModel.Codes_PropertyValue" Role="Codes_PropertyValue" Multiplicity="1" />
+          <End Type="CTIModel.Entity_ConditionProfile" Role="Entity_ConditionProfile" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Codes_PropertyValue">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Entity_ConditionProfile">
+              <PropertyRef Name="ConnectionTypeId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Entity_ConditionProfile_Entity">
+          <End Type="CTIModel.Entity" Role="Entity" Multiplicity="1" />
+          <End Type="CTIModel.Entity_ConditionProfile" Role="Entity_ConditionProfile" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Entity">
+              <PropertyRef Name="Id" />
+            </Principal>
+            <Dependent Role="Entity_ConditionProfile">
               <PropertyRef Name="EntityId" />
             </Dependent>
           </ReferentialConstraint>
@@ -3936,6 +4390,7 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <EntitySetMapping Name="Codes_PropertyValue">
             <EntityTypeMapping TypeName="CTIModel.Codes_PropertyValue">
               <MappingFragment StoreEntitySet="Codes_PropertyValue">
+                <ScalarProperty Name="IsSubType1" ColumnName="IsSubType1" />
                 <ScalarProperty Name="Totals" ColumnName="Totals" />
                 <ScalarProperty Name="Created" ColumnName="Created" />
                 <ScalarProperty Name="SchemaUrl" ColumnName="SchemaUrl" />
@@ -3987,6 +4442,7 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <EntitySetMapping Name="Credential_ConnectionProfile">
             <EntityTypeMapping TypeName="CTIModel.Credential_ConnectionProfile">
               <MappingFragment StoreEntitySet="Credential_ConnectionProfile">
+                <ScalarProperty Name="YearsOfExperience" ColumnName="YearsOfExperience" />
                 <ScalarProperty Name="OtherCredentialType" ColumnName="OtherCredentialType" />
                 <ScalarProperty Name="OtherAudienceType" ColumnName="OtherAudienceType" />
                 <ScalarProperty Name="TargetCredentials" ColumnName="TargetCredentials" />
@@ -4053,6 +4509,9 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <EntitySetMapping Name="Entity_Competency">
             <EntityTypeMapping TypeName="CTIModel.Entity_Competency">
               <MappingFragment StoreEntitySet="Entity_Competency">
+                <ScalarProperty Name="EntityFrameworkId" ColumnName="EntityFrameworkId" />
+                <ScalarProperty Name="AlignmentDate" ColumnName="AlignmentDate" />
+                <ScalarProperty Name="AlignmentTypeId" ColumnName="AlignmentTypeId" />
                 <ScalarProperty Name="AlignmentType" ColumnName="AlignmentType" />
                 <ScalarProperty Name="CodedNotation" ColumnName="CodedNotation" />
                 <ScalarProperty Name="TargetUrl" ColumnName="TargetUrl" />
@@ -4245,13 +4704,13 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <EntitySetMapping Name="Entity_RevocationProfile">
             <EntityTypeMapping TypeName="CTIModel.Entity_RevocationProfile">
               <MappingFragment StoreEntitySet="Entity_RevocationProfile">
+                <ScalarProperty Name="DateEffective" ColumnName="DateEffective" />
+                <ScalarProperty Name="RevocationCriteriaUrl" ColumnName="RevocationCriteriaUrl" />
                 <ScalarProperty Name="RowId" ColumnName="RowId" />
                 <ScalarProperty Name="LastUpdatedById" ColumnName="LastUpdatedById" />
                 <ScalarProperty Name="LastUpdated" ColumnName="LastUpdated" />
                 <ScalarProperty Name="CreatedById" ColumnName="CreatedById" />
                 <ScalarProperty Name="Created" ColumnName="Created" />
-                <ScalarProperty Name="RenewalDateEffective" ColumnName="RenewalDateEffective" />
-                <ScalarProperty Name="RemovalDateEffective" ColumnName="RemovalDateEffective" />
                 <ScalarProperty Name="Description" ColumnName="Description" />
                 <ScalarProperty Name="ProfileName" ColumnName="ProfileName" />
                 <ScalarProperty Name="EntityId" ColumnName="EntityId" />
@@ -4298,7 +4757,6 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <EntitySetMapping Name="GeoCoordinate">
             <EntityTypeMapping TypeName="CTIModel.GeoCoordinate">
               <MappingFragment StoreEntitySet="GeoCoordinate">
-                <ScalarProperty Name="OldParentId" ColumnName="OldParentId" />
                 <ScalarProperty Name="IsException" ColumnName="IsException" />
                 <ScalarProperty Name="JurisdictionId" ColumnName="JurisdictionId" />
                 <ScalarProperty Name="LastUpdatedById" ColumnName="LastUpdatedById" />
@@ -4488,6 +4946,7 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <EntitySetMapping Name="Person">
             <EntityTypeMapping TypeName="CTIModel.Person">
               <MappingFragment StoreEntitySet="Person">
+                <ScalarProperty Name="StatusId" ColumnName="StatusId" />
                 <ScalarProperty Name="LastUpdatedById" ColumnName="LastUpdatedById" />
                 <ScalarProperty Name="LastUpdated" ColumnName="LastUpdated" />
                 <ScalarProperty Name="CreatedById" ColumnName="CreatedById" />
@@ -4514,6 +4973,7 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
           <EntitySetMapping Name="AspNetUser_Import">
             <EntityTypeMapping TypeName="CTIModel.AspNetUser_Import">
               <MappingFragment StoreEntitySet="AspNetUser_Import">
+                <ScalarProperty Name="InitialPassword" ColumnName="InitialPassword" />
                 <ScalarProperty Name="DefaultRoleId" ColumnName="DefaultRoleId" />
                 <ScalarProperty Name="UserId" ColumnName="UserId" />
                 <ScalarProperty Name="IsImported" ColumnName="IsImported" />
@@ -4545,6 +5005,83 @@ warning 6035: The relationship 'FK_Entity.QA_Action_Entity1' has columns that ar
                 <ScalarProperty Name="Address2" ColumnName="Address2" />
                 <ScalarProperty Name="Address1" ColumnName="Address1" />
                 <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="EntityId" ColumnName="EntityId" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Entity_JurisdictionProfile">
+            <EntityTypeMapping TypeName="CTIModel.Entity_JurisdictionProfile">
+              <MappingFragment StoreEntitySet="Entity_JurisdictionProfile">
+                <ScalarProperty Name="RowId" ColumnName="RowId" />
+                <ScalarProperty Name="LastUpdatedById" ColumnName="LastUpdatedById" />
+                <ScalarProperty Name="LastUpdated" ColumnName="LastUpdated" />
+                <ScalarProperty Name="CreatedById" ColumnName="CreatedById" />
+                <ScalarProperty Name="Created" ColumnName="Created" />
+                <ScalarProperty Name="JProfilePurposeId" ColumnName="JProfilePurposeId" />
+                <ScalarProperty Name="IsGlobalJurisdiction" ColumnName="IsGlobalJurisdiction" />
+                <ScalarProperty Name="IsOnlineJurisdiction" ColumnName="IsOnlineJurisdiction" />
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="EntityId" ColumnName="EntityId" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Entity_CompetencyFramework">
+            <EntityTypeMapping TypeName="CTIModel.Entity_CompetencyFramework">
+              <MappingFragment StoreEntitySet="Entity_CompetencyFramework">
+                <ScalarProperty Name="AlignmentType" ColumnName="AlignmentType" />
+                <ScalarProperty Name="RowId" ColumnName="RowId" />
+                <ScalarProperty Name="LastUpdatedById" ColumnName="LastUpdatedById" />
+                <ScalarProperty Name="LastUpdated" ColumnName="LastUpdated" />
+                <ScalarProperty Name="CreatedById" ColumnName="CreatedById" />
+                <ScalarProperty Name="Created" ColumnName="Created" />
+                <ScalarProperty Name="AlignmentTypeId" ColumnName="AlignmentTypeId" />
+                <ScalarProperty Name="EducationalFrameworkUrl" ColumnName="EducationalFrameworkUrl" />
+                <ScalarProperty Name="EducationalFrameworkName" ColumnName="EducationalFrameworkName" />
+                <ScalarProperty Name="EntityId" ColumnName="EntityId" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Entity_CompetencyFrameworkItem">
+            <EntityTypeMapping TypeName="CTIModel.Entity_CompetencyFrameworkItem">
+              <MappingFragment StoreEntitySet="Entity_CompetencyFrameworkItem">
+                <ScalarProperty Name="AlignmentDate" ColumnName="AlignmentDate" />
+                <ScalarProperty Name="RowId" ColumnName="RowId" />
+                <ScalarProperty Name="LastUpdatedById" ColumnName="LastUpdatedById" />
+                <ScalarProperty Name="LastUpdated" ColumnName="LastUpdated" />
+                <ScalarProperty Name="CreatedById" ColumnName="CreatedById" />
+                <ScalarProperty Name="Created" ColumnName="Created" />
+                <ScalarProperty Name="CodedNotation" ColumnName="CodedNotation" />
+                <ScalarProperty Name="TargetUrl" ColumnName="TargetUrl" />
+                <ScalarProperty Name="TargetDescription" ColumnName="TargetDescription" />
+                <ScalarProperty Name="TargetName" ColumnName="TargetName" />
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="EntityFrameworkId" ColumnName="EntityFrameworkId" />
+                <ScalarProperty Name="Id" ColumnName="Id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Entity_ConditionProfile">
+            <EntityTypeMapping TypeName="CTIModel.Entity_ConditionProfile">
+              <MappingFragment StoreEntitySet="Entity_ConditionProfile">
+                <ScalarProperty Name="RowId" ColumnName="RowId" />
+                <ScalarProperty Name="LastUpdatedById" ColumnName="LastUpdatedById" />
+                <ScalarProperty Name="LastUpdated" ColumnName="LastUpdated" />
+                <ScalarProperty Name="CreatedById" ColumnName="CreatedById" />
+                <ScalarProperty Name="Created" ColumnName="Created" />
+                <ScalarProperty Name="OtherAudienceType" ColumnName="OtherAudienceType" />
+                <ScalarProperty Name="DateEffective" ColumnName="DateEffective" />
+                <ScalarProperty Name="YearsOfExperience" ColumnName="YearsOfExperience" />
+                <ScalarProperty Name="MinimumAge" ColumnName="MinimumAge" />
+                <ScalarProperty Name="Experience" ColumnName="Experience" />
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="AgentUid" ColumnName="AgentUid" />
+                <ScalarProperty Name="ConnectionTypeId" ColumnName="ConnectionTypeId" />
                 <ScalarProperty Name="EntityId" ColumnName="EntityId" />
                 <ScalarProperty Name="Id" ColumnName="Id" />
               </MappingFragment>

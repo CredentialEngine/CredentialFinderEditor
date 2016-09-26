@@ -207,8 +207,11 @@
     <Content Include="Images\Common\cti_logo_wide.png" />
     <Content Include="Images\Common\cti_logo_wide_recolored.png" />
     <Content Include="Images\Common\favicon.png" />
+    <Content Include="Images\Common\logo_stacked.png" />
     <Content Include="Images\Common\menuburger_blue.png" />
     <Content Include="Images\Common\menuburger_white.png" />
+    <Content Include="Images\Common\PageNotFound_404.jpg" />
+    <Content Include="Images\Common\poweredby.png" />
     <Content Include="Images\Common\resizer_125x100.png" />
     <Content Include="Images\Common\Resizer_300x200.png" />
     <Content Include="Images\Common\Resizer_400x300.png" />
@@ -285,10 +288,12 @@
     <Content Include="Images\Social\twitter.png" />
     <Content Include="Images\Social\yahoo.png" />
     <Content Include="Images\Social\youtube.png" />
+    <Content Include="Images\V2\Icons\flat_apprentice.png" />
     <Content Include="Images\V2\Icons\flat_badge.png" />
     <Content Include="Images\V2\Icons\flat_certificate.png" />
     <Content Include="Images\V2\Icons\flat_certification.png" />
     <Content Include="Images\V2\Icons\flat_connect.png" />
+    <Content Include="Images\V2\Icons\flat_cost.png" />
     <Content Include="Images\V2\Icons\flat_degree.png" />
     <Content Include="Images\V2\Icons\flat_diploma.png" />
     <Content Include="Images\V2\Icons\flat_duration.png" />
@@ -306,6 +311,7 @@
     <Content Include="Images\V2\Photos\occupations.jpg" />
     <Content Include="Images\V2\Photos\students.jpg" />
     <Content Include="Images\V2\Photos\workers.jpg" />
+    <Content Include="PageNotFound.html" />
     <Content Include="Scripts\common.js" />
     <Content Include="Scripts\commonv2.js" />
     <Content Include="Scripts\jquery-ui-1.11.1.js" />
@@ -370,6 +376,9 @@
     <Content Include="Views\Shared\Footer.cshtml" />
     <Content Include="Views\Shared\Management\_EnumerationEditor.cshtml" />
     <Content Include="Views\Home\Index.cshtml" />
+    <Content Include="..\API\Keys.config">
+      <Link>Keys.config</Link>
+    </Content>
     <Compile Include="App_Start\Startup.Auth.cs" />
     <Content Include="Areas\Admin\Views\web.config" />
     <Content Include="Areas\Users\Views\web.config" />
@@ -486,7 +495,7 @@
     <Content Include="Styles\Webfonts\Gibson\Gibson-SemiBoldItalic-webfont.woff2" />
     <Content Include="Views\V2\Compare\_CompareBar.cshtml" />
     <Content Include="Views\V2\Compare\_CompareCore.cshtml" />
-    <Content Include="Views\V2\Compare\Index.cshtml" />
+    <Content Include="Views\V2\Compare\Index-old.cshtml" />
     <Content Include="Styles\Webfonts\TrumpGothicPro\TrumpGothicPro-Medium-webfont.eot" />
     <Content Include="Styles\Webfonts\TrumpGothicPro\TrumpGothicPro-Medium-webfont.ttf" />
     <Content Include="Styles\Webfonts\TrumpGothicPro\TrumpGothicPro-Medium-webfont.woff" />
@@ -512,10 +521,13 @@
     <Content Include="Views\V2\Style\account.cshtml" />
     <Content Include="Views\Message\NotAuthorized.cshtml" />
     <Content Include="Views\V2\Account\UserProfile.cshtml" />
-    <Content Include="Views\V2\Compare\IndexV2.cshtml" />
+    <Content Include="Views\V2\Compare\Index.cshtml" />
     <Content Include="Views\V2\Search\_MicroSearchFilter.cshtml" />
     <Content Include="Views\V2\Shared\_OldBrowserWarning.cshtml" />
     <Content Include="Views\V2\Search\_TextFilter.cshtml" />
+    <Content Include="Views\V2\Message\NotAuthorized.cshtml" />
+    <Content Include="Views\V2\Shared\Error.cshtml" />
+    <Content Include="Views\V2\Account\ForgotYourPassword.cshtml" />
     <None Include="Web.ctiTest.config">
       <DependentUpon>Web.config</DependentUpon>
       <SubType>Designer</SubType>
@@ -524,6 +536,9 @@
       <DependentUpon>Web.config</DependentUpon>
     </None>
     <None Include="Web.Github.config">
+      <DependentUpon>Web.config</DependentUpon>
+    </None>
+    <None Include="Web.Release.config">
       <DependentUpon>Web.config</DependentUpon>
     </None>
     <None Include="Web.Test.config">

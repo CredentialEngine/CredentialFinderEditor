@@ -190,18 +190,24 @@ namespace Models.Node
 
 		[Property( DBName = "AssertedByAgentUid", DBType = typeof( Guid ) )]
 		public ProfileLink ConditionProvider { get; set; }
+
 		[Property( DBName="ApplicableAudienceType", DBType = typeof( Models.Common.Enumeration ) )]
 		public List<int> AudienceTypeIds { get; set; }
-		[Property( DBName = "RequiredCredential" )]
+
+		[Property( DBName = "RequiredCredential", DBType = typeof( Credential ) )]
 		public List<ProfileLink> Credential { get; set; }
+
 		[Property( DBName = "CredentialType", DBType = typeof( Models.Common.Enumeration ) )]
 		public List<int> CredentialTypeIds { get; set; }
+
 		[Property( DBName = "TargetLearningOpportunity" )]
 		public List<ProfileLink> LearningOpportunity { get; set; }
 		[Property( DBName = "ResidentOf" )]
 		public List<ProfileLink> Residency { get; set; }
+
 		[Property( DBName = "TargetAssessment" )]
 		public List<ProfileLink> Assessment { get; set; }
+
 		[Property( DBName = "TargetTask" )]
 		public List<ProfileLink> Task { get; set; }
 
@@ -210,6 +216,7 @@ namespace Models.Node
 
 		public string Experience { get; set; }
 		public int MinimumAge { get; set; }
+		public decimal YearsOfExperience { get; set; }
 		public List<ProfileLink> Jurisdiction { get; set; }
 
 		public List<TextValueProfile> ConditionItem { get; set; }
@@ -227,16 +234,20 @@ namespace Models.Node
 
 		//List-based Info
 		public Dictionary<string, string> Other { get; set; }
+		//in base:
+		//public string DateEffective { get; set; }
 
-		[Property( DBName = "RemovalDateEffective" )]
-		public string StartDate { get { return this.DateEffective; } set { this.DateEffective = value; } }
-		[Property( DBName = "RenewalDateEffective" )]
-		public string EndDate { get; set; }
+		//[Property( DBName = "RemovalDateEffective" )]
+		//public string StartDate { get { return this.DateEffective; } set { this.DateEffective = value; } }
+		//[Property( DBName = "RenewalDateEffective" )]
+		//public string EndDate { get; set; }
+
 		[Property( DBName = "RevocationCriteriaType", DBType = typeof( Models.Common.Enumeration ) )]
 		public List<int> RevocationCriteriaTypeIds { get; set; }
 		[Property( DBName = "RevocationResourceUrl" )]
 		public List<TextValueProfile> ReferenceUrl { get; set; }
 		public List<ProfileLink> Jurisdiction { get; set; }
+		public string RevocationCriteriaUrl { get; set; }
 	}
 	//
 
@@ -307,6 +318,28 @@ namespace Models.Node
 	}
 	//
 
+	[Profile( DBType = typeof( Models.Common.CredentialAlignmentObjectFrameworkProfile ) )]
+	public class CredentialAlignmentObjectFrameworkProfile : BaseProfile
+	{
+		public string EducationalFrameworkName { get; set; }
+		public string EducationalFrameworkUrl { get; set; }
+		public List<ProfileLink> Items { get; set; }
+	}
+	//
+
+	[Profile( DBType = typeof( Models.Common.CredentialAlignmentObjectItemProfile ) )]
+	public class CredentialAlignmentObjectItemProfile : BaseProfile
+	{
+		[Property( DBName = "Name" )]
+		public override string Name { get; set; }
+		public string CodedNotation { get; set; }
+		public string TargetName { get; set; } //Name of the target, not the profile. Not currently used.
+		public string TargetDescription { get; set; } //Description of the target, not the profile. Not currently used.
+		public string TargetUrl { get; set; }
+		public string AlignmentDate { get; set; }
+	}
+	//
+
 	[Profile( DBType = typeof( Models.Common.Address ) )]
 	public class AddressProfile : BaseProfile
 	{
@@ -320,6 +353,7 @@ namespace Models.Node
 		[Property( DBName = "AddressRegion" )]
 		public string Region { get; set; } //State, Province, etc.
 		public int CountryId { get; set; }
+		//leave, as used with DisplayAddress (and is populated in factory)
 		public string Country { get; set; }
 		public string PostalCode { get; set; }
 		public double Latitude { get; set; }

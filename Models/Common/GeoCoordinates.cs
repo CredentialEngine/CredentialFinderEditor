@@ -18,13 +18,15 @@ namespace Models.Common
 			Region = "";
 			Country = "";
 			Bounds = new BoundingBox();
+			//Address = new Address();  //Do not initialize this here, it will cause an infinite recursive loop with the constructor of GeoCoordinates
 		}
 
 		public Guid ParentEntityId { get; set; }
 		public int GeoNamesId { get; set; } //ID used by GeoNames.org
 		public string Name { get; set; }
 		public bool IsException { get; set; }
-		
+		public Address Address { get; set; }
+
 		public string ToponymName { get; set; }
 		public string Region { get; set; }
 		public string Country { get; set; }
