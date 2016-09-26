@@ -1,0 +1,181 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{F8F98544-DDE4-4523-A633-3F2A9707E125}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Models</RootNamespace>
+    <AssemblyName>Models</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <SccProjectName>SAK</SccProjectName>
+    <SccLocalPath>SAK</SccLocalPath>
+    <SccAuxPath>SAK</SccAuxPath>
+    <SccProvider>SAK</SccProvider>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'ctiTest|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\ctiTest\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Test|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\Test\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Github|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\Github\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Elasticsearch.Net, Version=2.0.0.0, Culture=neutral, PublicKeyToken=96c599bbe3e70f5d, processorArchitecture=MSIL">
+      <HintPath>..\packages\Elasticsearch.Net.2.4.5\lib\net45\Elasticsearch.Net.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Nest, Version=2.0.0.0, Culture=neutral, PublicKeyToken=96c599bbe3e70f5d, processorArchitecture=MSIL">
+      <HintPath>..\packages\NEST.2.4.5\lib\net45\Nest.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.ComponentModel.DataAnnotations" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AppUser.cs" />
+    <Compile Include="CodeItem.cs" />
+    <Compile Include="Common\Address.cs" />
+    <Compile Include="Common\Agent.cs" />
+    <Compile Include="Common\BaseObject.cs" />
+    <Compile Include="Common\Credential.cs" />
+    <Compile Include="Common\CredentialAlignmentObject.cs" />
+    <Compile Include="Common\CredentialSummary.cs" />
+    <Compile Include="Common\Entity.cs" />
+    <Compile Include="Common\EntityProperty.cs" />
+    <Compile Include="Common\EntityPropertyOther.cs" />
+    <Compile Include="Common\EntitySummary.cs" />
+    <Compile Include="Common\GeoCoordinates.cs" />
+    <Compile Include="Common\Organization.cs" />
+    <Compile Include="Common\OrganizationMember.cs" />
+    <Compile Include="Common\OrganizationQAProfile.cs" />
+    <Compile Include="Common\Person.cs" />
+    <Compile Include="Common\PhoneNumber.cs" />
+    <Compile Include="Elastic\Assessment.cs" />
+    <Compile Include="Elastic\Credential.cs" />
+    <Compile Include="Elastic\ElasticBaseObject.cs" />
+    <Compile Include="Elastic\LearningOpportunity.cs" />
+    <Compile Include="Elastic\Organization.cs" />
+    <Compile Include="Helpers\Compare.cs" />
+    <Compile Include="Helpers\ToolTip.cs" />
+    <Compile Include="Json\JsonLDV2.cs" />
+    <Compile Include="Json\PostalAddress.cs" />
+    <Compile Include="Json\AlignmentObject.cs" />
+    <Compile Include="Json\AssessmentProfile.cs" />
+    <Compile Include="Json\AuthenticationProfile.cs" />
+    <Compile Include="Json\ConditionProfile.cs" />
+    <Compile Include="Json\Credential.cs" />
+    <Compile Include="Json\DurationProfile.cs" />
+    <Compile Include="Json\EarningsProfile.cs" />
+    <Compile Include="Json\EmploymentOutcomeProfile.cs" />
+    <Compile Include="Json\Enumeration.cs" />
+    <Compile Include="Json\GeoCoordinates.cs" />
+    <Compile Include="Json\HoldersProfile.cs" />
+    <Compile Include="Json\JsonLD.cs" />
+    <Compile Include="Json\JurisdictionProfile.cs" />
+    <Compile Include="Json\Organization.cs" />
+    <Compile Include="Json\ProcessProfile.cs" />
+    <Compile Include="Json\QualityAssuranceAction.cs" />
+    <Compile Include="Json\RevocationProfile.cs" />
+    <Compile Include="Json\TaskProfile.cs" />
+    <Compile Include="Node\Assessment.cs" />
+    <Compile Include="Node\BaseProfile.cs" />
+    <Compile Include="Node\Credential.cs" />
+    <Compile Include="Node\Experimental.cs" />
+    <Compile Include="Node\Interface.cs" />
+    <Compile Include="Node\LearningOpportunity.cs" />
+    <Compile Include="Node\Organization.cs" />
+    <Compile Include="Node\ProfileLink.cs" />
+    <Compile Include="Node\Profiles.cs" />
+    <Compile Include="ProfileModels\AssessmentProfile.cs" />
+    <Compile Include="ProfileModels\AuthenticationProfile.cs" />
+    <Compile Include="ProfileModels\BaseProfile.cs" />
+    <Compile Include="Common\Enumeration.cs" />
+    <Compile Include="ProfileModels\ConditionProfile.cs" />
+    <Compile Include="ProfileModels\CostProfile.cs" />
+    <Compile Include="ProfileModels\EntityAgentRelationship.cs" />
+    <Compile Include="ProfileModels\Entity_Credential.cs" />
+    <Compile Include="ProfileModels\LearningOpportunityProfile.cs" />
+    <Compile Include="ProfileModels\CredentialAgentRelationship.cs" />
+    <Compile Include="ProfileModels\DurationProfile.cs" />
+    <Compile Include="ProfileModels\EarningsProfile.cs" />
+    <Compile Include="ProfileModels\EmploymentOutcomeProfile.cs" />
+    <Compile Include="ProfileModels\HoldersProfile.cs" />
+    <Compile Include="Common\JurisdictionProfile.cs" />
+    <Compile Include="ProfileModels\OrganizationRoleProfile.cs" />
+    <Compile Include="ProfileModels\PlaceholderProfile.cs" />
+    <Compile Include="ProfileModels\ProcessProfile.cs" />
+    <Compile Include="ProfileModels\QualityAssuranceActionProfile.cs" />
+    <Compile Include="ProfileModels\RevocationProfile.cs" />
+    <Compile Include="ProfileModels\TaskProfile.cs" />
+    <Compile Include="ProfileModels\TextValueProfile.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Search\MainSearch.cs" />
+    <Compile Include="Search\MicroSearch.cs" />
+    <Compile Include="Search\ThirdPartyApiModels.cs" />
+    <Compile Include="SiteActivity.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
