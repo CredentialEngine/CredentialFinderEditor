@@ -1,0 +1,416 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{F302C49F-9619-40FD-9FFE-385DA58D2BE3}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Data</RootNamespace>
+    <AssemblyName>Data</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <SccProjectName>SAK</SccProjectName>
+    <SccLocalPath>SAK</SccLocalPath>
+    <SccAuxPath>SAK</SccAuxPath>
+    <SccProvider>SAK</SccProvider>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'ctiTest|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\ctiTest\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Test|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\Test\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Github|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\Github\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="EntityFramework, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\packages\EntityFramework.6.1.3\lib\net45\EntityFramework.dll</HintPath>
+    </Reference>
+    <Reference Include="EntityFramework.SqlServer, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\packages\EntityFramework.6.1.3\lib\net45\EntityFramework.SqlServer.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.ComponentModel.DataAnnotations" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Security" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Account.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="ActivityLog.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="AspNetRoles.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="AspNetUserClaims.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="AspNetUserLogins.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="AspNetUserRoles.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="AspNetUsers.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="AspNetUser_Import.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Assessment.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="CIPCode2010.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Codes_AgentService.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Codes_Countries.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Codes_CredentialAgentRelationship.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Codes_Currency.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Codes_EntityType.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Codes_PropertyCategory.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Codes_PropertyValue.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Codes_Status.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Credential.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Credential_ConnectionProfile.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="CTIEntities.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CTIEntities.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="CTIEntities.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="CTIEntities.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CTIEntities.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="Development\Sample.cs" />
+    <Compile Include="Development\TemporaryEnumerationData.cs" />
+    <Compile Include="Entity.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_Address.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_AgentRelationship.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_Assessment.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_Competency.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_CostProfile.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_CostProfileItem.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_Credential.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_DurationProfile.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_FrameworkItem.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_LearningOpportunity.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_Property.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_PropertyOther.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_QA_Action.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_Reference.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_RevocationProfile.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_TaskProfile.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_VerificationProfile.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="GeoCoordinate.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="JurisdictionProfile.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="LearningOpportunity.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="NAICS.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="ONET_SOC.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="ONET_SOC_JobFamily.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Organization.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Organization_Address.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Organization_Member.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Organization_PropertyOther.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Organization_Service.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Person.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Views\Account_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Activity_MetadataRegistrySummary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Agent_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\AspNetUserRoles_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Assessment_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\CodesProperty_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\CredentialAgentRelationships_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Credential_AgentRoleIdCSV.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Credential_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\CTI_Views.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CTI_Views.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\CTI_Views.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\CTI_Views.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CTI_Views.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="Views\EntityProperty_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Entity_AgentRelationshipIdCSV.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Entity_FrameworkItemSummary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Entity_LearningOpportunity_IsPartOfSummary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Entity_LearningOpportunity_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Entity_NaicsCSV.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Entity_PropertyOtherSummary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Entity_QAAction_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Entity_ReferenceUrls_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Entity_Reference_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Entity_Relationship_AgentSummary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Entity_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\JurisdictionProfile_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\LearningOpportunity_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Naics_Select2DigitCodes.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Naics_Select6DigitCodes.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\OrganizationMemberSummary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\OrganizationProperty_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Organization_PropertyOther_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Organization_ServiceSummary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Organization_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Models\Models.csproj">
+      <Project>{f8f98544-dde4-4523-a633-3f2a9707e125}</Project>
+      <Name>Models</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+    <EntityDeploy Include="CTIEntities.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>CTIEntities.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <None Include="CTIEntities.edmx.diagram">
+      <DependentUpon>CTIEntities.edmx</DependentUpon>
+    </None>
+    <None Include="packages.config" />
+    <EntityDeploy Include="Views\CTI_Views.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>CTI_Views.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <None Include="Views\CTI_Views.edmx.diagram">
+      <DependentUpon>CTI_Views.edmx</DependentUpon>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="CTIEntities.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>CTIEntities.edmx</DependentUpon>
+      <LastGenOutput>CTIEntities.Context.cs</LastGenOutput>
+    </Content>
+    <Content Include="CTIEntities.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>CTIEntities.edmx</DependentUpon>
+      <LastGenOutput>CTIEntities.cs</LastGenOutput>
+    </Content>
+    <Content Include="Views\CTI_Views.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>CTI_Views.edmx</DependentUpon>
+      <LastGenOutput>CTI_Views.Context.cs</LastGenOutput>
+    </Content>
+    <Content Include="Views\CTI_Views.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>CTI_Views.edmx</DependentUpon>
+      <LastGenOutput>CTI_Views.cs</LastGenOutput>
+    </Content>
+  </ItemGroup>
+  <ItemGroup />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

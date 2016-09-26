@@ -1,0 +1,54 @@
+﻿@using Models.Common;
+@using Models.ProfileModels;
+@{
+    var typeTitle = ViewData[ "typeTitle" ] as string;
+    var receivedRoles = ViewData[ "receivedRoles" ] as List<OrganizationRoleProfile>;
+    var roleCodes = ViewData[ "roleCodes" ] as Enumeration;
+    var actors = new List<Organization>();
+    
+    try
+    {
+        if ( receivedRoles == null || receivedRoles.Count() == 0 )
+        {
+            return;
+        }
+
+        //Fix/prevent missing/null data
+        foreach ( var role in receivedRoles )
+        {
+            role.RoleType = new Enumeration() { Name = roleCodes.Items.FirstOrDefault( m => m.Id == role.RoleTypeId ).Name, Id = role.RoleTypeId };
+            role.ActingAgent =
+                role.ActingAgent == null ||
+                role.ActingAgent.Id == 0 ||
+                string.IsNullOrWhiteSpace( role.ActingAgent.Name ) ||
+                string.IsNullOrWhiteSpace( role.ActingAgent.Description ) ?
+                    OrganizationServices.GetLightOrgByRowId( ( role.ActingAgentUid == null ? new Guid() : role.ActingAgentUid ).ToString() ) :
+                    role.ActingAgent;
+
+            role.ActingAgent.Name = role.ActingAgent.Name ?? "Name unavailable";
+            role.ActingAgent.Description = role.ActingAgent.Description ?? "No description";
+            role.ActingAgent.ImageUrl = role.ActingAgent.ImageUrl ?? "";
+        }
+
+        //Process roles
+        actors = receivedRoles.Select( m => m.ActingAgent ).Distinct().ToList();
+    }
+    catch { }
+}
+
+@foreach ( var org in actors )
+{
+    <div class="subsection organization">
+        <h3><a href="@Url.Content( "~/detail/organization/" + org.Id )" target="_blank">@org.Name</a></h3>
+        <p>@( org.Description.Length < 150 ? org.Description : org.Description.Substring( 0, 150 ) + "..." )</p>
+        <div class="logo" style="background-image:url('@org.ImageUrl');"></div>
+        <h4>This @typeTitle is:</h4>
+        <ul>
+            @foreach ( var role in receivedRoles.Where( m => m.ActingAgentId == org.Id ).ToList() )
+            {
+                <li>@role.RoleType.Name</li>
+            }
+        </ul>
+        <p>by this Organization.</p>
+    </div>
+}

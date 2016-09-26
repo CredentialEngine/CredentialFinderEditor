@@ -1,0 +1,61 @@
+﻿@model Models.Common.Enumeration
+@using Models.Common;
+@using Models.Helpers;
+@{ 
+    var viewProperty = ( string ) ViewData[ "property" ];
+    var property = string.IsNullOrWhiteSpace( viewProperty ) ? char.ToUpper( Model.SchemaName[ 0 ] ) + Model.SchemaName.Substring( 1 ) : viewProperty;
+
+    //Inject tooltips
+    if ( Model.InterfaceType == EnumerationType.MULTI_SELECT )
+    {
+        var toolTips = HttpContext.Current.Items[ "ToolTips" ] as List<ToolTip> ?? new List<ToolTip>();
+        foreach ( var item in Model.Items )
+        {
+            if ( toolTips.FirstOrDefault( m => m.SchemaName == item.SchemaName ) == null && !string.IsNullOrWhiteSpace( item.Name ) && !string.IsNullOrWhiteSpace( item.Description ) && !string.IsNullOrWhiteSpace( item.SchemaName ) )
+            {
+                toolTips.Add( new ToolTip() { Title = item.Name ?? "", Description = item.Description ?? "", SchemaName = item.SchemaName ?? "" } );
+            }
+        }
+        HttpContext.Current.Items[ "ToolTips" ] = toolTips;
+    }
+    
+}
+
+@if ( Model.InterfaceType == EnumerationType.MULTI_SELECT ) // Will send back the enumeration with a populated list of items
+{
+	<div class="enumeration cbxl" data-property="@property" data-type="enumeration" data-enumerationType="multiSelect">
+		@foreach ( var item in Model.Items )
+		{
+			<label class="toolTipLink toolTipBubbleAfter" data-tooltip_schemaname="@item.SchemaName"><input type="checkbox" value="@item.Value" data-id="@item.Id" data-schemaName="@item.SchemaName" @Html.Raw( item.Selected ? "checked=\"true\"" : "" ) /> @item.Name</label>
+		}
+	</div>
+}
+else if ( Model.InterfaceType == EnumerationType.MULTI_SELECT_ID_ONLY )
+{
+    <div class="enumeration cbxl" data-property="@property" data-type="enumeration" data-enumerationType="number">
+        @foreach ( var item in Model.Items )
+        {
+            <label class="toolTipLink toolTipBubbleAfter" data-tooltip_schemaname="@item.SchemaName"><input type="checkbox" value="@item.Value" @Html.Raw( item.Selected ? "checked=\"true\"" : "" ) /> @item.Name</label>
+        }
+    </div>
+}
+else if ( Model.InterfaceType == EnumerationType.SINGLE_SELECT ) //Will send back the enumeration with a single item
+{
+	<select class="enumeration select" data-property="@property" data-type="enumeration" data-enumerationType="singleSelect">
+        <option value="0" data-url="">Select @Model.Name</option>
+		@foreach ( var item in Model.Items )
+		{
+			<option value="@item.Value" data-id="@item.Id" data-schemaName="@item.SchemaName" @Html.Raw( item.Selected ? "selected=\"true\"" : "" )>@item.Name</option>
+		}
+	</select>
+}
+else if ( Model.InterfaceType == EnumerationType.SINGLE_SELECT_ID_ONLY ) //Will send back ONLY the Id of the first selected item
+{
+    <select data-property="@property" data-type="select" data-selecttype="number">
+        <option value="0" data-url="">Select an item</option>
+        @foreach ( var item in Model.Items )
+        {
+            <option value="@item.Id" data-url="@item.URL">@item.Name</option>
+        }
+    </select>
+}

@@ -1,0 +1,544 @@
+﻿@model Models.Common.Credential
+@using Models.Common;
+@using CTIServices
+@{
+    ViewBag.Title = "Credential";
+
+    var iconType = "";
+    var typeName = "credential";
+    try
+    {
+        typeName = Model.CredentialType.Items.FirstOrDefault().SchemaName.ToLower();
+    }
+    catch { }
+    var icons = new List<string>() {
+        "badge", "certificate", "certification", "degree", "diploma", "license", "micro", "military"
+    };
+    foreach ( var item in icons )
+    {
+        if(typeName.IndexOf(item) > -1)
+        {
+            iconType = item;
+        }
+    }
+
+    var orgs = Model.OrganizationRole.Select( m => m.TargetOrganization ).ToList();
+    var addressList = new List<Dictionary<string, string>>();
+    foreach ( var org in orgs )
+    {
+        addressList.Add( new Dictionary<string, string>() { { "id", org.Id.ToString() }, { "address", org.Address.DisplayAddress() } } );
+    }
+}
+@{
+    //Match roles with code tables so proper sorting can be done
+    var roles = new EnumerationServices().GetCredentialAgentRoles( EnumerationType.CUSTOM );
+    var qaRoleIDs = new EnumerationServices().GetCredentialAgentQAActions( EnumerationType.CUSTOM ).Items.Select( m => m.CodeId );
+    foreach ( var item in Model.OrganizationRole )
+    {
+        var matchedRole = roles.Items.FirstOrDefault( m => m.CodeId == item.RoleTypeId );
+        item.RoleType.Name = matchedRole.Name;
+        item.RoleType.Id = item.RoleTypeId;
+        item.RoleType.SchemaName = matchedRole.SchemaName;
+        item.ActingAgent = OrganizationServices.GetOrganization( item.ActingAgentId );
+    }
+
+    //Sort and group - force creator to display first
+    Model.OrganizationRole = Model.OrganizationRole.OrderBy(m => m.RoleTypeId != 5).ThenBy( m => m.RoleType.Name ).ThenBy( m => m.RoleTypeId ).ToList();
+
+    //Group together the QA roles for use later
+    var qaRoles = Model.OrganizationRole.Where( m => qaRoleIDs.Contains( m.RoleTypeId ) ).ToList();
+
+    var canPublish = AccountServices.CanUserPublishContent();
+
+}
+
+@functions {
+    public bool HasText( string input )
+    {
+        return !string.IsNullOrWhiteSpace( input );
+    }
+}
+
+@Html.Partial( "~/Views/Shared/Detail/_DetailCore.cshtml", new ViewDataDictionary() { { "organizationAddresses", addressList } } )
+
+@Html.Partial( "~/Views/Compare/_CompareBar.cshtml", "" )
+
+
+<script type="text/javascript">
+    @{
+        var jsonLD = new JsonLDServices();
+    }
+    var jsonLD = @Html.Raw( jsonLD.GetSerializedJsonLDCredential( Model ) );
+    var jsonLDV2 = @Html.Raw( jsonLD.SerializeJsonV2( jsonLD.GetCredentialV2( Model ) ) );
+    $(document).ready(function() {
+        $("#json").html(JSON.stringify(jsonLD,null,"\t"));
+    });
+</script>
+
+<style type="text/css">
+    /* Condition Profile */
+    .conditionDescription, .conditionExperience { white-space: pre-wrap; }
+    .qaAward { border: 1px solid #CCC; padding: 5px; margin-bottom: 5px; }
+    .qaName { display: block; font-weight: bold; font-size: 20px; }
+    .qaDescription { padding: 5px; border-bottom: 1px solid #DDD; }
+    .conditionItem { border: 1px solid #CCC; padding: 5px; margin-bottom: 5px; }
+    .conditionTitle { font-weight: bold; }
+</style>
+
+    <div id="editButtons">
+        <input type="button" value="Compare" onclick="compare.addItem(@Model.Id, 'credential', '@Model.Name');" />
+        @if ( canPublish )
+        {
+            <a class="editLink linkButton" href="@Url.Content("~/editor/credential/")@Model.Id">Edit</a>
+            <input type="button" class="redButton" value="Delete" onclick="deleteThis('@Model.Name', 'credential', @Model.Id);" />
+        }
+    </div>
+
+<h1><a href="@Model.Url" target="_blank">@Model.Name</a></h1>
+
+<div id="columns">
+    <div class="column data">
+        @* Basic Information *@
+        <div class="section" id="basic" style="background-image: url('@Url.Content( "~/images/icons/cti_icon_" + iconType + "_pink.png" )');">
+            <h2>About this Credential</h2>
+            <div id="description">@Html.Raw( Model.Description )</div>
+            <h2>Type</h2>
+            @{
+                var type = "Credential";
+                try
+                {
+                    type = Model.CredentialType.Items.First().Name;
+                }
+                catch { }
+            }
+            @type
+            <h2>What it's for</h2>
+            <ul class="keywordsList">
+                @foreach ( var item in Model.Purpose.Items )
+                {
+                    <li><a href="@Url.Content( "~/search?autosearch=true&filters=" + Model.Purpose.Id + "-" + item.Id )" target="_blank">@item.Name</a></li>
+                }
+            </ul>
+        </div>
+      
+        @* Industry/Occupation codes *@
+        @if ( Model.Industry.Items.Count() > 0 || Model.Occupation.Items.Count() > 0 )
+        {
+            <div class="section" id="industryOccupationCodes" style="background-image: url('@Url.Content( "~/images/icons/cti_icon_interests_pink.png" )');">
+                @if( Model.Industry.Items.Count() > 0 )
+                {
+                    <h2>Industries</h2>
+                    <ul class="keywordsList">
+                        @foreach ( var item in Model.Industry.Items )
+                        {
+                            <li><a href="@Url.Content( "~/search?autosearch=true&filters=" + Model.Industry.Id + "-" + item.Id )" target="_blank">@item.Name</a></li>
+                        }
+                    </ul>
+                }
+                @if ( Model.Occupation.Items.Count() > 0 )
+                {
+                    <h2>Occupations</h2>
+                    <ul class="keywordsList">
+                        @foreach ( var item in Model.Occupation.Items )
+                        {
+                            <li><a href="@Url.Content( "~/search?autosearch=true&filters=" + Model.Occupation.Id + "-" + item.Id )" target="_blank">@item.Name</a></li>
+                        }
+                    </ul>
+                }
+
+            </div>
+        }
+
+        @* Level *@
+        @if ( Model.CredentialLevel.Items.Count() > 0 ) 
+        {
+            <div class="section" id="level" style="background-image: url('@Url.Content( "~/images/icons/cti_icon_levels_pink.png" )');">
+                <h2>Preferred Education Level</h2>
+                <ul class="keywordsList">
+                    @foreach ( var item in Model.CredentialLevel.Items )
+                    {
+                    <li><a href="@Url.Content( "~/search?autosearch=true&filters=" + Model.CredentialLevel.Id + "-" + item.Id )" target="_blank">@item.Name</a></li>
+                    }
+                </ul>
+            </div>
+        }
+        
+        @* Quality Assurance *@
+        @if ( Model.QualityAssuranceAction.Count() > 0 || qaRoles.Count() > 0  )
+        {
+            <div class="section" id="qualityAssurance" style="background-image: url('@Url.Content( "~/images/icons/cti_icon_star_bg.png" )');">
+                @if ( Model.QualityAssuranceAction.Count() > 0 )
+                {
+                    <h2>Quality Assurance Awards</h2>
+                    <dl>
+                        @foreach ( var item in Model.QualityAssuranceAction )
+                        {
+                            var actor = OrganizationServices.GetOrganization( item.ActingAgentId );
+                            var issued = CredentialServices.GetCredential( item.IssuedCredentialId );
+                            
+                            <div class="qaAward">
+                                <a class="qaName" href="@Url.Content( "~/CredentialManagement/detail/" + issued.Id )" target="_blank">@issued.Name</a>
+                                <div class="qaDescription">@issued.Description</div>
+                                <div class="qaIssuer">Issued by <a href="@Url.Content( "~/OrganizationManagement/detail2/" + actor.Id )" target="_blank">@actor.Name</a></div>
+                                <div class="qaValid">@( HasText( item.StartDate ) && HasText( item.EndDate ) ? "Validitiy: " + item.StartDate + " - " + item.EndDate : "")</div>
+                            </div>
+                        }
+                    </dl>
+                }
+                @if ( qaRoles.Count() > 0 )
+                {
+                    <h2>Quality Assurance Connections</h2>
+                    foreach ( var item in qaRoles )
+                    {
+                        if ( !item.ActingAgent.OrganizationRole_Actor.Contains( item ) )
+                        {
+                            item.ActingAgent.OrganizationRole_Actor.Add( item );
+                        }
+                        @Html.Partial( "~/Views/Shared/Detail/_OrganizationBox.cshtml", item.ActingAgent );
+                        @* 
+                        <dt>@item.RoleType.Name</dt>
+                        <dd>QA issued by <a href="@Url.Content( "~/OrganizationManagement/detail2/" + item.ActingAgentId )" target="_blank">@item.ActingAgent.Name</a></dd>
+                        *@
+                    }
+                }
+            </div>
+        }
+        
+        @* Required Competencies *@
+        @{ var requiredCompetencies = Model.Requires.SelectMany( m => m.TargetCompetency ).ToList(); }
+        @if ( requiredCompetencies.Count() > 0 )
+        {
+            <div class="section" id="requiredCompetencies" style="background-image: url('');">
+                <h2>Required Competencies</h2>
+                <dl>
+                    @foreach ( var item in requiredCompetencies )
+                    {
+                        <dt>@item.Name</dt>
+                        foreach ( var competency in item.Items )
+                        {
+                            <dd>@competency.Name</dd>
+                        }
+                    }
+                </dl>
+            </div>
+        }
+        
+        @* Time to Earn *@
+        @if ( Model.EstimatedTimeToEarn.Count() > 0 )
+        {
+            <div class="section" id="timeToEarn" style="background-image: url('@Url.Content( "~/images/icons/cti_icon_duration_pink.png" )');">
+                <h2>Estimated Time to Earn</h2>
+                <dl>
+                    @foreach ( var item in Model.EstimatedTimeToEarn )
+                    {
+                        <dt>@( item.IsRange ? item.MinimumDuration.Print() + " - " + item.MaximumDuration.Print() : item.ExactDuration.Print() )</dt>
+                        <dd>Conditions: @( HasText( item.Conditions ) ? item.Conditions : "No special conditions")</dd>
+                    }
+                </dl>
+            </div>
+        }
+        
+        @* Jurisdiction *@
+        @if ( Model.Jurisdiction.Count() > 0 )
+        {
+            <div class="section" id="timeToEarn" style="background-image: url('@Url.Content( "~/images/icons/icon_map_pink.png" )');">
+                <h2>Applicable Jurisdictions</h2>
+                @foreach ( var item in Model.Jurisdiction )
+                {
+                    @Html.Partial( "~/Views/Shared/Detail/_JurisdictionProfile.cshtml", item );
+                }
+            </div>
+        }
+        
+    </div>
+    <div class="column organizations">
+
+        <div id="mapBox"></div>
+
+        <h2>Organization Roles</h2>
+
+        @foreach ( var orgID in Model.OrganizationRole.Select( m => m.ActingAgentId ).Distinct().ToList() )
+        {
+            var rolesForCurrentOrg = Model.OrganizationRole.Where( m => m.ActingAgentId == orgID ).ToList();
+            //var org = OrganizationServices.GetOrganization( orgID );
+            var org = Model.OrganizationRole.FirstOrDefault( m => m.ActingAgentId == orgID ).ActingAgent;
+            org.OrganizationRole_Actor = rolesForCurrentOrg;
+            
+            //Don't show QA roles
+            var replacementRoles = new List<Models.ProfileModels.OrganizationRoleProfile>();
+            foreach ( var role in org.OrganizationRole_Actor )
+            {
+                if ( !qaRoleIDs.Contains( role.RoleTypeId ) )
+                {
+                    replacementRoles.Add( role );
+                }
+            }
+            org.OrganizationRole_Actor = replacementRoles;
+            if ( org.OrganizationRole_Actor.Count() > 0 )
+            {
+                @Html.Partial( "~/Views/Shared/Detail/_OrganizationBox.cshtml", org );
+            }
+        }
+
+    </div>
+</div>
+
+<div id="details">
+    <div id="tabButtons">
+        @*<input type="button" data-tabid="embedded" value="Embedded Credentials" />*@
+        @*<input type="button" data-tabid="details" value="Details" />*@
+        @*<input type="button" data-tabid="codes" value="Industries and Occupations" />*@
+        @*<input type="button" data-tabid="competencies" value="Required Competencies" />*@
+        @if ( Model.Requires.Count() > 0 ) { <input type="button" data-tabid="requires" class="selected" value="Requirements" /> }
+        @if ( Model.Recommends.Count() > 0 ) { <input type="button" data-tabid="recommends" value="Recommendations" /> }
+        @if ( Model.IsRequiredFor.Count() > 0 || Model.IsRecommendedFor.Count() > 0 ) { <input type="button" data-tabid="connections" value="Connections" /> }
+        @if ( Model.Renewal.Count() > 0 ) { <input type="button" data-tabid="renewal" value="Renewal" /> }
+        @if ( Model.Revocation.Count() > 0 ) { <input type="button" data-tabid="revocation" value="Revocation" /> }
+        @if ( Model.EmploymentOutcome.Count() > 0 || Model.Holders.Count() > 0 || Model.Earnings.Count() > 0 ) { <input type="button" data-tabid="outcomes" value="Outcomes and Statistics" /> }
+        @*<input type="button" data-tabid="more" value="More Information" />*@
+        @*<input type="button" data-tabid="keywords" value="Keywords" />*@
+        <input type="button" data-tabid="json" value="Raw Metadata" />
+    </div>
+    <div id="tabBox">
+
+        @* Embedded Credentials *@
+        @*<div class="tab" data-tabID="embedded">
+            <h2>Embedded Credentials</h2>
+            @if ( Model.HasPart.Count() > 0 )
+            {
+                <ul>
+                    @foreach ( var item in Model.HasPart )
+                    {
+                        <li><a href="@Url.Content( "~/credentialmanagement/detail/" )@item.Id" target="_blank">@item.Name</a></li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p class="noItems">There are no embedded credentials in this credential.</p>
+            }
+        </div>*@
+
+        @* Details *@
+        @*<div class="tab" data-tabid="details">
+            <h2>Details</h2>
+            @{ var hasDetails = false; }
+            <table id="details">
+                <tbody>
+                    @if( HasText( Model.Version) ) { hasDetails = true; <tr><td>Version/Identifier:</td><td>@Model.Version</td></tr> }
+                    @if( HasText( Model.ReplacesVersionUrl ) ) { hasDetails = true; <tr><td>Replaces:</td><td><a href="@Model.ReplacesVersionUrl" target="_blank">@Model.ReplacesVersionUrl</a></td></tr> }
+                    @if( HasText( Model.LatestVersionUrl ) ) { hasDetails = true; <tr><td>Latest Version:</td><td><a href="@Model.LatestVersionUrl" target="_blank">@Model.LatestVersionUrl</a></td></tr> }
+                </tbody>
+            </table>
+            @if ( !hasDetails )
+            {
+                <p class="noItems">No Detailed information available.</p>
+            }
+        </div>*@
+
+        @* Codes *@
+        @*<div class="tab" data-tabid="codes">
+            <h2>Industries and Occupations</h2>
+            <h3>Industry codes</h3>
+            @if( Model.Industry.Items.Count() > 0 )
+            {
+                <ul>
+                    @foreach ( var item in Model.Industry.Items )
+                    {
+                        <li><a href="@item.URL" target="_blank">@item.Name</a></li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p class="noItems">No associated industry codes.</p>
+            }
+            <h3>Occupation codes</h3>
+            @if ( Model.Occupation.Items.Count() > 0 )
+            {
+                <ul>
+                    @foreach ( var item in Model.Occupation.Items )
+                    {
+                        <li><a href="@item.URL" target="_blank">@item.Name</a></li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p class="noItems">No associated occupation codes.</p>
+            }
+        </div>*@
+
+        @* Competencies *@
+        @*<div class="tab" data-tabid="competencies">
+        <h2>Required Competencies</h2>
+        @{ var requiredCompetencies = Model.Requires.SelectMany(m => m.TargetCompetency).Distinct().ToList(); }
+        @if ( requiredCompetencies.Count() > 0 )
+        {
+            <ul>
+                @foreach ( var item in requiredCompetencies )
+                {
+                    <li>@item.Name</li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p class="noItems">No required competencies available.</p>
+        }
+    </div>*@
+
+        @* Requires *@
+        <div class="tab selected" data-tabid="requires">
+            <h2>Requirements</h2>
+            @{ var counter = 1; }
+            @foreach ( var item in Model.Requires )
+            {
+                @Html.Partial( "~/Views/Shared/Detail/_ConditionProfile.cshtml", item, new ViewDataDictionary() { { "conditionsTitle", "Requirements #" + counter }, { "conditionHeader", "Required" } } )
+                counter++;
+            }
+            @if ( Model.Requires.Count() == 0 )
+            {
+                <p>No requirements available.</p>
+            }
+        </div>
+
+        <div class="tab" data-tabid="recommends">
+            <h2>Recommendations</h2>
+            @{ counter = 1; }
+            @foreach ( var item in Model.Recommends )
+            {
+                @Html.Partial( "~/Views/Shared/Detail/_ConditionProfile.cshtml", item, new ViewDataDictionary() { { "conditionsTitle", "Recommendation #" + counter }, { "conditionHeader", "Recommended" } } )
+                counter++;
+            }
+            @if ( Model.Recommends.Count() == 0 )
+            {
+                <p>No recommendations available.</p>
+            }
+        </div>
+
+        <div class="tab" data-tabid="connections">
+            <h2>Connections</h2>
+            <h3>This credential is required for:</h3>
+            @{ counter = 1; }
+            @foreach ( var item in Model.IsRequiredFor )
+            {
+                @Html.Partial( "~/Views/Shared/Detail/_ConditionProfile.cshtml", item, new ViewDataDictionary() { { "conditionsTitle", "Reqirement item for #" + counter }, { "conditionHeader", "Is Required For" } } )
+                counter++;
+            }
+            @if ( Model.IsRequiredFor.Count() == 0 )
+            {
+                <p>No information available.</p>
+            }
+            <h3>This credential is recommended for:</h3>
+            @{ counter = 1; }
+            @foreach ( var item in Model.IsRecommendedFor )
+            {
+                @Html.Partial( "~/Views/Shared/Detail/_ConditionProfile.cshtml", item, new ViewDataDictionary() { { "conditionsTitle", "Recommended item for #" + counter }, { "conditionHeader", "Recommended" } } )
+                counter++;
+            }
+            @if ( Model.IsRecommendedFor.Count() == 0 )
+            {
+                <p>No information available.</p>
+            }
+        </div>
+
+        <div class="tab" data-tabid="renewal">
+            <h2>Renewal</h2>
+            @{ counter = 1; }
+            @foreach ( var item in Model.Renewal )
+            {
+                @Html.Partial( "~/Views/Shared/Detail/_ConditionProfile.cshtml", item, new ViewDataDictionary() { { "conditionsTitle", "Renewal conditions #" + counter }, { "conditionHeader", "Required" } } )
+                counter++;
+            }
+            @if ( Model.Renewal.Count() == 0 )
+            {
+                <p>No renewal information available.</p>
+            }
+        </div>
+
+        <div class="tab" data-tabid="revocation">
+            <h2>Revocation</h2>
+            @if ( Model.Revocation.Count() > 0 )
+            {
+                <ul>
+                    @foreach ( var item in Model.Revocation )
+                    {
+                        <li>@item.Description</li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p>No revocation information available.</p>
+            }
+        </div>
+
+        <div class="tab" data-tabid="outcomes">
+            <h2>Outcomes and Statistics</h2>
+
+            <h3>Employment Outcomes</h3>
+            @if ( Model.EmploymentOutcome.Count() > 0 )
+            {
+                <ul>
+                    @foreach ( var item in Model.EmploymentOutcome )
+                    {
+                        <li>@item.Description</li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p>No employment outcome data available.</p>
+            }
+
+            <h3>Credential Holders</h3>
+            @if ( Model.Holders.Count() > 0 )
+            {
+                <ul>
+                    @foreach ( var item in Model.Holders )
+                    {
+                        <li>@item.Description</li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p>No employment outcome data available.</p>
+            }
+
+            <h3>Earnings</h3>
+            @if ( Model.Earnings.Count() > 0 )
+            {
+                <ul>
+                    @foreach ( var item in Model.Earnings )
+                    {
+                        <li>@item.Description</li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p>No employment outcome data available.</p>
+            }
+
+        </div>
+
+        @*<div class="tab" data-tabid="more">
+            <h2>More Information</h2>
+            <p>Not available at this time.</p>
+        </div>*@
+
+        @*<div class="tab" data-tabid="keywords">
+            <h2>Keywords</h2>
+
+        </div>*@
+
+        <div class="tab" data-tabid="json">
+            <h2>Raw Metadata</h2>
+            <p>For readability, the document below uses human-readable labels for controlled vocabulary items.</p>
+            <div id="json"></div>
+        </div>
+
+    </div>
+</div>

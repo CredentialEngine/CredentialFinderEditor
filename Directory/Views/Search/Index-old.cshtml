@@ -1,0 +1,451 @@
+﻿
+@{
+    ViewBag.Title = "Credential Directory Search";
+}
+
+<script type="text/javascript">
+    /* Server and global variables */
+    var currentResults = [];
+    var previousQuery = "";
+    var currentPage = 1;
+    var pageSize = 10;
+    var searchType = "credential";
+    var searchTimer = 0;
+    var statusTypes = {
+        searching: "searching",
+        success: "success",
+        error: "error"
+    };
+
+
+    /* Initialization */
+    $(document).ready(function () {
+        setupSearchType();
+        setupKeywords();
+        setupFilters();
+    });
+
+    function setupKeywords() {
+        $("#keywords").on("keyup change", function (e) {
+            if (e.which == 9 || e.keyCode == 9) {
+                return; //Ignore tab
+            }
+            resetCountdown();
+        });
+    }
+    //
+
+    function setupFilters(){
+        //Do a search when a filter changes
+        $(".filtersOption input, .filtersOption select").on("change", function () {
+            resetCountdown();
+        });
+        
+        //Auto-close the filter box when the user clicks outside it
+        $("html").not("#filtersMenu, #btnToggleFilters").on("click", function () {
+            hideFilters();
+        });
+        $("#filtersMenu, #btnToggleFilters").on("click", function (e) {
+            e.stopPropagation();
+            return;
+        });
+
+        //Switch which filter options show 
+        $("#filtersCategories input").on("click", function() {
+            showFiltersOption($(this).attr("data-filterID"));
+        });
+    }
+    //
+
+    function setupSearchType() {
+        $("[name=searchType]").on("change", function () {
+            searchType = $("[name=searchType]:checked").attr("value");
+            showFilterType(searchType);
+        });
+    }
+    //
+</script>
+<script type="text/javascript">
+    /* Page Functions */
+
+    //Delay search
+    function resetCountdown() {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function () {
+            doSearch();
+        }, 800);
+    }
+    //
+
+    //Do a search
+    function doSearch(isPaging) {
+        //Shrink the search box
+        $("#searchHeader").removeClass("big").addClass("overlay");
+        $("#resultsBox").addClass("big");
+
+        //Reset paging unless the search was triggered by a page button click
+        if (!isPaging) {
+            currentPage = 1;
+        }
+
+        //Get filters
+        var filters = [];
+        $(".filtersOption").each(function () {
+            var box = $(this);
+            var filter = {
+                Name: box.attr("data-filterID"),
+                Items: []
+            };
+
+            box.find("input:checked").each(function () {
+                filter.Items.push($(this).attr("value"));
+            });
+
+            if (filter.Items.length > 0) {
+                filters.push(filter);
+            }
+        })
+
+        //Build query
+        var query = {
+            SearchType: searchType,
+            StartPage: currentPage,
+            PageSize: pageSize,
+            Keywords: $("#keywords").val(),
+            Filters: filters
+        };
+
+        //Skip identical query
+        var stringified = JSON.stringify(query);
+        if (stringified == previousQuery) {
+            return; //Don't repeat the same search
+        }
+        previousQuery = stringified;
+
+        //Set status
+        setStatus("Searching...", statusTypes.searching);
+
+        //Do the search
+        doAjax("Search", "MainSearch", { query: query }, success_doSearch, null, null);
+    }
+    //
+
+    //Set search status
+    function setStatus(message, statusType) {
+        var box = $("#status");
+        console.log(statusType);
+        box.attr("data-status", statusType).html(message);
+    }
+    //
+
+    //Reset search
+    function resetSearch(){
+        $("#keywords").val("");
+
+        resetCountdown();
+    }
+    //
+
+    //Switch page
+    function switchPage(page){
+        currentPage = page;
+        doSearch(true);
+    }
+    //
+</script>
+<script type="text/javascript">
+    /* Ajax Functions */
+
+    //Do an AJAX search
+    function doAjax(controller, method, data, success, button, passThrough) {
+        //Disable the button
+        if (button) {
+            $(button).attr("data-originalValue", $(button).attr("value")).attr("value", "...").prop("disabled", true);
+        }
+
+        //Make the request
+        $.ajax({
+            url: "@Url.Content( "~/" )" + controller + "/" + method,
+            async: true,
+            headers: { "Accept": "application/json", "Content-type": "application/json; charset=utf-8" },
+            dataType: "json",
+            type: "POST",
+            data: JSON.stringify(data),
+            success: function (message) {
+                console.log("Response: ", message);
+                if (typeof (success) == "function") {
+                    success(message, passThrough);
+                }
+            }
+        }).done(function() {
+            //Reenable the button
+            if(button){
+                $(button).attr("value", $(button).attr("data-originalValue")).prop("disabled", false);
+            }
+        });
+
+    }
+    //
+
+    /* Ajax success methods */
+
+    function success_doSearch(message) {
+        $("#results").html("");
+
+        if (message.valid) {
+            setStatus(message.data.TotalResults > 0 ? "Found " + message.data.TotalResults + " results" : "Sorry, no results found", statusTypes.success);
+            currentResults = message.data;
+            renderCurrentResults();
+            renderPaging();
+        }
+        else {
+            setStatus(message.status, statusTypes.error);
+        }
+    }
+    //
+
+</script>
+<script type="text/javascript">
+    /* Filter interaction */
+
+    //Toggle the filters menu
+    function toggleFilters() {
+        var box = $("#filtersMenu");
+        if (box.hasClass("visible")) {
+            hideFilters();
+        }
+        else {
+            showFilters();
+        }
+    }
+    //
+
+    //Show Filters
+    function showFilters() {
+        $("#filtersMenu").addClass("visible").stop().slideDown(100);
+    }
+    //
+    
+    //Hide Filters
+    function hideFilters() {
+        $("#filtersMenu").removeClass("visible").stop().slideUp(100);
+    }
+    //
+
+    //Show Filter type
+    function showFilterType(searchType){
+        $("#filtersCategories [data-searchType]").removeClass("active").filter("[data-searchType=" + searchType + "]").addClass("active");
+    }
+
+    //Show Filters option
+    function showFiltersOption(filterID){
+        $("[data-filterID]").removeClass("selected").filter("[data-filterID=" + filterID + "]").addClass("selected");
+    }
+</script>
+<script type="text/javascript">
+    /* Rendering Methods */
+
+    //Render current results
+    function renderCurrentResults() {
+        var box = $("#results");
+        var template = $("#template_result_" + currentResults.SearchType).html();
+
+        box.html("");
+
+        for (var i in currentResults.Results) {
+            var current = currentResults.Results[i];
+            var text = template
+                .replace(/{Name}/g, current.Name)
+                .replace(/{Description}/g, current.Description)
+                .replace(/{RecordId}/g, current.RecordId);
+
+            for (var j in current.Properties) {
+                text = text.replace(new RegExp("{" + j + "}", "g"), current.Properties[j] ? current.Properties[j] : "");
+            }
+
+            box.append(text);
+        }
+    }
+    //
+
+    //Render paging
+    function renderPaging() {
+        var total = currentResults.TotalResults;
+        var box = $("#paging");
+        var template = $("#template_pagingButton").html();
+        var totalPages = Math.ceil(total / pageSize);
+
+        box.html("");
+        for(var i = 1; i <= totalPages; i++){
+            box.append(template
+                .replace(/{page}/g, i)
+                .replace(/{current}/g, i == currentPage ? "current" : "")
+            );
+        }
+    }
+    //
+</script>
+
+<style type="text/css">
+    /* Big Stuff */
+    #content { min-height: 400px; }
+
+    /* Header */
+    #searchHeader { margin: -5px -5vw 0 -5vw; padding: 5px 5vw 5px 5vw; background-size: cover; background-position: center center; transition: padding 2s, margin 2s; }
+    #searchHeader.big { padding: calc(40vh - 75px) 5vw calc(60vh - 50px) 5vw; }
+    #searchHeader.overlay { padding: 5px 5vw calc(100vh - 130px); margin-bottom: calc(-100vh + 135px); }
+    #inputsBox { position: relative; font-size: 0; padding-left: 200px; }
+    #keywords, #btnReset, #btnToggleFilters { font-size: 30px; display: inline-block; vertical-align: top; height: 50px; }
+    #keywords { width: calc(100% - 50px); }
+    #btnReset { width: 50px; }
+    #btnToggleFilters { position: absolute; top: 0; left: 0; width: 200px; }
+
+    /* Filters Menu */
+    #filtersMenu { position: absolute; left: 0; right: 0; display: none; border: 1px solid #3954A5; background-color: rgba(255,255,255,0.9); z-index: 100; box-shadow: 0 4px 15px -2px rgba(0,0,0,0.5); }
+    #filtersCategories, #filtersOptions { display: inline-block; vertical-align: top; padding: 1px; }
+    #filtersCategories { width: 200px; }
+    #filtersCategories input { width: 100%; display: block; }
+    #filtersCategories input[data-searchType] { display: none; }
+    #filtersCategories input.active[data-searchType] { display: block; }
+    #filtersOptions { width: calc(100% - 200px); }
+    .filtersOption { display: none; width: 100%; }
+    .filtersOption.selected { display: inline-block; }
+    .filtersOption label { width: 100%; display: block; padding: 2px 5px; }
+    .filtersOption label:hover, .filtersOption label:focus { background-color: rgba(0,0,0,0.1); cursor: pointer; }
+
+    /* Status */
+    #status { font-size: 22px; text-align: center; padding: 2px; transition: all 1s; margin: 0 -5vw 5px -5vw; font-weight: bold;  }
+    #status[data-status=searching] { background-color: rgba(50,200,75,0.6); padding: 25px; }
+    #status[data-status=success] { background-color: rgba(255,255,255,0); padding: 2px; text-shadow: 0 0 2px #ACF; }
+    #status[data-status=error] { background-color: rgba(200,100,50,0.4); padding: 50px; }
+
+    /* Results */
+    #resultsBox { background-image: linear-gradient(rgba(255,255,255,0) 0, rgba(255,255,255,1) calc(100vh - 200px)); margin: -5px -5vw 0 -5vw; padding: 5px 5vw 5px 5vw; min-height: 0; }
+    #resultsBox.big { min-height: 100vh; }
+    .result { margin-bottom: 15px; background-color: rgba(255,255,255,0.7); padding: 5px; }
+    .result .name { font-size: 20px; font-weight: bold; display: block; }
+    .result .subtitle { font-style: italic; opacity: 0.7; font-size: 14px; }
+
+    /* Paging */
+    #paging { text-align: center; }
+    #paging input { min-width: 25px; }
+    #paging input.current { background-color: #DDD; color: #3954A5; }
+
+    /* Responsive */
+    @@media (max-width: 675px) {
+        #inputsBox { padding-left: 0; }
+        #btnToggleFilters { display: block; width: 100%; position: static; }
+    }
+    @@media (max-width: 450px){
+        #filtersOptions { width: calc(100% - 150px); }
+        #filtersCategories { width: 150px; }
+    }
+</style>
+<style type="text/css">
+    #searchHeader { background-image: linear-gradient(rgba(75,100,175,0.8), rgba(75,100,175,0.4)), url('@Url.Content( "/images/common/background_skyline.png" )'); }
+</style>
+
+<div id="search">
+
+    <div id="searchHeader" class="big">
+        <div id="inputsBox">
+            <input type="text" id="keywords" placeholder="Enter keywords to start searching..." />
+            <input type="button" id="btnReset" value="X" onclick="resetSearch();" />
+            <input type="button" id="btnToggleFilters" value="Filters" onclick="toggleFilters();" />
+            <div id="filtersMenu">
+                <div id="filtersCategories">
+                    <input type="button" data-filterid="searchType" value="Search For..." class="selected" />
+                    <input type="button" data-filterid="credentialFilter1" data-searchtype="credential" value="Credential Filter 1" class="active" />
+                    <input type="button" data-filterid="credentialFilter2" data-searchtype="credential" value="Credential Filter 2" class="active" />
+                    <input type="button" data-filterid="credentialFilter3" data-searchtype="credential" value="Credential Filter 3" class="active" />
+                    <input type="button" data-filterid="organizationFilter1" data-searchtype="organization" value="Organization Filter 1" />
+                    <input type="button" data-filterid="organizationFilter2" data-searchtype="organization" value="Organization Filter 2" />
+                    <input type="button" data-filterid="organizationFilter3" data-searchtype="organization" value="Organization Filter 3" />
+                    <input type="button" data-filterid="assessmentFilter1" data-searchtype="assessment" value="Assessment Filter 1" />
+                    <input type="button" data-filterid="assessmentFilter2" data-searchtype="assessment" value="Assessment Filter 2" />
+                </div><!--
+                --><div id="filtersOptions">
+                    <div class="filtersOption selected" data-searchtype="credential" data-filterid="searchType">
+                        <label><input type="radio" name="searchType" value="credential" checked="checked" /> Credentials</label>
+                        <label><input type="radio" name="searchType" value="organization" /> Organizations</label>
+                        <label><input type="radio" name="searchType" value="assessment" /> Assessments</label>
+                    </div>
+                    <div class="filtersOption" data-searchtype="credential" data-filterid="credentialFilter1">
+                        <p>Credential Filter 1 Items</p>
+                    </div>
+                    <div class="filtersOption" data-searchtype="credential" data-filterid="credentialFilter2">
+                        <p>Credential Filter 2 Items</p>
+                    </div>
+                    <div class="filtersOption" data-searchtype="credential" data-filterid="credentialFilter3">
+                        <p>Credential Filter 3 Items</p>
+                    </div>
+                    <div class="filtersOption" data-searchtype="organization" data-filterid="organizationFilter1">
+                        <p>Organization Filter 1 Items</p>
+                    </div>
+                    <div class="filtersOption" data-searchtype="organization" data-filterid="organizationFilter2">
+                        <p>Organization Filter 2 Items</p>
+                    </div>
+                    <div class="filtersOption" data-searchtype="organization" data-filterid="organizationFilter3">
+                        <p>Organization Filter 3 Items</p>
+                    </div>
+                    <div class="filtersOption" data-searchtype="assessment" data-filterid="assessmentFilter1">
+                        <p>Assessment Filter 1 Items</p>
+                    </div>
+                    <div class="filtersOption" data-searchtype="assessment" data-filterid="assessmentFilter2">
+                        <p>Assessment Filter 2 Items</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="selectedFilters"></div>
+    </div>
+
+    <div id="status"></div>
+
+    <div id="resultsBox">
+        <div id="results"></div>
+        <div id="paging"></div>
+    </div>
+
+</div>
+
+<div id="templates" style="display:none;">
+    @* Paging button *@
+    <script type="text/template" id="template_pagingButton">
+        <input type="button" class="{current}" onclick="switchPage({page});" value="{page}" />
+    </script>
+
+    @* Template: Credential *@
+    <script type="text/template" id="template_result_credential">
+        <div class="result credential" data-recordID="{RecordId}">
+            <a target="_blank" href="@Url.Content("~/credentialmanagement/detail/"){RecordId}" class="name">{Name}</a>
+            <div class="subtitle">{Creator}</div>
+            <div class="data">
+                <div class="description">{Description}</div>
+            </div>
+        </div>
+    </script>
+
+    @* Template: Organization *@
+    <script type="text/template" id="template_result_organization">
+        <div class="result organization" data-recordID="{RecordId}">
+            <a target="_blank" href="@Url.Content("~/organizationmanagement/detail/"){RecordId}" class="name">{Name}</a>
+            <div class="subtitle">{Location}</div>
+            <div class="data">
+                <div class="description">{Description}</div>
+            </div>
+        </div>
+    </script>
+
+    @* Template: Assessment *@
+    <script type="text/template" id="template_result_assessment">
+        <div class="result assessment" data-recordid="{RecordId}">
+            <a target="_blank" href="@Url.Content("~/profile/assessmentdetail/"){RecordId}" class="name">{Name}</a>
+            <div class="subtitle">{Creator}</div>
+            <div class="data">
+                <div class="description">{Description}</div>
+            </div>
+        </div>
+    </script>
+
+</div>

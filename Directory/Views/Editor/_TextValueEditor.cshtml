@@ -1,0 +1,40 @@
+﻿@model Models.Node.Interface.TextValueEditorSettings
+@{
+    var textValueName = Model.ParentRepeaterId + "_" + Model.Property;
+    var codeValues = new Dictionary<string, string>();
+    foreach ( var item in Model.CodeItems )
+    {
+        codeValues.Add( item.Id.ToString(), item.Name );
+    }
+    foreach ( var item in Model.EnumItems )
+    {
+        codeValues.Add( item.Id.ToString(), item.Name );
+    }
+
+}
+<div 
+     class="textValueBox tabItem @string.Join( " ", Model.ExtraClasses )" 
+     data-property="@Model.Property" 
+     data-parentRepeaterID="@Model.ParentRepeaterId" 
+     data-textValueName="@textValueName"
+     data-hasSelector="@(Model.HasSelector ? "true" : "false")"
+     data-hasOther="@(Model.HasOther ? "true" : "false")"
+     data-valueType="@Model.ValueType.ToString().ToLower()"
+     data-valueplaceholder="@Model.ValuePlaceholder"
+     data-otherplaceholder="@Model.OtherPlaceholder"
+     data-categoryID="@Model.CategoryId"
+     data-requireOther="@(Model.RequireOther ? "true" : "false")"
+     data-requireValue="@(Model.RequireValue ? "true" : "false")"
+     >
+    <div style="display:none;" class="codeValues">
+        @Html.Raw( new System.Web.Script.Serialization.JavaScriptSerializer().Serialize( codeValues ) )
+    </div>
+    <h2 class="textValueLabel">@Model.Label</h2>
+    <div class="textValueData">
+        <div class="guidance">@Model.Guidance</div>
+        <div class="textValueList"></div>
+        <div class="profileButtons">
+            <input type="button" value="@Model.AddText" onclick="addTextValueProfile('@textValueName', this);" />
+        </div>
+    </div>
+</div>

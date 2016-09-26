@@ -1,0 +1,275 @@
+﻿@model Models.Common.Organization
+@using Models.Common;
+@using CTIServices;
+@{
+    ViewBag.Title = "Editing Organization";
+    var enumServices = new EnumerationServices();
+    ViewBag.GetOrgs = false;
+    ViewBag.GetQAOrgs = false;
+
+    var activeSection = string.IsNullOrWhiteSpace( ViewBag.ActiveSection ) ? "basic" : ViewBag.ActiveSection;
+    var tabs = new List<dynamic>() {
+			new { name = "basic", title = "Basic Information", tabs = new List<string>() { "Name", "Description", "FoundingDate", "FoundingDateParts", "Purpose", "Url", "ImageUrl", "OrganizationType", "ServiceType", "Identifiers" } },
+			new { name = "contact", title = "Contact Information", tabs = new List<string>() { "Address", "MainPhoneNumber","TollFreeNumber","FaxNumber","TTYNumber", "Email", "SocialMedia" } },
+            new { name = "departments", title = "Departments", tabs = new List<string>() { "OrganizationRole_Dept" } },
+            new { name = "subsiduaries", title = "Subsiduaries", tabs = new List<string>() { "OrganizationSubsiduary" } },
+            //new { name = "roles_actor", title = "Organization Roles (Actor)", tabs = new List<string>() { "OrganizationRole_Actor" } },
+            //new { name = "roles_target", title = "Organization Roles (Recipient)", tabs = new List<string>() { "OrganizationRole_Recipient" } },
+
+      //QA will have its own tab
+	};
+}
+
+@Html.Partial( "~/Views/Shared/Management/_EditorCore.cshtml", null, new ViewDataDictionary() { { "editorTabs", tabs }, { "activeSection", activeSection } } )
+
+<script type="text/javascript">
+	//Hold data from server if there is any
+	var starterData = @Html.Raw( new System.Web.Script.Serialization.JavaScriptSerializer().Serialize( Model ) );
+	var activeSection = "@ViewBag.ActiveSection";
+    var mainObjectID = @Model.Id;
+    var controller = "OrganizationManagement";
+    var objectType = "organization";
+</script>
+<script type="text/javascript">
+	//Page Functions
+	function preview() {
+		if(formData.Id){
+		    window.open("@Url.Content( "~/OrganizationManagement/Detail2/" )" + formData.Id, "ctiOrg");
+		}
+	}
+
+</script>
+<style type="text/css">
+	#collectedData { position: fixed; top: 5%; bottom: 5%; left: 5%; right: 5%; padding: 5px; border: 1px solid #CCC; background-color: #FFF; box-shadow: 0 0 25px -2px rgba(0,0,0,0.8); }
+	#collectedData h2 { margin: 0; }
+	#collectedDataBox, #serverDataBox { position: absolute; top: 75px; bottom: 5px; left: 5px; right: 5px; }
+	#collectedDataContent, #serverDataContent { background-color: #EEE; padding: 10px; font-family: Consolas, 'Courier New', monospace; white-space: pre-wrap; overflow: auto; font-size: 14px; tab-size: 4; position: absolute; top: 30px; left: 0; right: 0; bottom: 0; }
+	#collectedDataBox { right: calc(50% + 2.5px); }
+	#serverDataBox { left: calc(50% + 2.5px); }
+	#collectedDataCloser { height: 30px; width: 30px; position: absolute; top: 5px; right: 5px; }
+</style>
+
+<div id="serverMessage">@ViewBag.Message</div>
+
+<h1>@Html.Raw( Model.Id > 0 ? "Editing Organization: " + Model.Name : "New Organization" )</h1>
+
+<div id="tabs">
+    @foreach ( var tab in tabs )
+		{
+        <input type="button" data-hasdata="false" data-name="@tab.title" data-tabid="@tab.name" value="@tab.title" onclick="showTab('@tab.name');" />
+		}
+</div><!--
+--><form id="editForm">
+    <div id="identifier">Identifier: @Model.Id</div>
+
+    <div class="field" data-property="Name">
+        <h2>Organization Name <span class="required">(Required)</span></h2>
+        <i>The official name of the organization.</i>
+        <input type="text" data-property="Name" data-type="text" data-required="true" data-minlength="3" />
+    </div>
+
+    <div class="field" data-property="Description">
+        <h2>Organization Description <span class="required">(Required)</span></h2>
+        <i>A summary or description of the organization.</i>
+        <textarea data-property="Description" data-type="text" data-required="true" data-minlength="10"></textarea>
+    </div>
+
+    <div class="field" data-property="FoundingDate">
+        <h2>Founding Date</h2>
+        <i>Provide the date the organization was founded. <br />Enter either just the founding Year (YYYY), the Founding Year and Month (MM), or Year, Month, and Day (DD) </i>
+        <input type="text" data-property="FoundingDate" data-type="text" data-required="false" placeholder="YYYY-MM-DD" style="display:none;" />
+        @*<input type="text" data-property="FoundingDateOld" data-type="date" data-required="false" placeholder="MM/DD/YYYY" style="display:none;"/>*@
+    </div>
+    <div class="field" data-property="FoundingDateParts">
+        Year: <input type="text" data-type="number" data-property="FoundingYear" placeholder="YYYY" style="width:100px;display: inline-block;" />
+        Month (MM): <input type="text" data-type="number" data-property="FoundingMonth" placeholder="MM" style="width:100px;display: inline-block;" />
+        Day (DD): <input type="text" data-type="number" data-property="FoundingDay" placeholder="DD" style="width:100px;display: inline-block;" />
+    </div>
+    <div class="field" data-property="Purpose">
+        <h2>Organization Purpose/Mission</h2>
+        <i>Provide the organization's mission statement or purpose.</i>
+        <textarea data-property="Purpose" data-type="text" data-required="false" data-minlength="10"></textarea>
+    </div>
+    <div class="field" data-property="Url">
+        <h2>Organization URL <span class="required">(Required)</span></h2>
+        <i>The URL of the homepage of the organization.</i>
+        <input type="text" data-property="Url" data-type="url" placeholder="http://" data-required="true" />
+    </div>
+
+    <div class="field" data-property="ImageUrl">
+        <h2>Organization Image</h2>
+        <i>The URL of the image or logo that represents the organization.</i>
+        <input type="text" data-property="ImageUrl" data-type="url" placeholder="http://" />
+    </div>
+
+
+    <div class="field repeating" data-property="Address">
+        <h2>Organization Address</h2>
+        <i>Enter the primary address of the organization.</i>
+        <div class="singleObject" data-property="Address" data-type="singleObject">
+            <input type="text" data-property="Address1" data-type="text" placeholder="Address Line 1" />
+            <input type="text" data-property="Address2" data-type="text" placeholder="Address Line 2" />
+            <input type="text" data-property="City" data-type="text" placeholder="City" />
+            <input type="text" data-property="State" data-type="text" placeholder="State or Province" />
+            <input type="text" data-property="PostalCode" data-type="text" placeholder="Postal Code" />
+            <input type="text" data-property="Country" data-type="text" placeholder="Country" />
+            <input type="text" data-property="Latitude" data-type="number" placeholder="Latitude" style="display:none" />
+            <input type="text" data-property="Longitude" data-type="number" placeholder="Longitude" style="display:none" />
+        </div>
+    </div>
+
+    <div class="field" data-property="TollFreeNumber">
+        <h2>Toll Free Number</h2>
+        <i>Enter a toll free number for this organization.</i>
+        <input type="text" data-property="TollFreeNumber" data-type="text" />
+    </div>
+    <div class="field" data-property="MainPhoneNumber">
+        <h2>Main Phone Number</h2>
+        <i>Enter the main phone number of this organization.</i>
+        <input type="text" data-property="MainPhoneNumber" data-type="text" />
+    </div>
+      
+    <div class="field" data-property="FaxNumber">
+        <h2>Fax Number</h2>
+        <i>Enter a fax number for this organization.</i>
+        <input type="text" data-property="FaxNumber" data-type="text" />
+    </div>
+    <div class="field" data-property="TTYNumber">
+        <h2>TTY Number</h2>
+        <i>Enter a TTY number for this organization.</i>
+        <input type="text" data-property="TTYNumber" data-type="text" />
+    </div>
+    <div class="field" data-property="Email">
+        <h2>Organization Email</h2>
+        <i>Enter the organization's email address, such as info@organization.com. A personal email address should not be used.</i>
+        <input type="text" data-property="Email" data-type="text" />
+    </div>
+
+    <div class="field column2" data-property="OrganizationType">
+        <h2>Organization Type</h2>
+        <i>Indicate the type of the organization. Check all that apply.</i>
+        @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetOrganizationType( EnumerationType.MULTI_SELECT ) )
+        <div style="display: none">
+            <b>Other (enter type)</b>
+            <input type="text" data-property="OrganizationType" data-type="other" placeholder="If you selected &quot;other&quot;, explain here." />
+        </div>
+    </div>
+
+    <div class="field column2" data-property="ServiceType">
+        <h2>Organization Service Types</h2>
+        <i>Indicate the types of services the organization provides relative to credentials. Check all that apply.</i>
+        @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetOrganizationServices( EnumerationType.MULTI_SELECT ) )
+        <b>Other (enter type)</b>
+        <input type="text" data-property="ServiceTypeOther" data-type="text" placeholder="If you selected &quot;other&quot;, explain here." />
+    </div>
+
+    <div class="field repeating" data-property="SocialMedia">
+        <h2>Social Media</h2>
+        <i>Provide links to this organization's social media.</i>
+        <div class="repeaterItems" data-repeaterid="SocialMediaLinks" data-title="Social Media Link"></div>
+        <div class="repeater withItems" data-property="SocialMedia" id="SocialMediaLinks" data-profile="SocialMediaProfile"></div>
+        <div class="buttons">
+            <input type="button" onclick="addProfile('SocialMediaProfile', 'SocialMediaLinks');" value="Add Another Social Media Link" />
+        </div>
+    </div>
+
+    <div class="field" data-property="Identifiers">
+        <h2>Identification Codes</h2>
+        <i>Indicate your organization's identifiers. First provide the framework of identification (e.g., FEIN, DUNS, etc), then any applicable identification codes under that framework.</i>
+        <div class="enumeration" data-property="Identifiers" data-type="enumeration" data-enumerationtype="uniqueIdentifiers">
+            <div class="repeaterItems" data-repeaterid="Identifiers_Items" data-title="Identification Codes"></div>
+            <div class="repeater withItems" data-property="Items" id="Identifiers_Items" data-profile="EnumeratedItem_UniqueId"></div>
+            <div class="buttons">
+                <input type="button" onclick="addProfile('EnumeratedItem_UniqueId', 'Identifiers_Items');" value="Add a Code" />
+            </div>
+        </div>
+    </div>
+       @* Org departments *@
+       <div class="field repeating" data-property="OrganizationRole_Dept">
+           <i>Indicate departments for this organization.</i>
+           <div class="repeaterItems" data-repeaterid="OrganizationDepts" data-title="Relationship Description"></div>
+           <div class="repeater withItems" data-property="OrganizationRole_Dept" id="OrganizationDepts" data-profile="AgentDeptProfileInverse"></div>
+           <div class="buttons">
+               <input type="button" onclick="addProfile('AgentDeptProfileInverse', 'OrganizationDepts');" value="Add Relationship Description" />
+           </div>
+       </div>
+       @* Org subsiduaries *@
+       <div class="field repeating" data-property="OrganizationSubsiduary">
+           <i>Indicate subsiduaries for this organization.</i>
+           <div class="repeaterItems" data-repeaterid="OrganizationSubsiduaries" data-title="Relationship Description"></div>
+           <div class="repeater withItems" data-property="OrganizationRole_Subsiduary" id="OrganizationSubsiduaries" data-profile="AgentSubsiduaryProfileInverse"></div>
+           <div class="buttons">
+               <input type="button" onclick="addProfile('AgentSubsiduaryProfileInverse', 'OrganizationSubsiduaries');" value="Add Relationship Description" />
+           </div>
+       </div>
+
+    <div class="field column2" data-property="OrganizationRole_Actor">
+        <h2>Actor Role - Relative to Other Agents</h2>
+        <i>Provide the organization's role relative to other entities where the organization plays the selected role (e.g., "My organization accredits that agent").</i>
+        <div class="repeater" data-property="OrganizationRole_Actor" id="OrganizationRoles_Actor" data-profile="OrganizationRoleProfile"></div>
+        <div class="buttons">
+            <input type="button" onclick="addProfile('OrganizationRoleProfile', 'OrganizationRoles_Actor');" value="Add Organization Role" />
+        </div>
+    </div>
+
+    <div class="field column2" data-property="OrganizationRole_Recipient">
+        <h2>Target Role - Relative to Other Entities</h2>
+        <i>Provide the organization's role relative to another organization where this organization is the recipient of some role (e.g., "My organization is accredited by the selected organization").</i>
+        <div class="repeater" data-property="OrganizationRole_Recipient" id="OrganizationRoles_Recipient" data-profile="AgentRoleProfileInverse"></div>
+        <div class="buttons">
+            <input type="button" onclick="addProfile('AgentRoleProfileInverse', 'OrganizationRoles_Recipient');" value="Add Organization Role" />
+        </div>
+    </div>
+
+    @*
+        <div class="field repeating" data-property="Identifiers_OLD">
+            <h2>Identification Codes</h2>
+            <i>Indicate your organization's identifiers. First provide the framework of identification (e.g., FEIN, DUNS, etc), then any applicable identification codes under that framework.</i>
+            <div class="repeater" data-property="Identifiers" id="IdentifierItems" data-profile="Enumeration_UniqueIdentifier"></div>
+            <div class="buttons">
+                <input type="button" onclick="addProfile('Enumeration_UniqueIdentifier', 'IdentifierItems');" value="Add Another Identifier" />
+            </div>
+        </div>
+
+        <div class="field repeating" data-property="authentication">
+            <h2>Authentication Services and Processes</h2>
+            <i>Provide information about any services this organization offers that enable a third party to verify that a given person has a given credential.</i>
+            <div class="repeater" data-property="authentication" id="authenticationService" data-profile="authenticationProfile"></div>
+            <div class="buttons">
+                <input type="button" onclick="addProfile('authenticationProfile', 'authenticationService');" value="Add a Service Description" />
+            </div>
+        </div>
+
+        <div class="field repeating" data-property="qualityAssurance">
+            <h2>Quality Assurance</h2>
+            <i>Provide information about any quality assurance activities this organization performs.</i>
+            <div class="repeater" data-property="qualityAssurance" id="qualityService" data-profile="qualityAssuranceProfile"></div>
+            <div class="buttons">
+                <input type="button" onclick="addProfile('qualityAssuranceProfile', 'qualityService');" value="Add a Quality Assurance Description" />
+            </div>
+        </div>
+    *@
+
+</form>
+<div id="actionButtons">
+	<div id="status"></div>
+	<input type="button" id="btnSaveData" value="Save Data" onclick="updateData('organizationmanagement', 'update', this);" />
+    <input type="button" id="btnPreview" class="actionButton" value="Preview" onclick="preview();" />
+    <input type="button" id="btnDelete" class="actionButton redButton" value="Delete" onclick="deleteData('organizationmanagement', 'delete', this);" />
+
+</div>
+
+
+<div id="collectedData" style="display:none;">
+	<h2>Collected Data</h2>
+	<div>The data below is based on the current status of the form.</div>
+	<div id="collectedDataBox">
+		<p>Data collected from form</p>
+		<div id="collectedDataContent"></div>
+	</div>
+	<div id="serverDataBox">
+		<p>Data recognized by server</p>
+		<div id="serverDataContent"></div>
+	</div>
+	<input type="button" onclick="hideCollectedData()" value="X" id="collectedDataCloser" />
+</div>

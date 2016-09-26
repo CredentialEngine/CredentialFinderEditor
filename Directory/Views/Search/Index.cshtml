@@ -1,0 +1,1337 @@
+﻿@using Models.Search
+@{
+    ViewBag.Title = "Credential Directory";
+    var searchType = string.IsNullOrWhiteSpace( Request.Params[ "searchType" ] ) ? "credential" : Request.Params[ "searchType" ].ToLower();
+    var sortOrder = string.IsNullOrWhiteSpace( Request.Params[ "sortOrder" ] ) ? "relevance" : Request.Params[ "sortOrder" ].ToLower();
+    var preselectedFilters = new Dictionary<int, List<int>>();
+    try
+    {
+        var filterString = string.IsNullOrWhiteSpace( Request.Params[ "filters" ] ) ? "" : Request.Params[ "filters" ];
+        foreach ( var filterchunk in filterString.Split( '_' ) )
+        {
+            var chunkParts = filterchunk.Split( '-' );
+            var categoryID = int.Parse( chunkParts[ 0 ] );
+            var filterIDs = chunkParts[ 1 ].Split( ',' ).Select( int.Parse ).ToList();
+            preselectedFilters.Add( categoryID, filterIDs );
+        }
+    }
+    catch { }
+
+    var canEditDocument = AccountServices.IsUserSiteStaff();
+
+    var enumServices = new EnumerationServices();
+
+    var industryCodes = EnumerationServices.NAICS_Categories_Enumeration();
+    var occupationCodes = EnumerationServices.SOC_Categories_Enumeration();
+    var audiences = enumServices.GetEnumeration( "applicableAudienceType" );
+    var googleMapsKey = new ThirdPartyApiServices().GetGoogleMapsApiKey();
+
+    var enableMap = true;
+}
+
+@Html.Partial( "~/Views/Compare/_CompareBar.cshtml", "" )
+
+<script type="text/javascript">
+    /* Server and global variables */
+    var currentFilters = [];
+    var currentResults = [];
+    var previousQuery = "";
+    var previousKeywords = "";
+    var currentPage = 1;
+    var pageSize = 25;
+    var sortOrder = "@sortOrder";
+    var totalPages = 0;
+    var searchType = "@searchType";
+    var searchTimer = 0;
+    var autoPaging = {
+        enabled: true, //master switch
+        searching: false, //search in progress already
+        waiting: false, //waiting on cooldown
+        cooldown: 0, //cooldown timer
+    };
+    var statusTypes = {
+        searching: "searching",
+        success: "success",
+        error: "error"
+    };
+    var maps = {
+        credential: { box: "#credentialMap", map: {}, markers: [] },
+        organization: { box: "#organizationMap", map: {}, markers: [] },
+        assessment: { box: "#assessmentMap", map: {}, markers: [] },
+        learningOpportunity: { box: "#learningOpportunityMap", map: {}, markers: [] }
+    };
+    var mapCenter = { lat: 37.0902, lng: -95.7129 };
+
+    /* Initialization */
+    $(document).ready(function () {
+        window.name = ""; //Reset window name
+        setupSearchType();
+        setupKeywords();
+        setupSortOrder();
+        setupFilters();
+        setupBlurring();
+        setupInfiniteScroll();
+        setupDescriptionTruncation();
+        setupStickyMap();
+        doAutoSearch();
+    });
+
+
+    function setupKeywords() {
+        previousKeywords = $("#keywords").val();
+        $("#keywords").on("keyup change", function (e) {
+            var value = $(this).val();
+            if (e.which == 9 || e.keyCode == 9) {
+                return; //Ignore tab
+            }
+            if(previousKeywords == value){
+                return; //Ignore duplicate query (change is fired on blur)
+            }
+            previousKeywords = value;
+
+            //Search
+            resetCountdown();
+        });
+    }
+    //
+
+    function setupFilters(){
+        //Do a search when a filter changes
+        $(".filter input, .filter select, #dashboard select").on("change", function (e) {
+            updateCurrentFilters();
+            resetCountdown();
+        });
+
+        //Auto-close the filter box when the user clicks outside it
+        $("html").not("#filtersMenu, #btnToggleFilters").on("click", function () {
+            hideFilters();
+        });
+        $("#filtersBox, #btnToggleFilters").on("click", function (e) {
+            e.stopPropagation();
+            return;
+        });
+
+        //Switch which filter options show
+        $("#filterButtons input").on("click", function() {
+            showFiltersOption($(this).attr("data-filtername"));
+        });
+
+        showFilterType('@searchType');
+    }
+    //
+
+    function setupSearchType() {
+        $("#ddlSearchType").on("change", function () {
+            searchType = $(this).find("option:selected").attr("value");
+            showFilterType(searchType);
+            showMapType(searchType);
+        });
+    }
+    //
+
+    function setupSortOrder() {
+        $("#ddlSortOrder").on("change", function(){
+            sortOrder = $(this).find("option:selected").attr("value");
+        });
+    }
+    //
+
+    function setupBlurring() {
+        $("input[type=button]").on("mouseup", function() { 
+            $(this).blur();
+        })
+    }
+    //
+
+    function setupInfiniteScroll() {
+        var autoPagingStatus = $("#autoPagingStatus");
+        var win = $(window);
+        $(window).on("scroll", function() {
+            if(currentPage >= totalPages){
+                return;
+            }
+            var scrollTop = document.body.scrollTop || document.documentElement.scrollTop;
+            var winHeight = win.height();
+            var offset = autoPagingStatus.offset();
+            var trigger = (scrollTop + winHeight) + 100;
+            if(trigger >= offset.top && autoPaging.enabled && !autoPaging.searching && !autoPaging.waiting){
+                //Load the next page of results
+                currentPage++;
+                doSearch(true);
+
+                //Activate cooldown to prevent search spam
+                autoPaging.waiting = true;
+                setTimeout(function() {
+                    autoPaging.waiting = false;
+                }, 1000);
+
+                setAutoPagingStatus("", statusTypes.searching);
+            }
+            else if(autoPaging.searching || autoPaging.waiting) {
+                setAutoPagingStatus("Search is busy, please scroll again!", statusTypes.error);
+            }
+        });
+    }
+    //
+
+    function setupMapBox(){
+        //For each map item...
+        for(var i in maps){
+            //Create the map
+            maps[i].map = new google.maps.Map($(maps[i].box)[0], { center: mapCenter, zoom: 4 });
+        }
+        wakeMaps();
+    }
+    //
+
+    function setupStickyMap(){
+        var header = $("#searchHeader");
+        var box = $("#searchBox");
+        var win = $(window);
+        win.on("scroll", function() {
+            var scrollTop = document.body.scrollTop || document.documentElement.scrollTop;
+            if(scrollTop >= header.offset().top + header.height()){
+                $("#mapBox").addClass("sticky");
+            }
+            else {
+                $("#mapBox").removeClass("sticky");
+            }
+            if(scrollTop + win.height() - 40 >= box.offset().top + box.height()){
+                $("#mapBox").addClass("bottom");
+            }
+            else {
+                $("#mapBox").removeClass("bottom");
+            }
+        });
+    }
+    //
+
+    function setupDescriptionTruncation() {
+        $(window).on("resize", function() {
+            handleTruncatingDescriptions();
+        });
+    }
+    //
+
+    function doAutoSearch(){
+        //Search if there is a preselected query
+        var autoQuery = "@Request.Params[ "keywords" ]";
+        if(autoQuery.length > 0){
+            resetCountdown();
+            return;
+        }
+        //Force an auto search
+        var autoSearch = "@Request.Params["autosearch"]";
+        if(autoSearch != ""){
+            resetCountdown();
+            return;
+        }
+    }
+    //
+
+</script>
+<script type="text/javascript">
+    /* Google Maps Functions */
+
+    function showMapType(type){
+        $("#mapBox .googleMap").removeClass("selected").filter("[data-searchType=" + type + "]").addClass("selected");
+        wakeMaps();
+    }
+    //
+
+    function wakeMaps(){
+        for(var i in maps){
+            //google.maps.event.trigger(maps[i].map, "resize");
+            moveMap(maps[i].map, mapCenter.lat, mapCenter.lng, 4);
+        }
+    }
+    //
+
+    function moveMap(map, latitude, longitude, zoom) {
+        google.maps.event.trigger(map, "resize");
+        map.setCenter({ lat: latitude, lng: longitude });
+        if (zoom) {
+            map.setZoom(Math.floor(zoom));
+        }
+    }
+    //
+
+    function addMarker(map, type, id, latitude, longitude){
+        var marker = new google.maps.Marker({
+            map: map,
+            position: { lat: latitude, lng: longitude }
+        });
+        marker.addListener("click", function() {
+            highlightResult(type, id);
+        });
+        return marker;
+    }
+    //
+
+    function removeMarkers(markers){
+        for(var i in markers){
+            markers[i].setMap(null);
+        }
+        markers = [];
+    }
+    //
+
+    function highlightMarker(mapData, id){
+        setViewMode('map');
+        for(var i in mapData.markers){
+            if(mapData.markers[i].id == id){
+                moveMap(mapData.map, mapData.markers[i].marker.position.lat(), mapData.markers[i].marker.position.lng(), 5);
+            }
+        }
+    }
+    //
+
+    function highlightResult(type, id) {
+        if(type == searchType){
+            $("#results .result[data-recordid=" + id + "]").addClass("highlighted")[0].scrollIntoView();
+            setTimeout(function() {
+                $("#results .result[data-recordid=" + id + "]").removeClass("highlighted");
+            }, 500);
+            $(window).trigger("scroll");
+        }
+    }
+    //
+</script>
+<script type="text/javascript">
+    /* Page Functions */
+
+    //Delay search
+    function resetCountdown() {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function () {
+            doSearch(false);
+        }, 800);
+    }
+    //
+
+    //Add a selected filter
+    function addIndirectFilter(filterName, filterID, tagValue, tagText){
+        //Try to find a match in the existing checkbox list
+        var checkbox = $("#filterBox .filter[data-searchType=" + searchType + "][data-filterName=" + filterName + "] input[value=" + tagValue + "]");
+        var indirect = true;
+        if(checkbox.length > 0){
+            checkbox.prop("checked", true);
+            indirect = false;
+        }
+
+        //Setup the filter data
+        var filter = {
+            searchType: searchType,
+            filterName: filterName,
+            filterID: filterID,
+            tagValue: tagValue,
+            tagText: tagText,
+            indirect: indirect
+        };
+        
+        //Add the indirect filter if it hasn't already been added
+        var found = false;
+        for(var i in currentFilters){
+            var item = currentFilters[i];
+            if(item.searchType == searchType && item.filterName == filterName && item.filterID == filterID && item.tagValue == tagValue){
+                found = true;
+            }
+        }
+        if(!found){
+            currentFilters.push(filter);
+        }
+
+        //Render current filters
+        renderCurrentFilters();
+
+        resetCountdown();
+    }
+    //
+
+    //Update selected filters
+    function updateCurrentFilters() {
+        //Remove all direct filters from the list
+        var replacement = [];
+        for(var i in currentFilters){
+            if(currentFilters[i].indirect){
+                replacement.push(currentFilters[i]);
+            }
+        }
+        currentFilters = replacement;
+
+        //Repopulate direct filters from what is actually currently checked
+        $(".filter[data-searchType=" + searchType + "]").each(function () {
+            var box = $(this);
+            var filterName = box.attr("data-filtername");
+            var filterID = parseInt(box.attr("data-categoryID"));
+
+            box.find("input:checked").each(function () {
+                var tag = $(this);
+
+                currentFilters.push({
+                    searchType: searchType,
+                    filterName: filterName,
+                    filterID: filterID,
+                    tagValue: tag.attr("value"),
+                    tagText: tag.parent().text().trim(),
+                    indirect: false
+                });
+            });
+        });
+
+        renderCurrentFilters();
+    }
+    //
+
+    //Get the currently selected filters in a server-friendly form
+    function getPackedCurrentFilters() {
+        var result = [];
+
+        for(var i in currentFilters){
+            var filter = currentFilters[i];
+            
+            //Skip this filter if it's not part of the current search type
+            if(filter.searchType != searchType){
+                continue;
+            }
+
+            //Find an existing match in the results and add to it, otherwise add a new item
+            var found = false;
+            for(var j in result){
+                if(result[j].CategoryId == filter.filterID){
+                    result[j].Items.push(filter.tagValue);
+                    found = true;
+                }
+            }
+            if(!found){
+                result.push({
+                    Name: filter.filterName,
+                    CategoryId: filter.filterID,
+                    Items: [filter.tagValue]
+                })
+            }
+        }
+
+        return result;
+    }
+    //
+
+    //Do a search
+    function doSearch(isPaging) {
+        //Reset paging unless the search was triggered by a page button click
+        if (!isPaging) {
+            currentPage = 1;
+        }
+        
+        //Block duplicate requests
+        autoPaging.searching = true;
+
+        //Update selected filters
+        updateCurrentFilters();
+
+        //Build query
+        var query = {
+            SearchType: searchType,
+            StartPage: currentPage,
+            PageSize: pageSize,
+            Keywords: $("#keywords").val(),
+            SortOrder: sortOrder,
+            Filters: getPackedCurrentFilters()
+        };
+
+        //Skip identical query
+        var stringified = JSON.stringify(query);
+        console.log(previousQuery);
+        console.log(stringified);
+        if (stringified == previousQuery) {
+            return; //Don't repeat the same search
+        }
+        previousQuery = stringified;
+
+        //Set status
+        setStatus("Searching...", statusTypes.searching);
+
+        //Do the search
+        doAjax("Search", "MainSearch", { query: query }, success_doSearch, null, !isPaging);
+    }
+    //
+
+    //Set search status
+    function setStatus(message, statusType) {
+        var box = $("#status");
+        console.log(statusType);
+        box.attr("data-status", statusType).html(message);
+    }
+    //
+
+    //Reset search
+    function resetSearch(){
+        $("#keywords").val("");
+
+        resetCountdown();
+    }
+    //
+
+    //Switch page
+    function switchPage(page){
+        currentPage = page;
+        clearTimeout(searchTimer);
+        doSearch(true);
+    }
+    //
+
+    //Set auto paging status
+    function setAutoPagingStatus(message, statusType){
+        var box = $("#autoPagingStatus");
+        console.log(statusType, message);
+        box.attr("data-status", statusType).html(message);
+    }
+    //
+
+    //Delete an item
+    function deleteResult(name, type, recordID){
+        var result = $(".result." + type + "[data-recordID=" + recordID + "]");
+        result.addClass("aboutToDelete");
+
+        modal.confirm(
+            "Confirm Delete",
+            "Are you sure you want to delete <b>" + name + "</b>? This action cannot be undone!",
+            function() {
+ 
+                switch(type){
+                    case "credential":
+                        doAjax("credentialmanagement", "Delete", { id: recordID }, success_deleteResult, result);
+                        return;
+                    case "organization":
+                        doAjax("organizationmanagement", "Delete", { id: recordID }, success_deleteResult, result);
+                        return;
+                    case "assessment":
+                        doAjax("profile", "DeleteAssessment", { id: recordID }, success_deleteResult, result);
+                        return;
+                    case "learningopportunity":
+                        doAjax("profile", "DeleteLearningOpportunity", { id: recordID }, success_deleteResult, result);
+                        return;
+                    default:
+                        return;
+                }
+            },
+            function() {
+                result.removeClass("aboutToDelete");
+            }
+        );
+    }
+    //
+
+    //Toggle description cover
+    function toggleCover(id, button){
+        var description = $(".result[data-recordID=" + id + "] .description");
+        description.toggleClass("expanded");
+        $(button).attr("value", description.hasClass("expanded") ? "Show Less" : "Show More");
+    }
+    //
+
+    //Hide some descriptions based on height
+    function handleTruncatingDescriptions() {
+        $(".result .description").each(function() {
+            var box = $(this);
+            if(box.height() > 75){
+                box.addClass("truncated");
+            }
+            else {
+                box.removeClass("truncated");
+            }
+        });
+    }
+    //
+
+    //Change view mode
+    function setViewMode(mode){
+        $("#searchBox").attr("data-viewMode", mode);
+        $(".gauge#viewMode input").removeClass("selected").filter("[data-viewmode=" + mode + "]").addClass("selected");
+        $(window).trigger("viewModeChanged");
+        wakeMaps();
+    }
+    //
+</script>
+<script type="text/javascript">
+    /* Ajax Functions */
+
+    //Do an AJAX search
+    function doAjax(controller, method, data, success, button, passThrough) {
+        //Disable the button
+        if (button) {
+            $(button).attr("data-originalValue", $(button).attr("value")).attr("value", "...").prop("disabled", true);
+        }
+
+        //Make the request
+        $.ajax({
+            url: "@Url.Content( "~/" )" + controller + "/" + method,
+            async: true,
+            headers: { "Accept": "application/json", "Content-type": "application/json; charset=utf-8" },
+            dataType: "json",
+            type: "POST",
+            data: JSON.stringify(data),
+            success: function (message) {
+                console.log("Response: ", message);
+                if (typeof (success) == "function") {
+                    success(message, passThrough);
+                }
+            }
+        }).done(function() {
+            //Reenable the button
+            if(button){
+                $(button).attr("value", $(button).attr("data-originalValue")).prop("disabled", false);
+            }
+        });
+
+    }
+    //
+
+    /* Ajax success methods */
+
+    function success_doSearch(message, replace) {
+        autoPaging.searching = false;
+
+        if (message.valid) {
+            currentResults = message.data;
+            renderCurrentResults(replace);
+            renderPaging();
+
+            if(message.data.TotalResults > 0){
+                setStatus("Found " + message.data.TotalResults + " results", statusTypes.success);
+            }
+            else {
+                setStatus("Sorry, no results found", statusTypes.error)
+            }
+        }
+        else {
+            setStatus(message.status, statusTypes.error);
+        }
+    }
+    //
+
+    function success_deleteResult(message, result){
+        if(message.valid){
+            result.remove();
+            //May need to remove map marker(s)
+        }
+        else {
+            consoleMessage.addErrorMessage(message.status, "", 5000);
+        }
+    }
+    //
+
+</script>
+<script type="text/javascript">
+    /* Filter interaction */
+
+    //Toggle the filters menu
+    function toggleFilters() {
+        var box = $("#filtersBox");
+        if (box.hasClass("visible")) {
+            hideFilters();
+        }
+        else {
+            showFilters();
+        }
+    }
+    //
+
+    //Show Filters
+    function showFilters() {
+        $("#filtersBox").addClass("visible").stop().slideDown(250);
+    }
+    //
+
+    //Hide Filters
+    function hideFilters() {
+        $("#filtersBox").removeClass("visible").stop().slideUp(250);
+    }
+    //
+
+    //Show Filter type
+    function showFilterType(searchType){
+        var filters = $("#filterButtons [data-searchType], #filterBox [data-searchType]");
+        filters.removeClass("active")
+        var activeFilters = filters.filter("[data-searchType=" + searchType + "]")
+        activeFilters.addClass("active");
+        showFiltersOption(activeFilters.first().attr("data-filtername"));
+    }
+    //
+
+    //Show Filters option
+    function showFiltersOption(filterID){
+        $("[data-filtername]").removeClass("selected").filter("[data-filtername=" + filterID + "][data-searchType=" + searchType + "]").addClass("selected");
+    }
+    //
+
+    //Toggle the selected filters list
+    function toggleSelectedItems() {
+        $("#selectedFilterList").toggleClass("expanded");
+    }
+    //
+
+    //Remove a selected filter
+    function removeFilter(filterName, tagValue){
+        var checkboxFilter = $("#filterBox .filter.active[data-filterName=" + filterName + "] input[value=" + tagValue + "]");
+        if(checkboxFilter.length > 0){
+            checkboxFilter.prop("checked", false).trigger("change");
+        }
+        else {
+            var replacement = [];
+            for(var i in currentFilters){
+                var item = currentFilters[i];
+                if(item.filterName == filterName && item.tagValue == tagValue && item.searchType == searchType){
+                    continue;
+                }
+                else {
+                    replacement.push(item);
+                }
+            }
+            currentFilters = replacement;
+        }
+
+        renderCurrentFilters();
+        resetCountdown();
+    }
+    //
+
+</script>
+<script type="text/javascript">
+    /* Rendering Methods */
+
+    //Render current results
+    function renderCurrentResults(replace) {
+        var box = $("#results");
+        var template = $("#template_result_" + currentResults.SearchType).html();
+
+        if(replace){
+            box.html("");
+            $("#toolTipsContainer .resultInjected").remove();
+        }
+
+        for (var i in currentResults.Results) {
+            var current = currentResults.Results[i];
+            var text = template
+                .replace(/{Name}/g, current.Name)
+                .replace(/{Description}/g, current.Description)
+                .replace(/{RecordId}/g, current.RecordId);
+
+            for (var j in current.Properties) {
+                if(typeof(current.Properties[j]) == "object"){
+                    text = text.replace(new RegExp("{" + j + "}", "g"), renderObject(current, j, current.Properties[j]));
+                }
+                else {
+                    text = text.replace(new RegExp("{" + j + "}", "g"), current.Properties[j] ? current.Properties[j] : "");
+                }
+            }
+
+            box.append(text);
+        }
+
+        //Hack the data into tooltips
+        tips.build();
+        box.find(".result .tags .tag").each(function() {
+            var tag = $(this);
+            var link = tag.find(".toolTipLink");
+            var tags = tag.find(".tagsBox");
+            var filterName = tag.attr("data-filterName");
+            var filterID = tag.attr("data-filterID");
+            if(link.length > 0 && tags.length > 0){
+                tag.addClass("hasData");
+                var text = tags.html().replace(/filterName/g, filterName).replace(/filterID/g, filterID);
+                var tip = $(".toolTipBox[data-toolTipID=" + link.attr("data-toolTipID") + "]");
+                tip.addClass("resultInjected")
+                tip.find(".toolTipDescription").html(text);
+                tags.remove();
+            }
+        });
+
+        //Conceal long descriptions
+        handleTruncatingDescriptions();
+    }
+    //
+
+    //Render an object
+    function renderObject(result, type, data){
+        if(data == null || typeof(data) == "undefined"){
+            return "";
+        }
+        switch(data.Type.toLowerCase()){
+            case "tags":
+                var boxTemplate = $("#template_tagsBox").html();
+                var tagTemplate = $("#template_tag").html();
+                var result = "";
+                var count = 0;
+                for(var i in data.Data){
+                    result += tagTemplate.replace(/{filterName}/g, "").replace(/{filterID}/g, "").replace(/{tagValue}/g, i).replace(/{tagText}/g, data.Data[i]);
+                    count++;
+                }
+
+                if(count == 0){
+                    return "Not Available";
+                }
+
+                var boxResult = boxTemplate.replace(/{summary}/g, count + " " + data.Title).replace(/{tagData}/g, result);
+                return boxResult;
+            case "coordinates":
+                for(var i in data.Data){
+                    var marker = addMarker(maps[searchType].map, searchType, result.RecordId, data.Data.Latitude, data.Data.Longitude);
+                    var item = {
+                        marker: marker,
+                        id: result.RecordId
+                    };
+                    maps[searchType].markers.push(item);
+                }
+                return;
+            default: return "";
+        }
+    }
+
+    //Render paging
+    function renderPaging() {
+        var total = currentResults.TotalResults;
+        var box = $("#paging");
+        var template = $("#template_pagingButton").html();
+        totalPages = Math.ceil(total / pageSize);
+
+        box.html("");
+        for(var i = 1; i <= totalPages; i++){
+            box.append(template
+                .replace(/{page}/g, i)
+                .replace(/{current}/g, i == currentPage ? "current" : "")
+            );
+        }
+
+        if(currentPage >= totalPages && totalPages > 0){
+            setAutoPagingStatus("No more results", statusTypes.success);
+        }
+    }
+    //
+
+    //Render current filters
+    function renderCurrentFilters(){
+        var box = $("#selectedFilterList");
+        var template = $("#template_selectedFilter").html();
+        box.html("");
+
+        for(var i in currentFilters){
+            box.append(template
+                .replace(/{tagText}/g, currentFilters[i].tagText)
+                .replace(/{filterName}/g, currentFilters[i].filterName)
+                .replace(/{tagValue}/g, currentFilters[i].tagValue)
+            );
+        }
+
+        $("#btnToggleSelectedFilters").attr("value", (currentFilters.length == 0 ? "No" : currentFilters.length) + " filter" + (currentFilters.length == 1 ? "" : "s") + " selected");
+
+        if(currentFilters.length == 0){
+            box.html("<p>No filters selected.</p>");
+        }
+    }
+    //
+
+</script>
+
+<style type="text/css">
+    /* Big Stuff */
+    #content { background-color: #29292A; }
+    h2 { color: #FFF; }
+
+    /* Big Image */
+    #bigImage { margin: 0 -5vw 0 -5vw; text-align: center; padding: 50px 10px 450px 10px; background-size: cover; background-position: center top 10%; }
+    #bigImage h1 { font-size: 40px; color: #FFF; text-shadow: 0 0 25px rgba(100,0,10,0.8); }
+
+    /* Search Box */
+    #searchBox { position: relative;  margin-top: -400px; }
+    #searchHeader #searchInputs { margin-bottom: 5px; font-size: 0; }
+    #searchHeader #searchInputs * { display: inline-block; vertical-align: top; height: 40px; font-size: 26px; }
+    #btnToggleFilters { width: 250px; }
+    #keywords { width: calc(100% - 505px); margin-left: 5px; }
+    #btnSearch { width: 200px; }
+    #btnReset { width: 50px; }
+
+    /* Dashboard */
+    #dashboard { font-size: 0; text-align: center; }
+    #dashboard * { font-size: 16px; }
+    #dashboard .gauge { display: inline-block; vertical-align: top; height: 30px; width: 250px; padding: 0 5px; margin-bottom: 5px; position: relative; }
+    #dashboard .gauge select { width: 100%; height: 100%; background-color: rgba(255,255,255,0.7); color: #333; }
+    #dashboard .gauge select:hover, #dashboard .gauge select:focus { background-color: #FFF; }
+    #dashboard .gauge input.selected { background-color: #C90044; }
+
+    /* Status */
+    #dashboard #status, #autoPagingStatus { width: 100%; display: block; margin: 5px 0; text-align: center; transition: all 1s; font-weight: bold; padding: 5px 0; }
+    #status[data-status=searching], #autoPagingStatus[data-status=searching] { background-color: rgba(50,200,75,0.6); }
+    #status[data-status=success], #autoPagingStatus[data-status=success] { background-color: rgba(201, 0, 68, 1); color: #FFF; }
+    #status[data-status=error], #autoPagingStatus[data-status=error] { background-color: rgba(200,50,25,0.5); }
+
+    /* Selected Filters */
+    #btnToggleSelectedFilters { width: 100%; height: 30px; display: block; }
+    #selectedFilterList { position: absolute; top: 30px; left: 5px; right: 5px; padding: 2px; background-color: rgba(255,255,255,0.9); display: none; color: #000; border: 1px solid #CCC; box-shadow: 0 0 25px -5px rgba(0,0,0,0.2); }
+    #selectedFilterList.expanded { display: block; z-index: 100; }
+    #selectedFilterList .selectedFilter { border: 1px solid #CCC; padding: 2px 25px 2px 2px; position: relative; font-size: 14px; min-height: 30px; margin-bottom: 2px; }
+    #selectedFilterList .selectedFilter input { position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; padding: 0; }
+
+    /* Filters */
+    #filtersBox { font-size: 0; border: 1px solid #CCC; box-shadow: 0 0 25px rgba(0,0,0,0.3); background-color: rgba(255,255,255,0.9); position: absolute; width: 100%; z-index: 100; color: #000; top: 40px; }
+    #filterButtons, #filterBox { display: inline-block; vertical-align: top; }
+    #filterButtons { width: 250px; }
+    #filterButtons input { display: block; width: 100%; padding: 5px; margin-bottom: 1px; }
+    #filterButtons input:not([data-filtername=searchType]) { display: none; }
+    #filterButtons input.active { display: block; }
+    #filterButtons input.selected:not(:hover):not(:focus) { background-color: #C90044; }
+    #filterBox { width: calc(100% - 250px); padding: 5px 5px 10px 5px; }
+    #filterBox label { display: block; width: 100%; padding: 2px; }
+    #filterBox label:hover, #filterBox label:focus { background-color: rgba(0,0,0,0.1); cursor: pointer; }
+    .filter { display: none; }
+    .filter.selected { display: block; }
+    .filter.column2 { column-count: 2; }
+
+    /* Results */
+    #results { color: #000; }
+    .result { border: 1px solid #CCC; margin-bottom: 10px; position: relative; background-color: rgba(255,255,255,0.95); font-size: 0; }
+    .result .name { font-size: 22px; font-weight: bold; display: block; color: #5a7d83; padding: 10px 0 5px 0; }
+    .result .subtitle { font-style: italic; opacity: 0.7; font-size: 14px; padding-bottom: 10px; border-bottom: 1px solid #CCC; margin-bottom: 10px; }
+    .result .subtitle a { color: inherit; }
+    .result .leftBox, .result .rightBox { display: inline-block; vertical-align: top; }
+    .result .leftBox { padding: 0 5px 15px 10px; width: calc(100% - 210px); }
+    .result .rightBox { width: 210px; padding: 5px 5px 35px 5px; text-align: center; }
+    .result .rightBox * { margin-bottom: 2px; }
+    .result .rightBox input, .result .rightBox .linkButton { width: 100%; display: block; text-align: center; }
+    .result.credential {  }
+    .result.credential .rightBox .typeIcon { width: 200px; height: 200px; background-position: center center; background-size: contain; margin-top: 5px; display: inline-block; background-repeat: no-repeat; }
+    .result.credential .rightBox .type { font-size: 14px; font-style: italic; }
+    .result.aboutToDelete { border-color: #F00; box-shadow: 0 0 10px rgba(255,0,0,0.8); background-color: rgba(255,200,200,0.95); }
+    .result.aboutToDelete * { text-decoration: line-through; }
+    .result.organization .qaIcon { display: none; height: 25px; }
+    .result.organization[data-isqa=true] .qaIcon { display: inline-block; vertical-align: top; }
+    .result.organization .logo { height: 150px; background-size: contain; background-position: center center; background-repeat: no-repeat; border: 1px solid #CCC; }
+    .result .editBox { position: absolute; bottom: 3px; right: 3px; font-size: 0; }
+    .result .editBox .editLink, .result .editBox .deleteButton { display: inline-block; vertical-align: top; height: 25px; width: 25px; background-position: center center; background-repeat: no-repeat; background-size: 20px 20px; margin: 0 1px; opacity: 0.3; }
+    .result .editBox .editLink:focus, .result .editBox .deleteButton:focus, .result .editBox .editLink:hover, .result .editBox .deleteButton:hover { opacity: 1; }
+    .result .tags { font-size: 0; padding: 5px 0; margin-top: 10px; }
+    .result .tags .tag { display: inline-block; vertical-align: top; min-width: 100px; background-color: #DFDFDF; margin: 0 1px; padding: 5px 5px 5px 35px; background-position: left 2px center; background-repeat: no-repeat; background-size: 25px 25px; min-height: 30px; margin-bottom: 1px; }
+    .result .tags .tag:not(.hasData) { opacity: 0.3; }
+    .result .tags .tag, .result .tags .tag .toolTipLink { font-size: 14px; color: #555; }
+    .tagItem { display: block; padding: 2px 0; }
+    .result .markerIcon { display: inline-block; vertical-align: middle; max-height: 18px; }
+    .result .markerIcon:hover, .result .markerIcon:focus { cursor: pointer; }
+    .result.highlighted { background-color: #3F3; }
+
+    /* Description overlay */
+    .description { position: relative; padding: 5px 0; line-height: 20px; }
+    .description .descriptionCover { display: none; }
+    .description.truncated { max-height: 100px; overflow: hidden; }
+    .description.truncated.expanded { max-height: 5000px; padding-bottom: 35px; }
+    .description.truncated .descriptionCover { display: block; position: absolute; bottom: 0; left: 0; right: 0; height: 60px; background-image: linear-gradient(transparent, rgba(245,245,245,0.7), #F5F5F5); padding-top: 35px; text-align: right; }
+    .description.truncated.expanded .descriptionCover { height: 30px; padding: 0; }
+    .description.truncated .descriptionCover input { display: inline-block; width: 150px; font-size: 18px; font-weight: bold; background-color: transparent; border: none; color: #3a5d63; }
+    .description.truncated .descriptionCover input:hover, .description.truncated .descriptionCover input:focus { text-decoration: underline; }
+
+    /* Paging */
+    #paging { text-align: center; }
+    #paging input { min-width: 50px; }
+    #paging input.current { background-color: #C90044; color: #FFF; border-color: #A90024; }
+
+    /* Map stuff */
+    #searchBox[data-viewmode=list] #mapBox { display: none; }
+    #searchBox[data-viewmode=map] #mapBox { background-color: #CCC; position: absolute; top: 120px; right: 0; width: calc(100% - 360px); height: calc(100vh - 50px); }
+    #searchBox[data-viewmode=map] #resultsBox { width: 350px; min-height: 100vh; }
+    #searchBox #mapBox.sticky { position: fixed; top: 5px; right: 5vw; height: calc(100vh - 40px); width: calc(100vw - 10vw - 377px); }
+    #searchBox #mapBox.sticky.bottom { position: absolute; bottom: 0px; right: 0; top: auto; width: calc(100% - 360px); }
+    #mapBox .googleMap { display: none; width: 100%; height: 100%; }
+    #mapBox .googleMap.selected { display: block; }
+    #searchBox[data-viewmode=map] .result .leftBox { width: calc(100% - 110px); }
+    #searchBox[data-viewmode=map] .result .rightBox { width: 110px; }
+    #searchBox[data-viewmode=map] .result.credential .rightBox .typeIcon { width: 100px; height: 100px; }
+
+    /* Responsive */
+    @@media (max-width: 875px) {
+        #btnToggleFilters { width: 100px; }
+        #btnSearch { width: 100px; }
+        #btnReset { width: 25px; }
+        #keywords { width: calc(100% - 230px); }
+        #results { padding: 5px 0; }
+        #filterButtons { width: 150px; }
+        #filterBox { width: calc(100% - 150px); }
+        .filter.column2 { column-count: auto; }
+        .result .leftBox { width: calc(100% - 110px); }
+        .result .rightBox { width: 110px; }
+        .result.credential .rightBox .typeIcon { width: 100px; height: 100px; }
+    }
+    @@media (max-width: 575px) {
+        #searchHeader { min-height: 85px; }
+        #keywords, #btnSearch, #btnReset, #btnToggleFilters { font-size: 20px; }
+        #btnToggleFilters { width: 100%; display: block; position: absolute; top: 45px; }
+        #keywords { width: calc(100% - 125px); margin-left: 0; }
+        #filterButtons { width: 100%; display: block; }
+        #filterBox { width: 100%; display: block; }
+        #dashboard { margin-top: 50px; }
+        #filtersBox { top: 85px; }
+    }
+    @@media (max-width: 450px) {
+        #keywords { display: block; width: 100%; }
+        #btnSearch { width: calc(100% - 50px); }
+        #btnReset { width: 50px; }
+        #btnToggleFilters { top: 85px; }
+        #filtersBox { top: 125px; }
+        .result .leftBox { width: calc(100% - 75px); }
+        .result .rightBox { width: 75px; }
+        .result.credential .rightBox .typeIcon { width: 65px; height: 65px; }
+        .result.organization .logo { height: 65px; }
+    }
+</style>
+<style type="text/css">
+    #bigImage { background-image: linear-gradient(rgba(201, 0, 68, 0.5), rgba(201, 0, 68, 0.5)), url('@Url.Content( "~/images/common/background_office.jpg" )'); }
+    .result.credential .rightBox[data-type*=badge] .typeIcon { background-image: url('@Url.Content("~/images/icons/cti_icon_badge_pink.png")'); }
+    .result.credential .rightBox[data-type*=certificate] .typeIcon { background-image: url('@Url.Content("~/images/icons/cti_icon_certificate_pink.png")'); }
+    .result.credential .rightBox[data-type*=certification] .typeIcon { background-image: url('@Url.Content("~/images/icons/cti_icon_certification_pink.png")'); }
+    .result.credential .rightBox[data-type*=degree] .typeIcon { background-image: url('@Url.Content("~/images/icons/cti_icon_degree_pink.png")'); }
+    .result.credential .rightBox[data-type*=diploma] .typeIcon { background-image: url('@Url.Content("~/images/icons/cti_diploma_pink.png")'); }
+    .result.credential .rightBox[data-type*=license] .typeIcon { background-image: url('@Url.Content("~/images/icons/cti_license_pink.png")'); }
+    .result.credential .rightBox[data-type*=apprentice] .typeIcon { background-image: url('@Url.Content("~/images/icons/cti_apprenticeship_pink.png")'); }
+    .result.credential .rightBox[data-type*=military] .typeIcon { background-image: url('@Url.Content("~/images/icons/cti_military_pink.png")'); }
+    .result.credential .rightBox[data-type*=micro] .typeIcon { background-image: url('@Url.Content("~/images/icons/cti_micro_pink.png")'); }
+    .result.credential .rightBox[data-type*=quality] .typeIcon { background-image: url('@Url.Content("~/images/icons/cti_icon_star_bg.png")'); }
+    .result .editBox .editLink { background-image: url('@Url.Content( "~/images/icons/icon_edit_white.png" )'); }
+    .result .editBox .deleteButton { background-image: url('@Url.Content( "~/images/icons/icon_delete_white.png" )'); }
+    .result .tags .tag.industry { background-image: url('@Url.Content( "~/images/icons/cti_icon_interests.png" )'); }
+    .result .tags .tag.level { background-image: url('@Url.Content( "~/images/icons/cti_icon_levels.png" )'); }
+    .result .tags .tag.cost { background-image: url('@Url.Content( "~/images/icons/cti_icon_cost.png" )'); }
+    .result .tags .tag.time { background-image: url('@Url.Content( "~/images/icons/cti_icon_duration.png" )'); }
+</style>
+
+<div id="bigImage">
+    <h1>Discover Credential Connections</h1>
+</div>
+
+
+<div id="searchBox" data-viewMode="list">
+    <div id="searchHeader">
+        <div id="searchInputs">
+            <input type="button" id="btnToggleFilters" value="Filters" onclick="toggleFilters();" />
+            <input type="text" id="keywords" value="@Request.Params[ "keywords" ]" placeholder="Start typing to search..." />
+            <input type="button" class="actionButton" id="btnSearch" value="Search" onclick="doSearch(false);" />
+            <input type="button" class="redButton" id="btnReset" value="X" onclick="resetSearch();" />
+        </div>
+        <div id="dashboard">
+            <div class="gauge" id="searchType">
+                <select id="ddlSearchType">
+                    <option value="credential" @( searchType == "credential" ? "selected=\"selected\"" : "")>Search Credentials</option>
+                    <option value="organization" @( searchType == "organization" ? "selected=\"selected\"" : "")>Search Organizations</option>
+                    <option value="assessment" @( searchType == "assessment" ? "selected=\"selected\"" : "")>Search Assessments</option>
+                    <option value="learningopportunity" @( searchType == "learningopportunity" ? "selected=\"selected\"" : "")>Search Learning Opportunities</option>
+                </select>
+            </div>
+            <div class="gauge" id="sortOrder">
+                <select id="ddlSortOrder">
+                    <option value="relevance" @( sortOrder == "relevance" ? "selected=\"selected\"" : "" )>Sort by Relevance</option>
+                    <option value="alpha" @( sortOrder == "alpha" ? "selected=\"selected\"" : "")>Sort A-Z</option>
+                </select>
+            </div>
+            <div class="gauge" id="selectedFilters">
+                <input type="button" id="btnToggleSelectedFilters" value="No filters selected" onclick="toggleSelectedItems();" />
+                <div id="selectedFilterList"></div>
+            </div>
+            @if ( enableMap )
+            {
+                <div class="gauge" id="viewMode">
+                    <span>View </span>
+                    <input type="button" class="selected" data-viewmode="list" value="List" onclick="setViewMode('list');" />
+                    <input type="button" data-viewmode="map" value="Map" onclick="setViewMode('map');" />
+                </div>
+            }
+            <div class="gauge" id="status">Ready to search</div>
+        </div>
+    </div>
+    <div id="filtersBox" style="display:none;">
+        <div id="filterButtons">
+            @* Credential Filters *@
+            <input type="button" data-filtername="credentialType" data-searchtype="credential" value="Credential Type" />
+            <input type="button" data-filtername="credentialLevel" data-searchtype="credential" value="Credential Level" />
+            <input type="button" data-filtername="credentialPurpose" data-searchtype="credential" value="Credential Purpose" />
+            <input type="button" data-filtername="occupation" data-searchType="credential" value="Occupations" />
+            <input type="button" data-filtername="industry" data-searchType="credential" value="Industry" />
+            <input type="button" data-filtername="qualityAssurance" data-searchtype="credential" value="Quality Assurance" />
+            @*<input type="button" data-filtername="credentialLocation" data-searchType="credential" value="Credential Location" />*@
+            @*<input type="button" data-filtername="audience" data-searchType="credential" value="Audiences" />*@
+                        
+            @* Organization Filters *@
+            <input type="button" data-filtername="qualityAssurance" data-searchtype="organization" value="Quality Assurance" />
+            <input type="button" data-filtername="organizationType" data-searchtype="organization" value="Organization Type" />
+            <input type="button" data-filtername="industry" data-searchType="organization" value="Industry" />
+            <input type="button" data-filtername="occupation" data-searchType="organization" value="Occupations" />
+            <input type="button" data-filtername="assessmentFilter1" data-searchtype="assessment" value="Sample Assessment Filter 1" />
+            <input type="button" data-filtername="assessmentFilter2" data-searchtype="assessment" value="Sample Assessment Filter 2" />
+            <input type="button" data-filtername="learningOpportunityFilter1" data-searchtype="learningopportunity" value="Sample Learning Opportunity Filter 1" />
+        </div>
+        <div id="filterBox">
+            @* Credential Filters *@
+
+            @{ var credentialType = enumServices.GetCredentialType( Models.Common.EnumerationType.MULTI_SELECT ); }
+            @Html.Partial( "_EnumerationFilter", new HtmlEnumerationFilterSettings()
+            {
+                CssClasses = new List<string>() { "column2" },
+                SearchType = "credential",
+                FilterName = "credentialType",
+                CategoryId = credentialType.Id,
+                Enumeration = credentialType,
+                PreselectedFilters = preselectedFilters
+            } )
+
+            @{ var credentialPurpose = enumServices.GetCredentialPurpose( Models.Common.EnumerationType.MULTI_SELECT ); }
+            @Html.Partial( "_EnumerationFilter", new HtmlEnumerationFilterSettings()
+            {
+                SearchType = "credential",
+                FilterName = "credentialPurpose",
+                CategoryId = credentialPurpose.Id,
+                Enumeration = credentialPurpose,
+                PreselectedFilters = preselectedFilters
+            } )
+
+            @{ var credentialLevel = enumServices.GetCredentialLevel( Models.Common.EnumerationType.MULTI_SELECT ); }
+            @Html.Partial( "_EnumerationFilter", new HtmlEnumerationFilterSettings()
+            {
+                SearchType = "credential",
+                FilterName = "credentialLevel",
+                CategoryId = credentialLevel.Id,
+                Enumeration = credentialLevel,
+                PreselectedFilters = preselectedFilters
+            } )
+
+            <div class="filter" data-searchtype="credential" data-filtername="credentialLocation">
+                
+            </div>
+
+            @Html.Partial( "_EnumerationFilter", new HtmlEnumerationFilterSettings()
+            {
+                CssClasses = new List<string>() { "column2" },
+                SearchType = "credential",
+                FilterName = "industry",
+                CategoryId = industryCodes.Id,
+                Enumeration = industryCodes,
+                PreselectedFilters = preselectedFilters
+            } )
+
+            @Html.Partial( "_EnumerationFilter", new HtmlEnumerationFilterSettings()
+            {
+                CssClasses = new List<string>() { "column2" },
+                SearchType = "credential",
+                FilterName = "occupation",
+                CategoryId = occupationCodes.Id,
+                Enumeration = occupationCodes,
+                PreselectedFilters = preselectedFilters
+            } )
+
+            @*
+            @Html.Partial( "_EnumerationFilter", new HtmlEnumerationFilterSettings()
+            {
+                SearchType = "credential",
+                FilterName = "audience",
+                CategoryId = audiences.Id,
+                Enumeration = audiences,
+                PreselectedFilters = preselectedFilters
+            } )
+            *@
+
+            <div class="filter" data-searchtype="credential" data-filtername="qualityAssurance" data-categoryID="0">
+                <label><input type="checkbox" value="includeNormal" data-schemaname="includeNormal" checked="checked" /> Include credentials meant for individuals</label>
+                <label><input type="checkbox" value="includeQualityAssurance" data-schemaname="includeQualityAssurance" /> Include quality assurance credentials meant for organizations</label>
+            </div>
+
+
+
+            @* Organization Filters *@
+
+            @{ var organizationType = enumServices.GetOrganizationType( Models.Common.EnumerationType.MULTI_SELECT ); }
+            @Html.Partial( "_EnumerationFilter", new HtmlEnumerationFilterSettings()
+            {
+                CssClasses = new List<string>() { "column2" },
+                SearchType = "organization",
+                FilterName = "organizationType",
+                CategoryId = organizationType.Id,
+                Enumeration = organizationType,
+                PreselectedFilters = preselectedFilters
+            } )
+
+            @Html.Partial( "_EnumerationFilter", new HtmlEnumerationFilterSettings()
+            {
+                CssClasses = new List<string>() { "column2" },
+                SearchType = "organization",
+                FilterName = "industry",
+                CategoryId = industryCodes.Id,
+                Enumeration = industryCodes,
+                PreselectedFilters = preselectedFilters
+            } )
+
+            @Html.Partial( "_EnumerationFilter", new HtmlEnumerationFilterSettings()
+            {
+                CssClasses = new List<string>() { "column2" },
+                SearchType = "organization",
+                FilterName = "occupation",
+                CategoryId = occupationCodes.Id,
+                Enumeration = occupationCodes,
+                PreselectedFilters = preselectedFilters
+            } )
+
+            <div class="filter" data-searchtype="organization" data-filtername="qualityAssurance" data-categoryID="0">
+                <label><input type="checkbox" value="includeNormal" data-schemaname="includeNormal" checked="checked" /> Include Credentialing Organizations</label>
+                <label><input type="checkbox" value="includeQualityAssurance" data-schemaname="includeQualityAssurance" /> Include Quality Assurance Organizations</label>
+            </div>
+
+            <div class="filter" data-searchtype="assessment" data-filtername="assessmentFilter1">
+                <p>Assessment Filter 1 Items</p>
+            </div>
+            <div class="filter" data-searchtype="assessment" data-filtername="assessmentFilter2">
+                <p>Assessment Filter 2 Items</p>
+            </div>
+            <div class="filter" data-searchtype="learningopportunity" data-filtername="learningOpportunityFilter1">
+                <p>Learning Opportunity Filter 1 Items</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="resultsBox">
+        <div id="results"></div>
+        @*<div id="paging"></div>*@
+        <div id="autoPagingStatus"></div>
+    </div>
+    @if ( enableMap )
+    {
+        <div id="mapBox">
+            <div id="credentialMap" data-searchType="credential" class="googleMap @( searchType == "credential" ? "selected" : "" )"></div>
+            <div id="organizationMap" data-searchType="organization" class="googleMap @( searchType == "organization" ? "selected" : "")"></div>
+            <div id="assessmentMap" data-searchType="assessment" class="googleMap @( searchType == "assessment" ? "selected" : "")"></div>
+            <div id="learningOpportunityMap" data-searchType="learningopportunity" class="googleMap @( searchType == "learningopportunity" ? "selected" : "")"></div>
+        </div>
+    }
+</div>
+
+<div id="templates" style="display:none;">
+    @* Paging button *@
+    <script type="text/template" id="template_pagingButton">
+        <input type="button" class="{current}" onclick="switchPage({page});" value="{page}" />
+    </script>
+
+    @* Template: Credential *@
+    <script type="text/template" id="template_result_credential">
+        <div class="result credential" data-recordid="{RecordId}">
+            <div class="leftBox">
+                <a target="credentialResult" href="@Url.Content("~/credentialmanagement/detail2/"){RecordId}" class="name">{Name}</a>
+                @*<div class="subtitle"><a target="organizationResult" href="@Url.Content("~/organizationmanagement/detail2/"){CreatorId}">{Creator}</a></div>*@
+                <div class="subtitle"><a target="organizationResult" href="@Url.Content("~/organizationmanagement/detail2/"){OwnerId}">{Owner}</a></div>
+                <div class="data">
+                    <div class="description">
+                        <div class="descriptionOverlay">{Description}</div>
+                        <div class="descriptionCover">
+                            <input type="button" value="Show More" onclick="toggleCover({RecordId}, this);" />
+                        </div>
+                    </div>
+                    <div class="tags">
+                        <div class="tag industry" data-filterName="industry" data-filterID="@industryCodes.Id">{Industry}</div>
+                        <div class="tag level" data-filterName="credentialLevel" data-filterID="@credentialLevel.Id">{Level}</div>
+                        <div class="tag cost" data-filterName="" data-filterID="">{Cost}</div>
+                        <div class="tag time" data-filterName="" data-filterID="">{Time}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="rightBox" data-type="{TypeSchema}">
+                <input type="button" value="Compare" onclick="compare.addItem({RecordId}, 'credential', '{Name}');" />
+                <div class="typeIcon"></div>
+                <div class="type">{Type}</div>
+            </div>
+            <div class="editBox">
+                @if ( canEditDocument ) { <a class="editLink linkButton actionButton" target="_credentialEditWindow" title="Edit" href="@Url.Content( "~/CredentialManagement/Edit/" ){RecordId}"></a> }
+                @if ( canEditDocument ) { <a class="editLink linkButton actionButtonNew" target="_credentialEditWindow" title="NEW Editor" href="@Url.Content( "~/editor/Credential/" ){RecordId}"></a> }
+                @if ( canEditDocument ) { <input type="button" class="deleteButton redButton" value="" title="Delete" onclick="deleteResult('{Name}', 'credential', {RecordId});" /> }
+            </div>
+        </div>
+    </script>
+
+    @* Template: Organization *@
+    <script type="text/template" id="template_result_organization">
+        <div class="result organization" data-recordid="{RecordId}" data-isQA="{IsQA}">
+            <div class="leftBox">
+                <a target="organizationResult" href="@Url.Content("~/organizationmanagement/detail2/"){RecordId}" class="name">{Name} <img class="qaIcon" title="This organization provides Quality Assurance" src="@Url.Content("~/images/icons/cti_icon_star_bg.png")" /></a>
+                <div class="subtitle">{Location} <img class="markerIcon" src="@Url.Content( "~/images/icons/cti_icon_mapmarker_pink.png" )" tabindex="0" onclick="highlightMarker(maps.organization, {RecordId});" /></div>
+                <div class="data">
+                    <div class="description">{Description}</div>
+                </div>
+            </div>
+            <div class="rightBox">
+                <input type="button" value="Compare" onclick="compare.addItem({RecordId}, 'organization', '{Name}');" />
+                <div class="logo" style="background-image: url('{Logo}'), linear-gradient(#CCC, #EEE);"></div>
+            </div>
+            <div class="editBox">
+                @if ( canEditDocument ) { <a class="editLink linkButton actionButton" target="_organizationEditWindow" href="@Url.Content( "~/OrganizationManagement/Edit/" ){RecordId}"></a> }
+                @if ( canEditDocument ) { <a class="editLink linkButton actionButtonNew" target="_organizationEditWindow" href="@Url.Content( "~/editor/Organization/" ){RecordId}" title="NEW Editor"></a> }
+                @if ( canEditDocument ) { <input type="button" class="deleteButton redButton" value="" title="Delete" onclick="deleteResult('{Name}', 'organization', {RecordId});" /> }
+            </div>
+        </div>
+    </script>
+
+    @* Template: Assessment *@
+    <script type="text/template" id="template_result_assessment">
+        <div class="result assessment" data-recordid="{RecordId}">
+            <div class="leftBox">
+                <a target="assessmentResult" href="@Url.Content("~/profile/assessment/"){RecordId}" class="name">{Name}</a>
+                <div class="subtitle">{Creator}</div>
+                <div class="data">
+                    <div class="description">{Description}</div>
+                </div>
+            </div>
+            <div class="rightBox">
+            </div>
+            <div class="editBox">
+                @if ( canEditDocument ) { <a class="editLink linkButton actionButton" target="_assessmentEditWindow" href="@Url.Content( "~/Profile/AssessmentEdit/" ){RecordId}"></a> }
+                @if ( canEditDocument ) { <a class="editLink linkButton actionButtonNew" target="_assessmentEditWindow" href="@Url.Content( "~/editor/assessment/" ){RecordId}" title="NEW Editor"></a> }
+                @if ( canEditDocument ) { <input type="button" class="deleteButton redButton" value="" title="Delete" onclick="deleteResult('{Name}', 'assessment', {RecordId});" /> }
+            </div>
+        </div>
+    </script>
+
+    @* Template: Learningopportunity *@
+    <script type="text/template" id="template_result_learningopportunity">
+        <div class="result learningOpportunity" data-recordid="{RecordId}">
+            <div class="leftBox">
+                <a target="learningOpportunityResult" href="@Url.Content( "~/profile/learningopportunity/" ){RecordId}" class="name">{Name}</a>
+                <div class="subtitle">{Creator}</div>
+                <div class="data">
+                    <div class="description">{Description}</div>
+                </div>
+            </div>
+            <div class="rightBox">
+            </div>
+            <div class="editBox">
+                @if ( canEditDocument ) { <a class="editLink linkButton actionButton" target="_learningOpportunityEditWindow" href="@Url.Content( "~/Profile/learningopportunityedit/" ){RecordId}"></a> }
+                @if ( canEditDocument ) { <a class="editLink linkButton actionButtonNew" target="_learningOpportunityEditWindow" href="@Url.Content( "~/editor/learningOpportunity/" ){RecordId}" title="NEW Editor"></a> }
+                @if ( canEditDocument ) { <input type="button" class="deleteButton redButton" value="" title="Delete" onclick="deleteResult('{Name}', 'learningopportunity', {RecordId});" /> }
+            </div>
+        </div>
+    </script>
+
+    @* Template: Tags Box *@
+    <script type="text/template" id="template_tagsBox">
+        <div class="toolTipLink" data-toolTip_Title="{summary}" data-toolTip_Description="{items}">{summary}</div>
+        <div class="tagsBox">
+            {tagData}
+        </div>
+    </script>
+
+    @* Template: Tag *@
+    <script type="text/template" id="template_tag">
+        <a class="tagItem" href="javascript:addIndirectFilter('filterName', 'filterID', '{tagValue}', '{tagText}');">{tagText}</a>
+    </script>
+
+    @* Template: SelectedFilterListItem *@
+    <script type="text/template" id="template_selectedFilter">
+        <div class="selectedFilter">
+            {tagText}
+            <input type="button" class="redButton" value="X" onclick="removeFilter('{filterName}', '{tagValue}');" />
+        </div>
+    </script>
+</div>
+@if ( enableMap )
+{
+    <script src="https://maps.googleapis.com/maps/api/js?key=@googleMapsKey&callback=setupMapBox"></script>
+}

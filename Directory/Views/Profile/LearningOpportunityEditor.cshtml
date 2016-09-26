@@ -1,0 +1,235 @@
+﻿@model Models.ProfileModels.LearningOpportunityProfile
+@using Models.Common;
+@using Models.Search;
+@{
+    ViewBag.Title = "Learning Opportunity Editor";
+
+    var enumServices = new EnumerationServices();
+    ViewBag.GetOrgs = true;
+    ViewBag.GetQAOrgs = false;
+    var allOrganizationsList = new List<Organization>();
+    if ( ViewBag.GetOrgs != null && ViewBag.GetOrgs == true )
+    {
+        allOrganizationsList = OrganizationServices.Agent_Search();
+    }
+
+    var activeSection = string.IsNullOrWhiteSpace(ViewBag.ActiveSection) ? "basic" : ViewBag.ActiveSection;
+    var tabs = new List<dynamic>() {
+			new { name = "basic", title = "Basic Information", tabs = new List<string>() { "Name","Url","IdentificationCode", "Description","DateEffective","LearningResourceUrl","LearningOpportunityDeliveryType","ProviderUid" } },
+			new { name = "cip", title = "Instructional Program Category", tabs = new List<string>() { "InstructionalProgramCategory" } },
+			new { name = "roles", title = "Organization Roles", tabs = new List<string>() { "OrganizationRole" } },
+			new { name = "cost", title = "Costs", tabs = new List<string>() { "EstimatedCost" } },
+			new { name = "duration", title = "Estimated Duration", tabs = new List<string>() { "EstimatedDuration" } },
+			new { name = "jurisdiction", title = "Jurisdictions", tabs = new List<string>() { "Jurisdiction" } },
+			new { name = "part", title = "Learning Opportunity Parts", tabs = new List<string>() { "HasPart" } }
+	};
+
+}
+
+@Html.Partial( "~/Views/Shared/Management/_EditorCore.cshtml", null, new ViewDataDictionary() { { "editorTabs", tabs }, { "activeSection", activeSection } } )
+
+<script type="text/javascript">
+    //Hold data from server if there is any
+    var starterData = @Html.Raw( new System.Web.Script.Serialization.JavaScriptSerializer().Serialize( Model ) );
+    var activeSection = "@activeSection";
+    var mainObjectID = @Model.Id;
+    var controller = "Profile";
+    var objectType = "learningopportunity";
+</script>
+<script type="text/javascript">
+    //Page Functions
+    function preview() {
+        consoleMessage.addErrorMessage("Preview not implemented for learning opportunities yet.", "", 2000);
+        return;
+    }
+
+    //Preview changers
+    function showCollectedData() {
+        collectFormData();
+        doAjax(controller, "echo_learningopportunity", { input: formData }, finishServerReload);
+        $("#collectedDataContent").html(JSON.stringify(formData, null, "\t"));
+        $("#serverDataContent").html("Loading...");
+        $("#collectedData").fadeIn();
+    }
+    function reloadDataServer() {
+        collectFormData();
+        doAjax(controller, "echo_learningopportunity", { input: formData }, finishServerReload);
+        wipeForm();
+    }
+    //
+</script>
+
+<h1>@Html.Raw( Model.Id > 0 ? "Editing Learning Opportunity: " + Model.Name : "New Learning Opportunity" )</h1>
+
+<div id="tabs">
+    @foreach ( var tab in tabs )
+		{
+        <input type="button" data-hasdata="false" data-name="@tab.title" data-tabid="@tab.name" value="@tab.title" onclick="showTab('@tab.name');" />
+		}
+</div><!--
+--><form id="editForm">
+       <h2 id="tabTitle"></h2>
+
+       <div class="field" data-property="Name">
+           <i>Provide the name of the learning opportunity.<span class="required">(Required)</span></i>
+           <input type="text" data-property="Name" data-type="text" data-required="true" data-minlength="5" />
+       </div>
+
+       <div class="field" data-property="Url">
+           <i>Provide a URL that describes the learning opportunity.</i>
+           <input type="text" data-property="Url" data-type="url" placeholder="http://" />
+       </div>
+
+       <div class="field" data-property="IdentificationCode">
+           <i>Provide the identification code for the learning opportunity, if it has one.</i>
+           <input type="text" data-property="IdentificationCode" data-type="text" />
+       </div>
+
+       <div class="field" data-property="Description">
+           <i>Briefly summarize this learning opportunity.</i>
+           <textarea data-property="Description" data-type="text"></textarea>
+       </div>
+
+       <div class="field" data-property="ProviderUid">
+           <i>Indicate which organization provides this learning opportunity.</i>
+           <select data-property="ProviderUid" data-type="select" data-selecttype="text">
+               <option value="0" data-url="">Select an Organization</option>
+               @foreach ( var org in allOrganizationsList )
+               {
+                   <option value="@org.RowId" data-url="@org.Url">@org.Name</option>
+               }
+           </select>
+       </div>
+       <div class="field" data-property="DateEffective">
+           <i>Indicate the date this item's information first became effective, published, or applicable.</i>
+           <input type="text" data-property="DateEffective" data-type="date" placeholder="MM/DD/YYYY" />
+       </div>
+
+       <div class="field repeating" data-property="LearningResourceUrl">
+           <i>Provide links to any noteworthy or important learning resources for this learning opportunity.</i>
+            <div class="repeaterItems" data-repeaterid="LearningResourceUrl" data-title="Resource URL"></div>
+           <div class="repeater withItems" data-property="LearningResourceUrl" id="LearningResourceUrl" data-profile="UrlProfile"></div>
+            <div class="buttons">
+                <input type="button" onclick="addProfile('UrlProfile', 'LearningResourceUrl');" value="Add Resource URL" />
+            </div>
+       </div>
+       <div class="field" data-property="LearningResourceUrl2">
+           <i>Provide links to any noteworthy or important learning resources for this learning opportunity.</i>
+           <textarea data-property="LearningResourceUrl2" data-type="multi"></textarea>
+       </div>
+       <div class="field" data-property="CourseCode">
+           <i>Provide a course code for this opportunity if applicable.</i>
+           <input type="text" data-property="CourseCode" data-type="text" placeholder="" />
+       </div>
+
+       <div class="field column2" data-property="LearningOpportunityDeliveryType">
+           <i>Indicate the delivery type(s) of learning opportunity. Check all that apply.</i>
+           @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetEnumeration( "learningOpportunityDeliveryType", EnumerationType.MULTI_SELECT, true ) )
+           <b>Other (enter type)</b>
+           <input type="text" data-property="LearningOpportunityDeliveryType" data-type="other" placeholder="If you selected &quot;other&quot;, explain here." />
+       </div>
+
+       <div class="field repeating" data-property="OrganizationRole">
+           <i>Indicate which roles are played by which organizations relative to this learning opportunity.</i>
+           <div class="repeaterItems" data-repeaterid="LearningOppportunityProfile_OrganizationRoles" data-title="Relationship Description"></div>
+           <div class="repeater withItems" data-property="OrganizationRole" id="LearningOppportunityProfile_OrganizationRoles" data-profile="EntityRoleProfileInverse"></div>
+           <div class="buttons">
+               <input type="button" onclick="addProfile('EntityRoleProfileInverse', 'LearningOppportunityProfile_OrganizationRoles');" value="Add Relationship Description" />
+           </div>
+       </div>
+
+       <div class="field repeating" data-property="EstimatedCost">
+           <i>Estimate the cost to complete this learning opportunity.</i>
+           <div class="repeaterItems" data-repeaterid="EstimatedCost" data-title="Cost Profile"></div>
+           <div class="repeater withItems" data-property="EstimatedCost" id="EstimatedCost" data-profile="CostProfileSplit"></div>
+           <div class="buttons">
+               <input type="button" onclick="addProfile('CostProfileSplit', 'EstimatedCost');" value="Add Cost Description" />
+           </div>
+       </div>
+
+       <div class="field repeating" data-property="EstimatedDuration">
+           <i>Estimate the time it will take to complete this learning opportunity.</i>
+           <div class="repeaterItems" data-repeaterid="EstimatedDuration" data-title="Duration Profile"></div>
+           <div class="repeater withItems" data-property="EstimatedDuration" id="EstimatedDuration" data-profile="DurationProfile"></div>
+           <div class="buttons">
+               <input type="button" onclick="addProfile('DurationProfile', 'EstimatedDuration');" value="Add Duration Description" />
+           </div>
+       </div>
+
+       <div class="field repeating" data-property="InstructionalProgramCategory">
+           <i>Identify the specific instructional program classifications that apply to this learning opportunity. We recommend using the <a href="https://nces.ed.gov/ipeds/cipcode/browse.aspx?y=55" target="_blank">CIP codes</a>.</i>
+           @{  var headerIdItems = new Dictionary<string, string>();
+            headerIdItems.Add( "0", "Select an CIP Code" );
+            foreach ( var item in EnumerationServices.CIPS_Categories() ) 
+            {
+                headerIdItems.Add( item.Id.ToString(), item.Title );
+            }
+        }
+           @Html.Partial( "~/Views/Shared/Management/_MicroSearch.cshtml",
+                new MicroSearchSettings()
+                {
+                    ParentId = Model.Id.ToString(),
+                    ParentType = "LearningOpportunity",
+                    Property = "InstructionalProgramCategory",
+                    SearchId = "CIPSearch",
+                    SearchType = "CIPSearch",
+                    ResultRenderMethod = "renderMicroSearchItems",
+                    SavedRenderMethod = "renderMicroSearchItems",
+                    ResultTemplate = "template_microSearchResult_CodeItem",
+                    SavedTemplate = "template_microSearchSaved_CodeItem",
+                    Attributes = new Dictionary<string, string>()
+                    {
+                        { "data-categoryID", Model.InstructionalProgramCategory == null ? "0" : Model.InstructionalProgramCategory.Id.ToString() }
+                    },
+                    SearchHeader = "Search for and select new Classification of Instructional Programming (CIP) Code",
+                    SavedItemsHeader = "Saved CIP Codes",
+                    Filters = new List<MicroSearchSettings_Filter>()
+                    {
+                        new MicroSearchSettings_Filter() { FilterName = "HeaderId", Type = "select", Items = headerIdItems },
+                        new MicroSearchSettings_Filter() { FilterName = "Keywords", Type = "text", Placeholder = "Search by entering a full or partial CIP code or a keyword" }
+                    }
+                } )
+       </div>
+
+       <div class="field repeating" data-property="Jurisdiction">
+           <i>Indicate the region for which the information in this item is relevant.</i>
+           <div class="repeaterItems" data-repeaterid="Jurisdiction" data-title="Jurisdiction"></div>
+           <div class="repeater withItems" data-property="Jurisdiction" id="Jurisdiction" data-profile="JurisdictionProfile"></div>
+           <div class="buttons">
+               <input type="button" onclick="addProfile('JurisdictionProfile', 'Jurisdiction');" value="Add A Jurisdiction" />
+           </div>
+       </div>
+
+
+       <div class="field repeating" data-property="HasPart">
+           <i>Identify any learning opportunities that are a part of this learning opportunity. <br /><a href="@Url.Content( "~/Profile/LearningOpportunity")" target="ctiLOpp">Create a new Learning Opportunity here.</a></i>
+           @Html.Partial( "~/Views/Shared/Management/_MicroSearch.cshtml",
+                    new MicroSearchSettings()
+                    {
+                        ParentId = @Model.Id.ToString(),
+                        ParentType = "LearningOpportunityProfile",
+                        Property = "HasPart",
+                        SearchId = "LearningOpportunityProfile_HasPart",
+                        SearchType = "LearningOpportunityHasPartSearch",
+                        ResultRenderMethod = "renderMicroSearchItems",
+                        SavedRenderMethod = "renderMicroSearchItems",
+                        ResultTemplate = "template_microSearchResult_LearningOpportunity",
+                        SavedTemplate = "template_microSearchSaved_LearningOpportunity",
+                        UsesRecursiveSave = false,
+                        PageSize = 10,
+                        SearchHeader = "Search for a Learning Opportunity",
+                        SavedItemsHeader = "Selected Learning Opportunities",
+                        Filters = new List<MicroSearchSettings_Filter>()
+                        {
+                            new MicroSearchSettings_Filter() { FilterName = "Keywords", Type = "text", Placeholder = "Enter the name of a learning opportunity..." }
+                        }
+                    } )
+       </div>
+
+</form>
+<div id="actionButtons">
+    <div id="status"></div>
+    <input type="button" id="btnSaveData" value="Save Data" onclick="updateData('profile', 'learningopportunityupdate', this);" />
+    <input type="button" id="btnDelete" class="actionButton redButton" value="Delete" onclick="deleteData('Profile', 'DeleteLearningOpportunity', this);" />
+    @*<input type="button" id="btnPreview" value="Preview" onclick="preview();" />*@
+</div>

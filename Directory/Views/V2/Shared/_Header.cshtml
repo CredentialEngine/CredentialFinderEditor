@@ -1,0 +1,71 @@
+﻿@using Microsoft.AspNet.Identity
+@{
+    var url = Request.Url.PathAndQuery.ToLower();
+    if ( !AccountServices.CanUserViewSite() && !url.Contains( "home/about" ) && !url.ToLower().Contains( "account/" ) && !url.ToLower().Contains( "manage/" ) )
+    {
+        Response.Redirect( "~/Home/About" );
+    }
+
+    var user = AccountServices.GetCurrentUser();
+}
+<div id="mainSiteHeader">
+    <div id="mainSiteHeaderTrim" class="rainbow"></div>
+    <div id="mainSiteHeaderLeft" class="inlineBlockBox">
+        <a class="column" id="mainSiteLogo" href="@Url.Content( "~" )" style="background-image: url('@Url.Content( "~/Images/Common/cti_logo_transparent.png" )');" title="Site Logo"></a>
+        <div class="column" id="mainSiteTagline">Discover Credential Connections</div>
+    </div>
+    <div id="mainSiteHeaderRight">
+        <button id="btnMobileMenuOpen" class="whiteButton"><i class="fa fa-reorder"></i></button>
+        <div id="mainSiteMenu" class="inlineBlockBox">
+            <div id="mobileMenuHeader" style="background-image: url('@Url.Content( "~/Images/Common/cti_logo_transparent.png" )');">
+                <button id="btnMobileMenuClose" class="actionButton"><i class="fa fa-close closeButton"></i></button>
+            </div>
+
+            <div class="headerMenu column" id="headerMenuSearch">
+                <button class="headerMenuTitle"><i class="fa fa-search"></i> Search <i class="fa fa-caret-down expandArrow"></i><i class="fa fa-caret-up collapseArrow"></i></button>
+                <div class="headerMenuList">
+                    <a href="@Url.Content( "~/search/V2?searchtype=credential" )">Credentials</a>
+                    <a href="@Url.Content( "~/search/V2?searchtype=organization" )">Organizations</a>
+                    <a href="@Url.Content( "~/search/V2?searchtype=assessment" )">Assessments</a>
+                    <a href="@Url.Content( "~/search/V2?searchtype=learningopportunity" )">Learning Opportunities</a>
+                </div>
+            </div>
+
+            <div class="headerMenu column" id="headerMenuAdd">
+                <button class="headerMenuTitle"><i class="fa fa-plus"></i> Add New <i class="fa fa-caret-down expandArrow"></i><i class="fa fa-caret-up collapseArrow"></i></button>
+                <div class="headerMenuList">
+                    <a href="@Url.Content( "~/editor/credential/" )">New Credential</a>
+                    <a href="@Url.Content( "~/editor/organization" )">New Organization</a>
+                    <a href="@Url.Content( "~/editor/assessment" )">New Assessment</a>
+                    <a href="@Url.Content( "~/editor/learningopportunity" )">New Learning Opportunities</a>
+                </div>
+            </div>
+
+            @if ( Request.IsAuthenticated )
+            {
+                <div class="headerMenu column" id="headerMenuAccount">
+                    <button class="headerMenuTitle"><i class="fa fa-user"></i> <div id="userName" title="@user.FullName()">My Account</div> <i class="fa fa-caret-down expandArrow"></i><i class="fa fa-caret-up collapseArrow"></i></button>
+                    <div class="headerMenuList">
+                        @*<div class="headerMenuListItem">@user.FullName()</div>*@
+                        <a href="@Url.Content( "/Account/UserProfile" )" id="manageLink">@user.FullName()</a>
+                        <a href="@Url.Content( "/Manage/ChangePassword" )" id="manageLink">Change Password</a>
+                        <form action="@Url.Content("~/Account/LogOff")" method="post" id="logoutForm">
+                            @Html.AntiForgeryToken()
+                            <a href="javascript:document.getElementById('logoutForm').submit();" id="logoutLink">Logout</a>
+                        </form>
+                    </div>
+                </div>            
+            }
+            else
+            {
+                <div class="headerMenu column" id="headerMenuAdd">
+                    <button class="headerMenuTitle"><i class="fa fa-user"></i> Login/Register <i class="fa fa-caret-down expandArrow"></i><i class="fa fa-caret-up collapseArrow"></i></button>
+                    <div class="headerMenuList">
+                        <a href="@Url.Content("~/Account/Login")">Login</a>
+                        <a href="@Url.Content("~/Account/Register")">Register</a>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>

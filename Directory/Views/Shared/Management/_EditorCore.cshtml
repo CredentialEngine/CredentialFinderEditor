@@ -1,0 +1,2864 @@
+﻿@using Models.Common;
+@using Models.Search;
+@using CTIServices;
+@{
+    //or can this be in the mode
+    var allOrganizationsList = new  List<Organization>();
+    var qualityAssuranceOrganizationList = new  List<Organization>();
+
+    if ( ViewBag.GetOrgs != null && ViewBag.GetOrgs == true ) {
+        allOrganizationsList = OrganizationServices.Agent_Search();
+    }
+    if ( ViewBag.GetQAOrgs != null && ViewBag.GetQAOrgs == true )
+    {
+        qualityAssuranceOrganizationList = OrganizationServices.Organization_QAOrgs();
+    }
+    var enumServices = new EnumerationServices();
+}
+
+
+<script type="text/javascript">
+    //Development/testing/faking methods
+    var ipsum = "Collaboratively administrate empowered markets via plug-and-play networks. Dynamically procrastinate B2C users after installed base benefits. Dramatically visualize customer directed convergence without revolutionary ROI. Efficiently unleash cross-media information without cross-media value. Quickly maximize timely deliverables for real-time schemas. Dramatically maintain clicks-and-mortar solutions without functional solutions. Completely synergize resource taxing relationships via premier niche markets. Professionally cultivate one-to-one customer service with robust ideas. Dynamically innovate resource-leveling customer service for state of the art customer service. Objectively innovate empowered manufactured products whereas parallel platforms. Holisticly predominate extensible testing procedures for reliable supply chains. Dramatically engage top-line web services vis-a-vis cutting-edge deliverables. Proactively envisioned multimedia based expertise and cross-media growth strategies. Seamlessly visualize quality intellectual capital without superior collaboration and idea-sharing. Holistically pontificate installed base portals after maintainable products.".split(" ");
+    function getRandomText() {
+        var min = 0;
+        var max = ipsum.length - 1;
+        var start = Math.floor(Math.random() * (max - 15));
+        var length = Math.floor(Math.random() * ((max - start) / 3)) + 1;
+        var items = [];
+        for(var i = start; i < start + length; i++){
+            items.push(ipsum[i]);
+        }
+        return items.join(" ") + ".";
+    }
+    function getRandomURL() {
+        return "http://www." + ipsum[Math.floor(Math.random() * (ipsum.length - 1))].toLowerCase() + "-" + ipsum[Math.floor(Math.random() * (ipsum.length - 1))].toLowerCase() + ".com";
+    }
+
+    function testCollector() {
+        $(".field .buttons input[type=button]").trigger("click");
+        $("input[type=text], textarea").each(function() {
+            var box = $(this);
+            if(Math.random() > -1){
+                switch(box.attr("data-type")){
+                    case "text": box.val(getRandomText()); break;
+                    case "url": box.val(getRandomURL()); break;
+                    case "number": box.val(Math.floor(Math.random() * 100000)); break;
+                    case "date": box.val(( 1 + Math.floor(Math.random() * 11)) + "/" + (1 + Math.floor(Math.random() * 29)) + "/" + ( 1950 + Math.floor(Math.random() * 66) )); break;
+                    case "other": box.val(getRandomText()); break;
+                    case "multi": box.val(getRandomURL() + "\n" + getRandomURL() + "\n" + getRandomURL()); break;
+                    default: box.val(getRandomText()); break;
+                }
+            }
+        });
+        $("input[type=checkbox]").each(function() {
+            $(this).prop("checked", Math.random() > 0.5);
+        });
+        $("select").each(function () {
+            var options = $(this).find("option");
+            var randomSelection = Math.floor(Math.random() * options.length);
+            options.eq(randomSelection).prop("selected", true);
+        });
+    }
+
+    function showCollectedData() {
+        collectFormData();
+        doAjax(controller, "echo", { input: formData }, finishServerReload);
+        $("#collectedDataContent").html(JSON.stringify(formData, null, "\t"));
+        $("#serverDataContent").html("Loading...");
+        $("#collectedData").fadeIn();
+    }
+    function hideCollectedData() {
+        $("#collectedData").fadeOut();
+    }
+    function reloadDataLocal() {
+        collectFormData();
+        wipeForm();
+        alert("Press OK to fill the form back out again using the collected data");
+        rebuildForm();
+    }
+    function reloadDataServer() {
+        collectFormData();
+        doAjax(controller, "echo", { input: formData }, finishServerReload);
+        wipeForm();
+    }
+    function resetEverything() {
+        wipeForm();
+    }
+    function finishServerReload(message) {
+        if(message.valid){
+            alert("Data received from server. Press OK to fill out the form based on data retained by the server.");
+            formData = message.data;
+            rebuildForm();
+        }
+        else {
+            alert(message.status);
+        }
+    }
+</script>
+
+<script type="text/javascript">
+	/* Global Variables */
+
+	//Hold entered data
+	var formData = {};
+	//Keep track of dynamic profiles
+	var profileIDCounter = 0;
+	//Don't overwhelm the geocoordinates API
+	var geoCoordinatesTimer = 0;
+</script>
+<script type="text/javascript">
+	/* Initialization */
+	$(document).ready(function() {
+		setupExistingData();
+		setupGeoCoordinates();
+		setupUniqueIdentifiers();
+		setupValidation();
+		setupMicroSearches();
+		setupSpellcheck();
+
+        //After setup
+		setStatus("","idle",0);
+		preOpenProfiles();
+	});
+
+	//If data came back from the server, fill out the form with it
+	function setupExistingData(){
+		if(typeof(starterData) == "object" && starterData.Id > 0){
+			formData = starterData;
+			rebuildForm();
+		}
+	}
+
+	//Setup geocoordinates API search stuff
+	function setupGeoCoordinates() {
+		$("#editForm").on("change keyup", ".geoCoordinatesSearchBox", function() {
+			var id = $(this).attr("data-repeaterID");
+			clearTimeout(geoCoordinatesTimer);
+			geoCoordinatesTimer = setTimeout( function() {
+				handleGeoCoordinatesSearch(id);
+			}, 1000);
+		});
+	}
+
+    //Setup Unique Identifiers
+	function setupUniqueIdentifiers() {
+	    $("#editForm").on("change", ".repeaterField[data-field=EnumeratedItem] select[data-property=Id]", function() {
+	        var item = $(this);
+	        var box = item.parent();
+	        if(item.find("option:selected").attr("data-schemaName") == "other"){
+	            box.find("[data-property=Name], [data-property=SchemaUrl]").show();
+	        }
+	        else {
+	            box.find("[data-property=Name], [data-property=SchemaUrl]").hide();
+	        }
+	    });
+	}
+
+    //Setup validation
+	function setupValidation() {
+	    $("#editForm").on("change keyup", "input[type=text][data-type], textarea[data-type]", function() {
+	        console.log("validating...");
+	        validateInput($(this));
+	    });
+	}
+
+    //Pre-open new profiles
+	function preOpenProfiles(){
+	    $(".field .buttons input[type=button]").trigger("click");
+	}
+
+    //Setup micro searches
+	function setupMicroSearches(){
+	    $(".microSearch").not(".initialized").each(function() {
+	        var item = $(this);
+	        var name = item.attr("data-searchID");
+	        item.addClass("initialized");
+	        item.find(".microSearchFilter").not("[type=text]").on("change", function() {
+	            updateMicroSearch(name, null);
+	        })
+	        item.find(".microSearchFilter[data-type=text]").on("keyup", function(e){
+                updateMicroSearch(name, e)
+	        });
+	    });
+	}
+
+    //Enable browser-based spellchecking for all text fields
+	function setupSpellcheck(){
+	    $("input[type=text], textarea").attr("spellcheck", "true");
+	}
+</script>
+<script type="text/javascript">
+	//Update method
+	function updateData(controller, method, button) {
+		collectFormData();
+		doAjax(controller, method, { input: formData, section: activeSection }, success_updateData, button);
+	}
+	//delete method
+	function deleteData(controller, method, button) {
+	    //the collect may not work if not on base tab (may want to hide on other tabs to avoid confusion thinking deleting a profile
+	    var databaseID = formData.Id;
+	    if(databaseID == 0){
+	        //no action - message
+	    }
+	    else {
+	        modal.confirm("Delete Confirmation", "Are you sure that you want to delete this item? This action cannot be undone!", function() { 
+
+	            doAjax(controller, method, { id: databaseID }, success_deleteData, button);
+	        }, function() {
+	            
+	        });
+	    }
+	}
+	//
+	//Post data to server
+	function doAjax(controller, method, data, success, button, passThrough) { 
+		//Disable the button
+		if(button){ 
+			$(button).attr("data-originalValue", $(button).attr("value")).attr("value", "Working...").prop("disabled", true);
+		}
+
+		//Make the request
+		$.ajax({
+			url: "@Url.Content( "~/" )" + controller + "/" + method,
+			async: true,
+			headers: { "Accept": "application/json", "Content-type": "application/json; charset=utf-8" },
+			dataType: "json",
+			type: "POST",
+			data: JSON.stringify(data),
+			success: function (message) {
+				console.log("Response: ", message);
+				if (typeof (success) == "function") {
+					success(message, passThrough);
+				}
+			}
+		}).done(function() {
+			//Reenable the button
+			if(button){
+				$(button).attr("value", $(button).attr("data-originalValue")).prop("disabled", false);
+			}
+		});
+	}
+	//
+
+	//Success after updateData
+	function success_updateData(message){
+		console.log("Data returned from server:", message);
+		if(message.valid){
+			formData = message.data;
+			mainObjectID = formData.Id;
+			wipeForm();
+			rebuildForm();
+			//setStatus("Save successful!", "success", 8000);
+			consoleMessage.addSuccessMessage("Save successful!", "", 2000);
+		}
+		else {
+			//alert(message.status);
+		    //setStatus(message.status, "error", 12000);
+		    consoleMessage.addErrorMessage(message.status, "", 0);
+		}
+	}
+	//
+    
+	//Success after deleteData
+	function success_deleteData(message){
+	    console.log("Data returned from server:", message);
+	    if(message.valid){
+	        formData = message.data;
+	        mainObjectID = 0;
+	        wipeForm();
+	       
+	        //setStatus("Save successful!", "success", 8000);
+	        consoleMessage.addSuccessMessage("Delete successful!", "", 2000);
+	    }
+	    else {
+	        //alert(message.status);
+	        //setStatus(message.status, "error", 12000);
+	        consoleMessage.addErrorMessage(message.status, "", 0);
+	    }
+	}
+	//
+	//Receive GeoCoordinates API search results
+	function success_geoCoordinatesSearch(message, id){
+		var results = $.parseJSON(message.data);
+		var template = $("#template_GeoCoordinatesSearchResult").html();
+		var resultsBox = $(".geoCoordinatesSearchResults[data-repeaterID=" + id + "]");
+		resultsBox.html("");
+		if(results.totalResultsCount > 0){
+			console.log(results.geonames);
+			resultsBox.html("<i>Please select a place.</i>");
+			for(var i in results.geonames){
+				var place = results.geonames[i];
+				resultsBox.append(template
+					.replace(/{repeaterID}/g, id)
+					.replace(/{name}/g, place.name + (place.toponymName != place.name ? " (" + place.toponymName + ")" : ""))
+					.replace(/{stateFormatted}/g, place.adminName1 != "" ? place.adminName1 + ", " : "")
+					.replace(/{state}/g, place.adminName1)
+					.replace(/{country}/g, place.countryName || "")
+					.replace(/{id}/g, place.geonameId)
+					.replace(/{latitude}/g, place.lat)
+					.replace(/{longitude}/g, place.lng)
+				);
+			}
+			resultsBox.append("<p class=\"credit\">Results by <a href=\"http://www.geonames.org\" target=\"_blank\">GeoNames.org</a></p>");
+		}
+		else {
+			resultsBox.html("<p>Sorry, no results found.</p>");
+		}
+	}
+
+    //Delete an existing profile
+	function success_deleteProfile(message, id){
+	    if(message.valid){
+	        consoleMessage.addSuccessMessage("Item deleted", "", 2000);
+	        removeProfileBox(id);
+	    }
+	    else {
+	        alert(message.status);
+	    }
+	}
+</script>
+<script type="text/javascript">
+	/* Page Methods */
+
+	//Add a profile
+	function addProfile(templateName, boxID, dbID, summary, isNew, property) {
+		var box = $("#" + boxID);
+	    //var select = $(".repeaterSelect[data-repeaterID=" + boxID + "]");
+		var itemsList = $(".repeaterItems[data-repeaterID=" + boxID + "]");
+		var template = $("#template_" + templateName).html();
+		var id = dbID ? dbID : 0;
+		var profileName = "??????";
+		/*var boxParentID = parseInt(box.attr("data-parentID"));
+		if(boxParentID == 0){ 
+		    consoleMessage.addErrorMessage("You must save the profile before you can add sub-profiles to it.", "", 2000);
+		    return;
+		}*/
+
+		if(isNew == false){
+		    flagCategoryWithData(property);
+		}
+
+		var result = $(template
+			.replace(/{id}/g, profileIDCounter)
+			.replace(/{dbID}/g, id)
+            .replace(/{delete}/g, isNew ? "X" : "Delete")
+            //.replace(/{guid}/g, "") //May or may not need this
+		).appendTo(box);
+	    /*result.find(".repeater")
+            .attr("data-parentId", id)
+            .attr("data-parentType", templateName)
+            .attr("data-parentGuid", "");*/
+
+		/*select.append("<option value=\"" + profileIDCounter + "\">" + select.attr("data-title") + " (Item #" + profileIDCounter + ")</option>");
+		select.find("option[value=" + profileIDCounter + "]").prop("selected", true);
+		select.off().on("change", function() {
+			showProfile(boxID, $(this).find("option:selected").attr("value"));
+		});
+		showProfile(boxID, profileIDCounter);*/
+
+		var buttonTitle = summary && summary != "" ? summary : "New " + itemsList.attr("data-title");
+		//if (id > 0) {
+		//    itemsList.append("<input style='display:inline-block;width: 80%;' type='button' value='" + buttonTitle + "' data-id='" + profileIDCounter + "' onclick='showProfile(\"" + boxID + "\", " + profileIDCounter + ");' /><input style='display:inline-block;text-align:right; width: 65px; background-color: white;color:red;' type='button' value='Delete' data-id='" + profileIDCounter + "' onclick='removeProfile(" + profileIDCounter + ", " + id + ",\"" + boxID + "\");' />");
+		//} else {
+		    itemsList.append("<input type='button' value='" + buttonTitle + "' data-id='" + profileIDCounter + "' onclick='showProfile(\"" + boxID + "\", " + profileIDCounter + ");' />");
+		//}
+		showProfile(boxID, profileIDCounter);
+		profileIDCounter++;
+
+		result.find(".object").each(function() {
+		    $(this).attr("data-repeaterID", profileIDCounter);
+			profileIDCounter++;
+		});
+
+		result.find(".profileTabs").each(function() {
+            $(this).find("input").first().trigger("click").addClass("selected");
+		})
+
+	    //Setup any micro searches that may have just been created
+		setupMicroSearches();
+        //Enable spellcheck
+        setupSpellcheck();
+
+		return result;
+	}
+
+    //Show a category as having data
+	function flagCategoryWithData(property){
+	    if(typeof(tabs) == "undefined"){
+	        return;
+	    }
+	    for(var i in tabs){
+	        var tab = tabs[i];
+	        for(var j in tab.tabs){
+	            if(tab.tabs[j] == property){
+	                var button = $("#tabs input[data-tabID=" + tab.name + "]");
+	                button.attr("data-hasData", "true");
+	                button.attr("title", "This category has data");
+	                button.attr("value", button.attr("data-name") + " (*)");
+	            }
+	        }
+	    }
+
+	}
+
+	//Remove a profile
+	function removeProfile(repeaterID, databaseID, profile) {
+		var box = $("[data-repeaterID=" + repeaterID + "]");
+		
+		if(databaseID == 0){
+		    removeProfileBox(repeaterID);
+		}
+		else {
+		    box.addClass("aboutToDelete");
+		    modal.confirm("Delete Profile", "Really delete this item? This action cannot be undone!", function() { 
+		        //Do ajax delete
+		        doAjax(controller, "DeleteProfile", { id: databaseID, profile: profile }, success_deleteProfile, null, repeaterID)
+		    }, function() {
+		        box.removeClass("aboutToDelete");
+		    });
+		}
+    }
+	function removeProfileBox(id){
+	    var box = $("[data-repeaterID=" + id + "]");
+	    box.remove();
+	    var button = $(".repeaterItems input[data-id=" + id + "]");
+	    var items = button.parent();
+	    button.remove();
+	    items.find("input").last().trigger("click");
+	}
+    //
+
+	//Set status
+	var statusTimeout = 0;
+	function setStatus(message, css, timeout){
+		var box = $("#status");
+		box.attr("class", css).html(message);
+		clearTimeout(statusTimeout);
+		statusTimeout = setTimeout(function() {
+			box.attr("class", "idle");
+		}, timeout);
+	}
+
+	//Show a profile
+	function showProfile(boxID, profileID){
+		var box = $("#" + boxID);
+		$(".repeaterItems[data-repeaterID=" + boxID + "] input").removeClass("selected").filter("[data-id=" + profileID + "]").addClass("selected");
+		box.find("> .repeaterField").removeClass("selected").filter("[data-repeaterID=" + profileID + "]").addClass("selected");
+	}
+
+	//When something is entered in a geocoordinates search box, call the API
+	function handleGeoCoordinatesSearch(id){
+	    var box = $(".geoCoordinatesSearchBox[data-repeaterID=" + id + "]")
+	    var results = $(".geoCoordinatesSearchResults[data-repeaterID=" + id + "]");
+		var text = box.val();
+		var previousValue = box.attr("previousValue");
+		if(text != "" && text != previousValue){
+			box.attr("previousValue", text);
+			console.log("Doing GeoCoordinates Search...");
+			results.html("<i>Searching...</i>");
+			doAjax("Ajax", "GeoNamesSearch", { text: text }, success_geoCoordinatesSearch, null, id)
+		}
+	}
+
+	//Populate a geocoordinates item with selected search result
+	function selectGeoCoordinatesResult(repeaterID, geoNamesID){
+	    var box = $(".geoNamesSearch[data-repeaterID=" + repeaterID + "]");
+	    var result = box.find(".geoNameResult[data-geoNamesID=" + geoNamesID + "]");
+	    box.find("[data-property=GeoNamesId]").val(result.attr("data-geoNamesID"));
+	    box.find("[data-property=Name]").val(result.attr("data-name"));
+	    box.find("[data-property=State]").val(result.attr("data-state"));
+	    box.find("[data-property=Country]").val(result.attr("data-country"));
+	    box.find("[data-property=Url]").val("http://www.geonames.org/" + result.attr("data-geoNamesID"));
+	    box.find("[data-property=Latitude]").val(result.attr("data-latitude"));
+	    box.find("[data-property=Longitude]").val(result.attr("data-longitude"));
+	    result.appendTo(box.find(".geoCoordinatesSelectedResult"));
+	    result.find(".geoNameButton").remove();
+	    box.find(".geoCoordinatesSearchResults").html("");
+    }
+    //
+
+    //Show a tab within a profile
+	function showProfileTab(repeaterID, properties, button){
+	    var repeater = $("[data-repeaterID=" + repeaterID + "]");
+
+	    //Highlight the button
+	    repeater.find("> .profileTabs input").removeClass("selected");
+	    $(button).addClass("selected");
+
+	    //Show the appropriate subfields
+	    var subfields = repeater.find("> .subfield");
+	    subfields.removeClass("selected");
+	    subfields.each(function() {
+	        var field = $(this);
+	        for(var i in properties){
+	            if(field.find("> [data-property=" + properties[i] + "]").length > 0){
+	                field.addClass("selected");
+	            }
+	        }
+	    });
+	}
+    //
+</script>
+<script type="text/javascript">
+	/* Methods to collect data from the form */
+
+	//Collect data dynamically from the form
+	function collectFormData() {
+		//Reset data
+		formData = { Id: mainObjectID, RowId: formData.RowId };
+		console.log(formData);
+
+		//For each field, collect its data
+		var collectAll = typeof(collectOnlyVisibleFields) == "boolean" && collectOnlyVisibleFields == true;
+		var profiles = collectAll ? $("#editForm > .field:visible") : $("#editForm > .field");
+		profiles.each(function () {
+			collectProfileData($(this), formData);
+		});
+		console.log(formData);
+
+		//Log result
+		console.log("Form Data Gathered:", formData);
+	}
+	//
+
+	//Recursion
+	function collectProfileData(profileHTML, profileJSON) {
+
+		//Get all of the inputs in this item
+		var inputs = profileHTML.find("> [data-property], > .subfield > [data-property]");
+
+		//For each input...
+		inputs.each(function () {
+			//Get the property name
+			var input = $(this);
+			var propertyName = input.attr("data-property");
+
+			//If the input has a repeater in it...
+			if (input.hasClass("repeater") || input.hasClass("repeating")) {
+				//Create an array to hold the repeater items
+				profileJSON[propertyName] = [];
+
+				//For each repeater...
+				input.find("> .repeaterField").each(function () {
+					//Create an object and pass it (by reference) to a recursive instance of the collectProfileData method
+					var temp = { Id: parseInt($(this).attr("data-databaseID")) };
+					collectProfileData($(this), temp);
+
+					//When the object returns from its recursive voyage, put it into the profile JSON
+					//profileJSON[propertyName].push(temp);
+					addProperty(profileJSON, propertyName, temp);
+				});
+
+			}
+				//If the input does not have a repeater in it, get its value
+			else {
+				//Call the method that figures out how to get the value out of the input
+				setValue(propertyName, input, profileJSON);
+			}
+		});
+
+	}
+	//
+
+	function addProperty(body, name, item) {
+		body[name].push(item);
+	}
+
+	function setValue(property, box, profile) {
+		switch (box.attr("data-type")) {
+			case "text":
+				profile[property] = box.val();
+				return;
+			case "url":
+				profile[property] = box.val(); //TODO: validate URL?
+				return;
+			case "date":
+				profile[property] = box.val(); //TODO: validate date?
+				return;
+			case "number":
+				profile[property] = box.val(); //TODO: validate number?
+				return;
+			case "multi":
+				profile[property] = box.val().split("\n");
+				return;
+			case "enumeration":
+				profile[property] = getEnumerationValue(box);
+				return;
+			case "other":
+				addOtherValue(box, profile);
+				return;
+			case "singleObject":
+				profile[property] = {};
+				collectProfileData(box, profile[property]);
+				return;
+			case "duration":
+				profile[property] = getDuration(box);
+				return;
+			case "select":
+				profile[property] = getSelectedItem(box);
+				return;
+		    case "uniqueIdentifier":
+		        console.log("unique");
+		        getFrameworkData(box, profile);
+		        return;
+		    case "label_boolean":
+		        profile[property] = box.find("input[type=checkbox]").prop("checked");
+		        return;
+		    case "microSearch":
+		        profile[property] = getMicroSearchData(box);
+		        return;
+			default:
+				return "Add this value";
+		}
+	}
+	//
+	function getText(box){
+		var value = box.val();
+		var max = parseInt(box.attr("maxlength"));
+		if(!isNaN(max)){
+			value = value.substring(0, max)
+		}
+		return value;
+	}
+	//
+	function getEnumerationValue(box) {
+		var type = box.attr("data-enumerationType");
+		var result = {
+			SchemaName: box.attr("data-property"),
+			Items: []
+		};
+
+		switch (type) {
+			case "multiSelect": //CBXL
+				box.find("input:checked").each(function () {
+					var input = $(this);
+					result.Items.push(getEnumerationItemValues(input));
+				});
+				break;
+			case "singleSelect": //Drop-down list
+				var input = box.find("option:selected");
+				result.Items.push(getEnumerationItemValues(input));
+				break;
+		    case "uniqueIdentifiers":
+		        getUniqueIdentifiers(box, result);
+		        break;
+		    case "number":
+		        var data = [];
+		        box.find("input:checked").each(function() {
+		            data.push(parseInt($(this).attr("value")));
+		        });
+		        return data;
+			default:
+				break;
+		}
+
+		return result;
+	}
+	//
+	function getEnumerationItemValues(input) {
+	    return {
+	        Id: parseInt(input.attr("data-id")),
+	        SchemaName: input.attr("data-schemaName"),
+	        Value: input.attr("value"),
+	        Selected: true
+	    };
+	}
+	//
+	function getUniqueIdentifiers(box, result){
+	    box.find(".repeaterField").each(function() { 
+	        var field = $(this);
+	        var value = parseInt(field.find("option:selected").attr("value"));
+	        if(value > 0){
+	            result.Items.push({
+	                SchemaName: field.find("option:selected").attr("data-schemaName"),
+	                Id: parseInt(field.attr("data-databaseID")),
+	                CodeId: value, //parseInt(field.find("option:selected").attr("data-codeID")),
+	                Name: field.find("[data-property=Name]").val(),
+	                SchemaUrl: field.find("[data-property=SchemaUrl]").val(),
+	                Value: field.find("[data-property=Value]").val()
+	            });
+	        }
+	    });
+	}
+    //
+
+	function addOtherValue(box, profile) {
+		var property = box.attr("data-property");
+		if(typeof(profile[property]) == "undefined"){
+			profile[property] = {};
+		}
+		profile[property].OtherValue = box.val();
+	}
+	//
+
+	function getDuration(box){
+		var items = $(".subproperties[data-group=" + box.attr("data-group") + "] input");
+		var data = {};
+		items.each(function() {
+			var item = $(this);
+			var val = parseInt(item.val());
+			data[item.attr("data-subproperty")] = isNaN(val) ? 0 : val;
+		});
+		return data;
+	}
+	//
+
+	function getSelectedItem(box){
+		var value = box.find("option:selected").attr("value");
+		if(box.attr("data-selectType") == "number"){
+			return parseInt(value);
+		}
+		return value;
+	}
+    //
+
+	function getFrameworkData(box, profile){
+	    console.log(box);
+	    profile.Items = [ { Value: box.find("[data-subproperty=Value]").val() } ];
+	    var option = box.find("[data-type=enumerationSelect] option:selected");
+	    console.log(option);
+	    console.log(option.attr("value"));
+	    if(option.attr("value") == "0"){
+	        console.log(box.find("[data-subproperty=Name]").val());
+	        profile.Name = box.find("[data-subproperty=Name]").val();
+	        profile.Url = box.find("[data-subproperty=Url]").val();
+	    }
+	    else {
+	        profile.Name = option.html();
+	        profile.Url = option.attr("data-url");
+	        profile.Id = parseInt(option.attr("value"));
+	    }
+	}
+    //
+
+	function getMicroSearchData(box){
+	    if(box.attr("data-usesRecursiveSave") == "true"){
+	        return window[box.attr("data-extractionMethod")](box);
+	    }
+	    return null;
+	}
+    //
+</script>
+<script type="text/javascript">
+	/* Methods to write data to the form */
+
+	//Dump everything and start over
+	function wipeForm() {
+		//formData = {};
+		profileIDCounter = 0;
+		$(".repeaterField").remove();
+		$("#editForm")[0].reset();
+		$(".repeaterItems input").remove();
+		//$(".repeaterSelect option").remove();
+	}
+
+	function rebuildForm() {
+		wipeForm();
+
+		var fields = $("#editForm > .field");
+		var data = formData;
+
+		fields.each(function() {
+		    var field = $(this);
+		    field.attr("data-parentID", data.Id);
+			writeProfileData(field, data);
+		});
+
+		reloadRegions();
+
+		$("#identifier").html("Identifier: " + formData.Id);
+	}
+
+	function writeProfileData(box, data){
+		var properties = box.find("> [data-property], > .subfield > [data-property]");
+		properties.each(function() {
+			var property = $(this);
+			var targetData = data[property.attr("data-property")];
+			
+			if(property.hasClass("repeater")){
+				writeRepeater(property, targetData);
+			}
+			else{
+				try {
+					switch(property.attr("data-type")){
+						case "text":
+						case "number":
+					    case "url":
+					    case "email":
+						case "date":
+							writeText(property, targetData);
+							break;
+						case "other":
+							writeOther(property, targetData);
+							break;
+						case "enumeration":
+							writeEnumeration(property, targetData);
+							break;
+						case "multi":
+							writeMulti(property, targetData);
+							break; //Need to test this
+						case "singleObject":
+							writeSingleObject(property, targetData);
+							break; //And this
+						case "duration":
+							writeDuration(property, targetData);
+							break;
+						case "select":
+							writeSelect(property, targetData);
+							break;
+					    case "label_boolean":
+					        property.find("input[type=checkbox]").prop("checked", targetData);
+					    case "microSearch":
+					        writeMicroSearch(property, targetData, box.attr("data-parentID"));
+					        break;
+						default:
+							console.log("Unable to identify property: ", property);
+						    console.log(targetData);
+							break;
+					}
+				}
+				catch(e) {
+					console.log("Error writing property " + property.attr("data-property") + ":", e);
+					console.log(property);
+				}
+			}
+		});
+	}
+
+	function writeText(property, targetData){
+		property.val(targetData);
+	}
+	function writeOther(property, targetData){
+		property.val(targetData.OtherValue);
+	}
+	function writeEnumeration(property, targetData){
+	    if(property.attr("data-enumerationType") == "uniqueIdentifiers"){
+	        for(var i in targetData.Items){
+	            var item = targetData.Items[i];
+	            var repeater = property.find("> .repeater");
+	            var newProfile = addProfile(repeater.attr("data-profile"), repeater.attr("id"), item.Id, item.ItemSummary, false, property.attr("data-property"));
+	            console.log(newProfile);
+	            newProfile.find("select option[value=" + item.CodeId + "]").prop("selected", true).trigger("change");
+	            newProfile.find("[data-property=Name]").val(item.Name);
+	            newProfile.find("[data-property=SchemaUrl]").val(item.SchemaUrl);
+	            newProfile.find("[data-property=Value]").val(item.Value);
+	        }
+	    }
+	    else if(property.attr("data-enumerationType") == "number"){
+	        for(var i in targetData){
+	            property.find("[value=" + targetData[i] + "]").prop("selected",true).prop("checked", true);
+	        }
+	    }
+	    else {
+	        for(var i in targetData.Items){
+	            property.find("[value='" + targetData.Items[i].Value + "']").prop("selected", true).prop("checked", true);
+	        }
+	    }
+	}
+	function writeRepeater(property, targetData){
+		for(var i in targetData){
+			var newBoxData = targetData[i];
+			var newBox = addProfile(property.attr("data-profile"), property.attr("id"), targetData[i].Id, targetData[i].ProfileSummary, false, property.attr("data-property"));
+			writeProfileData(newBox, newBoxData);
+		}
+	}
+	function writeMulti(property, targetData){
+		property.val(targetData.join("\n"));
+	}
+	function writeSingleObject(property, targetData){
+		writeProfileData(property, targetData);
+	}
+	function writeDuration(property, targetData){
+		var items = $(".subproperties[data-group=" + property.attr("data-group") + "] input");
+		items.each(function() {
+			var item = $(this);
+			var amount = targetData[item.attr("data-subproperty")];
+			item.val(amount > 0 ? amount : "");
+		});
+	}
+	function writeSelect(property, targetData){
+		property.find("option[value=" + targetData + "]").prop("selected", true);
+	}
+	function writeMicroSearch(property, targetData, parentID){
+	    property.attr("data-parentID", parentID);
+	    var name = property.attr("data-searchID");
+	    switch(property.attr("data-searchType")){
+	        case "IndustrySearch":
+	        case "CIPSearch":
+	        case "OccupationSearch": {
+	            var converted = [];
+	            if(targetData.Items.length > 0){
+	                flagCategoryWithData(property.attr("data-property"));
+	            }
+	            for(var i in targetData.Items){
+	                var item = targetData.Items[i];
+	                //Convert data - would prefer to do this server-side so two conversion methods don't need to be maintained
+	                var data = {
+	                    CodeId: item.CodeId,
+	                    Title: item.Name,
+	                    Description: item.Description,
+	                    Properties: {
+	                        RecordId: item.Id,
+	                        ItemSummary: item.ItemSummary,
+	                        Value: item.Value,
+	                        Code: item.Value
+	                    }
+	                };
+	                converted.push(data);
+	            }
+	            renderMicroSearchResults(name, { TotalResults: converted.length, Results: converted, RawData: null }, true, false);
+	            return;
+	        }
+	        case "JurisdictionSearch": {
+	            var data = [];
+	            var rawData = targetData;
+	            if(targetData.length > 0){
+	                flagCategoryWithData(property.attr("data-property"));
+	            }
+	            if(property.attr("data-JurisdictionType") == "Main"){
+	                rawData = [ targetData ];
+	            }
+	            for(var i in rawData){
+	                data.push({
+	                    Title: rawData[i].TitleFormatted,
+	                    Description: rawData[i].LocationFormatted,
+	                    Properties: rawData[i]
+	                });	                
+	            }
+	            renderMicroSearchResults(name, { Results: data }, true, false);
+	            return;
+	        }
+	        case "AssessmentSearch":
+	        case "LearningOpportunityHasPartSearch":
+	        case "LearningOpportunitySearch": {
+	            if(targetData.length > 0){
+	                flagCategoryWithData(property.attr("data-property"));
+	            }
+	            var data = [];
+	            for(var i in targetData){
+	                data.push({
+	                    Title: targetData[i].Name,
+	                    Description: targetData[i].Description,
+	                    Properties: { 
+	                        RecordId: targetData[i].Id
+	                    }
+	                });
+	            }
+	            renderMicroSearchResults(name, { Results: data }, true, false);
+	            return;
+	        }
+	        default: {
+	            console.log("Unable to determine search type:");
+	            console.log(property);
+	            console.log(targetData);
+	            return;
+	        }
+	    }
+	}
+
+    //Reload region data
+	function reloadRegions() {
+	    var template = $("#template_GeoCoordinatesSearchResult").html();
+	    $(".geoNamesSearch").each(function() {
+	        var box = $(this);
+	        box.find(".geoCoordinatesSelectedResult").html(
+                template
+                .replace(/{repeaterID}/g, box.attr("data-repeaterID"))
+                .replace(/{id}/g, box.find("[data-property=GeoNamesId]").val())
+                .replace(/{stateFormatted}/g, box.find("[data-property=State]").val() + (box.find("[data-property=State]").val() != "" ? ", " : ""))
+                .replace(/{state}/g, box.find("[data-property=State]").val())
+                .replace(/{country}/g, box.find("[data-property=Country]").val())
+                .replace(/{name}/g, box.find("[data-property=Name]").val())
+                .replace(/{latitude}/g, box.find("[data-property=Latitude]").val())
+                .replace(/{longitude}/g, box.find("[data-property=Longitude]").val())
+            );
+	        box.find(".geoCoordinatesSelectedResult .geoNameButton").remove();
+	        profileIDCounter++;
+	    });
+	}
+</script>
+<script type="text/javascript">
+    /* Validation Layer */
+    var validationIDCounter = 0;
+    var vs = {
+        valid: { self: "valid", message: "", valid: true },
+        emptyNonRequired: { self: "emptyNonRequired", message: "", valid: true },
+        emptyRequired: { self: "emptyRequired", message: "This field requires a value.", valid: false },
+        tooShort: function(min) { return { self: "tooShort", message: "You must enter at least " + min + " characters.", valid: false } },
+        badWord: { self: "badWord", message: "Improper language detected.", valid: false },
+        wrongFormatUrl: { self: "wrongFormatUrl", message: "You must enter a URL, beginning with http:// or https://", valid: false },
+        wrongFormatNumber: { self: "wrongFormatNumber", message: "You must enter a number.", valid: false },
+        wrongFormatEmail: { self: "wrongFormatEmail", message: "You must enter an email address.", valid: false },
+        wrongFormatDate: { self: "wrongFormatDate", message: "You must enter a valid date in MM/DD/YYYY format.", valid: false },
+    };
+
+    //Set an input's validation status
+    function setValid(input, status){
+        if(typeof(input.attr("data-validationID")) == "undefined"){
+            input.attr("data-validationID", validationIDCounter);
+            $("<div class=\"validationBox\" data-validationID=\"" +  validationIDCounter + "\"></div>").insertAfter(input);
+            validationIDCounter++;
+        }
+
+        input.attr("data-validationStatus", status.self);
+        input.attr("data-valid", status.valid);
+        $(".validationBox[data-validationID=" + input.attr("data-validationID") + "]").attr("data-valid", status.valid).html(status.message);
+
+    }
+    //
+
+    //Validate textboxes
+    function validateInput(input){
+        var value = input.val().trim();
+        var previousValue = input.attr("data-previousValue") || "";
+
+        //Skip if same as before
+        if(value == previousValue){
+            return;
+        }
+        //Set previous value
+        input.attr("data-previousValue", value);
+
+        //Set invalid if required and empty
+        if(value == ""){
+            if(input.attr("data-required") == "true"){
+                setValid(input, vs.emptyRequired);
+            }
+            else {
+                setValid(input, vs.emptyNonRequired);
+            }
+            return;
+        }
+
+        //Set invalid if too short
+        var minLength = parseInt(input.attr("data-minLength"));
+        if(!isNaN(minLength) && minLength > 0 && value.trim().length < minLength){
+            setValid(input, vs.tooShort(minLength));
+            return;
+        }
+
+        //Continue validation based on field type
+        switch(input.attr("data-type")){
+            case "text":
+            case "other":
+            case "multi":
+                validateText(input, value);
+                return;
+            case "number":
+                validateNumber(input, value);
+                return;
+            case "url":
+                validateUrl(input, value);
+                return;
+            case "email":
+                validateEmail(input, value);
+                return;
+            case "date":
+                validateDate(input, value);
+                return;
+            default:
+                console.log("Error: Unknown Validation Type: ", input);
+                return;
+        }
+    }
+
+    //Validate Text
+    function validateText(input, value) {
+        setValid(input, vs.valid);
+    }
+    //
+
+    //Validate Number
+    function validateNumber(input, value) {
+        var parsed = parseInt(value);
+        if(isNaN(parsed)){
+            setValid(input, vs.wrongFormatNumber);
+            return;
+        }
+
+        setValid(input, vs.valid);
+    }
+    //
+
+    //Validate URL
+    function validateUrl(input, value) {
+        if( ( value.indexOf("http://") == -1 && value.indexOf("https://") == -1 ) || value.indexOf(" ") > -1 ){
+            setValid(input, vs.wrongFormatUrl);
+            return;
+        }
+        if( value.length < 11 ){
+            setValid(input, vs.tooShort(11));
+            return;
+        }
+        
+        setValid(input, vs.valid);
+    }
+    //
+
+    //Validate Email
+    function validateEmail(input, value) {
+        var regex = new RegExp(/^[^\s@@]+@@[^\s@@]+\.[^\s@@]+$/); //Basic regex to catch most things
+        console.log("testing email: ", regex.test(value));
+    }
+    //
+
+    //Validate Date
+    function validateDate(input, value) {
+        try {
+            var date = new Date(Date.parse(value));
+            setValid(input, vs.valid);
+        }
+        catch(e){
+            setValid(input, vs.wrongFormatDate);
+        }
+    }
+    //
+    
+</script>
+<script type="text/javascript">
+    /* Micro Search Functions */
+    var microSearchTimeouts = [];
+
+    //Reset the micro search timeout
+    function updateMicroSearch(name, event){
+        clearTimeout(microSearchTimeouts[name]);
+        microSearchTimeouts[name] = setTimeout(function() {
+            doMicroSearch(name);
+        }, 800);
+    }
+    //
+
+    //Do a micro search
+    function doMicroSearch(name, isPaging){
+        var box = $(".microSearch[data-searchID=" + name + "]");
+        var searchType = box.attr("data-searchType");
+        var filters = [];
+
+        //Filters
+        box.find(".microSearchFilter").each(function() {
+            var filter = $(this);
+            var item = { Name: filter.attr("data-filterName") };
+            switch(filter.attr("data-type")){
+                case "text":
+                    item.Value = filter.val().trim();
+                    break;
+                case "select":
+                    item.Value = filter.find("option:selected").attr("value");
+                    break;
+                default: break;
+            }
+            filters.push(item);
+        });
+
+        //Reset paging unless the search is happening because another page was selected
+        var pageNumber = isPaging ? parseInt(box.attr("data-pageNumber")) : 1;
+
+        //Construct the query
+        var query = { SearchType: searchType, Filters: filters, PageNumber: pageNumber, PageSize: parseInt(box.attr("data-pageSize")) };
+
+        //Check for identical query to avoid duplicate searches
+        var stringified = JSON.stringify(query);
+        if(stringified == box.attr("data-previous")){
+            console.log("skipping identical search", query)
+            return;
+        }
+        //Update previous query data in the box
+        box.attr("data-previous", stringified)
+
+        //Update the paging in the box if it was reset
+        if(!isPaging){
+            box.attr("data-pageNumber", pageNumber);
+        }
+
+        //Do the search
+        console.log("doing search", query);
+        setMicroSearchStatus(name, "Searching...", "searching");
+        doAjax("Ajax", "MicroSearch", query, success_microSearch, null, name);
+    }
+    //
+
+    //Successfully complete a micro search
+    function success_microSearch(message, name){
+        console.log("Micro search complete: ", message);
+        if(message.valid){
+            renderMicroSearchResults(name, message.data, false, false);
+        }
+        else {
+            consoleMessage.addErrorMessage("Error performing Search: " + message.status, "", 5000);
+            console.log("Query: ", message.extra);
+            setMicroSearchStatus(name, "Error: " + message.status, "error");
+        }
+    }
+    //
+
+    //Set micro search status
+    function setMicroSearchStatus(name, message, status){
+        $(".microSearch[data-searchID=" + name + "] .microSearchStatus").attr("data-status", status).html(message);
+    }
+    //
+
+    //Render results
+    function renderMicroSearchResults(searchID, data, isSaved, isSingle){
+        var box = $(".microSearch[data-searchID=" + searchID + "]");
+        var pagingBox = box.find(".microSearchPaging");
+        var pageTemplate = $("#template_microSearchResult_pageButton").html();
+
+        var resultsBox = box.find(".microSearchResults");
+        var resultTemplate = $("#" + box.attr("data-resultTemplate")).html();
+        var resultMethod = window[box.attr("data-resultRenderMethod")];
+
+        var savedBox = box.find(".microSearchSelectedItems");
+        var savedTemplate = $("#" + box.attr("data-savedTemplate")).html();
+        var savedMethod = window[box.attr("data-savedRenderMethod")];
+        
+        if(isSaved){
+            savedMethod(searchID, savedBox, savedTemplate, data, isSingle);
+            return;
+        }
+
+        resultsBox.html("");
+        var totalResults = resultMethod(searchID, resultsBox, resultTemplate, data, false);
+
+        //Update paging
+        var skips = [1, 5, 10, 20, 30, 40, 50, 75, 100, 1000, totalPages];
+        pagingBox.html("");
+        var currentPage = parseInt(box.attr("data-pageNumber"));
+        var pageSize = parseInt(box.attr("data-pageSize"));
+        var totalPages = totalResults == 0 ? 0 : Math.ceil( totalResults / pageSize );
+        var minRange = currentPage - 2;
+        var maxRange = currentPage + 2;
+        for(var i = 1; i <= totalPages; i++){
+            if(skips.indexOf(i) > -1 || ( i >= minRange && i <= maxRange )){
+                pagingBox.append(pageTemplate
+                    .replace(/{searchID}/g, searchID)
+                    .replace(/{pageNumber}/g, i)
+                    .replace(/{current}/g, i == currentPage ? "current" : "")
+                    .replace(/{delete}/g, "Delete")
+                );
+            }
+        }
+
+        //Set status
+        if(totalResults == 0){
+            setMicroSearchStatus(searchID, "Sorry, no results found", "error");
+        }
+        else {
+            setMicroSearchStatus(searchID, "Found " + totalResults + " results", "success");
+        }
+    }
+    //
+
+    //Get core of a micro search selection
+    function formatMicroSearchSelection(searchID){
+        var box = $(".microSearch[data-searchID=" + searchID + "]");
+        var searchType = box.attr("data-searchType");
+
+        var data = {
+            ParentId: box.attr("data-parentID"),
+            ParentType: box.attr("data-parentType"),
+            SearchType: searchType,
+            Values: {}
+        };
+
+        return data;
+    }
+    //
+
+    //Successfully select a micro search result
+    function success_selectMicroSearchResult(message, searchID){
+        if(message.valid){
+            consoleMessage.addSuccessMessage("Added item", "", 2000);
+            renderMicroSearchResults(searchID, message.data, true, true);
+        }
+        else{
+            consoleMessage.addErrorMessage("Error: " + message.status, "", 5000);
+        }
+    }
+
+    //Successfully delete a micro search result
+    function success_deleteMicroSearchResult(message, data){
+        console.log(data);
+        var box = $(".microSearch[data-searchID=" + data.SearchId + "] .microSearchResult[data-recordID=" + data.Values.RecordId + "]");
+
+        if(message.valid){
+            consoleMessage.addSuccessMessage("Item deleted", "", 2000);
+            box.remove();
+        }
+        else{
+            consoleMessage.addErrorMessage("Error: " + message.status, "", 15000);
+        }
+    }
+    //
+
+    //Set a micro search page
+    function setMicroSearchPage(searchID, number){
+        var box = $(".microSearch[data-searchID=" + searchID + "]");
+        box.attr("data-pageNumber", number);
+        doMicroSearch(searchID, true);
+    }
+    //
+
+    //Reset a micro search's filters and results
+    function resetMicroSearch(searchID){
+        var box = $(".microSearch[data-searchID=" + searchID + "]");
+        box.find(".microSearchFilter").each(function() {
+            var filter = $(this);
+            switch(filter.attr("data-type")){
+                case "text":
+                    filter.val("");
+                    break;
+                case "select":
+                    filter.find("option").first().prop("selected", true);
+                    break;
+                default: break;
+            }
+        });
+        box.attr("data-previous", "");
+        setMicroSearchStatus(searchID, "", "");
+        box.find(".microSearchResults, .microSearchPaging").html("");
+    }
+    //
+
+    //Render standard results
+    function renderMicroSearchItems(searchID, box, template, data, isSingle){
+        if(isSingle){
+            renderMicroSearchItem(searchID, box, template, data);
+        }
+        else {
+            for(var i in data.Results){
+                renderMicroSearchItem(searchID, box, template, data.Results[i]);
+            }
+            return data.TotalResults;
+        }
+    }
+
+    //Render standard result
+    function renderMicroSearchItem(searchID, targetBox, template, item){
+        var formattedTemplate = template
+                .replace(/{searchID}/g, searchID)
+                .replace(/{CodeId}/g, item.CodeId)
+                .replace(/{Title}/g, item.Title)
+                .replace(/{Description}/g, item.Description)
+                .replace(/{rawData}/g, JSON.stringify(item)); //Makes some operations easier
+
+        //Enables showing any set of properties
+        for(var i in item.Properties){
+            formattedTemplate = formattedTemplate.replace(new RegExp("{" + i + "}", "g"), item.Properties[i]);
+        }
+
+        targetBox.append(formattedTemplate);
+    }
+    //
+
+</script>
+<script type="text/javascript">
+    /* Micro Search custom items (CodeItem) */
+
+    //Select a micro search result (Code Item)
+    function selectMicroSearchResult_CodeItem(searchID, codeID, button){
+        var box = $(".microSearch[data-searchID=" + searchID + "]");
+        var data = formatMicroSearchSelection(searchID);
+
+        data.Values = {
+            CategoryId: parseInt(box.attr("data-categoryID")),
+            CategoryType: box.attr("data-property"),
+            CodeId: codeID,
+        };
+
+        if(formData.Id > 0) {
+            doAjax("Ajax", "SelectMicroSearchResult", { data: data }, success_selectMicroSearchResult, $(button), searchID);
+        }
+        else {
+            consoleMessage.addErrorMessage("You must save the " + objectType + " first.", "", 5000);
+        }
+    }
+    //
+
+    //Delete a micro search result (Code item)
+    function deleteMicroSearchResult_CodeItem(searchID, codeID, recordID, button){
+        var box = $(".microSearch[data-searchID=" + searchID + "]");
+        var categoryID = parseInt(box.attr("data-categoryID"));
+
+        box.find("[data-recordID=" + recordID + "]").addClass("aboutToDelete");
+
+        modal.confirm("Really delete this item?", "This action cannot be undone!",
+          function() {
+              var data = {
+                  ParentId: formData.Id,
+                  ParentType: objectType,
+                  SearchType: searchID,
+                  SearchId: searchID,
+                  Values: {
+                      CategoryId: categoryID,
+                      CodeId: codeID,
+                      CategoryType: box.attr("data-property"),
+                      RecordId: recordID
+                  }
+              };
+              doAjax("Ajax", "DeleteMicroSearchResult", { data: data }, success_deleteMicroSearchResult, $(button), data);
+          },
+          function() {
+              box.find("[data-recordID=" + recordID + "]").removeClass("aboutToDelete");
+          }
+        );
+
+    }
+    //
+
+</script>
+<script type="text/javascript">
+    /* Micro Search custom items (Jurisdiction) */
+
+    //Select a micro search result (Jurisdiction)
+    function selectMicroSearchResult_Jurisdiction(searchID, geoNamesID, button){
+        var box = $(".microSearch[data-searchID=" + searchID + "]");
+        var rawData = $.parseJSON(box.find("[data-geoNamesID=" + geoNamesID + "] .rawData").text());
+
+        if(box.attr("data-JurisdictionType") == "Main"){ //Only allow one main jurisdiction
+            box.find(".microSearchSelectedItems").html("");
+        }
+
+        renderMicroSearchResults(searchID, rawData, true, true);
+    }
+    //
+
+    //Get data out of a jurisdiction profile via the normal method
+    function extractMicroSearchData_Jurisdiction(box){
+        console.log("Extracting micro search data");
+        console.log(box);
+
+        var property = box.attr("data-JurisdictionType") == "Main" ? null : [];
+
+        box.find(".microSearchSelectedItems .geoNameResult .rawData").each(function() {
+            var data = $.parseJSON($(this).text()).Properties;
+
+            if(box.attr("data-JurisdictionType") == "Main"){
+                property = data;
+            }
+            else {
+                property.push(data);
+            }
+        })
+        
+        return property;
+    }
+    //
+
+    //Delete a micro search result (Jurisdiction)
+    function deleteMicroSearchResult_Jurisdiction(searchID, geoNameID, button){
+        var box = $(".microSearch[data-searchID=" + searchID + "]");
+        box.find(".microSearchSelectedItems .geoNameResult[data-geonamesid=" + geoNameID + "]").remove();
+    }
+    //
+
+
+</script>
+<script type="text/javascript">
+    /* Micro search custom items (Profile) */
+
+    //Select a micro search result (Profile)
+    function selectMicroSearchResult_Profile(searchID, recordID, button){
+        var box = $(".microSearch[data-searchID=" + searchID + "]");
+        var data = formatMicroSearchSelection(searchID);
+
+        data.Values = {
+            CategoryId: parseInt(box.attr("data-categoryID")),
+            CategoryType: box.attr("data-property"),
+            RecordId: recordID,
+        };
+
+        if(data.ParentId > 0) {
+            doAjax("Ajax", "SelectMicroSearchResult", { data: data }, success_selectMicroSearchResult, $(button), searchID);
+        }
+        else {
+            consoleMessage.addErrorMessage("You must save the " + box.attr("data-parentType") + " first.", "", 5000);
+        }
+    }
+    //
+
+    //Delete a micro search result (Profile)
+    function deleteMicroSearchResult_Profile(searchID, recordID, button){
+        var box = $(".microSearch[data-searchID=" + searchID + "]");
+        var categoryID = parseInt(box.attr("data-categoryID"));
+
+        box.find(".microSearchSelectedItems [data-recordID=" + recordID + "]").addClass("aboutToDelete");
+
+        modal.confirm("Really delete this item?", "This action cannot be undone!",
+          function() {
+              var data = {
+                  ParentId: box.attr("data-parentID"),
+                  ParentType: box.attr("data-parentType"),
+                  SearchType: box.attr("data-searchType"),
+                  SearchId: searchID,
+                  Values: {
+                      CategoryId: categoryID,
+                      CategoryType: box.attr("data-property"),
+                      RecordId: recordID
+                  }
+              };
+              doAjax("Ajax", "DeleteMicroSearchResult", { data: data }, success_deleteMicroSearchResult, $(button), data);
+          },
+          function() {
+              box.find("[data-recordID=" + recordID + "]").removeClass("aboutToDelete");
+          }
+        );
+    }
+    //
+</script>
+
+<style type="text/css">
+    #content { background-color: #FFF; color: #000; }
+    #footer { display: none; }
+
+	.field i { font-size: 1.1em; }
+	.field .repeaterField i { background-color: #EEE; margin: 5px -5px 5px -5px; padding: 2px 5px; }
+	.field .buttons { text-align: right; }
+	.field .repeater { background-color: #EEE; padding: 0 0 0 25px; }
+    .field .repeater:empty { padding: 5px; }
+	.field .repeaterField { background-color: #FFF; color: #000; padding: 5px 5px 5px 5px; margin-bottom: 10px; position: relative; border: 1px solid #CCC; overflow: hidden; }
+	.field .repeaterField .repeaterRemover { position: absolute; display: block; height: 30px; top: 4px; right: 4px; }
+	.field .subfield { margin-bottom: 20px; }
+	.field .aboutToDelete { background-color: #FDD; border: 1px solid #F33; text-decoration: line-through; }
+	.field .repeaterField .repeaterHeader { margin: -5px -5px 5px -5px; background-color: #DDD; color: #333; padding: 5px 70px 5px 5px; min-height: 38px; }
+	.field .buttons input[type=button] { width: 100%; max-width: 300px; }
+	.repeaterField.noTitle { padding-right: 70px; }
+	.repeaterField:hover { box-shadow: 0 0 20px -2px rgba(0,0,0,0.8); }
+	.column2 .enumeration.cbxl { column-count: 2; -webkit-column-count: 2; -moz-column-count: 2; }
+	.field .repeater.withItems > .repeaterField { display: none; box-shadow: none; }
+	.field .repeater.withItems .repeaterField.selected { display: block; }
+    .field .repeaterItems input { display: block; width: 100%; margin-bottom: 1px; }
+    .field .repeaterItems .selected { background-color: #C90044; color: #FFF; }
+
+	@@media (max-width: 800px ) {
+		.column2 .enumeration.cbxl { column-count: 1; -webkit-column-count: 1; -moz-column-count: 1; }
+	}
+
+    input[data-valid=false] { background-color: #FCC; border-color: #C55; }
+    .validationBox { padding: 5px 10px 5px 5px; font-size: 14px; display: inline-block; }
+    .validationBox:empty { padding: 0; }
+    .validationBox[data-valid=true] { color: #3A3; }
+    .validationBox[data-valid=false] { color: #C33; }
+    span.required { font-size: 14px; font-style: italic; font-weight: normal; color: rgba(225,50,50,0.7); }
+
+    #actionButtons { text-align: right; background-color: #29292A; border-top: 1px solid #484747; padding: 5px; min-height: 40px; position: fixed; bottom: 0; left: 0; right: 0; z-index: 999; box-shadow: 0 4px 15px -2px rgba(0,0,0,0.5); }
+	#footer { padding-bottom: 50px; } /* Compensate for position:fixed */
+	#actionButtons input { min-width: 200px; display: inline-block; vertical-align: top; }
+	#actionButtons #status { display: inline-block; transition: all 0.2s; }
+	#actionButtons #status.idle { font-weight: 100; opacity: 0.5; color: #000; transition: all 5s; }
+	#actionButtons #status.success { font-weight: 700; opacity: 1; color: #1D3; }
+	#actionButtons #status.error { font-weight: 700; opacity: 1; color: #F33; }
+
+	form .subproperties[data-type=duration] table { border-collapse: collapse; }
+    form .subproperties[data-type=duration] table td { padding: 0; border: none; vertical-align: top; }
+    form .subproperties[data-type=duration] table th { font-weight: normal; text-align: left; }
+
+	/* GeoNames Results */
+    .jurisdiction label { display: block; }
+    .jurisdiction label:hover, .jurisdiction label:focus { background-color: rgba(0,0,0,0.1); cursor: pointer; }
+    .jurisdiction i b { display: inline; }
+	.geoCoordinatesSearchResults { padding: 5px; }
+	.geoNameResult { border: 1px solid #CCC; padding: 5px 225px 5px 5px; margin-bottom: 2px; position: relative; min-height: 62px; }
+	.geoNameData {  }
+	.geoNameButton { position: absolute; top: 5px; right: 5px; width: 75px; }
+	.geoNameData .placeName { font-size: 20px; font-weight: bold; }
+	.geoNameData .placeRegion { font-size: 14px; font-style: italic; }
+	.geoNameData .location { position: absolute; top: 5px; right: 85px; text-align: right; color: #999; }
+	.geoNameData .location div { font-size: 14px; }
+	.geoCoordinatesSearchResults .credit { text-align: right; font-size: 12px; opacity: 0.8; }
+    .geoCoordinatesSearchResults .credit a { font-size: inherit; }
+	.geoNameResult a { font-size: inherit; }
+	.geoCoordinatesSelectedResult .geoNameResult { padding-right: 150px; }
+	.geoCoordinatesSelectedResult .geoNameResult .location { right: 5px; }
+	.geoCoordinatesProperties { font-size: 0; }
+	form .geoCoordinatesProperties input[type=text] { display: inline-block; width: calc(100% / 7); }
+
+    /* Micro Search */
+    .microSearch { position: relative; }
+    .microSearch h3 { margin: 10px 0 0 0; padding-right: 125px; }
+    .microSearch .microSearchResetButton { position: absolute; top: 5px; right: 0; width: 120px; }
+    .microSearchStatus { font-size: 14px; text-align: center; padding: 5px; transition: all 0.2s; }
+    .microSearchStatus[data-status=searching] { background-color: rgba(200,200,50,0.2); }
+    .microSearchStatus[data-status=success] { }
+    .microSearchStatus[data-status=error] { background-color: rgba(255,50,50,0.2); padding: 10px; }
+    .microSearchResult { border: 1px solid #CCC; margin: 5px 0; background-color: #FFF; }
+    .microSearchResult .data, .microSearchResult .resultButtons { display: inline-block; vertical-align: top; }
+    .microSearchResult .data { width: calc(100% - 100px); }
+    .microSearchResult .resultButtons { width: 100px; }
+    .microSearchResult .title { background-color: #EEE; padding: 2px 5px; }
+    .microSearchResult .data div { padding: 5px; }
+    .microSearchResult .resultButtons { padding: 5px; }
+    .microSearchResult .resultButtons input { width: 100%; display: block; }
+    .microSearchResult .data .empty { font-style: italic; opacity: 0.7; }
+    .microSearchResult [data-property] { display: none; padding: 2px 5px; }
+    .microSearchResult [data-property=Code] { display: block; }
+    .microSearchPaging { text-align: center; }
+    .microSearchPageButton { min-width: 30px; margin: 1px 0; }
+    .microSearchPageButton.current { background-color: #C90044; color: #FFF; border-color: #A90024; }
+    /*.microSearchSelectedItems, .microSearchResults { padding: 5px; background-color: #F5F5F5; margin-bottom: 10px; }*/
+
+	/* Temporary */
+	#editForm { position: relative; }
+	#identifier { position: absolute; top: 5px; right: 5px; font-style: italic; }
+	#serverMessage { padding: 10px; text-align: center; font-size: 20px; font-weight: bold; border: 1px solid #CCC; background-color: #EEE; }
+	#serverMessage:empty { display: none; }
+
+    /* Tabbed Profiles */
+    .repeaterField.tabbed > .subfield:not(.selected) { display: none; }
+    .repeaterField.tabbed .profileTabs input.selected { background-color: #C90044; color: #FFF; }
+    
+</style>
+
+@if ( ViewData[ "editorTabs" ] != null && ViewData[ "activeSection" ] != null )
+{ //Editor-level tab system
+<script type="text/javascript">
+    //Show active tab
+    $(document).ready(function () {
+        showTab("@ViewData[ "activeSection" ]");
+    });
+
+	//Method to handle tabbed style pseudo-navigation
+	var tabs = @Html.Raw( new System.Web.Script.Serialization.JavaScriptSerializer().Serialize( ViewData[ "editorTabs" ] ) )
+	function showTab(name) {
+		$("#editForm > .field").removeClass("visible");
+		activeSection = name;
+		for(var i in tabs){
+			if(tabs[i].name == name){
+				$("#tabTitle").html(tabs[i].title);
+				for(var j in tabs[i].tabs){
+					$("#editForm > .field[data-property=" + tabs[i].tabs[j] + "]").addClass("visible");
+				}
+				$("#tabs input").removeClass("selected").filter("[data-tabID=" + name + "]").addClass("selected");
+			}
+		}
+	}
+</script>
+<style type="text/css">
+    /* Tab System */
+    #editForm > .field { display: none; }
+    #editForm > .field.visible { display: block; }
+    #tabs, #editForm { display: inline-block; vertical-align: top; }
+    #tabs { width: 200px; }
+    #editForm { width: calc(100% - 200px); padding-left: 10px; }
+    #tabs input { width: 100%; display: block; margin-bottom: 1px; }
+    #tabs input.selected { background-color: #C90044; color: #FFF; border-color: #A90024; }
+    #tabs input[data-hasData=true] { border-right: 15px solid #B7E8F9; }
+    #tabTitle { margin: 0 0 10px 0; padding: 5px; color: #5a7d83; font-size: 1.8em; }
+
+</style>
+}
+
+@if ( AccountServices.IsUserAnAdmin() )
+{
+    <div id="utilityButtons">
+        <input type="button" onclick="testCollector()" title="This button will push every 'add profile' button once and populate randomly-selected fields with sample data appropriate to the field" value="Fill Out Sample Data" />
+        <input type="button" onclick="showCollectedData()" title="This button will gather all data currently in the form and show a sample JSON output" value="Collect and Display Data" />
+        <input type="button" onclick="reloadDataLocal()" title="This button will collect the information, wipe the form, then fill it out again using the information to demonstrate a recursive data reload" value="Collect Data and Reload Form (Local)" />
+        <input type="button" onclick="reloadDataServer()" title="This button will collect the information, send it to the server, wipe the form, then fill it out again using the information retained by the server to demonstrate a recursive data reload" value="Collect Data and Reload Form (Server)" />
+        <input type="button" onclick="resetEverything()" title="This button will wipe the form and the cached data" value="Reset Everything" />
+    </div>
+}
+
+<div id="templates" style="display:none;">
+
+	@* Authentication Profile *@
+	<script type="text/template" id="template_AuthenticationProfile">
+@{
+            if ( qualityAssuranceOrganizationList.Count() == 0 ) {
+                qualityAssuranceOrganizationList = OrganizationServices.Organization_QAOrgs();
+            }
+
+        }
+		<div class="repeaterField" data-field="AuthenticationProfile" data-repeaterID="{id}" data-databaseID="{dbID}">
+			<h3 class="repeaterHeader">Authentication</h3>
+			<div class="subfield">
+                <i>Indicate which organization is responsible for providing the authentication.</i>
+                <select data-property="ProviderId" data-type="select" data-selecttype="number">
+                    <option value="0" data-url="">Select an Organization</option>
+                    @foreach ( var org in qualityAssuranceOrganizationList )
+                    {
+                        <option value="@org.Id" data-url="@org.Url">@org.Name</option>
+                    }
+                </select>
+            </div>
+			<div class="subfield">
+				<i>Indicate the cost of the authentication service.</i>
+                <div class="repeaterItems" data-repeaterid="AuthenticationProfile_EstimatedCost_{id}" data-title="Cost Profile"></div>
+                <div class="repeater withItems" data-property="EstimatedCost" id="AuthenticationProfile_EstimatedCost_{id}" data-profile="CostProfileSplit"></div>
+                <div class="buttons">
+                    <input type="button" onclick="addProfile('CostProfileSplit', 'AuthenticationProfile_EstimatedCost_{id}', null, null, true);" value="Add Cost Description" />
+                </div>
+            </div>
+            <div class="subfield">
+				<label><input type="checkbox" data-property="HolderMustAuthorize" value="HolderMustAuthorize" /> Credential holder must authorize this organization to perform the service on their behalf.</label>
+			</div>
+			@Html.Partial( "~/Views/Shared/Management/_BaseProfileEditor.cshtml", "Describe the service." )
+			<input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'AuthenticationProfile');" />
+		</div>
+	</script>
+
+    @* Cost Profile - Split Version *@
+    <script type="text/template" id="template_CostProfileSplit">
+        <div class="repeaterField" data-field="EstimatedCost" data-repeaterid="{id}" data-databaseid="{dbID}">
+            <h3 class="repeaterHeader">Cost</h3>
+            <div class="subfield">
+                <i>Give this cost a meaningful name that will help you identify it later. <span class="required">(Required)</span></i>
+                <input type="text" data-property="ProfileName" data-type="text" placeholder="Profile Name" data-required="true" data-minlength="5" />
+            </div>
+            <div class="subfield">
+                <i>Briefly summarize this information.</i>
+                <textarea data-property="Description" data-type="text"></textarea>
+            </div>
+            <div class="subfield">
+                <i>Indicate the date this item's information first became effective, published, or applicable.</i>
+                <input type="text" data-property="DateEffective" data-type="date" placeholder="MM/DD/YYYY" />
+            </div>
+            <div class="subfield">
+                <i>Provide the date upon which this set of costs expires.</i>
+                <input type="text" data-property="ExpirationDate" data-type="date" placeholder="MM/DD/YYYY" />
+            </div>
+            <div class="subfield">
+                <i>Provide a URL to a page that describes these costs in detail.</i>
+                <input type="text" data-property="DetailsUrl" data-type="url" placeholder="http://" />
+            </div>
+            @*<div class="subfield">
+                <i>Indicate what type of currency is used by the cost items below. <a href="https://en.wikipedia.org/wiki/ISO_4217" target="_blank">Use ISO standards</a> (e.g., "USD" instead of "$" or "dollars" ).</i>
+                <input type="text" data-property="Currency" data-type="text" placeholder="Indicate the currency" />
+            </div>*@
+            <div class="subfield">
+                <i>Indicate what type of currency is used by the cost items below. <a href="https://en.wikipedia.org/wiki/ISO_4217" target="_blank">Use ISO standards</a>.<span class="required">(Required)</span></i>
+                @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetCurrencies( EnumerationType.SINGLE_SELECT_ID_ONLY ), new ViewDataDictionary() { { "property", "CurrencyTypeId" } } )
+            </div>
+            @*@Html.Partial( "~/Views/Shared/Management/_BaseProfileEditor.cshtml", "" )*@
+            <div class="subfield repeating" data-property="Jurisdiction">
+                <i>Indicate the region for which the information in this item is relevant.</i>
+                <div class="repeaterItems" data-repeaterid="Jurisdiction_{id}" data-title="Jurisdiction"></div>
+                <div class="repeater withItems" data-property="Jurisdiction" id="Jurisdiction_{id}" data-profile="JurisdictionProfile"></div>
+                <div class="buttons">
+                    <input type="button" onclick="addProfile('JurisdictionProfile', 'Jurisdiction_{id}');" value="Add A Jurisdiction" />
+                </div>
+            </div>
+            <div class="subfield repeating" data-property="Items">
+                <i>List and describe the costs.</i>
+                <div class="repeaterItems" data-repeaterid="CostProfileSplit_{id}" data-title="Cost Item"></div>
+                <div class="repeater withItems" data-property="Items" id="CostProfileSplit_{id}" data-profile="CostProfileItem"></div>
+                <div class="buttons">
+                    <input type="button" onclick="addProfile('CostProfileItem', 'CostProfileSplit_{id}', null, null, true);" value="Add Cost Item" />
+                </div>
+            </div>
+            <input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'CostProfileSplit');" />
+        </div>
+    </script>
+
+    @* Cost Profile Item *@
+    <script type="text/template" id="template_CostProfileItem">
+        @{
+            if ( allOrganizationsList.Count() == 0 ) {
+                allOrganizationsList = OrganizationServices.Agent_Search();
+            }
+        }
+        <div class="repeaterField" data-field="CostProfileItem" data-repeaterid="{id}" data-databaseid="{dbID}">
+            <h3 class="repeaterHeader">Cost Item<span class="required">(Required)</span></h3>
+            <div class="subfield">
+                <i>Give this cost item a meaningful name that will help you identify it later.</i>
+                <input type="text" data-property="ProfileName" data-type="text" placeholder="Profile Name" data-required="true" data-minlength="3" />
+            </div>
+            <div class="subfield">
+                <i>Select the type of cost to describe.</i>
+                @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetEnumeration( "costType", EnumerationType.SINGLE_SELECT_ID_ONLY ), new ViewDataDictionary() { { "property", "CostTypeId" } } )
+                <input type="text" data-property="CostTypeOther" data-type="text" placeholder="If you selected &quot;other&quot;, explain here." />
+            </div>
+            <div class="subfield">
+                <i>Select the residency type to which this cost applies. </i>
+                @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetEnumeration( "residencyType", EnumerationType.MULTI_SELECT ) )
+                <input type="text" data-property="OtherResidencyType" data-type="text" placeholder="If you selected &quot;other&quot;, explain here." />
+            </div>
+            <div class="subfield">
+                <i>Select the enrollment type to which this cost applies.</i>
+                @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetEnumeration( "enrollmentType", EnumerationType.MULTI_SELECT ) )
+                <input type="text" data-property="OtherEnrollmentType" data-type="text" placeholder="If you selected &quot;other&quot;, explain here." />
+            </div>
+            <div class="subfield">
+                <i>Select the type of audience to which this cost applies.</i>
+                @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetEnumeration( "applicableAudienceType", EnumerationType.MULTI_SELECT ) )
+                <input type="text" data-property="OtherApplicableAudienceType" data-type="text" placeholder="If you selected &quot;other&quot;, explain here." />
+            </div>
+            <div class="subfield">
+                <i>Provide the cost for the type involved.</i>
+                <input type="text" data-property="Price" data-type="number" placeholder="Cost" />
+            </div>
+            <div class="subfield">
+                <i>Describe the nature of the payments that would be made for this cost.</i>
+                <textarea data-property="PaymentPattern" data-type="text"></textarea>
+            </div>
+            <div class="subfield">
+                <i>Describe any other relevant information about this cost.</i>
+                <textarea data-property="Description" data-type="text"></textarea>
+            </div>
+            <div class="subfield">
+                <i>Indicate which organization would be receiving the payments for this cost item.</i>
+                <select data-property="PayeeUid" data-type="select" data-selecttype="text">
+                    <option value="0" data-url="">Select an Organization</option>
+                    @foreach ( var org in allOrganizationsList )
+                    {
+                        <option value="@org.RowId" data-url="@org.Url">@org.Name</option>
+                    }
+                </select>
+            </div>
+            <input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'CostProfileItem');" />
+        </div>
+    </script>
+
+	@* Credential Alignment Object *@
+	<script type="text/template" id="template_CredentialAlignmentObject">
+		<div class="repeaterField" data-field="CredentialAlignmentObjectProfile" data-repeaterID="{id}" data-databaseID="{dbID}">
+			<h3 class="repeaterHeader">Credential Alignment</h3>
+			<div class="subfield">
+				<i>Provide the URL to the item.</i>
+				<input type="text" data-property="TargetUrl" data-type="url" placeholder="http://" />
+			</div>
+			<div class="subfield">
+				<i>Provide the Name and Description of the item.</i>
+				<input type="text" data-property="Name" data-type="text" placeholder="Name" />
+				<textarea data-property="TargetDescription" data-type="text" placeholder="Description"></textarea>
+			</div>
+			<div class="subfield">
+				<i>If the item is part of a larger framework, provide the URL to the framework here.</i>
+				<input type="text" data-property="EducationalFramework" data-type="text" placeholder="http://" />
+			</div>
+			<div class="subfield">
+				<i>Provide the URL to the organization that asserted this information and the date of the assertion.</i>
+				<input type="text" data-property="AssertedBy" data-type="url" placeholder="http://" />
+				<input type="text" data-property="AlignmentDate" data-type="date" placeholder="MM/DD/YYYY" />
+			</div>
+			<input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'CredentialAlignmentObjectProfile');" />
+		</div>
+	</script>
+
+	@* Duration Profile *@
+	<script type="text/template" id="template_DurationProfile">
+		<div class="repeaterField hasInfo" data-field="DurationProfile" data-repeaterID="{id}" data-databaseID="{dbID}">
+			<h3 class="repeaterHeader">Duration</h3>
+			<div class="subfield">
+				<i>If you know the exact duration, provide it here.</i>
+				@Html.Partial( "~/Views/Shared/Management/_DurationEditor.cshtml", "ExactDuration" )
+			</div>
+			<div class="subfield">
+				<i>Otherwise, provide the minimum and maximum reasonable durations.</i>
+				@Html.Partial( "~/Views/Shared/Management/_DurationEditor.cshtml", "MinimumDuration" )
+				@Html.Partial( "~/Views/Shared/Management/_DurationEditor.cshtml", "MaximumDuration" )
+			</div>
+			<div class="subfield">
+				<i>If there are any particular conditions under which this information applies, indicate it here.</i>
+				<textarea data-property="Conditions" data-type="text"></textarea>
+			</div>
+			<input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'DurationProfile');" />
+		</div>
+	</script>
+
+	@* Organization Role Profile *@
+	<script type="text/template" id="template_OrganizationRoleProfile">
+        @{
+            if ( allOrganizationsList.Count() == 0 ) {
+                allOrganizationsList = OrganizationServices.Agent_Search();
+            }
+        }
+		<div class="repeaterField" data-property="OrganizationRole" data-repeaterID="{id}" data-databaseID="{dbID}">
+			<h3 class="repeaterHeader">Organization Role</h3>
+			
+			<div class="subfield column2">
+				<i>Select the type of relationship this organization has to the target.</i>
+				@Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetAllAgentRoles( EnumerationType.MULTI_SELECT ))
+			</div>
+            <div class="subfield column2">
+                <i>Select the target organization that plays the role:</i>
+                <select data-property="ActingAgentId" data-type="select" data-selecttype="number">
+                    <option value="0" data-url="">Select an Organization</option>
+
+                    @foreach ( var org in allOrganizationsList )
+			        {
+                        <option value="@org.Id" data-url="@org.Url">@org.Name</option>
+			        }
+                </select>
+            </div>
+			<input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'OrganizationRole');" />
+		</div>
+	</script>
+
+    @* Organization Role to Role Inverse Profile *@
+    <script type="text/template" id="template_AgentRoleProfileInverse">
+        @{
+            if ( allOrganizationsList.Count() == 0 ) {
+                allOrganizationsList = OrganizationServices.Agent_Search();
+            }
+        }
+        <div class="repeaterField" data-property="OrganizationRole" data-repeaterid="{id}" data-databaseid="{dbID}">
+            <h3 class="repeaterHeader">Organization Role</h3>
+
+            <div class="subfield column2 " data-property="AgentRole">
+                <i>Select the type of relationship the selected organization has to the item (GetAllAgentReverseRoles).</i>
+                @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetAllAgentReverseRoles( EnumerationType.MULTI_SELECT ))
+            </div>
+            @*<div class="subfield">
+                    <i>Select the type of relationship the selected organization has to the item.</i>
+                    @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetCredentialAgentRoles( EnumerationType.SINGLE_SELECT_ID_ONLY ), new ViewDataDictionary() {{"property","RoleTypeId"} } )
+                </div>*@
+            <div class="subfield">
+                <i>Select the organization that plays the role:</i>
+                <select data-property="ActingAgentId" data-type="select" data-selecttype="number">
+                    <option value="0" data-url="">Select an Organization</option>
+
+                    @foreach ( var org in allOrganizationsList )
+			        {
+                        <option value="@org.Id" data-url="@org.Url">@org.Name</option>
+			        }
+                </select>
+
+            </div>
+            <input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'OrganizationRole');" />
+        </div>
+    </script>
+
+	@* Organization Role Profile (Inverse) *@
+	<script type="text/template" id="template_OrganizationRoleProfileInverse">
+        @{
+            if ( allOrganizationsList.Count() == 0 ) {
+                allOrganizationsList = OrganizationServices.Agent_Search();
+            }
+        }
+		<div class="repeaterField" data-property="OrganizationRole" data-repeaterID="{id}" data-databaseID="{dbID}">
+			<h3 class="repeaterHeader">Organization Role</h3>
+			
+            <div class="subfield column2 " data-property="AgentRole">
+                <i>Select the type of relationship the selected organization has to the item (GetCredentialAgentRoles).</i>
+                @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetCredentialAgentRoles( EnumerationType.MULTI_SELECT ))
+            </div>
+            @*<div class="subfield">
+                <i>Select the type of relationship the selected organization has to the item.</i>
+                @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetCredentialAgentRoles( EnumerationType.SINGLE_SELECT_ID_ONLY ), new ViewDataDictionary() {{"property","RoleTypeId"} } )
+            </div>*@
+            <div class="subfield">
+                <i>Select the organization that plays the role:</i>
+                <select data-property="ActingAgentId" data-type="select" data-selecttype="number">
+                    <option value="0" data-url="">Select an Organization</option>
+
+                    @foreach ( var org in allOrganizationsList )
+			        {
+                        <option value="@org.Id" data-url="@org.Url">@org.Name</option>
+			        }
+                </select>
+
+            </div>
+			<input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'OrganizationRole');" />
+		</div>
+	</script>
+
+    @* Quality Assurance Action Profile (Inverse) *@
+    <script type="text/template" id="template_QualityAssuranceActionProfileInverse">
+        @{
+            if ( qualityAssuranceOrganizationList.Count() == 0 ) {
+                qualityAssuranceOrganizationList = OrganizationServices.Organization_QAOrgs();
+            }
+        }
+        <div class="repeaterField" data-property="QualityAssuranceAction" data-repeaterid="{id}" data-databaseid="{dbID}">
+            <h3 class="repeaterHeader">Quality Assurance Action</h3>
+            <div class="subfield">
+                <i>Select the organization that issued the quality assurance:</i>
+                <select data-property="ActingAgentId" data-type="select" data-selecttype="number">
+                    <option value="0" data-url="">Select an Organization</option>
+                    @foreach ( var org in qualityAssuranceOrganizationList )
+                    {
+                        <option value="@org.Id" data-url="@org.Url">@org.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="subfield">
+                <i>Select the type of quality assurance action.</i>
+                @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetCredentialAgentQAActions( EnumerationType.SINGLE_SELECT_ID_ONLY ), new ViewDataDictionary() { { "property", "RoleTypeId" } } )
+
+            </div>
+            <div class="subfield">
+                <i>Select the quality assurance that was issued.</i>
+                <select data-property="IssuedCredentialId" data-type="select" data-selecttype="number">
+                    <option value="0" data-url="">Select a Credential</option>
+                    @foreach ( var cred in CredentialServices.QACredentialsSearch() )
+                    {
+                        <option value="@cred.Id" data-url="@cred.Url">@cred.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="subfield">
+                <i>Provide the start and end dates for the validity of this quality assurance.</i>
+                <input type="text" data-property="StartDate" data-type="date" placeholder="Start Date (MM/DD/YYYY)" />
+                <input type="text" data-property="EndDate" data-type="date" placeholder="End Date (MM/DD/YYYY)" />
+            </div>
+            <div class="description">
+                <i>Briefly summarize this quality assurance.</i>
+                <textarea data-property="Description" data-type="text"></textarea>
+            </div>
+            <input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'QualityAssuranceAction');" />
+            </div>
+	</script>
+    @* Entity to agent Role Profile (Inverse) *@
+    <script type="text/template" id="template_EntityRoleProfileInverse">
+    @{
+            if ( allOrganizationsList.Count() == 0 ) {
+                allOrganizationsList = OrganizationServices.Agent_Search();
+            }
+        }
+        <div class="repeaterField" data-property="OrganizationRole" data-repeaterid="{id}" data-databaseid="{dbID}">
+            <h3 class="repeaterHeader">Organization Role</h3>
+            <div class="subfield">
+                <i>Select the organization that plays the role:</i>
+                <select data-property="ActingAgentUid" data-type="select" data-selecttype="text">
+                    <option value="" data-url="">Select an Organization</option>
+
+                    @foreach ( var org in allOrganizationsList )
+                    {
+                        <option value="@org.RowId" data-url="@org.Url">@org.Name</option>
+                    }
+                </select>
+
+            </div>
+            <div class="subfield">
+                <i>Select the type of relationship the selected organization has to the item.</i>
+                @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetCredentialAgentRoles( EnumerationType.SINGLE_SELECT_ID_ONLY ), new ViewDataDictionary() { { "property", "RoleTypeId" } } )
+            </div>
+            <div class="subfield" style="display:none">
+                <i>Provide the URL related to this relationship.</i>
+                <input type="text" data-property="URL" data-type="url" placeholder="http://" />
+            </div>
+            <div class="subfield" style="display:none">
+                <i>Describe any other relevant information about this role.</i>
+                <textarea data-property="Description" data-type="text"></textarea>
+            </div>
+            <input type="button" class="repeaterRemover redButton" value="Delete" onclick="removeProfile({id},{dbID},'OrganizationRole');" />
+        </div>
+    </script>
+
+    @* agent to department Profile (Inverse) *@
+    <script type="text/template" id="template_AgentDeptProfileInverse">
+        @{
+            if ( allOrganizationsList.Count() == 0 )
+            {
+                allOrganizationsList = OrganizationServices.Agent_Search();
+            }
+        }
+        <div class="repeaterField" data-property="OrganizationDept" data-repeaterid="{id}" data-databaseid="{dbID}">
+            <h3 class="repeaterHeader">Organization Department</h3>
+            <div class="subfield">
+                <i>Select the organization that is a department for this organization:</i>
+                <select data-property="ActingAgentUid" data-type="select" data-selecttype="text">
+                    <option value="" data-url="">Select an Organization</option>
+                    @foreach ( var org in allOrganizationsList )
+                    {
+                        <option value="@org.RowId" data-url="@org.Url">@org.Name</option>
+                    }
+                </select>
+           
+            </div>
+            <br /><a href="@Url.Content( "~/OrganizationManagement/Edit" )" class="linkButton" target="ctiLOpp">Create a new Department.</a>
+            <input type="button" class="repeaterRemover redButton" value="Delete" onclick="removeProfile({id},{dbID},'OrganizationDept');" />
+        </div>
+    </script>
+    @* agent to subsiduary Role Profile (Inverse) *@
+    <script type="text/template" id="template_AgentSubsiduaryProfileInverse">
+        @{
+            if ( allOrganizationsList.Count() == 0 )
+            {
+                allOrganizationsList = OrganizationServices.Agent_Search();
+            }
+        }
+        <div class="repeaterField" data-property="OrganizationSubsiduary" data-repeaterid="{id}" data-databaseid="{dbID}">
+            <h3 class="repeaterHeader">Organization Subsiduary</h3>
+            <div class="subfield">
+                <i>Select the organization that is a subsiduary of this organization:</i>
+                <select data-property="ActingAgentUid" data-type="select" data-selecttype="text">
+                    <option value="" data-url="">Select an Organization</option>
+                    @foreach ( var org in allOrganizationsList )
+                    {
+                        <option value="@org.RowId" data-url="@org.Url">@org.Name</option>
+                    }
+                </select>
+            </div>
+            <br /><a href="@Url.Content( "~/OrganizationManagement/Edit" )" class="linkButton" target="ctiLOpp">Create a new Subsiduary.</a>
+            <input type="button" class="repeaterRemover redButton" value="Delete" onclick="removeProfile({id},{dbID},'OrganizationSubsiduary');" />
+        </div>
+    </script>
+
+	@* Process Profile *@
+	<script type="text/template" id="template_ProcessProfile">
+		<div class="repeaterField" data-field="ProcessProfile" data-repeaterID="{id}" data-databaseID="{dbID}">
+			<h3 class="repeaterHeader">Process</h3>
+			<div class="subfield">
+				<i>Select the Organization that performs the process.</i>
+                <select data-property="ProcessingAgentId" data-type="select" data-selecttype="number">
+                    <option value="0" data-url="">Select an Organization</option>
+                    @foreach ( var org in allOrganizationsList )
+                    {
+                        <option value="@org.Id" data-url="@org.Url">@org.Name</option>
+                    }
+                </select>
+			</div>
+			<div class="subfield">
+				<i>Select the type of process being described.</i>
+				@Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetSampleEnumeration( "processProfile_processType", "ProcessType", EnumerationType.SINGLE_SELECT ) )
+			</div>
+			<div class="subfield column2">
+				<i>Select the type(s) of external stakeholders that provide input into the process. Check all that apply.</i>
+				@Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetSampleEnumeration( "processProfile_externalInput", "ExternalInput", EnumerationType.MULTI_SELECT ) )
+				<input type="text" data-property="ExternalInput" data-type="other" placeholder="If you selected &quot;other&quot;, explain here." />
+			</div>
+			<div class="subfield">
+				<i>Select the method(s) used by the process. Check all that apply.</i>
+				@Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetSampleEnumeration( "processProfile_processMethod", "ProcessMethod", EnumerationType.MULTI_SELECT ) )
+				<input type="text" data-property="ProcessMethod" data-type="other" placeholder="If you selected &quot;other&quot;, explain here." />
+			</div>
+			<div class="subfield">
+				<i>Enter the URL of a page that further describes any quality criteria, standards, and/or requirements.</i>
+				<input type="text" data-property="ProcessCriteriaUrl" data-type="url" placeholder="http://" />
+			</div>
+			<div class="subfield">
+				<i>Enter the URL of the item in the context of which this process occurs.</i>
+				<input type="text" data-property="ProcessContextUrl" data-type="url" placeholder="http://" />
+			</div>
+			<div class="subfield">
+				<i>Indicate how often this process recurrs.</i>
+				<input type="text" data-property="ProcessFrequency" data-type="text" />
+			</div>
+			@Html.Partial( "~/Views/Shared/Management/_BaseProfileEditor.cshtml", "Summarize the process." )
+			<input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'ProcessProfile');" />
+		</div>
+	</script>
+
+	@* Earnings Profile *@
+	<script type="text/template" id="template_EarningsProfile">
+		<div class="repeaterField" data-field="EarningsProfile" data-repeaterID="{id}" data-databaseID="{dbID}">
+			<h3 class="repeaterHeader">Earnings</h3>
+			<div class="subfield">
+				<i>Provide the lower 25%, median, and upper 25% annual earnings in US dollars for this credential for the described region.</i>
+				<input type="text" data-property="LowEarnings" data-type="number" placeholder="Lower 25% earnings" />
+				<input type="text" data-property="MedianEarnings" data-type="number" placeholder="Median earnings" />
+				<input type="text" data-property="HighEarnings" data-type="number" placeholder="Upper 25% earnings" />
+			</div>
+			<div class="subfield">
+				<i>Indicate how many months after receiving the credential this information was collected from its holders.</i>
+				<input type="text" data-property="PostReceiptMonths" data-type="number" />
+			</div>
+			<div class="subfield">
+				<i>Provide the source of this information.</i>
+				<input type="text" data-property="SourceUrl" data-type="url" placeholder="http://" />
+			</div>
+			@Html.Partial( "~/Views/Shared/Management/_BaseProfileEditor.cshtml", "" )
+			<input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'EarningsProfile');" />
+		</div>
+	</script>
+
+	@* Employment Outcome Profile *@
+	<script type="text/template" id="template_EmploymentOutcomeProfile">
+		<div class="repeaterField" data-field="EmploymentOutcomeProfile" data-repeaterID="{id}" data-databaseID="{dbID}">
+			<h3 class="repeaterHeader">Employment Outcome</h3>
+			<div class="subfield">
+				<i>Indicate how many jobs were obtained in the described region.</i>
+				<input type="text" data-property="JobsObtained" data-type="number" />
+			</div>
+			@Html.Partial( "~/Views/Shared/Management/_BaseProfileEditor.cshtml", "" )
+			<input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'EmploymentOutcomeProfile');" />
+		</div>
+	</script>
+
+	@* Holder Profile *@
+	<script type="text/template" id="template_HoldersProfile">
+		<div class="repeaterField" data-field="HoldersProfile" data-repeaterID="{id}" data-databaseID="{dbID}">
+			<h3 class="repeaterHeader">Holder</h3>
+			<div class="subfield">
+				<i>Indicate the number of people to whom this credential was awarded.</i>
+				<input type="text" data-property="NumberAwarded" data-type="number" />
+			</div>
+			<div class="subfield">
+				<i>Indicate any known demographic information about the people described by this item's information.</i>
+				<input type="text" data-property="DemographicInformation" data-type="text" />
+			</div>
+			<div class="subfield">
+				<i>Provide the source of this information.</i>
+				<input type="text" data-property="SourceUrl" data-type="url" placeholder="http://" />
+			</div>
+			@Html.Partial( "~/Views/Shared/Management/_BaseProfileEditor.cshtml", "" )
+			<input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'HoldersProfile');" />
+		</div>
+	</script>
+	
+    @* GeoCoordinates *@
+    @*
+    <script type="text/template" id="template_GeoCoordinates">
+        <div class="repeaterField geoNamesSearch" data-field="GeoCoordinates" data-repeaterID="{id}" data-databaseID="{dbID}">
+            <h3 class="repeaterHeader">Region</h3>
+            <input type="text" class="geoCoordinatesSearchBox" data-repeaterID="{id}" placeholder="Type to Search..." />
+            <div class="geoCoordinatesSelectedResult" data-repeaterid="{id}"></div>
+            <div class="geoCoordinatesSearchResults" data-repeaterid="{id}"></div>
+            <div class="subfield geoCoordinatesProperties" data-repeaterid="{id}">
+                <input type="text" data-property="GeoNamesId" data-type="number" placeholder="GeoNames ID" readonly="readonly" />
+                <input type="text" data-property="Name" data-type="text" placeholder="Region name" readonly="readonly" />
+                <input type="text" data-property="State" data-type="text" placeholder="State" readonly="readonly" />
+                <input type="text" data-property="Country" data-type="text" placeholder="Country" readonly="readonly" />
+                <input type="text" data-property="Url" data-type="url" placeholder="http://" readonly="readonly" />
+                <input type="text" data-property="Latitude" data-type="number" placeholder="Latitude" readonly="readonly" />
+                <input type="text" data-property="Longitude" data-type="number" placeholder="Longitude" readonly="readonly" />
+            </div>
+            <input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'GeoCoordinates');" />
+        </div>
+    </script>
+    *@
+
+	@* Revocation Profile *@
+	<script type="text/template" id="template_RevocationProfile">
+		<div class="repeaterField" data-field="RevocationProfile" data-repeaterID="{id}" data-databaseID="{dbID}">
+			<h3 class="repeaterHeader">Credential Revocation</h3>
+            <div class="subfield">
+                <i>Indicate the name of profile. <span class="required">(Required)</span></i>
+                <input type="text" data-property="ProfileName" data-type="text" data-required="true" data-minlength="3" placeholder="Profile Name" />
+            </div>
+			<div class="subfield">
+				<i>Select criteria for removing a credential from its holder. Check all that apply or enter Other Criteria<span class="required">(Required)</span></i>
+                    @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetEnumeration( "revocationCriteriaType", EnumerationType.MULTI_SELECT ) )
+                    <i>Other Criteria</i>
+                <input type="text" data-property="OtherRevocationCriteriaType" data-type="other" placeholder="If there are other criteria, explain here." />
+			</div>
+               
+			<div class="subfield">
+                <i>Identify more specific conditions for removal.</i>
+                <textarea data-property="Description" data-type="text"></textarea>
+            </div>
+            <div class="subfield">
+                <i>Date of removal policy.</i>
+                <input type="text" data-property="RemovalDateEffective" data-type="date" placeholder="MM/DD/YYYY" />
+            </div>
+            <div class="subfield">
+                <i>Date of renewal policy.</i>
+                <input type="text" data-property="RenewalDateEffective" data-type="date" placeholder="MM/DD/YYYY" />
+            </div>
+            <div class="subfield repeating" data-property="RevocationResourceUrl">
+                <i>Provide links to any noteworthy resources .</i>
+                <div class="repeaterItems" data-repeaterid="RevocationResourceUrl_{id}" data-title="Resource URL"></div>
+                <div class="repeater withItems" data-property="RevocationResourceUrl" id="RevocationResourceUrl_{id}" data-profile="UrlProfile"></div>
+                <div class="buttons">
+                    <input type="button" onclick="addProfile('UrlProfile', 'RevocationResourceUrl_{id}');" value="Add Resource URL" />
+                </div>
+            </div>
+            <div class="subfield repeating" data-property="Jurisdiction">
+                <i>Indicate the region for which the information in this item is relevant.</i>
+                <div class="repeaterItems" data-repeaterid="Jurisdiction_{id}" data-title="Jurisdiction"></div>
+                <div class="repeater withItems" data-property="Jurisdiction" id="Jurisdiction_{id}" data-profile="JurisdictionProfile"></div>
+                <div class="buttons">
+                    <input type="button" onclick="addProfile('JurisdictionProfile', 'Jurisdiction_{id}');" value="Add A Jurisdiction" />
+                </div>
+			</div>
+			<input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'RevocationProfile');" />
+		</div>
+	</script>
+
+    @* Social Media Profile *@
+    <script type="text/template" id="template_SocialMediaProfile">
+        <div class="repeaterField" data-field="SocialMediaProfile" data-repeaterID="{id}" data-databaseID="{dbID}">
+            <h3 class="repeaterHeader">Social Media</h3>
+            <div class="subfield">
+                <i>Provide a link to a social media page (e.g., http://www.facebook.com/credtransparency )</i>
+                <input type="text" data-property="TextValue" data-type="url" placeholder="http://" />
+            </div>
+            <input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'SocialMediaProfile');" />
+        </div>
+    </script>
+
+    @* URL Profile *@
+    <script type="text/template" id="template_UrlProfile">
+        <div class="repeaterField" data-field="UrlProfile" data-repeaterID="{id}" data-databaseID="{dbID}">
+            <h3 class="repeaterHeader">URLs</h3>
+            <div class="subfield">
+                <i>Provide a name for the item and the URL to it.</i>
+                <input type="text" data-property="TextTitle" data-type="text" placeholder="Title" />
+                <input type="text" data-property="TextValue" data-type="url" placeholder="http://" />
+            </div>
+            <input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'UrlProfile');" />
+        </div>
+    </script>
+
+	@* Condition Profile *@
+	<script type="text/template" id="template_ConditionProfile">
+        @{
+            if ( allOrganizationsList.Count() == 0 ) {
+                allOrganizationsList = OrganizationServices.Agent_Search();
+            }
+        }
+		<div class="repeaterField tabbed" data-field="ConditionProfile" data-repeaterID="{id}" data-databaseID="{dbID}">
+			<h3 class="repeaterHeader">Conditions</h3>
+            <div class="profileTabs">
+                <input type="button" value="Basic Info" onclick="showProfileTab({id}, ['ProfileName','AssertedByAgentUid','Experience','MinimumAge','OtherAudienceType','RequiredCredential','RequiredCredentialUrl','ReferenceUrl','OtherCredentialType','DateEffective','Description','Jurisdiction','ResidentOf'], this);" />
+                <input type="button" value="Assessments" onclick="showProfileTab({id}, ['TargetAssessment'], this);" />
+                <input type="button" value="Learning Opportunities" onclick="showProfileTab({id}, ['TargetLearningOpportunity'], this);" />
+                <input type="button" value="Competencies" onclick="showProfileTab({id}, ['RequiredCompetency'], this);" />
+                <input type="button" value="Tasks" onclick="showProfileTab({id}, ['TargetTask'], this);" />
+            </div>
+            <div class="subfield">
+                <i>Indicate the name of profile. <span class="required">(Required)</span></i>
+                <input type="text" data-property="ProfileName" data-type="text" data-required="true" data-minlength="3" placeholder="Profile Name" />
+            </div>
+            <div class="subfield">
+                <i>Indicate the organization that is providing the information about these conditions.</i>
+                <select data-property="AssertedByAgentUid" data-type="select" data-selecttype="text">
+                    <option value="0" data-url="">Select an Organization</option>
+                    @foreach ( var org in allOrganizationsList )
+                    {
+                        <option value="@org.RowId" data-url="@org.Url">@org.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="subfield">
+                <i>List any equivalent work, educational, and/or experiential experience someone must have to meet this condition's criteria.</i>
+                <textarea data-property="Experience" data-type="text"></textarea>
+            </div>
+			<div class="subfield">
+				<i>If applicable, indicate the minimum age someone must be to meet this condition's criteria.</i>
+				<input type="text" data-property="MinimumAge" data-type="number" placeholder="Minimum Age (in years)" />
+			</div>
+            <div class="subfield column2">
+                <i>Indicate the types of audience that are eligible for these requirements.</i>
+                @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetEnumeration( "applicableAudienceType") )
+                <input type="text" data-property="OtherAudienceType" data-type="text" placeholder="If you selected &quot;other&quot;, explain here." />
+            </div>
+			<div class="subfield" style="display:none;">
+                <i>Provide the URLs of any credentials someone must have in order to meet this condition's criteria. (One URL per line).</i>
+                <textarea data-property="RequiredCredential" data-type="multi"></textarea>
+			</div>
+            <div class="subfield repeating" data-property="RequiredCredentialUrl">
+                <i>Provide the URLs of any credentials someone must have in order to meet this condition's criteria. (One URL per line).</i>
+                <div class="repeaterItems" data-repeaterid="RequiredCredentialUrl_{id}" data-title="Required Credential URL"></div>
+                <div class="repeater withItems" data-property="RequiredCredentialUrl" id="RequiredCredentialUrl_{id}" data-profile="UrlProfile"></div>
+                <div class="buttons">
+                    <input type="button" onclick="addProfile('UrlProfile', 'RequiredCredentialUrl_{id}');" value="Add Required Credential URL" />
+                </div>
+            </div>
+            <div class="subfield repeating" data-property="ReferenceUrl">
+                <i>Provide links to any noteworthy or important resources for this profile.</i>
+                <div class="repeaterItems" data-repeaterid="ReferenceUrl_{id}" data-title="Resource URL"></div>                
+                <div class="repeater withItems" data-property="ReferenceUrl" id="ReferenceUrl_{id}" data-profile="UrlProfile"></div>
+                <div class="buttons">
+                    <input type="button" onclick="addProfile('UrlProfile', 'ReferenceUrl_{id}');" value="Add Resource URL" />
+                </div>
+            </div>
+            <div class="subfield column2">
+                <i>If you are referencing a type of credential rather than a specific credential, select the type(s) here. Check all that apply.</i>
+               @Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetCredentialType( EnumerationType.MULTI_SELECT ) )
+                <input type="text" data-property="OtherCredentialType" data-type="text" placeholder="If you selected &quot;other&quot;, explain here." />
+            </div>
+            @Html.Partial( "~/Views/Shared/Management/_BaseProfileEditor.cshtml", "Summarize any other relevant information." )
+			@*<div class="subfield">
+				<i>Indicate the place(s) that someone must be a resident of in order to meet this condition's criteria.</i>
+                <div class="repeaterItems" data-repeaterid="ConditionProfile_Region_{id}" data-title="Region"></div>
+                <div class="repeater withItems" data-property="ResidentOf" id="ConditionProfile_Region_{id}" data-profile="GeoCoordinates"></div>
+                <div class="buttons">
+                    <input type="button" onclick="addProfile('GeoCoordinates', 'ConditionProfile_Region_{id}');" value="Add Another Region" />
+                </div>
+			</div>*@
+            <div class="subfield repeating" data-property="ResidentOf">
+                <i>Indicate the place(s) that someone must be a resident of in order to meet this condition's criteria.</i>
+                <input type="text" data-property="ParentType" data-type="text" value="conditionprofile" style="display:none;" />
+                <div class="repeaterItems" data-repeaterid="ConditionProfile_ResidentOf_{id}" data-title="Residency"></div>
+                <div class="repeater withItems" data-property="ResidentOf" id="ConditionProfile_ResidentOf_{id}" data-profile="JurisdictionProfile"></div>
+                <div class="buttons">
+                    <input type="button" onclick="addProfile('JurisdictionProfile', 'ConditionProfile_ResidentOf_{id}', null, null, true);" value="Add A Residency Condition" />
+                </div>
+            </div>
+			<div class="subfield repeating">
+				<i>Describe any competencies someone must have in order to meet this condition's criteria.</i>
+   
+                    <div class="repeaterItems" data-repeaterid="ConditionProfile_TargetCompetency_{id}" data-title="Competency"></div>
+                    <div class="repeater withItems" data-property="RequiredCompetency" id="ConditionProfile_TargetCompetency_{id}" data-profile="Enumeration"></div>
+                @*@{  var listItems = new Dictionary<string, string>();
+                  listItems.Add( "0", "Select a Competency Framework" );
+                  var codes = EnumerationServices.CompetencyFrameworks();
+                  foreach ( var item in codes.Items )
+                  {
+                      listItems.Add( item.Id.ToString(), item.Name );
+                  }
+                }*@
+                    <div class="buttons">
+                        <input type="button" onclick="addProfile('Enumeration', 'ConditionProfile_TargetCompetency_{id}', null, null, true);" value="Add Competency" />
+                    </div>
+               
+			</div>
+			@*<div class="subfield repeating">
+				<i>Describe any assessments someone must pass in order to meet this condition's criteria. Only include assessments that are not included in another item (such as a learning opportunity).</i>
+                <div class="repeaterItems" data-repeaterid="ConditionProfile_TargetAssessment_{id}" data-title="Assessment"></div>
+                <div class="repeater withItems" data-property="TargetAssessment" id="ConditionProfile_TargetAssessment_{id}" data-profile="AssessmentProfile"></div>
+				<div class="buttons">
+                    <input type="button" onclick="addProfile('AssessmentProfile', 'ConditionProfile_TargetAssessment_{id}');" value="Add Assessment" />
+				</div>
+			</div>*@
+            <div class="subfield repeating">
+                <i>List any assessments someone must pass in order to meet this condition's criteria. Only include assessments that are not included in another item (such as a learning opportunity). <br/><a href="@Url.Content( "~/Profile/assessmentEdit" )" class="linkButton" target="ctiAsmt">Create a new assessment profile here.</a></i>
+                @Html.Partial( "~/Views/Shared/Management/_MicroSearch.cshtml",
+                    new MicroSearchSettings()
+                    {
+                        ParentId = "{dbID}",
+                        ParentType = "ConditionProfile",
+                        Property = "TargetAssessment",
+                        SearchId = "ConditionProfile_TargetAssessment_{id}",
+                        SearchType = "AssessmentSearch",
+                        ResultRenderMethod = "renderMicroSearchItems",
+                        SavedRenderMethod = "renderMicroSearchItems",
+                        ResultTemplate = "template_microSearchResult_Assessment",
+                        SavedTemplate = "template_microSearchSaved_Assessment",
+                        UsesRecursiveSave = false,
+                        PageSize = 10,
+                        SearchHeader = "Search for an Assessment",
+                        SavedItemsHeader = "Selected Assessments",
+                        Filters = new List<MicroSearchSettings_Filter>()
+                        {
+                            new MicroSearchSettings_Filter() { FilterName = "Keywords", Type = "text", Placeholder = "Enter the name of an assessment..." }
+                        }
+                    } )
+            </div>
+
+            <div class="subfield repeating">
+                <i>List any learning opportunities someone must take in order to meet this condition's criteria. <br /><a href="@Url.Content( "~/Profile/LearningOpportunityEdit")" class="linkButton" target="ctiLOpp">Create a new Learning Opportunity here.</a></i>
+                @Html.Partial( "~/Views/Shared/Management/_MicroSearch.cshtml",
+                    new MicroSearchSettings()
+                    {
+                        ParentId = "{dbID}",
+                        ParentType = "ConditionProfile",
+                        Property = "TargetLearningOpportunity",
+                        SearchId = "ConditionProfile_TargetLearningOpportunity_{id}",
+                        SearchType = "LearningOpportunitySearch",
+                        ResultRenderMethod = "renderMicroSearchItems",
+                        SavedRenderMethod = "renderMicroSearchItems",
+                        ResultTemplate = "template_microSearchResult_LearningOpportunity",
+                        SavedTemplate = "template_microSearchSaved_LearningOpportunity",
+                        UsesRecursiveSave = false,
+                        PageSize = 10,
+                        SearchHeader = "Search for a Learning Opportunity to Add to this Condition",
+                        SavedItemsHeader = "Required Learning Opportunities",
+                        Filters = new List<MicroSearchSettings_Filter>()
+                        {
+                            new MicroSearchSettings_Filter() { FilterName = "Keywords", Type = "text", Placeholder = "Enter the name of a learning opportunity..." }
+                        }
+                    } )
+            </div>
+
+			<div class="subfield repeating">
+                <i>Describe the other tasks someone must complete in order to meet this condition's criteria.</i>
+                    <div class="repeaterItems" data-repeaterid="ConditionProfile_TargetTask_{id}" data-title="Task"></div>
+                    <div class="repeater withItems" data-property="TargetTask" id="ConditionProfile_TargetTask_{id}" data-profile="TaskProfile"></div>
+                    <div class="buttons">
+                        <input type="button" onclick="addProfile('TaskProfile', 'ConditionProfile_TargetTask_{id}', null, null, true);" value="Add a Task" />
+                    </div>
+           
+            </div>
+			<input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'ConditionProfile');" />
+				</div>
+	</script>
+
+    @* Task Profile *@
+    <script type="text/template" id="template_TaskProfile">
+        <div class="repeaterField" data-field="TaskProfile" data-repeaterID="{id}" data-databaseID="{dbID}">
+            <h3 class="repeaterHeader">Task</h3>
+            <div class="subfield">
+                <i>Give this task a meaningful name that will help you identify it later. <span class="required">(Required)</span></i>
+                <input type="text" data-property="ProfileName" data-type="text" placeholder="Profile Name" data-required="true" data-minlength="5" />
+            </div>
+            <div class="subfield">
+                <i>Briefly summarize this information.</i>
+                <textarea data-property="Description" data-type="text"></textarea>
+            </div>
+            <div class="subfield">
+                <i>Indicate the date this item's information first became effective, published, or applicable.</i>
+                <input type="text" data-property="DateEffective" data-type="date" placeholder="MM/DD/YYYY" />
+            </div>
+            <div class="subfield" data-property="AffiliatedAgentUid">
+                <i>Indicate which organization provides this task.</i>
+                <select data-property="AffiliatedAgentUid" data-type="select" data-selecttype="text">
+                    <option value="0" data-url="">Select an Organization</option>
+                    @foreach ( var org in allOrganizationsList )
+                    {
+                        <option value="@org.RowId" data-url="@org.Url">@org.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="subfield">
+                <i>Estimate the cost to complete this task.</i>
+                <div class="repeaterItems" data-repeaterid="TaskProfile_EstimatedCost_{id}" data-title="Cost Profile"></div>
+                <div class="repeater withItems" data-property="EstimatedCost" id="TaskProfile_EstimatedCost_{id}" data-profile="CostProfileSplit"></div>
+                <div class="buttons">
+                    <input type="button" onclick="addProfile('CostProfileSplit', 'TaskProfile_EstimatedCost_{id}', null, null, true);" value="Add Cost Description" />
+			    </div>
+			</div>
+            <div class="subfield">
+                <i>Estimate the time it will take to complete this task.</i>
+                <div class="repeaterItems" data-repeaterid="TaskProfile_EstimatedDuration_{id}" data-title="Duration Profile"></div>
+                <div class="repeater withItems" data-property="EstimatedDuration" id="TaskProfile_EstimatedDuration_{id}" data-profile="DurationProfile"></div>
+                <div class="buttons">
+                    <input type="button" onclick="addProfile('DurationProfile', 'TaskProfile_EstimatedDuration_{id}', null, null, true);" value="Add Duration Description" />
+                </div>
+            </div>
+            <div class="subfield repeating" data-property="Jurisdiction">
+                <i>Indicate the region for which the information in this item is relevant.</i>
+                <div class="repeaterItems" data-repeaterid="Jurisdiction_{id}" data-title="Jurisdiction"></div>
+                <div class="repeater withItems" data-property="Jurisdiction" id="Jurisdiction_{id}" data-profile="JurisdictionProfile"></div>
+                <div class="buttons">
+                    <input type="button" onclick="addProfile('JurisdictionProfile', 'Jurisdiction_{id}');" value="Add A Jurisdiction" />
+                </div>
+            </div>
+            <input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'TaskProfile');" />
+		</div>
+	</script>
+
+    @* Jurisdiction Profile *@
+    <script type="text/template" id="template_JurisdictionProfile">
+        @{
+            var locationTypes = new MicroSearchSettings_Filter()
+            {
+                FilterName = "LocationType",
+                Type = "select",
+                Items = new Dictionary<string, string>() { 
+                            { "ADMD,ADM1,PCL,PCLI,PPL", "Search for all location types" },
+                            { "PPL", "Search for Cities/Villages" },
+                            { "ADMD,ADM1", "Search for States/Provinces/Regions" },
+                            { "PCL,PCLI", "Search for Countries" }
+                        }
+            };
+        }
+        <div class="repeaterField jurisdiction" data-field="JurisdictionProfile" data-repeaterid="{id}" data-databaseid="{dbID}">
+            <h3 class="repeaterHeader">Jurisdiction</h3>
+            <div class="subfield">
+                <i>Describe the primary region for this item.</i>
+                <label data-property="IsGlobalJurisdiction" data-type="label_boolean"><input type="checkbox" /> The jurisdiction is Worldwide</label>
+                <label data-property="IsOnlineJurisdiction" data-type="label_boolean"><input type="checkbox" /> The jurisdiction is Online</label>
+                @Html.Partial( "~/Views/Shared/Management/_MicroSearch.cshtml",
+                new MicroSearchSettings()
+                {
+                    Property = "MainJurisdiction",
+                    SearchId = "JurisdictionSearch_{id}",
+                    SearchType = "JurisdictionSearch",
+                    ResultRenderMethod = "renderMicroSearchItems",
+                    SavedRenderMethod = "renderMicroSearchItems",
+                    ResultTemplate = "template_microSearchResult_Region",
+                    SavedTemplate = "template_microSearchSaved_Region",
+                    UsesRecursiveSave = true,
+                    ExtractionMethod = "extractMicroSearchData_Jurisdiction",
+                    PageSize = 5,
+                    SearchHeader = "Select a region",
+                    SavedItemsHeader = "Selected Region",
+                    Filters = new List<MicroSearchSettings_Filter>()
+                    {
+                        new MicroSearchSettings_Filter() { FilterName = "Keywords", Type = "text", Placeholder = "Enter the name of a place..." },
+                        locationTypes
+                    },
+                    Attributes = new Dictionary<string, string>() { { "data-JurisdictionType", "Main" } }
+                } )
+            </div>
+            <div class="subfield">
+                <i>If the primary region contains any sub-regions where the item does <b>not</b> apply, select them here.</i>
+                @Html.Partial( "~/Views/Shared/Management/_MicroSearch.cshtml",
+                new MicroSearchSettings()
+                {
+                    Property = "JurisdictionException",
+                    SearchId = "JurisdictionExceptionSearch_{id}",
+                    SearchType = "JurisdictionSearch",
+                    ResultRenderMethod = "renderMicroSearchItems",
+                    SavedRenderMethod = "renderMicroSearchItems",
+                    ResultTemplate = "template_microSearchResult_Region",
+                    SavedTemplate = "template_microSearchSaved_Region",
+                    UsesRecursiveSave = true,
+                    ExtractionMethod = "extractMicroSearchData_Jurisdiction",
+                    PageSize = 5,
+                    SearchHeader = "Select a region to exclude",
+                    SavedItemsHeader = "Selected Region Exclusions",
+                    Filters = new List<MicroSearchSettings_Filter>()
+                    {
+                        new MicroSearchSettings_Filter() { FilterName = "Keywords", Type = "text", Placeholder = "Enter the name of a place to exclude..." },
+                        locationTypes
+                    },
+                    Attributes = new Dictionary<string, string>() { { "data-JurisdictionType", "Exception" } }
+                } )
+            </div>
+            <div class="subfield">
+                <i>Summarize this Jurisdiction</i>
+                <textarea data-property="Description" data-type="text"></textarea>
+            </div>
+            <input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'JurisdictionProfile');" />
+        </div>
+    </script>
+
+	@* Learning Opportunity Profile *@
+	<script type="text/template" id="template_LearningOpportunityProfile">
+        @{
+            if ( allOrganizationsList.Count() == 0 ) {
+                allOrganizationsList = OrganizationServices.Agent_Search();
+            }
+        }
+		<div class="repeaterField" data-field="LearningOpportunityProfile" data-repeaterID="{id}" data-databaseID="{dbID}">
+			<h3 class="repeaterHeader">Learning Opportunity</h3>
+			<div class="subfield">
+				<i>Provide the name of the learning opportunity.</i>
+				<input type="text" data-property="Name" data-type="text" />
+			</div>
+			<div class="subfield">
+				<i>Provide a URL that describes the learning opportunity.</i>
+				<input type="text" data-property="Url" data-type="url" placeholder="http://" />
+			</div>
+			<div class="subfield">
+				<i>Provide the URL of the organization that provides this learning opportunity.</i>
+				<input type="text" data-property="Provider" data-type="url" placeholder="http://" />
+			</div>
+			<div class="subfield">
+				<i>Estimate the cost to complete this learning opportunity.</i>
+                <div class="repeaterItems" data-repeaterid="LearningOpportunityProfile_EstimatedCost_{id}" data-title="Cost Profile"></div>
+				<div class="repeater withItems" data-property="EstimatedCost" id="LearningOpportunityProfile_EstimatedCost_{id}" data-profile="CostProfileSplit"></div>
+				<div class="buttons">
+					<input type="button" onclick="addProfile('CostProfileSplit', 'LearningOpportunityProfile_EstimatedCost_{id}', null, null, true);" value="Add Cost Description" />
+				</div>
+			</div>
+			<div class="subfield">
+				<i>Estimate the time it will take to complete this learning opportunity.</i>
+                <div class="repeaterItems" data-repeaterid="LearningOpportunityProfile_EstimatedDuration_{id}" data-title="Duration Profile"></div>
+				<div class="repeater withItems" data-property="EstimatedDuration" id="LearningOpportunityProfile_EstimatedDuration_{id}" data-profile="DurationProfile"></div>
+				<div class="buttons">
+					<input type="button" onclick="addProfile('DurationProfile', 'LearningOpportunityProfile_EstimatedDuration_{id}', null, null, true);" value="Add Duration Description" />
+				</div>
+			</div>
+			<div class="subfield column2">
+				<i>Indicate the type(s) of learning opportunity. Check all that apply.</i>
+				@Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetSampleEnumeration( "courseProfile_courseType", "CourseDeliveryType", EnumerationType.MULTI_SELECT ) )
+				<input type="text" data-property="LearningOpportunityDeliveryType" data-type="other" placeholder="If you selected &quot;other&quot;, explain here." />
+			</div>
+			<div class="subfield">
+				<i>Identify the specific instructional program classifications that apply to this learning opportunity. We recommend using the <a href="https://nces.ed.gov/ipeds/cipcode/browse.aspx?y=55" target="_blank">CIP codes</a>.</i>
+                <div class="repeaterItems" data-repeaterid="LearningOpportunityProfile_InstructionalProgramItems_{id}" data-title="Instructional Program"></div>
+				<div class="repeater withItems" data-property="InstructionalProgramCategory" id="LearningOpportunityProfile_InstructionalProgramItems_{id}" data-profile="Enumeration"></div>
+				<div class="buttons">
+					<input type="button" onclick="addProfile('Enumeration', 'LearningOpportunityProfile_InstructionalProgramItems_{id}', null, null, true);" value="Add a set of Instructional Program Codes" />
+				</div>
+			</div>
+			<div class="subfield">
+				<i>Identify any learning opportunities that are a part of this learning opportunity.</i>
+                <div class="repeaterItems" data-repeaterid="LearningOpportunityProfile_HasPart_{id}" data-title="Learning Opportunity"></div>
+				<div class="repeater withItems" data-property="HasPart" id="LearningOpportunityProfile_HasPart_{id}" data-profile="LearningOpportunityProfile"></div>
+				<div class="buttons">
+					<input type="button" onclick="addProfile('LearningOpportunityProfile', 'LearningOpportunityProfile_HasPart_{id}', null, null, true);" value="Add a Learning Opportunity" />
+				</div>
+			</div>
+            <div class="subfield">
+                <i>Provide links to any noteworthy or important learning resources for this learning opportunity.</i>
+                <textarea data-property="LearningResourceUrl" data-type="multi"></textarea>
+				</div>
+            <div class="subfield">
+                <i>Indicate which organization provides this learning opportunity.</i>
+                <select data-property="ProviderId" data-type="select" data-selecttype="number">
+                    <option value="0" data-url="">Select an Organization</option>
+                    @foreach ( var org in allOrganizationsList )
+                    {
+                        <option value="@org.Id" data-url="@org.Url">@org.Name</option>
+                    }
+                </select>
+			</div>
+			@Html.Partial( "~/Views/Shared/Management/_BaseProfileEditor.cshtml", "" )
+			<input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'LearningOpportunityProfile');" />
+		</div>
+	</script>
+
+    @* Micro Search Result (CodeItem) *@
+    <script type="text/template" id="template_microSearchResult_CodeItem">
+        <div class="microSearchResult" data-codeID="{CodeId}">
+            <div class="rawData" style="display:none;">{rawData}</div>
+            <div class="title">{Title}</div>
+            <div class="data">
+                <div class="description">{Description}</div>
+                <div class="property">Code: {Code}</div>
+            </div><!--
+            --><div class="resultButtons">
+                   <input type="button" value="Select" onclick="selectMicroSearchResult_CodeItem('{searchID}', {CodeId}, this);" />
+            </div>
+        </div>
+    </script>
+
+    @* Micro Search Result (CodeItem, already selected) *@
+    <script type="text/template" id="template_microSearchSaved_CodeItem">
+        <div class="microSearchResult" data-codeID="{CodeId}" data-recordID="{RecordId}">
+            <div class="rawData" style="display:none;">{rawData}</div>
+            <div class="title">{Title}</div>
+            <div class="data">
+                <div class="description">{Description}</div>
+                <div class="property">Code: {Code}</div>
+            </div><!--
+            --><div class="resultButtons">
+                <input type="button" class="redButton" value="Delete" onclick="deleteMicroSearchResult_CodeItem('{searchID}', {CodeId}, {RecordId}, this);" />
+            </div>
+        </div>
+    </script>
+
+    @* Micro Search Result (Assessment) *@
+    <script type="text/template" id="template_microSearchResult_Assessment">
+        <div class="microSearchResult" data-recordID="{RecordId}">
+            <div class="rawData" style="display:none;">{rawData}</div>
+            <div class="title">{Title}</div>
+            <div class="data">
+                <div class="description">{Description}</div>
+                <div class="property"><a href="@Url.Content("~/profile/assessmentEdit/"){RecordId}" class="linkButton" target="ctiAsmt">Edit Assessment Metadata</a></div>
+            </div><!--
+            --><div class="resultButtons">
+                <input type="button" value="Select" onclick="selectMicroSearchResult_Profile('{searchID}', {RecordId}, this);" />
+            </div>
+        </div>
+    </script>
+
+    @* Micro Search Saved Result (Assessment) *@
+    <script type="text/template" id="template_microSearchSaved_Assessment">
+        <div class="microSearchResult" data-recordID="{RecordId}">
+            <div class="rawData" style="display:none;">{rawData}</div>
+            <div class="title">{Title}</div>
+            <div class="data">
+                <div class="description">{Description}</div>
+                <div class="property"><a href="@Url.Content("~/profile/assessmentEdit/"){RecordId}" class="linkButton" target="ctiAsmt">Edit Assessment Metadata</a></div>
+            </div><!--
+            --><div class="resultButtons">
+                <input type="button" class="redButton" value="Delete" onclick="deleteMicroSearchResult_Profile('{searchID}', {RecordId}, this);" />
+            </div>
+        </div>
+    </script>
+    @* Micro Search Result (LearningOpportunity) *@
+    <script type="text/template" id="template_microSearchResult_LearningOpportunity">
+        <div class="microSearchResult" data-recordID="{RecordId}">
+            <div class="rawData" style="display:none;">{rawData}</div>
+            <div class="title">{Title}</div>
+            <div class="data">
+                <div class="description">{Description}</div>
+                <div class="property"><a href="@Url.Content("~/profile/LearningOpportunityEdit/"){RecordId}" class="linkButton" target="ctiLOpp">Edit Learning Opportunity</a></div>
+            </div><!--
+        --><div class="resultButtons">
+                <input type="button" value="Select" onclick="selectMicroSearchResult_Profile('{searchID}', {RecordId}, this);" />
+            </div>
+        </div>
+    </script>
+
+    @* Micro Search Saved Result (LearningOpportunity) *@
+    <script type="text/template" id="template_microSearchSaved_LearningOpportunity">
+        <div class="microSearchResult" data-recordid="{RecordId}">
+            <div class="rawData" style="display:none;">{rawData}</div>
+            <div class="title">{Title}</div>
+            <div class="data">
+                <div class="description">{Description}</div>
+                <div class="property"><a href="@Url.Content("~/profile/LearningOpportunityEdit/"){RecordId}" class="linkButton" target="ctiLOpp">Edit Learning Opportunity</a></div>
+            </div><!--
+        --><div class="resultButtons">
+                <input type="button" class="redButton" value="Delete" onclick="deleteMicroSearchResult_Profile('{searchID}', {RecordId}, this);" />
+            </div>
+        </div>
+    </script>
+    @* Microsearch Jurisdiction Search Result *@
+    <script type="text/template" id="template_microSearchResult_Region">
+        <div class="geoNameResult" data-geonamesid="{GeoNamesId}">
+            <div class="rawData" style="display:none;">{rawData}</div>
+            <input type="button" class="geoNameButton" onclick="selectMicroSearchResult_Jurisdiction('{searchID}', {GeoNamesId}, this);" value="Select" />
+            <div class="geoNameData">
+                <div class="placeName">{Title}</div>
+                <div class="placeRegion">{Description}</div>
+                <div class="location">
+                    <div>Latitude: {Latitude}</div>
+                    <div>Longitude: {Longitude}</div>
+                    <div><a href="http://www.geonames.org/{GeoNamesId}" target="_blank">Map</a></div>
+                </div>
+            </div>
+        </div>
+    </script>
+
+    @* Microsearch Jurisdiction Saved Result *@
+    <script type="text/template" id="template_microSearchSaved_Region">
+        <div class="geoNameResult" data-geonamesid="{GeoNamesId}" data-recordID="{RecordId}">
+            <div class="rawData" style="display:none;">{rawData}</div>
+            <input type="button" class="geoNameButton redButton" onclick="deleteMicroSearchResult_Jurisdiction('{searchID}', {GeoNamesId}, this);" value="Delete" />
+            <div class="geoNameData">
+                <div class="placeName">{Title}</div>
+                <div class="placeRegion">{Description}</div>
+                <div class="location">
+                    <div>Latitude: {Latitude}</div>
+                    <div>Longitude: {Longitude}</div>
+                    <div><a href="http://www.geonames.org/{GeoNamesId}" target="_blank">Map</a></div>
+                </div>
+            </div>
+        </div>
+    </script>
+
+    @* Micro Search Result paging button *@
+    <script type="text/template" id="template_microSearchResult_pageButton">
+        <input type="button" class="microSearchPageButton {current}" value="{pageNumber}" onclick="setMicroSearchPage('{searchID}', {pageNumber});" />
+    </script>
+
+	@* External Enumeration *@
+	<script type="text/template" id="template_Enumeration">
+		<div class="repeaterField" data-field="Enumeration" data-repeaterID="{id}" data-databaseID="{dbID}">
+			<h3 class="repeaterHeader">Code</h3>
+			<div class="subfield">
+				<i>Identify the name, URL, and version (or year) of the framework that codes are selected from.</i>
+				<input type="text" data-property="Name" data-type="text" placeholder="Framework Name" />
+				<input type="text" data-property="Url" data-type="url" placeholder="http://" />
+				<input type="text" data-property="FrameworkVersion" data-type="text" placeholder="Framework Version (or Year)" />
+			</div>
+			<div class="subfield repeating">
+				<i>Identify each code. If available, also provide name and URL.</i>
+                <div class="repeaterItems" data-repeaterid="Enumeration_Code_{id}" data-title="Code"></div>
+				<div class="repeater withItems" data-property="Items" id="Enumeration_Code_{id}" data-profile="EnumeratedItem"></div>
+				<div class="buttons">
+					<input type="button" onclick="addProfile('EnumeratedItem', 'Enumeration_Code_{id}', null, null, true);" value="Add a Code" />
+				</div>
+			</div>
+			<input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'Enumeration');" />
+		</div>
+	</script>
+
+	@* External Enumerated Item *@
+	<script type="text/template" id="template_EnumeratedItem">
+		<div class="repeaterField noTitle" data-field="EnumeratedItem" data-repeaterID="{id}" data-databaseID="{dbID}">
+			<input type="text" data-property="Value" data-type="text" placeholder="Code (e.g., &quot;123-abc&quot; or &quot;12345&quot;)" />
+			<input type="text" data-property="Name" data-type="text" placeholder="Title" />
+			<input type="text" data-property="Url" data-type="url" placeholder="http://" />
+			<input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'EnumeratedItem');" />
+		</div>
+	</script>
+
+    @* Unique Identifier Enumerated Item *@
+    @{ var identifiers = EnumerationServices.GetOrganizationIdentifier( EnumerationType.MULTI_SELECT ); }
+    <script type="text/template" id="template_EnumeratedItem_UniqueId">
+        <div class="repeaterField" data-field="EnumeratedItem" data-repeaterid="{id}" data-databaseid="{dbID}">
+            <h3 class="repeaterHeader">Unique Identifier</h3>
+            <select data-property="Id" data-type="enumeration" data-enumerationType="singleSelect">
+                <option value="0">Select an identifier type...</option>
+                @foreach ( var identifier in identifiers.Items )
+                {
+                    <option value="@identifier.Id" data-schemaname="@identifier.SchemaName" data-id="@identifier.Id" data-schemaurl="@identifier.SchemaUrl" data-codeID="@identifier.CodeId">@identifier.Name</option>
+                }
+            </select>
+            <input type="text" data-property="Name" data-type="text" placeholder="Title" style="display:none;" />
+            <input type="text" data-property="SchemaUrl" data-type="url" placeholder="http://" style="display:none;" />
+            <input type="text" data-property="Value" data-type="text" placeholder="Code (e.g., &quot;123-abc&quot; or &quot;12345&quot;)" />
+            <input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'uniqueidentifier');" />
+        </div>
+    </script>
+
+    @* GeoCoordinates Search Result (OLD but still used until we get rid of the old geocoordinates search stuff) *@
+    @*
+    <script type="text/template" id="template_GeoCoordinatesSearchResult">
+        <div class="geoNameResult" data-geonamesid="{id}" data-name="{name}" data-state="{state}" data-country="{country}" data-latitude="{latitude}" data-longitude="{longitude}">
+            <input type="button" class="geoNameButton" onclick="selectGeoCoordinatesResult({repeaterID}, {id});" value="Select" />
+            <div class="geoNameData">
+                <div class="placeName">{name}</div>
+                <div class="placeRegion">{stateFormatted} {country}</div>
+                <div class="location">
+                    <div>Latitude: {latitude}</div>
+                    <div>Longitude: {longitude}</div>
+                    <div><a href="http://www.geonames.org/{id}" target="_blank">Map</a></div>
+                </div>
+            </div>
+        </div>
+    </script>
+    *@
+
+</div>

@@ -1,0 +1,3 @@
+﻿Dear {0}, <p>Click the following link to log into CTI and confirm your account. <br /></p>
+    <p><b>Note: For your protection, this is a one time use link (so it cannot be used by others to access your account)</b>.</p>
+	<p>{1}</p>

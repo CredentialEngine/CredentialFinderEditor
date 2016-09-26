@@ -1,0 +1,45 @@
+﻿@model Models.Node.Interface.TextInputSettings
+@using Models.Node.Interface;
+
+
+
+<div class="propertyBox tabItem @string.Join( " ", Model.ExtraClasses )" data-property="@Model.Property">
+    <div class="label">@Model.Label</div>
+    <div class="data">
+        @switch ( Model.Type )
+        {
+            case TextInputSettings.InputType.TEXT:
+            {
+                <input type="text" class="propertyInput" data-property="@Model.Property" data-type="text" placeholder="@Model.Placeholder" data-required="@(Model.IsRequired ? "true" : "false")" data-minLength="@Model.MinimumLength" />
+            }
+            break;
+            case TextInputSettings.InputType.DATE:
+            {
+                <input type="text" class="propertyInput" data-property="@Model.Property" data-type="date" placeholder="MM/DD/YYYY" data-required="@(Model.IsRequired ? "true" : "false")" />
+            }
+            break;
+            case TextInputSettings.InputType.URL:
+            {
+                <input type="text" class="propertyInput" data-property="@Model.Property" data-type="url" placeholder="http://" data-required="@(Model.IsRequired ? "true" : "false")" data-minLength="@Model.MinimumLength" />
+            }
+            break;
+            case TextInputSettings.InputType.NUMBER:
+            {
+                <input type="text" class="propertyInput" data-property="@Model.Property" data-type="number" data-required="@(Model.IsRequired ? "true" : "false")" />
+            }
+            break;
+            case TextInputSettings.InputType.TEXTAREA:
+            {
+                <textarea class="propertyInput" data-property="@Model.Property" data-type="text" data-required="@(Model.IsRequired ? "true" : "false")" data-minLength="@Model.MinimumLength"></textarea>
+            }
+            break;
+            case TextInputSettings.InputType.HIDDEN:
+            {
+                <input type="hidden" class="propertyInput" data-property="@Model.Property" data-type="text" data-required="@(Model.IsRequired ? "true" : "false")" />
+            }
+            break;
+            default: break;
+        }
+        <div class="guidance">@Html.Raw( Model.Guidance )</div>
+    </div>
+</div>    

@@ -1,0 +1,78 @@
+﻿<script type="text/javascript">
+    var compare = {
+        items: {}, //Items to track
+        onUpdate: [] //Functions to call when an update happens
+    };
+
+    /* Comparison Functions */
+
+    //Get items on startup
+    $(document).ready(function () {
+        compare.getItems();
+    });
+    //
+
+    //Add functions to call when something happens
+    compare.listen = function (event, method) {
+        if (event.indexOf(method) == -1) {
+            event.push(method);
+        }
+    }
+    //
+
+    //Get items
+    compare.getItems = function () {
+        compare.doAjax("getItems", null, compare.success_getItems, null);
+    }
+    //
+
+    //Add item
+    compare.addItem = function (id, type, title) {
+        compare.doAjax("addItem", { Type: type, Id: id, Title: title }, compare.success_getItems, null);
+    }
+
+    //Remove item
+    compare.removeItem = function (id, type) {
+        compare.doAjax("removeItem", { Type: type, Id: id, }, compare.success_getItems, null);
+    }
+
+    //AJAX
+    compare.doAjax = function (method, data, success, passThrough) {
+        $.ajax({
+            url: "@Url.Content( "~/Compare/" )" + method,
+            async: true,
+            headers: { "Accept": "application/json", "Content-type": "application/json; charset=utf-8" },
+            dataType: "json",
+            type: "POST",
+            data: JSON.stringify(data),
+            success: function (message) {
+                console.log("Response: ", message);
+                if (typeof (success) == "function") {
+                    success(message, passThrough);
+                }
+            }
+    });
+    }
+    //
+
+    //Load items
+    compare.success_getItems = function (message) {
+        if (message.valid) {
+            compare.items = {};
+            for (var i in message.data) {
+                if(typeof(compare.items[message.data[i].Type]) == "undefined"){
+                    compare.items[message.data[i].Type] = []; //Reset or add an item list
+                }
+                compare.items[message.data[i].Type].push(message.data[i]); //Add items to the list
+            }
+            for (var i in compare.onUpdate) {
+                compare.onUpdate[i](); //Call registered functions
+            }
+        }
+        else {
+            consoleMessage.addErrorMessage(message.status, "", 2000);
+        }
+    }
+    //
+
+</script>

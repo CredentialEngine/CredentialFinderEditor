@@ -1,0 +1,19 @@
+﻿Dear [contact names],
+<p>On behalf of the CTI Team I would like to thank <strong>[Organization]</strong> for participating in the CTI Pilot project! We would also like to thank you for your patience while we work on building the Credential Registry. At this time we are ready for you to review your information that we have entered for you. Below you will see the link to the search and your login information.</p>
+<ul>
+<li>[link]</li>
+<li>[username]</li>
+<li>[password]</li>
+</ul>
+
+<p>After logging in you will see only your credentials that you have provided, in the search. You will also see that you have the ability to edit the information that has been entered by clicking on the pen icon in the bottom, right hand side. While you are reviewing the information entered and you see any incorrect information please feel free to correct the information. If you have any issues updating information please let us know and we can update the information for you.</p>
+
+<p>Once you have reviewed the entered credential information please let us know that everything is correct and/or something needs changed. After all data is correct please let us know that we can make your credential live on the registry.</p>
+
+<p>The Credential Registry will be demonstrated at the collaborative meeting in DC on September 19, 2016.</p>
+
+<p>We look forward to hearing your feedback and continuing to work with you on the Credential Transparency Initiative.</p>
+
+<p>Please feel free to let us know if you have any questions!</p>
+
+<p>On behalf of the CTI team,</p>

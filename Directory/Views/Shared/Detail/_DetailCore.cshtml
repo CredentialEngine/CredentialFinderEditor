@@ -1,0 +1,277 @@
+﻿@{
+    var serializer = new System.Web.Script.Serialization.JavaScriptSerializer();
+    
+    var googleMapsKey = new ThirdPartyApiServices().GetGoogleMapsApiKey();
+    
+    var organizationAddresses = new List<Dictionary<string, string>>();
+    if ( ViewData[ "organizationAddresses" ] != null )
+    {
+        organizationAddresses = ViewData[ "organizationAddresses" ] as List<Dictionary<string, string>>;
+    }
+}
+<script type="text/javascript">
+    /* Variables */
+    var googleMaps = {
+        organizationMap: { ready: false, box: "#mapBox", map: {}, markers: [], addresses: @Html.Raw( serializer.Serialize( organizationAddresses ) ) }
+    };
+    var mapCenter = { lat: 37.0902, lng: -95.7129 };
+
+    /* Initialization */
+    $(document).ready(function () {
+        setupTabs();
+        setupColumns();
+    });
+
+    function setupTabs() {
+        $("#tabButtons input").on("click", function () {
+            showTab($(this).attr("data-tabID"));
+        });
+        $("#tabButtons input.selected").trigger("click");
+    }
+    //
+
+    function setupMaps() {
+        //Wait for all of the map objects to be added, then create the maps
+        setTimeout(function() {
+            for(var i in googleMaps){
+                googleMaps[i].map = createMap($(googleMaps[i].box));
+                for(var j in googleMaps[i].addresses){
+                    addAddressMarker(googleMaps[i].map, googleMaps[i].addresses[j].id, googleMaps[i].addresses[j].address, googleMaps[i].markers);
+                }
+            }
+        }, 100);
+    }
+    //
+
+    function setupColumns(){
+        $(window).on("resize", function() {
+            var box = $("#columns");
+            var columns = box.find("> .column");
+
+            //Reset the min-heights so columns reveal their natural height
+            columns.each(function() {
+                $(this).css("min-height", "0");
+            });
+
+            //Check for mobile mode and return if so
+            if(window.matchMedia("(max-width: 925px)").matches){
+                return;
+            }
+
+            //Set everything to be the height of the tallest one
+            columns.each(function() {
+                $(this).css("min-height", box.height() + "px");
+            });
+
+        }).trigger("resize");
+    }
+    //
+</script>
+<script type="text/javascript">
+    /* Map interaction */
+
+    //Create Map
+    function createMap(box){
+        return new google.maps.Map(box[0], { center: mapCenter, zoom: 3 });
+    }
+    //
+
+    //Recenter the map
+    function moveMap(map, latitude, longitude, zoom) {
+        google.maps.event.trigger(map, "resize");
+        map.setCenter({ lat: latitude, lng: longitude });
+        if (zoom) {
+            map.setZoom(Math.floor(zoom));
+        }
+    }
+    //
+
+    //Add an address marker
+    function addAddressMarker(map, id, address, markers) {
+        var geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ address: address }, function (results, status) {
+            if (status === google.maps.GeocoderStatus.OK) {
+                var marker = new google.maps.Marker({
+                    map: map,
+                    position: results[0].geometry.location
+                });
+                marker.addListener("click", function() {
+                    highlightOrganization(id);
+                });
+                markers.push({ id: id, marker: marker });
+            }
+        });
+    }
+    //
+
+    //Center the map on a particular marker
+    function centerMapOnOrganization(mapName, id){
+        var mapItem = googleMaps[mapName];
+        for(var i in mapItem.markers){
+            if(mapItem.markers[i].id == id){
+                var marker = mapItem.markers[i].marker;
+                moveMap(mapItem.map, marker.position.lat(), marker.position.lng(), 5);
+            }
+        }
+    }
+    //
+
+    //Highlight an organization when a map marker is clicked
+    function highlightOrganization(id){
+        $(".organizationBox[data-organizationID=" + id + "]").addClass("highlighted").first().find(".organizationBox_Name").focus();
+        setTimeout(function() {
+            $(".organizationBox[data-organizationID=" + id + "]").removeClass("highlighted");
+        }, 3000);
+    }
+    //
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key=@googleMapsKey&callback=setupMaps" async defer></script>
+<script type="text/javascript">
+    /* Page Functions */
+
+    //Show a tab
+    function showTab(tabID) {
+        $("#tabButtons input, #tabBox .tab").removeClass("selected").filter("[data-tabID=" + tabID + "]").addClass("selected");
+    }
+    //
+
+    //Delete the item
+    function deleteThis(name, controller, id){
+        modal.confirm(
+            "Delete",
+            "Really delete " + name + "? This action cannot be undone!",
+            function() { 
+                doAjax(controller + "management", "delete", { id: id }, success_delete, null);
+            },
+            function() {
+                //
+            }
+        );
+    }
+    //
+
+    function doAjax(controller, method, data, success, passThrough) {
+        $.ajax({
+            url: "@Url.Content( "~/" )" + controller + "/" + method,
+            async: true,
+            headers: { "Accept": "application/json", "Content-type": "application/json; charset=utf-8" },
+            dataType: "json",
+            type: "POST",
+            data: JSON.stringify(data),
+            success: function (message) {
+                console.log("Response: ", message);
+                if (typeof (success) == "function") {
+                    success(message, passThrough);
+                }
+            }
+        });
+    }
+
+    function success_delete(message){
+        if(message.valid){
+            alert("Item Deleted"); //Want to use this to block the redirect until the user hits OK
+            window.location.href = "@Url.Content("~/Search/")";
+        }
+        else {
+            consoleMessage.addErrorMessage(message.status, "", 0);
+        }
+    }
+</script>
+<style type="text/css">
+    /* Big Stuff */
+    p { margin: 5px 0 10px 0; padding: 0; }
+    ul, ol, dl { margin: 0 0 25px 0; padding-left: 20px; }
+    dl { padding-left: 0; }
+    dl dt:not(:first-child) { margin-top: 10px; }
+    dl dd { margin-left: 15px; font-style: italic; }
+    table { border: none; }
+    h1 { background-color: #FFF; border: 1px solid #CCC; margin: 5px 0 10px 0; text-align: center; }
+    h1 a, h1 a:hover, h1 a:focus, h1 a:visited { color: #5a7d83; }
+
+    /* Columns */
+    #columns { font-size: 0; color: #000; }
+    #columns .column { display: inline-block; vertical-align: top; width: calc(50% - 5px); background-color: #FFF; border: 1px solid #CCC; padding: 5px; }
+    #columns .column:first-child { margin-right: 5px; }
+    #columns .column:last-child { margin-left: 5px; }
+    #columns h2 { color: #5a7d83; margin: 0 0 5px 0; padding: 0; }
+    #columns h2:not(:first-child) { margin-top: 10px; }
+
+    /* Sections */
+    #columns .section { padding: 10px 0 15px 85px; border-bottom: 1px solid #CCC; background: url('') top 10px left no-repeat; background-size: 75px auto; min-height: 95px; position: relative; }
+    #columns .section:first-child { padding-top: 0; }
+    #columns .section:last-child { border: none; margin: 0; }
+    #columns .section.empty { display: none; }
+
+    /* Data */
+
+    /* Organizations */
+    #mapBox { width: 100%; height: 400px; }
+
+    /* Tabs */
+    #details { font-size: 0; margin-top: 10px; }
+    #tabButtons, #tabBox { display: inline-block; vertical-align: top; }
+    #tabButtons { width: 175px; }
+    #tabButtons input { display: block; width: 100%; text-align: right; padding: 5px; }
+    #tabButtons input.selected { background-color: #C90044; color: #FFF; }
+    #tabBox { width: calc(100% - 175px); border: 1px solid #CCC; }
+    #tabBox .tab:not(.selected) { display: none; }
+    #tabBox h2, #tabBox h3 { margin: 0; }
+    #tabBox h3 { background-color: #EEE; }
+    #tabBox h4 { margin: 0; padding: 2px 0; }
+    #tabBox .tab { background-color: #FFF; color: #000; padding: 0 5px 15px 5px; min-height: 425px; }
+    #tabBox .tab ul:not(.keywordsList), #tabBox .tab ol, #tabBox .tab dl { padding-left: 25px; }
+    #tabBox .conditionProfile { padding: 0 0 15px 0; border: 1px solid #DDD; margin-bottom: 15px; }
+    #tabBox .conditionProfile .conditionProfileData { column-count: 2; padding: 0 10px; }
+    #tabBox .condition { display: inline-block; width: 100%; }
+    #tabBox .condition h3 { margin-top: 0; }
+
+    /* Miscellaneous */
+    #json { font-size: 12px; font-family: Consolas, 'Courier New', monospace; white-space: pre-wrap; padding: 0 10px; }
+    #details td { border: none; }
+    #details tr td:first-child { width: 125px; font-weight: bold; text-align: right; background-color: #EEE; }
+    #description { white-space: pre-wrap; }
+    #editButtons { text-align: right; }
+    #editButtons input, #editButtons .editLink { width: 100px; display: inline-block; text-align: center; }
+    ul.keywordsList { margin: 0; padding: 0; }
+    ul.keywordsList li { display: inline-block; vertical-align: top; margin: 1px; }
+    ul.keywordsList li a { text-decoration: none; color: #555; display: block; background-color: #F5F5F5; padding: 2px 5px; }
+    ul.keywordsList li a:hover, ul.keywordsList li a:focus { color: #003; background-color: #EEE; } 
+
+    /* Responsive */
+    @@media ( max-width: 925px ) {
+        #content #columns .column { display: block; width: 100%; margin: 10px 0 10px 0; }
+        #tabBox .conditionProfile .conditionProfileData { column-count: 1; }
+    }
+    @@media (max-width: 700px){
+        #tabButtons, #tabBox { width: 100%; display: block; }
+        #tabButtons input { text-align: center; }
+        #columns .section { padding-left: 50px; background-size: 45px auto; }
+    }
+</style>
+<style type="text/css">
+    /* Organization box */
+    .organizationBox { border: 1px solid #DDD; padding: 5px; position: relative; margin-bottom: 5px; font-size: 0; }
+    .organizationBox_Roles { font-weight: bold; }
+    .organizationBox_Name { display: block; font-weight: bold; }
+    .organizationBox_Basics, .organizationBox_Data { display: inline-block; vertical-align: top; }
+    .organizationBox_Basics { width: calc(100% - 125px); padding-right: 5px; }
+    .organizationBox_Data { width: 125px; padding-left: 25px; position: relative; }
+    .organizationBox_Data .clickable { position: absolute; top: 0; left: 0; width: 20px; }
+    .organizationBox_Data .clickable:hover, .organizationBox_Data .clickable:focus { cursor: pointer; }
+    .organizationBox_Logo { height: 100px; background-size: contain; background-position: center center; background-repeat: no-repeat; border: 1px solid #CCC; }
+    .organizationBox.highlighted { background-color: #FEBC20; }
+    @@media (max-width: 700px) {
+        .organizationBox_Basics { width: calc(100% - 75px); }
+        .organizationBox_Data { width: 75px; padding-left: 0; text-align: right; }
+        .organizationBox_Logo { height: 75px; margin-bottom: 5px; }
+        .organizationBox_Data .clickable { display: inline-block; vertical-align: top; position: static; }
+    }
+</style>
+<style type="text/css">
+    /* Jurisdiction Profile */
+    .jurisdictionProfile { border: 1px solid #CCC; padding: 5px; margin-bottom: 5px; }
+    .jurisdictionProfile .mainJurisdictionName { font-weight: bold; font-size: 20px; }
+    .jurisdictionProfile .jurisdictionExceptions, .jurisdictionProfile .jurisdictionDescription { border-top: 1px solid #DDD; }
+    .jurisdictionProfile ul { margin: 0 0 5px 0; }
+    .jurisdictionProfile .jurisdictionDescription { padding: 5px; }
+</style>
