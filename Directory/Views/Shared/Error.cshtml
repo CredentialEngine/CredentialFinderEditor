@@ -1,9 +1,32 @@
-﻿@model System.Web.Mvc.HandleErrorInfo
+﻿@using Models;
+@model System.Web.Mvc.HandleErrorInfo
 
 @{
     ViewBag.Title = "Error";
 }
+@{
+    var pageHeading = "An error occurred while processing your request.";
+    var pageMessage = "";
+    if ( Session[ "siteMessage" ] != null )
+    {
+        //should we assume message will include a title
+        pageMessage = Session[ "siteMessage" ].ToString();
 
-<h1 class="text-danger">Error.</h1>
-<h2 class="text-danger">An error occurred while processing your request.</h2>
+        Session.Remove( "siteMessage" );
+    }
+    else if ( Session[ "SystemMessage" ] != null )
+    {
+        //should we assume message will include a title
+        SiteMessage msg = ( SiteMessage ) Session[ "SystemMessage" ];
+        pageHeading = string.IsNullOrWhiteSpace( msg.Title ) ? "System Issue" : msg.Title;
+        
+        pageMessage = msg.Message;
+
+        Session.Remove( "SystemMessage" );
+    }
+
+}
+<h1 class="text-danger">Error</h1>
+<h2 class="text-danger">@Html.Raw( pageHeading )</h2>
+<p>@Html.Raw( pageMessage )</p>
 

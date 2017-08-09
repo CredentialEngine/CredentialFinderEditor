@@ -19,13 +19,15 @@ namespace Models.Search
 			PageSize = 50;
 			IncludeAllCodes = true;
 		}
-		public string SearchType { get; set; }
+		public string SearchType { get; set; } //IndustrySearch, OccupationSearch, etc.
+		public string ParentSearchType { get; set; } //credential, organization, etc.
 		/// <summary>
 		/// ex. CredentialId
 		/// </summary>
 		public int ParentId { get; set; }
 		public int PageNumber { get; set; }
 		public int PageSize { get; set; }
+		public string PageContext { get; set; } //Either "MainSiteSearch" or "MainSiteEditor" for now
 		public bool IncludeAllCodes { get; set; }
 		public List<MicroSearchFilter> Filters { get; set; }
 

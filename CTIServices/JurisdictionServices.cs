@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using MgrOld = Factories.RegionsManager;
 using Mgr = Factories.Entity_JurisdictionProfileManager;
 using Factories;
 using Models;
@@ -39,7 +38,7 @@ namespace CTIServices
 		public JurisdictionProfile Get( int id )
 		{
 
-			JurisdictionProfile profile = Mgr.Jurisdiction_Get( id );
+			JurisdictionProfile profile = Mgr.Get( id );
 			return profile;
 		}
 
@@ -51,7 +50,7 @@ namespace CTIServices
 		public JurisdictionProfile Get( Guid rowId )
 		{
 
-			JurisdictionProfile profile = Mgr.Jurisdiction_Get( rowId );
+			JurisdictionProfile profile = Mgr.Get( rowId );
 			return profile;
 		}
 
@@ -60,7 +59,12 @@ namespace CTIServices
 		#endregion
 
 		#region JurisdictionProfile Persistance
-		public bool JurisdictionProfile_Add( JurisdictionProfile entity, Guid parentUid, int jprofilePurposeId, int userId, ref string statusMessage )
+		public bool JurisdictionProfile_Add( JurisdictionProfile entity, 
+				Guid parentUid, 
+				int jprofilePurposeId, 
+				string property, 
+				int userId, 
+				ref string statusMessage )
 		{
 			List<String> messages = new List<string>();
 			//entity.Id is expected
@@ -74,12 +78,12 @@ namespace CTIServices
 			entity.CreatedById = entity.LastUpdatedById = userId;
 			entity.JProfilePurposeId = jprofilePurposeId;
 
-			bool isValid = new Mgr().JurisdictionProfile_Add( entity, ref messages );
-
+			bool isValid = new Mgr().Add( entity, property, ref messages );
+			statusMessage = string.Join( "<br/>", messages.ToArray() );
 			return isValid;
 
 		}
-		public bool JurisdictionProfile_Update( JurisdictionProfile entity, Guid parentUid, int userId, ref string statusMessage )
+		public bool JurisdictionProfile_Update( JurisdictionProfile entity, Guid parentUid, string property, int userId, ref string statusMessage )
 		{
 			List<String> messages = new List<string>();
 			//entity.Id is expected
@@ -93,8 +97,8 @@ namespace CTIServices
 			entity.ParentEntityId = parentUid;
 			entity.LastUpdatedById = userId;
 
-			bool isValid = mgr.JurisdictionProfile_Update( entity, ref messages );
-
+			bool isValid = mgr.Update( entity, property, ref messages );
+			statusMessage = string.Join( "<br/>", messages.ToArray() );
 			return isValid;
 
 		}
@@ -110,7 +114,7 @@ namespace CTIServices
 			}
 			try
 			{
-				JurisdictionProfile profile = Mgr.Jurisdiction_Get( profileID );
+				JurisdictionProfile profile = Mgr.Get( profileID );
 
 				valid = mgr.JurisdictionProfile_Delete( profileID, ref status );
 				if ( valid )

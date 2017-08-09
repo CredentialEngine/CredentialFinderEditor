@@ -31,5 +31,6 @@ namespace Data.Views
         public string Description { get; set; }
         public string URL { get; set; }
         public Nullable<int> CodeGroup { get; set; }
+        public int EntityTypeId { get; set; }
     }
 }

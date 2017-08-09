@@ -14,7 +14,7 @@ using Mgr = Factories.LearningOpportunityManager;
 
 namespace CTIServices
 {
-	public class LearningOpportunityServices
+	public class LearningOpportunityServices 
 	{
 		static string thisClassName = "LearningOpportunityServices";
 
@@ -25,7 +25,18 @@ namespace CTIServices
 
 			return entity;
 		}
+		public static LearningOpportunityProfile GetForEdit( int id )
+		{
+			LearningOpportunityProfile entity = Mgr.Get( id, true, false );
 
+			return entity;
+		}
+		public static LearningOpportunityProfile GetForMicroProfile( int id, bool forEditView = false )
+		{
+			LearningOpportunityProfile entity = Mgr.GetBasic( id );
+
+			return entity;
+		}
 		public static LearningOpportunityProfile GetForDetail( int id )
 		{
 			AppUser user = AccountServices.GetCurrentUser();
@@ -40,12 +51,7 @@ namespace CTIServices
 				entity.CanUserEditEntity = true;
 			return entity;
 		}
-		public static LearningOpportunityProfile GetForEdit( int id )
-		{
-			LearningOpportunityProfile entity = Mgr.Get( id, true, false );
-
-			return entity;
-		}
+		
 		public static LearningOpportunityProfile GetLightLearningOpportunityByRowId( string rowId )
 		{
 			if ( !Mgr.IsValidGuid( rowId ) )
@@ -62,11 +68,11 @@ namespace CTIServices
 				return null;
 		}
 
-		public static LearningOpportunityProfile GetLightLearningOpportunityById( int entityId )
+		public static LearningOpportunityProfile GetLightLearningOpportunityById( int learningOpportunityId )
 		{
-			if ( entityId < 1 )
+			if ( learningOpportunityId < 1 )
 				return null;
-			string where = string.Format( " base.Id = {0}", entityId );
+			string where = string.Format( " base.Id = {0}", learningOpportunityId );
 			int pTotalRows = 0;
 
 			List<LearningOpportunityProfile> list = Mgr.Search( where, "", 1, 50, 0, ref pTotalRows );
@@ -140,8 +146,10 @@ namespace CTIServices
 				userId = user.Id;
 
 			//string pOrderBy = "";
+			SearchServices.HandleCustomFilters( data, 61, ref where );
+
 			SetKeywordFilter( data.Keywords, false, ref where );
-			SearchServices.SetSubjectsFilter( data, "LearningOpportunity", ref where );
+			SearchServices.SetSubjectsFilter( data, CF.CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, ref where );
 			SetAuthorizationFilter( user, ref where );
 
 			SetPropertiesFilter( data, ref where );
@@ -155,13 +163,31 @@ namespace CTIServices
 			//Competencies
 			SetCompetenciesFilter( data, ref where, ref competencies );
 
+			LoggingHelper.DoTrace( 5, "LearningOpportunityServices.Search(). Filter: " + where );
 			return Mgr.Search( where, data.SortOrder, data.StartPage, data.PageSize, userId, ref totalRows, ref competencies );
 		}
 		private static void SetKeywordFilter( string keywords,  bool isBasic, ref string where )
 		{
 			if ( string.IsNullOrWhiteSpace( keywords ) )
 				return;
-			string text = " (base.name like '{0}' OR base.Description like '{0}'  OR base.Organization like '{0}' OR base.owingOrganization like '{0}' ) ";
+			string text = " (base.name like '{0}' OR base.Description like '{0}'  OR base.Organization like '{0}'  ) ";
+			bool isCustomSearch = false;
+			//for ctid, needs a valid ctid or guid
+			if ( keywords.IndexOf( "ce-" ) > -1 && keywords.Length == 45 )
+			{
+				text = " ( CTID = '{0}' ) ";
+				isCustomSearch = true;
+			}
+			else if ( ServiceHelper.IsValidGuid( keywords ) )
+			{
+				text = " ( CTID = 'ce-{0}' ) ";
+				isCustomSearch = true;
+			}
+			else if ( keywords.ToLower() == "[hascredentialregistryid]" )
+			{
+				text = " ( len(Isnull(CredentialRegistryId,'') ) = 36 ) ";
+				isCustomSearch = true;
+			}
 			string subjectsEtc = " OR (base.Id in (SELECT c.id FROM [dbo].[Entity.Reference] a inner join Entity b on a.EntityId = b.Id inner join LearningOpportunity c on b.EntityUid = c.RowId where [CategoryId] in (34 ,35) and a.TextValue like '{0}' )) ";
 			string competencies = " OR ( base.Id in (SELECT LearningOpportunityId FROM [dbo].LearningOpportunity_Competency_Summary  where [Description] like '{0}' ) ) ";
 			string AND = "";
@@ -169,11 +195,17 @@ namespace CTIServices
 				AND = " AND ";
 
 			keywords = ServiceHelper.HandleApostrophes( keywords );
-			if ( keywords.IndexOf( "%" ) == -1 )
-				keywords = "%" + keywords.Trim() + "%";
+			if ( keywords.IndexOf( "%" ) == -1 && !isCustomSearch )
+			{
+				keywords = SearchServices.SearchifyWord( keywords );
+				//keywords = "%" + keywords.Trim() + "%";
+				//keywords = keywords.Replace( "&", "%" ).Replace( " and ", "%" ).Replace( " in ", "%" ).Replace( " of ", "%" );
+				//keywords = keywords.Replace( " - ", "%" );
+				//keywords = keywords.Replace( " % ", "%" );
+			}
 
 			//skip url  OR base.Url like '{0}' 
-			if ( isBasic )
+			if ( isBasic || isCustomSearch )
 				where = where + AND + string.Format( " ( " + text + " ) ", keywords );
 			else 
 				where = where + AND + string.Format( " ( " + text + subjectsEtc + competencies + " ) ", keywords );
@@ -222,6 +254,36 @@ namespace CTIServices
 			string template = " ( base.Id in (SELECT distinct LearningOpportunityId FROM [dbo].LearningOpportunity_Competency_Summary  where AlignmentType = 'teaches' AND ({0}) ) )";
 			string phraseTemplate = " ([Name] like '%{0}%' OR [Description] like '%{0}%') ";
 			//
+
+			//Updated to use FiltersV2
+			string next = "";
+			if ( where.Length > 0 )
+				AND = " AND ";
+			foreach ( var filter in data.FiltersV2.Where( m => m.Name == "competencies" ) )
+			{
+				var text = filter.AsText();
+
+				//No idea what this is supposed to do
+				try
+				{
+					if ( text.IndexOf( " - " ) > -1 )
+					{
+						text = text.Substring( text.IndexOf( " -- " ) + 4 );
+					}
+				}
+				catch { }
+
+				competencies.Add( text.Trim() );
+				next += OR + string.Format( phraseTemplate, text.Trim() );
+				OR = " OR ";
+
+			}
+			if ( !string.IsNullOrWhiteSpace( next ) )
+			{
+				where = where + AND + string.Format( template, next );
+			}
+
+			/* //Retained for reference
 			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.Name == "competencies" ) )
 			{
 				string next = "";
@@ -230,21 +292,26 @@ namespace CTIServices
 				foreach ( string item in filter.Items )
 				{
 					keyword = ServiceHelper.HandleApostrophes( item );
-					//if ( keyword.IndexOf( "%" ) == -1 )
-					//	keyword = "%" + keyword.Trim() + "%";
 					if ( keyword.IndexOf( ";" ) > -1 )
 					{
 						var words = keyword.Split( ';' );
+						string nextWord = "";
 						foreach ( string word in words )
 						{
-							competencies.Add( word.Trim() );
-							next += OR + string.Format( phraseTemplate, word.Trim() );
+							nextWord = word;
+							if ( nextWord.IndexOf( " - " ) > -1 )
+								nextWord = nextWord.Substring( nextWord.IndexOf( " -- " ) + 4 );
+
+							competencies.Add( nextWord.Trim() );
+							next += OR + string.Format( phraseTemplate, nextWord.Trim() );
 							OR = " OR ";
 						}
-
 					}
 					else
 					{
+						if ( keyword.IndexOf( " -- " ) > -1 )
+							keyword = keyword.Substring( keyword.IndexOf( " - " ) + 4 );
+
 						competencies.Add( keyword.Trim() );
 						//next = "%" + keyword.Trim() + "%";
 						next = string.Format( phraseTemplate, keyword.Trim() );
@@ -257,31 +324,91 @@ namespace CTIServices
 				if ( !string.IsNullOrWhiteSpace(next))
 					where = where + AND + string.Format( template, next );
 			}
+			*/
 		}
 		//
 
 		private static void SetPropertiesFilter( MainSearchInput data, ref string where )
 		{
 			string AND = "";
-			string template = " ( base.RowId in ( SELECT  [ParentUid] FROM [dbo].[Entity.Property] where [PropertyValueId] in ({0}))) ";
-			//what are the valid categories: delivery types
-			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.CategoryId == 21  ) )
+			string searchCategories = UtilityManager.GetAppKeyValue( "loppSearchCategories", "21,37," );
+			string template = " ( base.Id in ( SELECT  [EntityBaseId] FROM [dbo].[EntityProperty_Summary] where EntityTypeId= 7 AND [PropertyValueId] in ({0}))) ";
+			//.Where( s => s.CategoryId == 21) 
+
+			//Updated to use FiltersV2
+			string next = "";
+			if ( where.Length > 0 )
+				AND = " AND ";
+			foreach ( var filter in data.FiltersV2.Where(m => m.Type == MainSearchFilterV2Types.CODE ) )
 			{
-				string next = "";
-				if ( where.Length > 0 )
-					AND = " AND ";
-				foreach ( string item in filter.Items )
+				var item = filter.AsCodeItem();
+				if ( searchCategories.Contains( item.CategoryId.ToString() ) )
 				{
-					next += item + ",";
+					next += item.Id + ",";
 				}
-				next = next.Trim( ',' );
+			}
+			next = next.Trim( ',' );
+			if ( !string.IsNullOrWhiteSpace( next ) )
+			{
 				where = where + AND + string.Format( template, next );
 			}
+
+			/* //Retained for reference
+			foreach ( MainSearchFilter filter in data.Filters ) 
+			{
+				if ( searchCategories.IndexOf( filter.CategoryId.ToString() ) > -1 )
+				{
+					string next = "";
+					if ( where.Length > 0 )
+						AND = " AND ";
+					foreach ( string item in filter.Items )
+					{
+						next += item + ",";
+					}
+					next = next.Trim( ',' );
+					where = where + AND + string.Format( template, next );
+				}
+					
+			}
+			*/
 		}
 		private static void SetFrameworksFilter( MainSearchInput data, ref string where )
 		{
 			string AND = "";
-			string codeTemplate = "  (base.Id in (SELECT c.id FROM [dbo].[Entity.FrameworkItemSummary] a inner join Entity b on a.EntityId = b.Id inner join LearningOpportunity c on b.EntityUid = c.RowId where [CategoryId] = {0} and [FrameworkGroup] in ({1}))  ) ";
+			string codeTemplate = "  (base.Id in (SELECT c.id FROM [dbo].[Entity.FrameworkItemSummary] a inner join Entity b on a.EntityId = b.Id inner join LearningOpportunity c on b.EntityUid = c.RowId where [CategoryId] = {0} and ([FrameworkGroup] in ({1})  OR ([CodeId] in ({2}) )  ))  ) ";
+
+			//Updated to use FiltersV2
+			string next = "";
+			string groups = "";
+			if ( where.Length > 0 )
+				AND = " AND ";
+			var targetCategoryID = 23;
+			foreach ( var filter in data.FiltersV2.Where( m => m.Type == MainSearchFilterV2Types.FRAMEWORK ) )
+			{
+				var item = filter.AsCodeItem();
+				var isTopLevel = filter.GetValueOrDefault<bool>( "IsTopLevel", false );
+				if ( item.CategoryId == targetCategoryID )
+				{
+					if ( isTopLevel )
+						groups += item.Id + ",";
+					else
+						next += item.Id + ",";
+				}
+			}
+			if ( next.Length > 0 )
+				next = next.Trim( ',' );
+			else
+				next = "''";
+			if ( groups.Length > 0 )
+				groups = groups.Trim( ',' );
+			else
+				groups = "''";
+			if ( groups != "''" || next != "''" )
+			{
+				where = where + AND + string.Format( codeTemplate, targetCategoryID, groups, next );
+			}
+
+			/* //Retained for reference
 			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.CategoryId == 23 ) )
 			{
 				string next = "";
@@ -294,6 +421,7 @@ namespace CTIServices
 				next = next.Trim( ',' );
 				where = where + AND + string.Format( codeTemplate, filter.CategoryId, next );
 			}
+			*/
 		}
 #endregion 
 		#region === add/update/delete =============
@@ -322,16 +450,18 @@ namespace CTIServices
 
 			return CanUserUpdateLearningOpportunity( entity, user, ref status );
 		}
-		public static bool CanUserUpdateLearningOpportunity( int entityId, AppUser user, ref string status )
+		public static bool CanUserUpdateLearningOpportunity( int learningOpportunityId, AppUser user, ref string status )
 		{
 			if ( user == null || user.Id == 0 )
 				return false;
 
-			if ( entityId == 0 )
+			if ( learningOpportunityId < 1 )
 				return true;
 			else if ( AccountServices.IsUserSiteStaff( user ) )
 				return true;
-			LearningOpportunityProfile entity = GetLightLearningOpportunityById( entityId );
+
+			//note the following method uses the search which returns CanEditRecord,  so could probably check here and return
+			LearningOpportunityProfile entity = GetLightLearningOpportunityById( learningOpportunityId );
 
 			return CanUserUpdateLearningOpportunity( entity, user, ref status );
 		}
@@ -353,6 +483,31 @@ namespace CTIServices
 			status = "Error - you do not have edit access for this record.";
 			return isValid;
 		}
+
+		public static bool CanUserViewLearningOpportunity( LearningOpportunityProfile entity, AppUser user, ref string status )
+		{
+			bool isValid = false;
+			status = "Error - you do not have view access for this record.";
+			if ( entity == null || entity.Id == 0 )
+			{
+				status = "Learning Opportunity was Not found";
+				return false;
+			}
+			if ( entity.StatusId == CF.CodesManager.ENTITY_STATUS_PUBLISHED )
+				return true;
+
+			if ( user == null || user.Id == 0 )
+				return false;
+			else if ( AccountServices.CanUserViewAllOfSite( user ) )
+				return true;
+
+			//is a member of the assessment managing organization 
+			if ( OrganizationServices.IsOrganizationMember( user.Id, entity.ManagingOrgId ) )
+				return true;
+
+			return isValid;
+		}
+
 		/// <summary>
 		/// Add a LearningOpportunity stack
 		/// ??what to return - given the jumbotron form
@@ -370,11 +525,26 @@ namespace CTIServices
 			try
 			{
 				//set the managing orgId
-				entity.ManagingOrgId = CF.OrganizationManager.GetPrimaryOrganizationId( entity.CreatedById );
+				if ( entity.ManagingOrgId == 0 )
+				{
+					if ( ServiceHelper.IsValidGuid( entity.OwningAgentUid ) )
+					{
+						Organization org = CF.OrganizationManager.GetForSummary( entity.OwningAgentUid );
+						entity.ManagingOrgId = org.Id;
+					}
+					else
+					{
+						entity.ManagingOrgId = CF.OrganizationManager.GetPrimaryOrganizationId( user.Id );
+					}
+				}
+
 
 				id = mgr.Add( entity, entity.LastUpdatedById, ref statusMessage );
 				if ( id > 0 )
+				{
 					statusMessage = "Successfully Added Learning Opportunity";
+					new ActivityServices().AddActivity( "Learning Opportunity", "Add", string.Format( "{0} added a new Learning Opportunity: {1}", user.FullName(), entity.Name ), entity.CreatedById, 0, id );
+				}
 			}
 			catch ( Exception ex )
 			{
@@ -409,8 +579,12 @@ namespace CTIServices
 			try
 			{
 				isOK = mgr.Update( entity, entity.LastUpdatedById, ref statusMessage );
+
 				if ( isOK )
+				{
 					statusMessage = "Successfully Updated Learning Opportunity";
+					new ActivityServices().AddActivity( "Learning Opportunity", "Update", string.Format( "{0} updated Learning Opportunity (or parts of): {1}", user.FullName(), entity.Name ), user.Id, 0, entity.Id );
+				}
 
 				CF.CacheManager.RemoveItemFromCache( "LearningOpportunity", entity.Id );
 			}
@@ -453,154 +627,52 @@ namespace CTIServices
 			return valid;
 		}
 
-		//[Obsolete]
-		//public bool DeleteProfile( int profileId, string profileName, AppUser user, ref bool valid, ref string status )
-		//{
-
-		//	try
-		//	{
-		//		switch ( profileName.ToLower() )
-		//		{
-
-		//			case "durationprofile":
-		//				valid = new CF.DurationProfileManager().DurationProfile_Delete( profileId, ref status );
-		//				break;
-		//			case "geocoordinates":
-		//				valid = new CF.RegionsManager().GeoCoordinate_Delete( profileId, ref status );
-		//				break;
-		//			case "jurisdictionprofile":
-		//				valid = new CF.RegionsManager().JurisdictionProfile_Delete( profileId, ref status );
-		//				break;
-		//			case "costprofilesplit":
-		//				valid = new CF.CostProfileManager().CostProfile_Delete( profileId, ref status );
-		//				break;
-		//			case "CostProfileItem":
-		//				valid = new CF.CostProfileItemManager().CostProfileItem_Delete( profileId, ref status );
-		//				break;
-		//			default:
-		//				valid = false;
-		//				status = "Deleting the requested clientProfile is not handled at this time.";
-		//				return false;
-		//		}
-
-		//		if ( valid )
-		//		{
-		//			//if valid, status contains the cred name and id
-		//			ActivityServices.SiteActivityAdd( "LearningOpportunity", "Delete profileName", string.Format( "{0} deleted Learning Opportunity Profile {1}", user.FullName(), profileName ), user.Id, 0, profileId );
-		//			status = "";
-		//		}
-		//	}
-		//	catch ( Exception ex )
-		//	{
-		//		LoggingHelper.LogError( ex, "LearningOpportunityServices.DeleteProfile" );
-		//		status = ex.Message;
-		//		valid = false;
-		//	}
-
-		//	return valid;
-		//}
 		#endregion
 
 		#region Entity FrameworkItems==> moved TO Profile services
-		//public EnumeratedItem FrameworkItem_Add( int parentId, int categoryId, int codeID, string searchType, ref bool valid, ref string status )
-		//{
-
-		//	AppUser user = AccountServices.GetCurrentUser();
-		//	if ( user == null || user.Id == 0 )
-		//	{
-		//		valid = false;
-		//		status = "Error - you must be authenticated in order to update data";
-		//		return new EnumeratedItem();
-		//	}
-		//	return FrameworkItem_Add( parentId, categoryId, codeID, user, ref valid, ref status );
-		//}
-		//public EnumeratedItem FrameworkItem_Add( int parentId, int categoryId, int codeID, AppUser user, ref bool valid, ref string status )
-		//{
-		//	if ( parentId == 0 || categoryId == 0 || codeID == 0 )
-		//	{
-		//		valid = false;
-		//		status = "Error - invalid request - missing code identifiers";
-		//		return new EnumeratedItem();
-		//	}
-
-		//	CF.Entity_FrameworkItemManager mgr = new CF.Entity_FrameworkItemManager();
-		//	int frameworkItemId = 0;
-		//	EnumeratedItem item = new EnumeratedItem();
-		//	try
-		//	{
-		//		EntitySummary e = CF.EntityManager.GetEntitySummary( parentId, CF.CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE );
-
-		//		frameworkItemId = mgr.ItemAdd( parentId, categoryId, codeID, user.Id, ref status );
-
-		//		if ( frameworkItemId > 0 )
-		//		{
-		//			//get full item, as a codeItem to return
-		//			item = CF.Entity_FrameworkItemManager.ItemGet( frameworkItemId );
-		//			//if valid, status contains the cred id, category, and codeId
-		//			ActivityServices.SiteActivityAdd( "LearningOpportunity FrameworkItem", "Add item", string.Format( "{0} added Learning Opportunity FrameworkItem. ParentId: {1}, categoryId: {2}, codeId: {3}, summary: {4}", user.FullName(), parentId, categoryId, codeID, item.ItemSummary ), user.Id, 0, frameworkItemId );
-		//			status = "";
-		//		}
-		//		else
-		//		{
-		//			valid = false;
-		//		}
-		//	}
-		//	catch ( Exception ex )
-		//	{
-		//		LoggingHelper.LogError( ex, thisClassName + ".FrameworkItem_Add" );
-		//		status = ex.Message;
-		//		valid = false;
-		//	}
-
-		//	return item;
-		//}
-
-		//public bool FrameworkItem_Delete( int frameworkItemId, AppUser user, ref bool valid, ref string status )
-		//{
-		//	CF.Entity_FrameworkItemManager mgr = new CF.Entity_FrameworkItemManager();
-
-		//	try
-		//	{
-		//		valid = mgr.ItemDelete( frameworkItemId, ref status );
-
-		//		if ( valid )
-		//		{
-		//			//if valid, status contains the cred id, category, and codeId
-		//			ActivityServices.SiteActivityAdd( "Learning Opportunity FrameworkItem", "Delete item", string.Format( "{0} deleted credential FrameworkItem {1}", user.FullName(), frameworkItemId ), user.Id, 0, frameworkItemId );
-		//			status = "";
-		//		}
-		//	}
-		//	catch ( Exception ex )
-		//	{
-		//		LoggingHelper.LogError( ex, thisClassName + ".FrameworkItem_Delete" );
-		//		status = ex.Message;
-		//		valid = false;
-		//	}
-
-		//	return valid;
-		//}
+		
 		#endregion
 
 		#region Learning Opportunity parts
-		public int AddLearningOpportunity_AsPart( int parentId, int recordId, AppUser user, ref bool valid, ref string status )
+		/// <summary>
+		/// Add a learning opp part to a parent
+		/// </summary>
+		/// <param name="parentId"></param>
+		/// <param name="recordId"></param>
+		/// <param name="user"></param>
+		/// <param name="valid"></param>
+		/// <param name="status"></param>
+		/// <returns></returns>
+		public int AddLearningOpportunity_AsPart( Guid parentUid, int childLearningOppId, AppUser user, ref bool valid, ref string status )
 		{
 			int id = 0;
 			List<string> messages = new List<string>();
 			CF.Entity_LearningOpportunityManager mgr = new CF.Entity_LearningOpportunityManager();
 			try
 			{
-				id = mgr.EntityLearningOpp_Add( parentId, CF.CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, recordId, user.Id, ref messages );
+				Entity parent = CF.EntityManager.GetEntity( parentUid );
+				if ( parent == null || parent.Id == 0 )
+				{
+					status = "Error - the parent entity was not found.";
+					return 0;
+				}
+				if ( parent.EntityBaseId == childLearningOppId )
+				{
+					status = "Error - you cannot add the parent learning opportunity as a child learning opportunity." ;
+					return 0;
+				}
+				id = mgr.Add( parentUid, childLearningOppId, user.Id, true, ref messages );
 
 				if ( id > 0 )
 				{
 					//if valid, status contains the cred id, category, and codeId
-					ActivityServices.SiteActivityAdd( "Learning Opportunity Profile", "Add Learning Opportunity", string.Format( "{0} added Learning Opportunity part {1} to Learning Opportunity {2}", user.FullName(), recordId, parentId ), user.Id, 0, recordId );
+					ActivityServices.SiteActivityAdd( "Learning Opportunity Profile", "Add Learning Opportunity", string.Format( "{0} added Learning Opportunity part {1} to Learning Opportunity {2}", user.FullName(), childLearningOppId, parent.Id ), user.Id, 0, childLearningOppId );
 					status = "";
 				}
 				else
 				{
 					valid = false;
-					status += string.Join( ",", messages.ToArray() );
+					status += string.Join( "<br/>", messages.ToArray() );
 				}
 			}
 			catch ( Exception ex )
@@ -613,19 +685,26 @@ namespace CTIServices
 			return id;
 		}
 
-		public bool DeleteLearningOpportunityPart( int parentId, int recordId, AppUser user, ref string status )
+		public bool DeleteLearningOpportunityPart( Guid parentUid, int recordId, AppUser user, ref string status )
 		{
 			bool valid = true;
 
 			CF.Entity_LearningOpportunityManager mgr = new CF.Entity_LearningOpportunityManager();
 			try
 			{
-				valid = mgr.EntityLearningOpp_Delete( parentId, CF.CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, recordId, ref status );
+				Entity parent = CF.EntityManager.GetEntity( parentUid );
+				if ( parent == null || parent.Id == 0 )
+				{
+					status = "Error - the parent entity was not found.";
+					return false;
+				}
+
+				valid = mgr.Delete( parentUid, recordId, ref status );
 
 				if ( valid )
 				{
 					//if valid, status contains the cred id, category, and codeId
-					ActivityServices.SiteActivityAdd( "Connection Profile", "Delete Learning Opportunity Part", string.Format( "{0} deleted Learning Opportunity part {1} from Learning Opportunity Profile  {2}", user.FullName(), recordId, parentId ), user.Id, 0, recordId );
+					ActivityServices.SiteActivityAdd( "Connection Profile", "Delete Learning Opportunity Part", string.Format( "{0} deleted Learning Opportunity part {1} from Learning Opportunity Profile  {2}", user.FullName(), recordId, parent.Id ), user.Id, 0, recordId );
 					status = "";
 				}
 			}

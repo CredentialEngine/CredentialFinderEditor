@@ -174,7 +174,7 @@ namespace Utilities
             {
                 appValue = bool.Parse( System.Configuration.ConfigurationManager.AppSettings[ keyName ] );
             }
-            catch
+            catch (Exception ex)
             {
                 appValue = defaultValue;
                 LoggingHelper.LogError( string.Format( "@@@@ Error on appKey: {0},  using default of: {1}", keyName, defaultValue ) );
@@ -414,8 +414,8 @@ namespace Utilities
             //ensure not already an absolute
             if ( relativeUrl.ToLower().StartsWith( "http" ) )
                 return relativeUrl;
-
-            if ( isSecure && GetAppKeyValue( "SSLEnable", "0") == "1" )
+			//
+			if ( isSecure && GetAppKeyValue( "usingSSL", false ))
             {
                 url = "https://" + host + relativeUrl;
             }
@@ -566,7 +566,7 @@ namespace Utilities
             }
             catch ( System.NullReferenceException nex )
             {
-                //ignore - probably none MCMS page
+                //ignore 
                 return "residents";
 
             }
@@ -1106,8 +1106,6 @@ namespace Utilities
 
         /// <summary>
         /// Format a title (such as for a library) to be url friendly
-        /// NOTE: there is another method:
-        /// LRWarehouse.Business.BaseBusinessDataEntity.UrlFriendlyTitle()
         /// </summary>
         /// <param name="title"></param>
         /// <returns></returns>

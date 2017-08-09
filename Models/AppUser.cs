@@ -13,9 +13,12 @@ namespace Models
 		public AppUser()
 		{
 			IsValid = true;
-			Roles = new List<string>();
+			UserRoles = new List<string>();
+			Roles = "";
+            OrgMbrs = "";
+			Organizations = new List<CodeItem>();
 		}
-		public int Id { get; set; }
+		//public int Id { get; set; }
 		//public Guid RowId { get; set; }
 		public string UserName { get; set; }
 		public string Password { get; set; }
@@ -28,10 +31,16 @@ namespace Models
 		public bool IsActive { get; set; }
 		public bool IsValid { get; set; }
 
-		public List<string> Roles { get; set; }
+		public List<string> UserRoles { get; set; }
+		public string Roles { get; set; }
+        public string OrgMbrs { get; set; }
+
+		public string lastLogon { get; set; }
 
 		public int PrimaryOrgId { get; set; }
 		public int DefaultRoleId { get; set; }
+		public List<CodeItem> Organizations { get; set; }
+
 		//public bool CanPublish
 		//{
 		//	get 

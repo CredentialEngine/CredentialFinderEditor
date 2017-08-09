@@ -27,157 +27,6 @@ namespace Factories
 		/// <param name="userId"></param>
 		/// <param name="messages"></param>
 		/// <returns></returns>
-		public bool TaskProfileUpdate( List<ThisEntity> profiles, Guid parentUid, int parentTypeId, int userId, ref List<string> messages )
-		{
-			bool isValid = true;
-			int intialCount = messages.Count;
-
-			if ( !IsValidGuid( parentUid ) )
-			{
-				messages.Add( "Error: the parent identifier was not provided." );
-			}
-			if ( parentTypeId == 0 )
-			{
-				messages.Add( "Error: the parent type was not provided." );
-			}
-			if ( messages.Count > intialCount )
-				return false;
-
-			int count = 0;
-			bool hasData = false;
-			if ( profiles == null )
-				profiles = new List<ThisEntity>();
-
-			DBentity efEntity = new DBentity();
-
-			//Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
-			Entity parent = EntityManager.GetEntity( parentUid );
-			if ( parent == null || parent.Id == 0 )
-			{
-				messages.Add( "Error - the parent entity was not found." );
-				return false;
-			}
-			using ( var context = new Data.CTIEntities() )
-			{
-				//check add/updates first
-				if ( profiles.Count() > 0 )
-				{
-					hasData = true;
-					bool isEmpty = false;
-
-
-					foreach ( ThisEntity entity in profiles )
-					{
-						if ( ValidateProfile( entity, ref isEmpty, ref  messages ) == false )
-						{
-							messages.Add( "Task Profile was invalid. " + SetEntitySummary( entity ) );
-							continue;
-						}
-						if ( isEmpty ) //skip
-							continue;
-
-						if ( entity.Id == 0 )
-						{
-							//add
-							efEntity = new DBentity();
-							FromMap( entity, efEntity );
-							efEntity.EntityId = parent.Id;
-
-							efEntity.Created = efEntity.LastUpdated = DateTime.Now;
-							efEntity.CreatedById = efEntity.LastUpdatedById = userId;
-							efEntity.RowId = Guid.NewGuid();
-
-							context.Entity_TaskProfile.Add( efEntity );
-							count = context.SaveChanges();
-							//update profile record so doesn't get deleted
-							entity.Id = efEntity.Id;
-							entity.ParentId = parent.Id;
-							entity.RowId = efEntity.RowId;
-							if ( count == 0 )
-							{
-								ConsoleMessageHelper.SetConsoleErrorMessage( string.Format( " Unable to add Profile: {0} <br\\> ", string.IsNullOrWhiteSpace( entity.ProfileName ) ? "no description" : entity.ProfileName ) );
-							}
-							else
-							{
-								UpdateParts( entity, userId, ref messages );
-							}
-						}
-						else
-						{
-							entity.ParentId = parent.Id;
-
-							efEntity = context.Entity_TaskProfile.SingleOrDefault( s => s.Id == entity.Id );
-							if ( efEntity != null && efEntity.Id > 0 )
-							{
-								entity.RowId = efEntity.RowId;
-								//update
-								FromMap( entity, efEntity );
-								//has changed?
-								if ( HasStateChanged( context ) )
-								{
-									efEntity.LastUpdated = System.DateTime.Now;
-									efEntity.LastUpdatedById = userId;
-
-									count = context.SaveChanges();
-								}
-								//always check parts
-								UpdateParts( entity, userId, ref messages );
-							}
-
-						}
-
-					} //foreach
-
-				}
-
-				//check for deletes ====================================
-				//need to ensure ones just added don't get deleted
-
-				//get existing 
-				List<DBentity> results = context.Entity_TaskProfile
-						.Where( s => s.EntityId == parent.Id )
-						.OrderBy( s => s.Id )
-						.ToList();
-
-				//if profiles is null, need to delete all!!
-				if ( results.Count() > 0 && profiles.Count() == 0 )
-				{
-					foreach ( var item in results )
-						context.Entity_TaskProfile.Remove( item );
-
-					context.SaveChanges();
-				}
-				else
-				{
-					//deletes should be direct??
-					//should only have existing ids, where not in current list, so should be deletes
-					var deleteList = from existing in results
-									 join item in profiles
-											 on existing.Id equals item.Id
-											 into joinTable
-									 from result in joinTable.DefaultIfEmpty( new ThisEntity { Id = 0, ParentId = 0 } )
-									 select new { DeleteId = existing.Id, ParentId = ( result.ParentId ) };
-
-					foreach ( var v in deleteList )
-					{
-						if ( v.ParentId == 0 )
-						{
-							//delete item
-							DBentity p = context.Entity_TaskProfile.FirstOrDefault( s => s.Id == v.DeleteId );
-							if ( p != null && p.Id > 0 )
-							{
-								context.Entity_TaskProfile.Remove( p );
-								count = context.SaveChanges();
-							}
-						}
-					}
-				}
-
-			}
-
-			return isValid;
-		}
-
 		public bool Update( ThisEntity entity, Guid parentUid, int userId, ref List<string> messages )
 		{
 			bool isValid = true;
@@ -278,19 +127,10 @@ namespace Factories
 		{
 			bool isAllValid = true;
 
-			//TODO - skip items not yet handled in new version
-			//if ( !entity.IsNewVersion )
-			//{
-			//	if ( !new CostProfileManager().CostProfileUpdate( entity.EstimatedCost, entity.RowId, CodesManager.ENTITY_TYPE_TASK_PROFILE, userId, ref messages ) )
-			//		isAllValid = false;
-			//	//duration
-			//	if ( !new DurationProfileManager().DurationProfileUpdate( entity.EstimatedDuration, entity.RowId, CodesManager.ENTITY_TYPE_TASK_PROFILE, userId, ref messages ) )
-			//		isAllValid = false;
+			Entity_ReferenceManager erm = new Entity_ReferenceManager();
 
-			//	if ( new RegionsManager().JurisdictionProfile_Update( entity.Jurisdiction, entity.RowId, CodesManager.ENTITY_TYPE_TASK_PROFILE, userId, RegionsManager.JURISDICTION_PURPOSE_SCOPE, ref messages ) == false )
-			//		isAllValid = false;
-			//}
-
+			if ( erm.Entity_Reference_Update( entity.ResourceUrl, entity.RowId, CodesManager.ENTITY_TYPE_TASK_PROFILE, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_REFERENCE_URLS, false ) == false )
+				isAllValid = false;
 
 
 			return isAllValid;
@@ -326,7 +166,7 @@ namespace Factories
 			//check if empty
 			if ( string.IsNullOrWhiteSpace( profile.ProfileName )
 				&& string.IsNullOrWhiteSpace( profile.Description )
-				&& string.IsNullOrWhiteSpace( profile.Url )
+				&& string.IsNullOrWhiteSpace( profile.AvailableOnlineAt )
 				&& string.IsNullOrWhiteSpace( profile.DateEffective )
 				&& !IsValidGuid( profile.AffiliatedAgentUid )
 				&& ( profile.EstimatedCost == null || profile.EstimatedCost.Count == 0 )
@@ -343,10 +183,18 @@ namespace Factories
 				messages.Add( "A profile name must be entered" );
 				isValid = false;
 			}
-			if (!IsValidDate(profile.DateEffective))
+			if ( !string.IsNullOrWhiteSpace( profile.DateEffective ) && !IsValidDate( profile.DateEffective ) )
 			{
 				messages.Add( "Please enter a valid effective date" );
 				isValid = false;
+			}
+			if ( !IsUrlWellFormed( profile.AvailabilityListing ) )
+			{
+				messages.Add( "The Availability Listing Url is invalid" );
+			}
+			if ( !IsUrlWellFormed( profile.AvailableOnlineAt ) )
+			{
+				messages.Add( "The Available Online At Url is invalid" );
 			}
 			//should be something else
 			if ( !IsValidGuid( profile.AffiliatedAgentUid )
@@ -444,6 +292,8 @@ namespace Factories
 			to.Id = from.Id;
 			to.ProfileName = from.ProfileName;
 			to.Description = from.Description;
+			to.AvailableOnlineAt = GetUrlData( from.AvailableOnlineAt, null );
+			to.AvailabilityListing = GetUrlData( from.AvailabilityListing, null );
 
 			if ( IsValidDate( from.DateEffective ) )
 				to.DateEffective = DateTime.Parse( from.DateEffective );
@@ -454,9 +304,6 @@ namespace Factories
 			else
 				to.AffiliatedAgentUid = null;
 
-			to.Url = from.Url;
-			
-
 		}
 		public static void ToMap( DBentity from, ThisEntity to, bool includingItems = true )
 		{
@@ -464,17 +311,20 @@ namespace Factories
 			to.RowId = from.RowId;
 
 			if ( from.ProfileName == "*** new profile ***" )
-				from.ProfileName = "";
+				from.ProfileName = "** PROVIDE PROFILE NAME **";
 			else	
 				to.ProfileName = from.ProfileName;
 			to.Description = from.Description;
+			to.AvailabilityListing = from.AvailabilityListing;
 
 			if ( IsValidDate( from.DateEffective ) )
 				to.DateEffective = ( ( DateTime ) from.DateEffective ).ToShortDateString();
 			else
 				to.DateEffective = "";
 
-			to.Url = from.Url;
+			//to.ResourceUrl = from.Url;
+			to.AvailableOnlineAt = from.AvailableOnlineAt;
+			
 			if ( from.AffiliatedAgentUid != null)
 				to.AffiliatedAgentUid = (Guid)from.AffiliatedAgentUid;
 
@@ -486,13 +336,18 @@ namespace Factories
 			if ( IsValidDate( from.LastUpdated ) )
 				to.LastUpdated = ( DateTime ) from.LastUpdated;
 			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
+			to.LastUpdatedBy = SetLastUpdatedBy( to.LastUpdatedById, from.Account_Modifier );
 
 			if ( includingItems )
 			{
+				to.Addresses = AddressProfileManager.GetAll( to.RowId );
+
 				to.EstimatedCost = CostProfileManager.CostProfile_GetAll( to.RowId );
 
 				to.EstimatedDuration = DurationProfileManager.GetAll( to.RowId );
-				to.Jurisdiction = RegionsManager.Jurisdiction_GetAll( to.RowId );
+				to.Jurisdiction = Entity_JurisdictionProfileManager.Jurisdiction_GetAll( to.RowId );
+
+				to.ResourceUrl = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_REFERENCE_URLS );
 			}
 		}
 		static string SetEntitySummary( ThisEntity to )

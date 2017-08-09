@@ -23,6 +23,9 @@ namespace Data
         public string AlphabeticCode { get; set; }
         public string Currency { get; set; }
         public Nullable<int> SortOrder { get; set; }
+        public string UnicodeDecimal { get; set; }
+        public string UnicodeHex { get; set; }
+        public string HtmlCodes { get; set; }
     
         public virtual ICollection<Entity_CostProfile> Entity_CostProfile { get; set; }
     }

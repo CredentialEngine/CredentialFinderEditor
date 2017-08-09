@@ -51,7 +51,7 @@ namespace Models.Node
 
 				public string PropertyName { get; set; }
 				public string MappedPropertyName { get; set; }
-				public string SchemaName { get; set; } //Do not include prefix (e.g., "ctdl:") for best results
+				public string SchemaName { get; set; } //Do not include prefix (e.g., "ceterms:") for best results
 				public MappingRules Rules { get; set; }
 			}
 			//
@@ -160,7 +160,7 @@ namespace Models.Node
 							//Set the value - may be better to append?
 							if ( currentProperty.PropertyType == typeof( List<string> ) )
 							{
-								currentProperty.SetValue( output, matches.Select( m => m.ActingAgent.Url ).ToList() );
+								currentProperty.SetValue( output, matches.Select( m => m.ActingAgent.SubjectWebpage ).ToList() );
 							}
 							else if ( currentProperty.PropertyType == typeof( List<Models.Common.Organization> ) )
 							{

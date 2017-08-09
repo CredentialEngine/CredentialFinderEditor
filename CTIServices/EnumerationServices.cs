@@ -11,6 +11,8 @@ namespace CTIServices
 {
 	public class EnumerationServices
 	{
+
+		#region enumerations 
 		/// <summary>
 		/// Get an MC.Enumeration (by default a checkbox list) by schemaName
 		/// </summary>
@@ -18,9 +20,8 @@ namespace CTIServices
 		/// <param name="interfaceType"></param>
 		/// <param name="showOtherValue">If true, a text box for entering other values will be displayed</param>
 		/// <returns></returns>
-		public MC.Enumeration GetEnumeration( string dataSource, MC.EnumerationType
-				interfaceType = MC.EnumerationType.MULTI_SELECT, 
-				bool showOtherValue = true, 
+		public MC.Enumeration GetEnumeration( string dataSource, MC.EnumerationType interfaceType = MC.EnumerationType.MULTI_SELECT, 
+				bool showOtherValue = false, 
 				bool getAll = true)
 		{
 			MC.Enumeration e = CodesManager.GetEnumeration( dataSource, getAll );
@@ -28,6 +29,36 @@ namespace CTIServices
 			e.ShowOtherValue = showOtherValue;
 			return e;
 		}
+		public MC.Enumeration GetEnumerationForRadioButtons( string dataSource, int preselectId = -1, bool getAll = true)
+		{
+			MC.Enumeration e = CodesManager.GetEnumeration( dataSource, getAll );
+			e.InterfaceType = MC.EnumerationType.SINGLE_SELECT;
+			if ( preselectId > -1 && e.hasItems() )
+			{
+				int cntr = 0;
+				foreach(MC.EnumeratedItem item in e.Items) 
+				{
+					if ( cntr == preselectId )
+					{
+						item.Selected = true;
+						break;
+					}
+					cntr++;
+				}
+			}
+			return e;
+		}
+
+		public MC.Enumeration GetJurisdictionAssertions( string filter, MC.EnumerationType interfaceType = MC.EnumerationType.MULTI_SELECT,
+			bool showOtherValue = true,
+			bool getAll = true )
+		{
+			MC.Enumeration e = CodesManager.GetJurisdictionAssertions_Filtered( filter );
+			e.InterfaceType = interfaceType;
+			e.ShowOtherValue = showOtherValue;
+			return e;
+		}
+		#endregion
 
 		/// <summary>
 		/// Get a list of properties - typically called from Views
@@ -47,6 +78,13 @@ namespace CTIServices
 			List<CodeItem> list = CodesManager.Property_GetValues( dataSource, insertSelectTitle, getAll );
 
 			return list;
+		}
+
+		public static CodeItem GetPropertyBySchema( string categoryCode, string schemaName )
+		{
+			CodeItem item = CodesManager.GetPropertyBySchema( categoryCode, schemaName );
+
+			return item;
 		}
 
 		#region credential enumerations
@@ -76,7 +114,16 @@ namespace CTIServices
 			return e;
 		}
 		//
-
+		public MC.Enumeration GetAudienceLevel( MC.EnumerationType interfaceType, bool getAll = true )
+		{
+			MC.Enumeration e = CodesManager.GetEnumeration( CodesManager.PROPERTY_CATEGORY_AUDIENCE_LEVEL, getAll );
+			e.InterfaceType = interfaceType;
+			e.ShowOtherValue = true;
+			return e;
+		}
+		
+		//
+		[Obsolete]
 		public MC.Enumeration GetCredentialLevel( MC.EnumerationType interfaceType, bool getAll = true )
 		{
 			MC.Enumeration e = CodesManager.GetEnumeration( "credentialLevel", getAll );
@@ -85,6 +132,69 @@ namespace CTIServices
 			return e;
 		}
 		//
+		#endregion
+
+		#region Condition profile related
+		/// <summary>
+		/// Get credential connections codes.
+		/// Used by search
+		/// Note: a custom type that includes is part, and part of, primarily for search filters.
+		/// NOTE: ensure same one used for the editor?
+		/// </summary>
+		/// <param name="interfaceType"></param>
+		/// <param name="getAll"></param>
+		/// <returns></returns>
+		//public MC.Enumeration GetCredentialConnections( MC.EnumerationType interfaceType, bool getAll = true )
+		//{
+
+		//	MC.Enumeration e = CodesManager.GetEnumeration( "conditionProfileType", getAll, true );
+		//	e.ShowOtherValue = true;
+		//	e.InterfaceType = interfaceType;
+		//	return e;
+		//}
+
+		/// <summary>
+		/// Get credential connections codes.
+		/// Used by search
+		/// Note: a custom type that includes is part, and part of, primarily for search filters.
+		/// NOTE: ensure same one used for the editor?
+		/// </summary>
+		/// <param name="interfaceType"></param>
+		/// <param name="getAll"></param>
+		/// <returns></returns>
+		public MC.Enumeration GetCredentialsConditionProfile( MC.EnumerationType interfaceType, bool getAll = true )
+		{
+
+			MC.Enumeration e = CodesManager.GetCredentialsConditionProfileTypes();
+			e.ShowOtherValue = false;
+			e.InterfaceType = interfaceType;
+			return e;
+		}
+
+		public MC.Enumeration GetConditionManifestConditionTypes( MC.EnumerationType interfaceType, bool getAll = true )
+		{
+
+			MC.Enumeration e = CodesManager.GetConditionManifestConditionTypes( getAll );
+			e.ShowOtherValue = false;
+			e.InterfaceType = interfaceType;
+			return e;
+		}
+		//public MC.Enumeration GetAssessmentsConditionProfileTypes( MC.EnumerationType interfaceType)
+		//{
+
+		//	MC.Enumeration e = CodesManager.GetAssessmentsConditionProfileTypes();
+		//	e.ShowOtherValue = false;
+		//	e.InterfaceType = interfaceType;
+		//	return e;
+		//}
+		//public MC.Enumeration GetLearningOppsConditionProfileTypes( MC.EnumerationType interfaceType )
+		//{
+
+		//	MC.Enumeration e = CodesManager.GetLearningOppsConditionProfileTypes();
+		//	e.ShowOtherValue = false;
+		//	e.InterfaceType = interfaceType;
+		//	return e;
+		//}
 		#endregion
 
 		#region agent role enums
@@ -96,39 +206,25 @@ namespace CTIServices
 			return e;
 		}
 
+		
 		/// <summary>
-		/// OLD
-		/// </summary>
-		/// <param name="interfaceType"></param>
-		/// <returns></returns>
-		public MC.Enumeration GetAllAgentRoles( MC.EnumerationType interfaceType )
-		{
-			MC.Enumeration e = OrganizationRoleManager.GetAgentToAgentRolesCodes( true );
-			e.InterfaceType = interfaceType;
-			e.ShowOtherValue = true;
-			return e;
-		}
-		public MC.Enumeration GetAllOrgAgentRoles( MC.EnumerationType interfaceType )
-		{
-			MC.Enumeration e = OrganizationRoleManager.GetAgentToAgentRolesCodes( true );
-			e.InterfaceType = interfaceType;
-			e.ShowOtherValue = true;
-			return e;
-		}
-
-		/// <summary>
-		/// Get agent roles for assessments and learning opportunities
-		/// Ex: Created By
+		/// Get agent roles for assessments
+		/// Ex: Created By (not any more)
 		/// </summary>
 		/// <param name="interfaceType"></param>
 		/// <returns></returns>
 		public MC.Enumeration GetAssessmentAgentRoles( MC.EnumerationType interfaceType )
 		{
-			MC.Enumeration e = Entity_AgentRelationshipManager.GetAllOtherAgentRoles( false );
+			MC.Enumeration e = Entity_AgentRelationshipManager.GetAssessmentAgentRoles( false );
 			e.InterfaceType = interfaceType;
 			e.ShowOtherValue = true;
 			return e;
 		}
+		/// <summary>
+		/// Get agent roles for learning opportunities
+		/// </summary>
+		/// <param name="interfaceType"></param>
+		/// <returns></returns>
 		public MC.Enumeration GetLearningOppAgentRoles( MC.EnumerationType interfaceType )
 		{
 			MC.Enumeration e = Entity_AgentRelationshipManager.GetLearningOppAgentRoles( false );
@@ -136,32 +232,8 @@ namespace CTIServices
 			e.ShowOtherValue = true;
 			return e;
 		}
-		/// <summary>
-		/// Get INVERSE agent roles for assessments and learning opportunities
-		/// Ex: Created
-		/// </summary>
-		/// <param name="interfaceType"></param>
-		/// <returns></returns>
-		public MC.Enumeration GetAllOtherAgentRolesInverse( MC.EnumerationType interfaceType )
-		{
-			MC.Enumeration e = Entity_AgentRelationshipManager.GetAllOtherAgentRoles( true );
-			e.InterfaceType = interfaceType;
-			e.ShowOtherValue = true;
-			return e;
-		}
+		
 	
-		/// <summary>
-		/// Get agent roles for assessment and learning opps
-		/// </summary>
-		/// <param name="interfaceType"></param>
-		/// <returns></returns>
-		//public MC.Enumeration GetAllLearningOppAgentRoles( MC.EnumerationType interfaceType )
-		//{
-		//	MC.Enumeration e = Entity_AgentRelationshipManager.GetAllOtherAgentRoles( true );
-		//	e.InterfaceType = interfaceType;
-		//	e.ShowOtherValue = true;
-		//	return e;
-		//}
 		public MC.Enumeration GetAllAgentReverseRoles( MC.EnumerationType interfaceType )
 		{
 			MC.Enumeration e = OrganizationRoleManager.GetAgentToAgentRolesCodes( false );
@@ -169,8 +241,27 @@ namespace CTIServices
 			e.ShowOtherValue = true;
 			return e;
 		}
+
+		public MC.Enumeration GetEntityQARoles( MC.EnumerationType interfaceType, string entityType = "Credential", bool getAll = true )
+		{
+			//get roles as entity to org
+			MC.Enumeration e = OrganizationRoleManager.GetEntityQARoles();
+			e.InterfaceType = interfaceType;
+			e.ShowOtherValue = false;
+			return e;
+		}
+
+		public MC.Enumeration GetEntityOfferedByRoles( MC.EnumerationType interfaceType )
+		{
+			//get roles as entity to org
+			MC.Enumeration e = OrganizationRoleManager.GetEntityOfferedByRoles();
+			e.InterfaceType = interfaceType;
+			e.ShowOtherValue = false;
+			return e;
+		}
 		/// <summary>
 		/// Get only QA roles
+		/// - used by editor - for 3rd party QA??
 		/// </summary>
 		/// <param name="interfaceType"></param>
 		/// <param name="entityType"></param>
@@ -183,14 +274,7 @@ namespace CTIServices
 			e.ShowOtherValue = true;
 			return e;
 		}
-		public MC.Enumeration GetEntityAgentQAActionFilters( MC.EnumerationType interfaceType, string entityType, bool getAll = true )
-		{
-			//get roles as entity to org
-			MC.Enumeration e = OrganizationRoleManager.GetEntityAgentQAActionFilters( false, getAll, entityType );
-			e.InterfaceType = interfaceType;
-			e.ShowOtherValue = false;
-			return e;
-		}
+
 		public MC.Enumeration GetCredentialAgentRoles( MC.EnumerationType interfaceType, string entityType = "Credential" )
 		{
 			//get roles as entity to org
@@ -204,9 +288,83 @@ namespace CTIServices
 			e.ShowOtherValue = true;
 			return e;
 		}
+
+		public MC.Enumeration GetCredentialOwnerAgentRoles( MC.EnumerationType interfaceType)
+		{
+			//get roles as entity to org
+			MC.Enumeration e = new MC.Enumeration();
+			e = OrganizationRoleManager.GetCredentialOwnerAgentRoles( false );
+			
+			e.InterfaceType = interfaceType;
+			e.ShowOtherValue = true;
+			return e;
+		}
+		#endregion
+		#region OBSOLETE ROLE METHODS
+		/// <summary>
+		/// OLD
+		/// </summary>
+		/// <param name="interfaceType"></param>
+		/// <returns></returns>
+		//[Obsolete]
+		//private MC.Enumeration GetAllAgentRoles( MC.EnumerationType interfaceType )
+		//{
+		//	MC.Enumeration e = OrganizationRoleManager.GetAgentToAgentRolesCodes( true );
+		//	e.InterfaceType = interfaceType;
+		//	e.ShowOtherValue = true;
+		//	return e;
+		//}
+		//[Obsolete]
+		//private MC.Enumeration GetAllOrgAgentRoles( MC.EnumerationType interfaceType )
+		//{
+		//	MC.Enumeration e = OrganizationRoleManager.GetAgentToAgentRolesCodes( true );
+		//	e.InterfaceType = interfaceType;
+		//	e.ShowOtherValue = true;
+		//	return e;
+		//}
+
+		/// <summary>
+		/// Get INVERSE agent roles for assessments and learning opportunities
+		/// Ex: Created
+		/// </summary>
+		/// <param name="interfaceType"></param>
+		/// <returns></returns>
+		//[Obsolete]
+		//private MC.Enumeration GetAllOtherAgentRolesInverse( MC.EnumerationType interfaceType )
+		//{
+		//	MC.Enumeration e = Entity_AgentRelationshipManager.GetAllOtherAgentRoles( true );
+		//	e.InterfaceType = interfaceType;
+		//	e.ShowOtherValue = true;
+		//	return e;
+		//}
+		//[Obsolete]
+		//public MC.Enumeration GetEntityAgentQAActionFilters( MC.EnumerationType interfaceType, string entityType, bool getAll = true )
+		//{
+		//	//get roles as entity to org
+		//	MC.Enumeration e = OrganizationRoleManager.GetEntityAgentQAActionFilters( false, getAll, entityType );
+		//	e.InterfaceType = interfaceType;
+		//	e.ShowOtherValue = false;
+		//	return e;
+		//}
+		/// <summary>
+		/// Get agent roles for assessment and learning opps
+		/// </summary>
+		/// <param name="interfaceType"></param>
+		/// <returns></returns>
+		//public MC.Enumeration GetAllLearningOppAgentRoles( MC.EnumerationType interfaceType )
+		//{
+		//	MC.Enumeration e = Entity_AgentRelationshipManager.GetAllOtherAgentRoles( true );
+		//	e.InterfaceType = interfaceType;
+		//	e.ShowOtherValue = true;
+		//	return e;
+		//}
 		#endregion
 
-		#region org enumurations
+		#region org related codes and enumurations
+		public List<CodeItem> GetUserOrganizations( int userId )
+		{
+			return OrganizationServices.OrganizationMember_OrgsAsCodeItems( userId );
+		}
 		public MC.Enumeration GetOrganizationType( MC.EnumerationType interfaceType,
 				bool getAll = true )
 		{
@@ -282,7 +440,7 @@ namespace CTIServices
 					Id = org.Id,
 					RowId = org.RowId.ToString(),
 					Name = org.Name,
-					Value = org.Url
+					Value = org.SubjectWebpage
 				} );
 			}
 
@@ -293,13 +451,13 @@ namespace CTIServices
 
 		#region //Temporary
 		//Get a sample enumeration
-		public MC.Enumeration GetSampleEnumeration( string dataSource, string schemaName, MC.EnumerationType interfaceType )
-		{
-			var result = CodesManager.GetSampleEnumeration( dataSource, schemaName );
-			result.InterfaceType = interfaceType;
+		//public MC.Enumeration GetSampleEnumeration( string dataSource, string schemaName, MC.EnumerationType interfaceType )
+		//{
+		//	var result = CodesManager.GetSampleEnumeration( dataSource, schemaName );
+		//	result.InterfaceType = interfaceType;
 
-			return result;
-		}
+		//	return result;
+		//}
 		//
 		#endregion 		//End Temporary
 
@@ -318,7 +476,21 @@ namespace CTIServices
 			e.InterfaceType = interfaceType;
 			return e;
 		}
-		#endregion 
+
+		/// <summary>
+		/// Get Languages
+		/// </summary>
+		/// <param name="interfaceType"></param>
+		/// <returns></returns>
+
+		public MC.Enumeration GetLanguages( MC.EnumerationType interfaceType )
+		{
+			MC.Enumeration e = CodesManager.GetLanguages();
+			e.ShowOtherValue = false;
+			e.InterfaceType = interfaceType;
+			return e;
+		}//GetLanguages
+		#endregion
 
 		#region SOC
 		public static List<CodeItem> SOC_Search( int headerId, string keyword, int pageNumber, int pageSize, ref int totalRows, bool getAll = true )
@@ -347,7 +519,16 @@ namespace CTIServices
 		}
 		public static MC.Enumeration SOC_Categories_Enumeration( bool getAll = true)
 		{
-			var data = CodesManager.SOC_Categories();
+			var data = new List<CodeItem>();
+			if ( getAll )
+				data = CodesManager.SOC_Categories();
+			else
+			{
+				//show all until the custom one is fixed
+				//data = CodesManager.SOC_Categories();
+				data = CodesManager.SOC_CategoriesInUse();
+			}
+				
 			var result = new MC.Enumeration()
 			{
 				Id = 11,
@@ -356,22 +537,32 @@ namespace CTIServices
 			};
 			return result;
 		}
+
 		#endregion
 		#region NAICS
-		public static List<CodeItem> NAICS_Search( int headerId, string keyword, int pageNumber, int pageSize, ref int totalRows, bool getAll = true )
+		public static List<CodeItem> NAICS_Search( int entityTypeId, int headerId, string keyword, int pageNumber, int pageSize, ref int totalRows, bool getAll = true )
 		{
 			//int totalRows = 0;
-			return CodesManager.NAICS_Search( headerId, keyword, pageNumber, pageSize, getAll, ref totalRows );
+			if ( entityTypeId == 0)
+				return CodesManager.NAICS_Search( headerId, keyword, pageNumber, pageSize, getAll, ref totalRows );
+			else
+				return CodesManager.NAICS_SearchInUse( entityTypeId, headerId, keyword, pageNumber, pageSize, ref totalRows );
 		}
 		public static List<CodeItem> NAICS_Autocomplete( int credentialId, int headerId = 0, string keyword = "", int maxRows = 25 )
 		{
+			//need a getAll option for this as well!
 			return CodesManager.NAICS_Autocomplete( headerId, keyword, maxRows );
 		}
 		public static List<CodeItem> NAICS_Categories()
 		{
 			return CodesManager.NAICS_Categories();
 		}
-		public static MC.Enumeration NAICS_Categories_Enumeration( bool getAll = true)
+
+		/// <summary>
+		/// Get all NAICS groups
+		/// </summary>
+		/// <returns></returns>
+		public static MC.Enumeration NAICS_Categories_Enumeration()
 		{
 			var data = CodesManager.NAICS_Categories();
 			var result = new MC.Enumeration()
@@ -382,8 +573,32 @@ namespace CTIServices
 			};
 			return result;
 		}
+		public static MC.Enumeration NAICS_CategoriesInUse_Enumeration( int entityTypeId )
+		{
+			var data = new List<CodeItem>();
+			//show all until the custom one is fixed
+			//data = CodesManager.NAICS_Categories()
+			
+			data = CodesManager.NAICS_CategoriesInUse( entityTypeId );
+			
+			var result = new MC.Enumeration()
+			{
+				Id = 10,
+				Name = "North American Industry Classification System (NAICS)",
+				Items = ConvertCodeItemsToEnumeratedItems( data )
+			};
+			return result;
+		}
 		#endregion
 		#region CIPS
+		public static List<CodeItem> CIPS_Search( int entityTypeId, int headerId, string keyword, int pageNumber, int pageSize, ref int totalRows, bool getAll = true )
+		{
+			//int totalRows = 0;
+			if ( entityTypeId == 0 )
+				return CodesManager.CIPS_Search( headerId, keyword, pageNumber, pageSize, ref totalRows, getAll );
+			else
+				return CodesManager.CIPS_SearchInUse( entityTypeId, headerId, keyword, pageNumber, pageSize, ref totalRows );
+		}
 		public static List<CodeItem> CIPS_Search( int headerId = 0, string keyword = "", int pageNumber = 1, int maxRows = 25 )
 		{
 			int totalRows = 0;
@@ -397,9 +612,27 @@ namespace CTIServices
 		{
 			return CodesManager.CIPS_Categories();
 		}
+		/// <summary>
+		/// Get all CIPs groups
+		/// </summary>
+		/// <returns></returns>
 		public static MC.Enumeration CIPS_Categories_Enumeration()
 		{
 			var data = CodesManager.CIPS_Categories();
+			var result = new MC.Enumeration()
+			{
+				Id = 23,
+				Name = "Classification of Instructional Programs (CIP)",
+				Items = ConvertCodeItemsToEnumeratedItems( data )
+			};
+			return result;
+		}
+		public static MC.Enumeration CIPS_CategoriesInUse_Enumeration( int entityTypeId )
+		{
+			//show all until the custom one is fixed
+			//var data1 = CodesManager.CIPS_Categories();
+			var data = CodesManager.CIPS_CategoriesInUse( entityTypeId );
+			
 			var result = new MC.Enumeration()
 			{
 				Id = 23,
@@ -439,6 +672,10 @@ namespace CTIServices
 					Description = item.Description,
 					SchemaName = item.SchemaName,
 					SortOrder = item.SortOrder,
+					//not necessary here
+					//ReverseTitle = item.ReverseTitle,
+					//ReverseSchemaName = item.ReverseSchemaName,
+					//ReverseDescription = item.ReverseDescription,
 					URL = item.URL
 				} );
 			}

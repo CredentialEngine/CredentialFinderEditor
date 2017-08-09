@@ -1,45 +1,91 @@
 ﻿@model Models.Node.Interface.TextInputSettings
 @using Models.Node.Interface;
 
+@{
+    var tooltipProperty = Model.Property;
+    var offscreen = "";
+    if (Model.Property == "SearchType" || Model.Property == "ProfileType")  {
+        tooltipProperty = "";
 
+    } else if ((Model.PropertySchema ?? "") == "{none}")  {
+        tooltipProperty = "";
 
-<div class="propertyBox tabItem @string.Join( " ", Model.ExtraClasses )" data-property="@Model.Property">
-    <div class="label">@Model.Label</div>
+    } else if ((Model.PropertySchema ?? "").Length > 2)  {
+        tooltipProperty = Model.PropertySchema;
+    }
+
+    if ( Model.Type == TextInputSettings.InputType.HIDDEN )
+    {
+        tooltipProperty = "";
+        offscreen = " offscreen ";
+    }
+        
+    if ( Model.Type == TextInputSettings.InputType.LABEL )
+    {
+        tooltipProperty = "";
+    }
+}
+
+@if ( Model.Type == TextInputSettings.InputType.LABEL )
+{
+    <h2 class="viewHeader" data-type="label" data-property="@Model.Property"></h2>
+}
+else
+{
+<div class="propertyBox tabItem @string.Join( " ", Model.ExtraClasses )  @string.Join( " ", offscreen )" data-property="@Model.Property">
+    <div class="label @(Model.RequireValue ? " isRequired" : "")">@Model.Label</div>
     <div class="data">
         @switch ( Model.Type )
         {
             case TextInputSettings.InputType.TEXT:
             {
-                <input type="text" class="propertyInput" data-property="@Model.Property" data-type="text" placeholder="@Model.Placeholder" data-required="@(Model.IsRequired ? "true" : "false")" data-minLength="@Model.MinimumLength" />
+                <input type="text" class="propertyInput" data-property="@Model.Property" data-type="text" placeholder="@Model.Placeholder" data-required="@(Model.RequireValue ? "true" : "false")" data-minlength="@Model.MinimumLength" />
             }
             break;
+
             case TextInputSettings.InputType.DATE:
             {
-                <input type="text" class="propertyInput" data-property="@Model.Property" data-type="date" placeholder="MM/DD/YYYY" data-required="@(Model.IsRequired ? "true" : "false")" />
+                <input type="text" class="propertyInput" data-property="@Model.Property" data-type="date" placeholder="MM/DD/YYYY" data-required="@(Model.RequireValue ? "true" : "false")" />
             }
             break;
             case TextInputSettings.InputType.URL:
             {
-                <input type="text" class="propertyInput" data-property="@Model.Property" data-type="url" placeholder="http://" data-required="@(Model.IsRequired ? "true" : "false")" data-minLength="@Model.MinimumLength" />
+                <input type="text" class="propertyInput" data-property="@Model.Property" data-type="url" placeholder="http://" data-required="@(Model.RequireValue ? "true" : "false")" data-minlength="@Model.MinimumLength" />
             }
             break;
             case TextInputSettings.InputType.NUMBER:
             {
-                <input type="text" class="propertyInput" data-property="@Model.Property" data-type="number" data-required="@(Model.IsRequired ? "true" : "false")" />
+                <input type="text" class="propertyInput" data-property="@Model.Property" data-type="number" data-required="@(Model.RequireValue ? "true" : "false")" />
             }
             break;
             case TextInputSettings.InputType.TEXTAREA:
             {
-                <textarea class="propertyInput" data-property="@Model.Property" data-type="text" data-required="@(Model.IsRequired ? "true" : "false")" data-minLength="@Model.MinimumLength"></textarea>
+                <textarea class="propertyInput" data-property="@Model.Property" data-type="text" data-required="@(Model.RequireValue ? "true" : "false")" data-minlength="@Model.MinimumLength"></textarea>
             }
             break;
             case TextInputSettings.InputType.HIDDEN:
             {
-                <input type="hidden" class="propertyInput" data-property="@Model.Property" data-type="text" data-required="@(Model.IsRequired ? "true" : "false")" />
-            }
-            break;
-            default: break;
+                <input type="hidden" class="propertyInput" data-property="@Model.Property" data-type="text" data-required="@(Model.RequireValue ? "true" : "false")" />
+			}
+			break;
+			case TextInputSettings.InputType.NULLABLE_BOOLEAN:
+			{
+				var temp = Guid.NewGuid();
+				<div class="list propertyInput" data-type="nullable_boolean" data-property="@Model.Property">
+					<label class="boolean"><input type="radio" name="radioList_@temp" value="null" checked="checked" />@Model.NullableBooleanNullText</label>
+					<label class="boolean"><input type="radio" name="radioList_@temp" value="true" />@Model.NullableBooleanTrueText</label>
+					<label class="boolean"><input type="radio" name="radioList_@temp" value="false" />@Model.NullableBooleanFalseText</label>
+				</div>
+			}
+			break;
+			default: break;
+		}
+        @if ( tooltipProperty == "" ) { 
+            <div class="guidance">@Html.Raw( Model.Guidance )</div>
+        } else {
+            <div class="guidance">@Html.Raw( Model.Guidance )&nbsp;<a onclick="return false" href="" title="@tooltipProperty" class="hasToolTip"><img src="~/Images/Icons/icon_infobubble.gif" /></a></div>
         }
-        <div class="guidance">@Html.Raw( Model.Guidance )</div>
     </div>
-</div>    
+</div>
+
+}

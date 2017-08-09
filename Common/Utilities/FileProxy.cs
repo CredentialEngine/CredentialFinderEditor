@@ -94,5 +94,6 @@ namespace Utilities
 			var fileInfo = new FileInfo(filename);
 			fileInfo.LastWriteTime = fileInfo.LastAccessTime = DateTime.Now;
 		}
+
 	}
 }

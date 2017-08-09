@@ -17,6 +17,51 @@ namespace Data
         public Account()
         {
             this.Organization_Member = new HashSet<Organization_Member>();
+            this.Assessment = new HashSet<Assessment>();
+            this.Assessment1 = new HashSet<Assessment>();
+            this.Credential = new HashSet<Credential>();
+            this.Credential1 = new HashSet<Credential>();
+            this.LearningOpportunity = new HashSet<LearningOpportunity>();
+            this.LearningOpportunity1 = new HashSet<LearningOpportunity>();
+            this.Organization = new HashSet<Organization>();
+            this.Organization1 = new HashSet<Organization>();
+            this.Entity_Address = new HashSet<Entity_Address>();
+            this.Entity_Address1 = new HashSet<Entity_Address>();
+            this.Entity_AgentRelationship = new HashSet<Entity_AgentRelationship>();
+            this.Entity_AgentRelationship1 = new HashSet<Entity_AgentRelationship>();
+            this.Entity_CompetencyFramework = new HashSet<Entity_CompetencyFramework>();
+            this.Entity_CompetencyFramework1 = new HashSet<Entity_CompetencyFramework>();
+            this.Entity_CompetencyFrameworkItem = new HashSet<Entity_CompetencyFrameworkItem>();
+            this.Entity_CompetencyFrameworkItem1 = new HashSet<Entity_CompetencyFrameworkItem>();
+            this.Entity_ConditionProfile = new HashSet<Entity_ConditionProfile>();
+            this.Entity_ConditionProfile1 = new HashSet<Entity_ConditionProfile>();
+            this.Entity_CostProfile = new HashSet<Entity_CostProfile>();
+            this.Entity_CostProfile1 = new HashSet<Entity_CostProfile>();
+            this.Entity_CostProfileItem = new HashSet<Entity_CostProfileItem>();
+            this.Entity_CostProfileItem1 = new HashSet<Entity_CostProfileItem>();
+            this.Entity_RevocationProfile = new HashSet<Entity_RevocationProfile>();
+            this.Entity_RevocationProfile1 = new HashSet<Entity_RevocationProfile>();
+            this.Entity_TaskProfile = new HashSet<Entity_TaskProfile>();
+            this.Entity_TaskProfile1 = new HashSet<Entity_TaskProfile>();
+            this.Entity_VerificationProfile = new HashSet<Entity_VerificationProfile>();
+            this.Entity_VerificationProfile1 = new HashSet<Entity_VerificationProfile>();
+            this.Entity_QA_Action = new HashSet<Entity_QA_Action>();
+            this.Entity_QA_Action1 = new HashSet<Entity_QA_Action>();
+            this.Entity_ProcessProfile = new HashSet<Entity_ProcessProfile>();
+            this.Entity_ProcessProfile1 = new HashSet<Entity_ProcessProfile>();
+            this.Entity_ContactPoint = new HashSet<Entity_ContactPoint>();
+            this.Entity_ContactPoint1 = new HashSet<Entity_ContactPoint>();
+            this.Entity_VerificationStatus = new HashSet<Entity_VerificationStatus>();
+            this.Entity_VerificationStatus1 = new HashSet<Entity_VerificationStatus>();
+            this.Organization_VerificationStatus = new HashSet<Organization_VerificationStatus>();
+            this.ConditionManifest = new HashSet<ConditionManifest>();
+            this.ConditionManifest1 = new HashSet<ConditionManifest>();
+            this.CostManifest = new HashSet<CostManifest>();
+            this.CostManifest1 = new HashSet<CostManifest>();
+            this.Entity_FinancialAlignmentProfile = new HashSet<Entity_FinancialAlignmentProfile>();
+            this.EducationFramework_Competency = new HashSet<EducationFramework_Competency>();
+            this.EducationFramework = new HashSet<EducationFramework>();
+            this.Entity_EducationFramework = new HashSet<Entity_EducationFramework>();
         }
     
         public int Id { get; set; }
@@ -34,5 +79,50 @@ namespace Data
     
         public virtual AspNetUsers AspNetUsers { get; set; }
         public virtual ICollection<Organization_Member> Organization_Member { get; set; }
+        public virtual ICollection<Assessment> Assessment { get; set; }
+        public virtual ICollection<Assessment> Assessment1 { get; set; }
+        public virtual ICollection<Credential> Credential { get; set; }
+        public virtual ICollection<Credential> Credential1 { get; set; }
+        public virtual ICollection<LearningOpportunity> LearningOpportunity { get; set; }
+        public virtual ICollection<LearningOpportunity> LearningOpportunity1 { get; set; }
+        public virtual ICollection<Organization> Organization { get; set; }
+        public virtual ICollection<Organization> Organization1 { get; set; }
+        public virtual ICollection<Entity_Address> Entity_Address { get; set; }
+        public virtual ICollection<Entity_Address> Entity_Address1 { get; set; }
+        public virtual ICollection<Entity_AgentRelationship> Entity_AgentRelationship { get; set; }
+        public virtual ICollection<Entity_AgentRelationship> Entity_AgentRelationship1 { get; set; }
+        public virtual ICollection<Entity_CompetencyFramework> Entity_CompetencyFramework { get; set; }
+        public virtual ICollection<Entity_CompetencyFramework> Entity_CompetencyFramework1 { get; set; }
+        public virtual ICollection<Entity_CompetencyFrameworkItem> Entity_CompetencyFrameworkItem { get; set; }
+        public virtual ICollection<Entity_CompetencyFrameworkItem> Entity_CompetencyFrameworkItem1 { get; set; }
+        public virtual ICollection<Entity_ConditionProfile> Entity_ConditionProfile { get; set; }
+        public virtual ICollection<Entity_ConditionProfile> Entity_ConditionProfile1 { get; set; }
+        public virtual ICollection<Entity_CostProfile> Entity_CostProfile { get; set; }
+        public virtual ICollection<Entity_CostProfile> Entity_CostProfile1 { get; set; }
+        public virtual ICollection<Entity_CostProfileItem> Entity_CostProfileItem { get; set; }
+        public virtual ICollection<Entity_CostProfileItem> Entity_CostProfileItem1 { get; set; }
+        public virtual ICollection<Entity_RevocationProfile> Entity_RevocationProfile { get; set; }
+        public virtual ICollection<Entity_RevocationProfile> Entity_RevocationProfile1 { get; set; }
+        public virtual ICollection<Entity_TaskProfile> Entity_TaskProfile { get; set; }
+        public virtual ICollection<Entity_TaskProfile> Entity_TaskProfile1 { get; set; }
+        public virtual ICollection<Entity_VerificationProfile> Entity_VerificationProfile { get; set; }
+        public virtual ICollection<Entity_VerificationProfile> Entity_VerificationProfile1 { get; set; }
+        public virtual ICollection<Entity_QA_Action> Entity_QA_Action { get; set; }
+        public virtual ICollection<Entity_QA_Action> Entity_QA_Action1 { get; set; }
+        public virtual ICollection<Entity_ProcessProfile> Entity_ProcessProfile { get; set; }
+        public virtual ICollection<Entity_ProcessProfile> Entity_ProcessProfile1 { get; set; }
+        public virtual ICollection<Entity_ContactPoint> Entity_ContactPoint { get; set; }
+        public virtual ICollection<Entity_ContactPoint> Entity_ContactPoint1 { get; set; }
+        public virtual ICollection<Entity_VerificationStatus> Entity_VerificationStatus { get; set; }
+        public virtual ICollection<Entity_VerificationStatus> Entity_VerificationStatus1 { get; set; }
+        public virtual ICollection<Organization_VerificationStatus> Organization_VerificationStatus { get; set; }
+        public virtual ICollection<ConditionManifest> ConditionManifest { get; set; }
+        public virtual ICollection<ConditionManifest> ConditionManifest1 { get; set; }
+        public virtual ICollection<CostManifest> CostManifest { get; set; }
+        public virtual ICollection<CostManifest> CostManifest1 { get; set; }
+        public virtual ICollection<Entity_FinancialAlignmentProfile> Entity_FinancialAlignmentProfile { get; set; }
+        public virtual ICollection<EducationFramework_Competency> EducationFramework_Competency { get; set; }
+        public virtual ICollection<EducationFramework> EducationFramework { get; set; }
+        public virtual ICollection<Entity_EducationFramework> Entity_EducationFramework { get; set; }
     }
 }

@@ -1,7 +1,7 @@
 ﻿@model Models.Common.Organization
 <div class="organizationBox" data-organizationID="@Model.Id">
     <div class="organizationBox_Basics">
-        <div class="organizationBox_Roles">@string.Join( ", ", Model.OrganizationRole_Actor.Select( m => m.RoleType.Name ) )</div>
+        <div class="organizationBox_Roles">@string.Join( ", ", Model.OrganizationRole_Actor.Select( m => m.AgentRole.Name ) )</div>
         <a class="organizationBox_Name" target="_blank" href="@Url.Content( "~/organizationmanagement/detail2/" + Model.Id )">@Model.Name</a>
         <div class="organizationBox_Description">@Html.Raw( Model.Description.Length > 100 ? Model.Description.Substring( 0, 100 ) + "..." : @Model.Description )</div>
     </div>

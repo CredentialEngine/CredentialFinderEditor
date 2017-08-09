@@ -111,7 +111,13 @@
     <Compile Include="CIPCode2010.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
+    <Compile Include="CIPCode2010_JobFamily.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
     <Compile Include="Codes_AgentService.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Codes_ConditionProfileType.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
     <Compile Include="Codes_Countries.cs">
@@ -126,6 +132,9 @@
     <Compile Include="Codes_EntityType.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
+    <Compile Include="Codes_Language.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
     <Compile Include="Codes_PropertyCategory.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
@@ -135,10 +144,19 @@
     <Compile Include="Codes_Status.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
+    <Compile Include="ConditionManifest.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="CostManifest.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Counts_SiteTotals.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
     <Compile Include="Credential.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
-    <Compile Include="Credential_ConnectionProfile.cs">
+    <Compile Include="Credential_SummaryCache.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
     <Compile Include="CTIEntities.Context.cs">
@@ -158,6 +176,12 @@
     </Compile>
     <Compile Include="Development\Sample.cs" />
     <Compile Include="Development\TemporaryEnumerationData.cs" />
+    <Compile Include="EducationFramework.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="EducationFramework_Competency.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
     <Compile Include="Entity.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
@@ -170,6 +194,15 @@
     <Compile Include="Entity_Assessment.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
+    <Compile Include="Entity_Cache.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_CommonCondition.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_CommonCost.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
     <Compile Include="Entity_Competency.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
@@ -179,7 +212,16 @@
     <Compile Include="Entity_CompetencyFrameworkItem.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
+    <Compile Include="Entity_ConditionManifest.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
     <Compile Include="Entity_ConditionProfile.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_ContactPoint.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_CostManifest.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
     <Compile Include="Entity_CostProfile.cs">
@@ -194,13 +236,25 @@
     <Compile Include="Entity_DurationProfile.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
+    <Compile Include="Entity_EducationFramework.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_FinancialAlignmentProfile.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
     <Compile Include="Entity_FrameworkItem.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_FrameworkItemOther.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
     <Compile Include="Entity_JurisdictionProfile.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
     <Compile Include="Entity_LearningOpportunity.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_ProcessProfile.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
     <Compile Include="Entity_Property.cs">
@@ -215,25 +269,37 @@
     <Compile Include="Entity_Reference.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
+    <Compile Include="Entity_ReferenceConnection.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
     <Compile Include="Entity_RevocationProfile.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
     <Compile Include="Entity_TaskProfile.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
+    <Compile Include="Entity_Text.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
     <Compile Include="Entity_VerificationProfile.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Entity_VerificationStatus.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
     <Compile Include="GeoCoordinate.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
-    <Compile Include="JurisdictionProfile.cs">
-      <DependentUpon>CTIEntities.tt</DependentUpon>
-    </Compile>
     <Compile Include="LearningOpportunity.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
+    <Compile Include="Message.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
     <Compile Include="NAICS.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
+    <Compile Include="NAICS_NaicsGroup.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
     <Compile Include="ONET_SOC.cs">
@@ -245,9 +311,6 @@
     <Compile Include="Organization.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
-    <Compile Include="Organization_Address.cs">
-      <DependentUpon>CTIEntities.tt</DependentUpon>
-    </Compile>
     <Compile Include="Organization_Member.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
@@ -257,14 +320,26 @@
     <Compile Include="Organization_Service.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
+    <Compile Include="Organization_VerificationStatus.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
     <Compile Include="Person.cs">
       <DependentUpon>CTIEntities.tt</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="System_ProxyCodes.cs">
+      <DependentUpon>CTIEntities.tt</DependentUpon>
+    </Compile>
     <Compile Include="Views\Account_Summary.cs">
       <DependentUpon>CTI_Views.tt</DependentUpon>
     </Compile>
     <Compile Include="Views\Activity_MetadataRegistrySummary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Activity_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Activity_Today_Summary.cs">
       <DependentUpon>CTI_Views.tt</DependentUpon>
     </Compile>
     <Compile Include="Views\Agent_Summary.cs">
@@ -276,13 +351,28 @@
     <Compile Include="Views\Assessment_Summary.cs">
       <DependentUpon>CTI_Views.tt</DependentUpon>
     </Compile>
+    <Compile Include="Views\CodesProperty_Counts_ByEntity.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
     <Compile Include="Views\CodesProperty_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\ConditionProfile_ParentSummary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\CostProfile_SummaryForSearch.cs">
       <DependentUpon>CTI_Views.tt</DependentUpon>
     </Compile>
     <Compile Include="Views\CredentialAgentRelationships_Summary.cs">
       <DependentUpon>CTI_Views.tt</DependentUpon>
     </Compile>
     <Compile Include="Views\Credential_AgentRoleIdCSV.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Credential_Assets.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Credential_Assets_AgentRelationship_Totals.cs">
       <DependentUpon>CTI_Views.tt</DependentUpon>
     </Compile>
     <Compile Include="Views\Credential_Summary.cs">
@@ -309,7 +399,25 @@
     <Compile Include="Views\Entity_AgentRelationshipIdCSV.cs">
       <DependentUpon>CTI_Views.tt</DependentUpon>
     </Compile>
+    <Compile Include="Views\Entity_AgentRelationship_Totals.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Entity_FrameworkCIPCodeSummary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Entity_FrameworkCIPGroupSummary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Entity_FrameworkIndustryCodeSummary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Entity_FrameworkIndustryGroupSummary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
     <Compile Include="Views\Entity_FrameworkItemSummary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\Entity_FrameworkOccupationGroupSummary.cs">
       <DependentUpon>CTI_Views.tt</DependentUpon>
     </Compile>
     <Compile Include="Views\Entity_LearningOpportunity_IsPartOfSummary.cs">
@@ -336,10 +444,16 @@
     <Compile Include="Views\Entity_Relationship_AgentSummary.cs">
       <DependentUpon>CTI_Views.tt</DependentUpon>
     </Compile>
+    <Compile Include="Views\Entity_Subjects.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
     <Compile Include="Views\Entity_Summary.cs">
       <DependentUpon>CTI_Views.tt</DependentUpon>
     </Compile>
     <Compile Include="Views\LearningOpportunity_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\ListValidEntitiesAndAliases.cs">
       <DependentUpon>CTI_Views.tt</DependentUpon>
     </Compile>
     <Compile Include="Views\Naics_Select2DigitCodes.cs">
@@ -361,6 +475,9 @@
       <DependentUpon>CTI_Views.tt</DependentUpon>
     </Compile>
     <Compile Include="Views\Organization_Summary.cs">
+      <DependentUpon>CTI_Views.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Views\SiteTotalsSummary.cs">
       <DependentUpon>CTI_Views.tt</DependentUpon>
     </Compile>
   </ItemGroup>

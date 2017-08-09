@@ -16,23 +16,11 @@ namespace Data
     {
         public int Id { get; set; }
         public int EntityId { get; set; }
-        public string Name { get; set; }
+        public int CompetencyId { get; set; }
         public Nullable<System.DateTime> Created { get; set; }
         public Nullable<int> CreatedById { get; set; }
-        public Nullable<System.DateTime> LastUpdated { get; set; }
-        public Nullable<int> LastUpdatedById { get; set; }
-        public System.Guid RowId { get; set; }
-        public string EducationalFramework { get; set; }
-        public string Description { get; set; }
-        public string TargetName { get; set; }
-        public string TargetDescription { get; set; }
-        public string TargetUrl { get; set; }
-        public string CodedNotation { get; set; }
-        public string AlignmentType { get; set; }
-        public Nullable<int> AlignmentTypeId { get; set; }
-        public Nullable<System.DateTime> AlignmentDate { get; set; }
-        public Nullable<int> EntityFrameworkId { get; set; }
     
+        public virtual EducationFramework_Competency EducationFramework_Competency { get; set; }
         public virtual Entity Entity { get; set; }
     }
 }

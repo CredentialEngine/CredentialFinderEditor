@@ -34,6 +34,7 @@ namespace Data
         public Nullable<bool> IsAssessmentAgentRole { get; set; }
         public Nullable<bool> IsLearningOppAgentRole { get; set; }
         public Nullable<int> Totals { get; set; }
+        public Nullable<bool> IsOwnerAgentRole { get; set; }
     
         public virtual ICollection<Entity_AgentRelationship> Entity_AgentRelationship { get; set; }
         public virtual ICollection<Entity_QA_Action> Entity_QA_Action { get; set; }

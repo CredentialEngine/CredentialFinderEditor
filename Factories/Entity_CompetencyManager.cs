@@ -1,18 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-using Models;
 using Models.Common;
-using Models.ProfileModels;
-using EM = Data;
 using Utilities;
 using DBentity = Data.Entity_Competency;
-using ThisEntity = Models.Common.CredentialAlignmentObjectProfile;
-using Views = Data.Views;
-using ViewContext = Data.Views.CTIEntities1;
+using ThisEntity = Models.ProfileModels.Entity_Competency;
 
 namespace Factories
 {
@@ -22,16 +15,16 @@ namespace Factories
 		#region Persistance ===================
 
 		/// <summary>
-		/// Add/Update a competency
+		/// Add a competency
 		/// </summary>
 		/// <param name="entity"></param>
 		/// <param name="parentUid"></param>
 		/// <param name="userId"></param>
 		/// <param name="messages"></param>
 		/// <returns></returns>
-		public bool Save( ThisEntity entity, 
-				Guid parentUid, 
-				int userId, 
+		public bool Save( ThisEntity entity,
+				Guid parentUid,
+				int userId,
 				ref List<string> messages )
 		{
 			bool isValid = true;
@@ -49,7 +42,7 @@ namespace Factories
 
 			DBentity efEntity = new DBentity();
 
-			Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
+			Entity parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
 			{
 				messages.Add( "Error - the parent entity was not found." );
@@ -58,58 +51,53 @@ namespace Factories
 
 			using ( var context = new Data.CTIEntities() )
 			{
-
-				bool isEmpty = false;
-
-				if ( ValidateProfile( entity, ref isEmpty, ref  messages ) == false )
+				if ( ValidateProfile( entity, ref messages ) == false )
 				{
-					return false;
-				}
-				if ( isEmpty )
-				{
-					messages.Add( "The Competency Profile is empty. "  );
 					return false;
 				}
 
 				if ( entity.Id == 0 )
 				{
+					//check if already exists
+					//TODO - will need to add alignment type
+					ThisEntity item = Get( parent.Id, entity.CompetencyId, "" );
+					if ( entity != null && entity.Id > 0 )
+					{
+						messages.Add( string.Format("Error: the selected competency {0} already exists!", entity.FrameworkCompetency.Name) );
+						return false;
+					}
 					//add
 					efEntity = new DBentity();
-					FromMap( entity, efEntity );
 					efEntity.EntityId = parent.Id;
-
-					efEntity.Created = efEntity.LastUpdated = DateTime.Now;
-					efEntity.CreatedById = efEntity.LastUpdatedById = userId;
-					efEntity.RowId = Guid.NewGuid();
+					efEntity.CompetencyId = entity.CompetencyId;
+					efEntity.Created = DateTime.Now;
+					efEntity.CreatedById = userId;
 
 					context.Entity_Competency.Add( efEntity );
 					count = context.SaveChanges();
 					//update profile record so doesn't get deleted
 					entity.Id = efEntity.Id;
-					entity.ParentId = parent.Id;
-					entity.RowId = efEntity.RowId;
+					entity.EntityId = parent.Id;
+
 					if ( count == 0 )
 					{
-						messages.Add( string.Format( " Unable to add Profile: {0} <br\\> ", string.IsNullOrWhiteSpace( entity.Name ) ? "no description" : entity.Description ) );
+						messages.Add( string.Format( " Unable to add Competency: {0} <br\\> ", string.IsNullOrWhiteSpace( entity.FrameworkCompetency.Name ) ? "no description" : entity.FrameworkCompetency.Description ) );
 					}
-					
+
 				}
 				else
 				{
-					entity.ParentId = parent.Id;
+					//no update possible at this time
+					entity.EntityId = parent.Id;
 
 					efEntity = context.Entity_Competency.SingleOrDefault( s => s.Id == entity.Id );
 					if ( efEntity != null && efEntity.Id > 0 )
 					{
-						entity.RowId = efEntity.RowId;
 						//update
-						FromMap( entity, efEntity );
+						efEntity.CompetencyId = entity.CompetencyId;
 						//has changed?
 						if ( HasStateChanged( context ) )
 						{
-							efEntity.LastUpdated = System.DateTime.Now;
-							efEntity.LastUpdatedById = userId;
-
 							count = context.SaveChanges();
 						}
 					}
@@ -138,42 +126,24 @@ namespace Factories
 				}
 				else
 				{
-					statusMessage = string.Format( "Task Profile record was not found: {0}", recordId );
+					statusMessage = string.Format( "Entity Competency record was not found: {0}", recordId );
 					isOK = false;
 				}
 			}
 			return isOK;
-
 		}
 
 
-		public bool ValidateProfile( ThisEntity profile, ref bool isEmpty, ref List<string> messages )
+		public bool ValidateProfile( ThisEntity profile, ref List<string> messages )
 		{
 			bool isValid = true;
 
-			isEmpty = false;
-			//check if empty
-			if ( string.IsNullOrWhiteSpace( profile.Name )
-				&& string.IsNullOrWhiteSpace( profile.Description )
-				&& string.IsNullOrWhiteSpace( profile.TargetDescription )
-				)
+			if ( profile.CompetencyId < 1 )
 			{
-				isEmpty = true;
-				return isValid;
-			}
-
-			if ( string.IsNullOrWhiteSpace( profile.Name )
-				&& string.IsNullOrWhiteSpace( profile.Description ) )
-			{
-				messages.Add( "A competency name or description must be entered" );
+				messages.Add( "A competency identifier must be included." );
 				isValid = false;
 			}
-			//if ( string.IsNullOrWhiteSpace( profile.Description ) )
-			//{
-			//	messages.Add( "A competency Description must be entered" );
-			//	isValid = false;
-			//}
-
+			
 			return isValid;
 		}
 
@@ -181,7 +151,7 @@ namespace Factories
 		#region  retrieval ==================
 
 		/// <summary>
-		/// Get all Task profiles for the parent
+		/// Get all records for the parent
 		/// Uses the parent Guid to retrieve the related ThisEntity, then uses the EntityId to retrieve the child objects.
 		/// </summary>
 		/// <param name="parentUid"></param>
@@ -190,7 +160,9 @@ namespace Factories
 		{
 			ThisEntity entity = new ThisEntity();
 			List<ThisEntity> list = new List<ThisEntity>();
-			Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
+			CredentialAlignmentObjectItemProfile ao = new CredentialAlignmentObjectItemProfile();
+
+			Entity parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
 			{
 				return list;
@@ -201,16 +173,17 @@ namespace Factories
 				{
 					List<DBentity> results = context.Entity_Competency
 							.Where( s => s.EntityId == parent.Id
-							&& ( alignmentType == "" || s.AlignmentType == alignmentType ) )
-							.OrderBy( s => s.Id )
+							)
+							.OrderBy( s => s.EducationFramework_Competency.EducationFramework.Name )
+							.ThenBy( s => s.EducationFramework_Competency.Name)
 							.ToList();
-
+					//&& ( alignmentType == "" || s.AlignmentType == alignmentType ) 
 					if ( results != null && results.Count > 0 )
 					{
 						foreach ( DBentity item in results )
 						{
 							entity = new ThisEntity();
-							ToMap( item, entity, true );
+							ToMap( item, entity );
 							list.Add( entity );
 						}
 					}
@@ -219,6 +192,46 @@ namespace Factories
 			catch ( Exception ex )
 			{
 				LoggingHelper.LogError( ex, thisClassName + ".GetAll" );
+			}
+			return list;
+		}//
+
+		public static List<CredentialAlignmentObjectItemProfile> GetAllAsAlignmentObjects( Guid parentUid, string alignmentType )
+		{
+			//ThisEntity entity = new ThisEntity();
+			List<CredentialAlignmentObjectItemProfile> list = new List<CredentialAlignmentObjectItemProfile>();
+			CredentialAlignmentObjectItemProfile entity = new CredentialAlignmentObjectItemProfile();
+
+			Entity parent = EntityManager.GetEntity( parentUid );
+			if ( parent == null || parent.Id == 0 )
+			{
+				return list;
+			}
+			try
+			{
+				using ( var context = new Data.CTIEntities() )
+				{
+					List<DBentity> results = context.Entity_Competency
+							.Where( s => s.EntityId == parent.Id
+							)
+							.OrderBy( s => s.EducationFramework_Competency.EducationFramework.Name )
+							.ThenBy( s => s.EducationFramework_Competency.Name )
+							.ToList();
+					//&& ( alignmentType == "" || s.AlignmentType == alignmentType ) 
+					if ( results != null && results.Count > 0 )
+					{
+						foreach ( DBentity item in results )
+						{
+							entity = new CredentialAlignmentObjectItemProfile();
+							ToMapAsAlignmentObjects( item, entity );
+							list.Add( entity );
+						}
+					}
+				}
+			}
+			catch ( Exception ex )
+			{
+				LoggingHelper.LogError( ex, thisClassName + ".GetAllAsAlignmentObjects" );
 			}
 			return list;
 		}//
@@ -242,7 +255,7 @@ namespace Factories
 
 					if ( item != null && item.Id > 0 )
 					{
-						ToMap( item, entity, true );
+						ToMap( item, entity );
 					}
 				}
 			}
@@ -253,77 +266,85 @@ namespace Factories
 			return entity;
 		}//
 
-
-		public static void FromMap( ThisEntity from, DBentity to )
+		/// <summary>
+		/// Get entity to determine if one exists for the entity and alignment type
+		/// </summary>
+		/// <param name="entityId"></param>
+		/// <param name="competencyId"></param>
+		/// <param name="alignmentType"></param>
+		/// <returns></returns>
+		public static ThisEntity Get( int entityId, int competencyId, string alignmentType )
 		{
-			//want to ensure fields from create are not wiped
-			if ( to.Id == 0 )
+			ThisEntity entity = new ThisEntity();
+			if ( competencyId == 0 )
+				return entity;
+			try
 			{
-				if ( IsValidDate( from.Created ) )
-					to.Created = from.Created;
-				to.CreatedById = from.CreatedById;
+				using ( var context = new Data.CTIEntities() )
+				{
+					DBentity item = context.Entity_Competency
+							.SingleOrDefault( s => s.EntityId == entityId && s.CompetencyId == competencyId );
+
+					if ( item != null && item.Id > 0 )
+					{
+						ToMap( item, entity );
+					}
+				}
 			}
-			//to.Id = from.Id;
-
-			to.Name = from.Name;
-			to.Description = from.Description;
-			to.CodedNotation = from.CodedNotation;
-			to.EducationalFramework = from.EducationalFramework;
-
-			to.TargetName = from.TargetName;
-			to.TargetDescription = from.TargetDescription;
-			to.TargetUrl = from.TargetUrl;
-
-			to.AlignmentType = from.AlignmentType;
-			if ( from.AlignmentTypeId > 0 )
-				to.AlignmentTypeId = from.AlignmentTypeId;
-			else if ( !string.IsNullOrWhiteSpace(from.AlignmentType))
+			catch ( Exception ex )
 			{
-				CodeItem item = CodesManager.Codes_PropertyValue_Get( CodesManager.PROPERTY_CATEGORY_ALIGNMENT_TYPE, from.AlignmentType );
-				if (item != null && item.Id > 0)
-					to.AlignmentTypeId = item.Id;
+				LoggingHelper.LogError( ex, thisClassName + ".Get" );
 			}
+			return entity;
+		}//
 
-		}
-		public static void ToMap( DBentity from, ThisEntity to, bool includingItems = true )
+		public static void ToMap( DBentity from, ThisEntity to )
 		{
 			to.Id = from.Id;
-			to.RowId = from.RowId;
+			to.EntityId = from.EntityId;
 
-			to.Name = from.Name;
-			to.Description = from.Description;
-			to.CodedNotation = from.CodedNotation;
-			to.EducationalFramework = from.EducationalFramework;
-
-			to.TargetName = from.TargetName;
-			to.TargetDescription = from.TargetDescription;
-			to.TargetUrl = from.TargetUrl;
-
-			to.AlignmentTypeId = from.AlignmentTypeId ?? 0;
-			to.AlignmentType = from.AlignmentType;
-
-			if ( !string.IsNullOrWhiteSpace( to.Name ) )
-				to.ProfileName = to.Name;
-			else if ( !string.IsNullOrWhiteSpace( to.TargetUrl ) )
-				to.ProfileName = to.TargetUrl;
-			else if ( !string.IsNullOrWhiteSpace( to.Description ) )
-			{
-				to.ProfileName = to.Description.Length > 200 ? to.Description.Substring(0, 200) +  " ..." : to.Description;
-			}
-			else
-				to.ProfileName = "Competency";
-
+			to.CompetencyId = from.CompetencyId;
 			
+
+			//to.AlignmentTypeId = from.AlignmentTypeId ?? 0;
+			//to.AlignmentType = from.AlignmentType;
+
 
 			if ( IsValidDate( from.Created ) )
 				to.Created = ( DateTime ) from.Created;
 			to.CreatedById = from.CreatedById == null ? 0 : ( int ) from.CreatedById;
-			if ( IsValidDate( from.LastUpdated ) )
-				to.LastUpdated = ( DateTime ) from.LastUpdated;
-			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
+
+			EducationFrameworkManager.ToMap( from.EducationFramework_Competency, to.FrameworkCompetency );
+
+			EducationFrameworkManager.ToMap( from.EducationFramework_Competency.EducationFramework, to.FrameworkCompetency.EducationFramework );
 
 		}
-	
+
+		public static void ToMapAsAlignmentObjects( DBentity from, CredentialAlignmentObjectItemProfile to )
+		{
+			to.Id = from.Id;
+			to.ParentId = from.EntityId;
+
+			to.CompetencyId = from.CompetencyId;
+
+
+			//to.AlignmentTypeId = from.AlignmentTypeId ?? 0;
+			//to.AlignmentType = from.AlignmentType;
+
+
+			if ( IsValidDate( from.Created ) )
+				to.Created = ( DateTime ) from.Created;
+			to.CreatedById = from.CreatedById == null ? 0 : ( int ) from.CreatedById;
+
+
+
+			to.Name = StripJqueryTag( from.EducationFramework_Competency.Name );
+			to.TargetUrl = from.EducationFramework_Competency.Url;
+			to.RepositoryUri = from.EducationFramework_Competency.RepositoryUri;
+			to.Description = from.EducationFramework_Competency.Description;
+			to.CodedNotation = from.EducationFramework_Competency.CodedNotation;
+		}
+
 		#endregion
 
 	}

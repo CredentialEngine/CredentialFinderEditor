@@ -1,0 +1,2171 @@
+﻿@using Models.Common;
+@using Models.ProfileModels;
+@model Models.Common.BaseObject
+@{
+	ViewBag.Title = "Details";
+
+	var canEditDocument = ( AccountServices.IsUserSiteStaff() || Model.CanEditRecord ) && Model.Id != 0;
+	var enumServices = new EnumerationServices();
+	var typeCode = DataTypes.ENTITY;
+	var typeCodeString = "entity";
+	var typeCodeTitle = "Entity";
+	var entityName = "Entity";
+	var dataCredential = new Credential();
+	var dataOrganization = new Organization();
+	var dataAssessment = new AssessmentProfile();
+	var dataLearningOpportunity = new LearningOpportunityProfile();
+	var dataGeneric = ( dynamic ) Model;
+	var roleCodes = new Enumeration();
+	var jsonData = new Dictionary<string, object>();
+	var credentialRegistryId = "";
+	var owner = new Organization();
+	var iconUrl = "";
+	var registryURL = ServiceHelper.GetAppKeyValue( "credentialRegistryGet" );
+	var registryID = "";
+	var connectionData = new ConnectionData();
+
+	//Location/Map stuff
+	var hasMap = ( ( List<Address> ) dataGeneric.Addresses ).Count() > 0;
+	var googleMapsKey = hasMap ? new ThirdPartyApiServices().GetGoogleMapsApiKey() : "";
+	var addressList = dataGeneric.Addresses;
+	var mapCenterLat = 37.0902;
+	var mapCenterLon = -95.7129;
+	var mapBoundsNorth = 52.72295530280713;
+	var mapBoundsEast = -60.16114218749999;
+	var mapBoundsSouth = 17.43446294571891;
+	var mapBoundsWest = -131.2646578125;
+	DetermineMapCenter( dataGeneric.Addresses, ref mapCenterLat, ref mapCenterLon, ref mapBoundsNorth, ref mapBoundsEast, ref mapBoundsSouth, ref mapBoundsWest );
+
+	//Fix Costs and Tasks
+	var costTypeCodes = enumServices.GetEnumeration( "costType", EnumerationType.SINGLE_SELECT_ID_ONLY ).Items;
+	var currencyCodes = enumServices.GetCurrencies( EnumerationType.SINGLE_SELECT_ID_ONLY ).Items;
+	FixConditions( Model, costTypeCodes, currencyCodes );
+
+	switch ( Model.GetType().Name )
+	{
+		case "Credential":
+			{
+				typeCode = DataTypes.CREDENTIAL;
+				typeCodeString = "credential";
+				typeCodeTitle = "Credential";
+				dataCredential = ( Credential ) Model;
+				if ( dataCredential.Id > 0 )
+				{
+					entityName = dataCredential.Name;
+					roleCodes = new EnumerationServices().GetCredentialAllAgentRoles( EnumerationType.CUSTOM );
+					jsonData = new JsonLDServices().GetProfileV2( dataCredential, new Models.JsonV2.Credential(), roleCodes.Items );
+					credentialRegistryId = dataCredential.CredentialRegistryId ?? "";
+					owner = dataCredential.OwningOrganization;// GetOwner( dataCredential.OrganizationRole );
+					if( owner.OrganizationRole == null || owner.OrganizationRole.Count() == 0 )
+					{
+						owner = OrganizationServices.GetOrganizationDetail( owner.Id );
+					}
+					var credTypeSimple = "certificate";
+					switch ( dataCredential.CredentialType.Items.FirstOrDefault().SchemaName.ToLower().Replace( "ctdl:", "" ).Replace( "ceterms:", "" ) )
+					{
+						case "badge":
+						case "digitalbadge":
+						case "openbadge":
+							credTypeSimple = "badge";
+							break;
+						case "certificate":
+						case "apprenticeshipcertificate":
+						case "journeymancertificate":
+						case "mastercertificate":
+							credTypeSimple = "certificate";
+							break;
+						case "certification":
+							credTypeSimple = "certification";
+							break;
+						case "degree":
+						case "associatedegree":
+						case "bachelordegree":
+						case "masterdegree":
+						case "doctoraldegree":
+						case "professionaldoctorate":
+						case "researchdoctorate":
+							credTypeSimple = "degree";
+							break;
+						case "diploma":
+						case "generaleducationdevelopment":
+						case "secondaryschooldiploma":
+							credTypeSimple = "diploma";
+							break;
+						case "license":
+							credTypeSimple = "license";
+							break;
+						case "microcredential":
+							credTypeSimple = "microcredential";
+							break;
+						case "qualityassurancecredential":
+							credTypeSimple = "quality";
+							break;
+						default:
+							credTypeSimple = "credential";
+							break;
+					}
+					iconUrl = string.IsNullOrWhiteSpace( dataCredential.ImageUrl ) ? Url.Content( "~/images/v2/icons/flat_" + credTypeSimple + ".png" ) : dataCredential.ImageUrl;
+					FixCosts( dataCredential.EstimatedCosts, costTypeCodes, currencyCodes );
+					registryID = dataCredential.CredentialRegistryId;
+					connectionData = new ConnectionData( dataCredential.CredentialConnections );
+					//Credential requires/recommends has different data from Credential connections' requires/recommends, so concatenate it all together
+					//connectionData.Requires = connectionData.Requires.Concat( dataCredential.Requires ).ToList();
+					//connectionData.Recommends = connectionData.Recommends.Concat( dataCredential.Recommends ).ToList();
+					//dataCredential.Requires = connectionData.Requires;
+					//dataCredential.Recommends = connectionData.Recommends;
+				}
+				break;
+			}
+		case "Organization":
+			{
+				typeCode = DataTypes.ORGANIZATION;
+				typeCodeString = "organization";
+				typeCodeTitle = "Organization";
+				dataOrganization = ( Organization ) Model;
+				entityName = dataOrganization.Name;
+				roleCodes = new EnumerationServices().GetAllAgentReverseRoles( EnumerationType.CUSTOM );
+				jsonData = new JsonLDServices().GetProfileV2( dataOrganization, new Models.JsonV2.CredentialOrganization(), roleCodes.Items );
+				credentialRegistryId = dataOrganization.CredentialRegistryId ?? "";
+				owner = GetOwner( dataOrganization.OrganizationRole_Recipient );
+				iconUrl = string.IsNullOrWhiteSpace( dataOrganization.ImageUrl ) ? Url.Content( "~/images/v2/icons/flat_organization.png" ) : dataOrganization.ImageUrl;
+				registryID = dataOrganization.CredentialRegistryId;
+				break;
+			}
+		case "AssessmentProfile":
+			{
+				typeCode = DataTypes.ASSESSMENT;
+				typeCodeString = "assessment";
+				typeCodeTitle = "Assessment";
+				dataAssessment = ( AssessmentProfile ) Model;
+				entityName = dataAssessment.Name;
+				roleCodes = new EnumerationServices().GetAssessmentAgentRoles( EnumerationType.CUSTOM );
+				jsonData = new JsonLDServices().GetProfileV2( dataAssessment, new Models.JsonV2.AssessmentProfile(), roleCodes.Items );
+
+				credentialRegistryId = dataAssessment.CredentialRegistryId ?? "";
+
+				owner = GetOwner( dataAssessment.OrganizationRole );
+
+				iconUrl = Url.Content( "~/images/v2/icons/flat_assessment.png" );
+				FixCosts( dataAssessment.EstimatedCost, costTypeCodes, currencyCodes );
+				registryID = dataAssessment.CredentialRegistryId;
+				break;
+			}
+		case "LearningOpportunityProfile":
+			{
+				typeCode = DataTypes.LEARNINGOPPORTUNITY;
+				typeCodeString = "learningopportunity";
+				typeCodeTitle = "Learning Opportunity";
+				dataLearningOpportunity = ( LearningOpportunityProfile ) Model;
+				entityName = dataLearningOpportunity.Name;
+
+				roleCodes = new EnumerationServices().GetLearningOppAgentRoles( EnumerationType.CUSTOM );
+
+				jsonData = new JsonLDServices().GetProfileV2( dataLearningOpportunity, new Models.JsonV2.LearningOpportunityProfile(), roleCodes.Items );
+
+				credentialRegistryId = dataLearningOpportunity.CredentialRegistryId ?? "";
+
+				owner = GetOwner( dataLearningOpportunity.OrganizationRole );
+
+				iconUrl = Url.Content( "~/images/v2/icons/flat_learningopportunity.png" );
+				FixCosts( dataLearningOpportunity.EstimatedCost, costTypeCodes, currencyCodes );
+				registryID = dataLearningOpportunity.CredentialRegistryId;
+				break;
+			}
+		default: break;
+	}
+
+	//Data used for inherited/summarized stuff
+	var summaryData = GetSummaryData( dataCredential.Requires.ToList() );
+	summaryData.AllAssessedCompetencies = summaryData.AllAssessedCompetencies.Concat( dataAssessment.AssessesCompetenciesFrameworks ).ToList();
+	summaryData.AllTaughtCompetencies = summaryData.AllTaughtCompetencies.Concat( dataLearningOpportunity.TeachesCompetenciesFrameworks ).ToList();
+	var allRequired = new List<CredentialAlignmentObjectFrameworkProfile>();
+	CredentialAlignmentObjectFrameworkProfile.ExpandAlignmentObjects( dataCredential.RequiresCompetencies, allRequired, "requires" );
+	summaryData.AllRequiredCompetencies = summaryData.AllRequiredCompetencies
+		.Concat( allRequired )
+		.Concat( dataAssessment.RequiresCompetenciesFrameworks )
+		.Concat( dataLearningOpportunity.RequiresCompetenciesFrameworks )
+		.ToList();
+	//.Concat( dataAssessment.Requires ).Concat( dataLearningOpportunity.Requires )
+
+}
+@functions {
+	public enum DataTypes { ENTITY, CREDENTIAL, ORGANIZATION, ASSESSMENT, LEARNINGOPPORTUNITY }
+	public enum CompetencyTypes { REQUIRES, ASSESSES, TEACHES }
+
+	#region Fixers
+	public void FixConditions( BaseObject profile, List<EnumeratedItem> costTypeCodes, List<EnumeratedItem> currencyCodes )
+	{
+		foreach ( var condition in profile.GetType().GetProperties().Where( m => m.PropertyType == typeof( List<ConditionProfile> ) ) )
+		{
+			try
+			{
+				var items = ( List<ConditionProfile> ) condition.GetValue( profile );
+				FixCosts( items.SelectMany( m => m.TargetAssessment ).SelectMany( m => m.EstimatedCost ).ToList(), costTypeCodes, currencyCodes );
+				FixCosts( items.SelectMany( m => m.TargetLearningOpportunity ).SelectMany( m => m.EstimatedCost ).ToList(), costTypeCodes, currencyCodes );
+				//FixCosts( items.SelectMany( m => m.TargetTask ).SelectMany( m => m.EstimatedCost ).ToList(), costTypeCodes, currencyCodes );
+				//FixTasks( items.SelectMany( m => m.TargetTask ).ToList() );
+			}
+			catch { }
+		}
+	}
+	//
+
+	public void FixTasks( List<TaskProfile> tasks )
+	{
+		foreach ( var task in tasks )
+		{
+			try
+			{
+				task.AffiliatedAgent = OrganizationServices.GetLightOrgByRowId( task.AffiliatedAgentUid.ToString() );
+			}
+			catch { }
+		}
+	}
+	//
+
+	public void FixCosts( List<CostProfile> profiles, List<EnumeratedItem> costTypeCodes, List<EnumeratedItem> currencyCodes )
+	{
+		foreach ( var profile in profiles )
+		{
+			try
+			{
+				if ( string.IsNullOrWhiteSpace(profile.Currency) &&  profile.CurrencyTypeId > 0)
+					profile.Currency = currencyCodes.FirstOrDefault( m => m.CodeId == profile.CurrencyTypeId ).Name;
+			}
+			catch { }
+
+			foreach ( var item in profile.Items )
+			{
+				try
+				{
+					if ( item.CostType.Items.Count() == 0 )
+					{
+						item.CostType.Items.Add( new EnumeratedItem() { Id = item.CostTypeId, Name = costTypeCodes.FirstOrDefault( m => m.CodeId == item.CostTypeId ).Name } );
+					}
+				}
+				catch { }
+			}
+		}
+	}
+	//
+
+	public Organization GetOwner( List<OrganizationRoleProfile> roles )
+	{
+		try
+		{
+			var owner = roles.FirstOrDefault( m => m.AgentRole.Items.FirstOrDefault( n => !string.IsNullOrWhiteSpace( n.SchemaName ) && ( n.SchemaName.ToLower().Contains( "own" ) || n.SchemaName.ToLower().Contains( "creat" ) || n.SchemaName.ToLower().Contains( "parent" ) ) ) != null ).ActingAgent;
+			if ( owner.OrganizationRole.Concat( owner.OrganizationRole_Recipient ).Count() == 0 || string.IsNullOrWhiteSpace( owner.Name ) )
+			{
+				owner = OrganizationServices.GetOrganizationDetail( owner.Id );
+			}
+			return owner;
+		}
+		catch
+		{
+			return new Organization();
+		}
+	}
+	//
+	#endregion
+
+	public bool HasText( string text )
+	{
+		return !string.IsNullOrWhiteSpace( text );
+	}
+
+	public string Capitalize( string input, bool everyWord )
+	{
+		try
+		{
+			var result = "";
+			if ( everyWord )
+			{
+				foreach ( var word in input.Split( ' ' ) )
+				{
+					result = result + " " + Capitalize( word, false );
+				}
+			}
+			else
+			{
+				result = input[ 0 ].ToString().ToUpper() + input.Substring( 1 );
+			}
+			return result;
+		}
+		catch
+		{
+			return "";
+		}
+	}
+
+	public void DetermineMapCenter( List<Address> addresses, ref double lat, ref double lon, ref double north, ref double east, ref double south, ref double west )
+	{
+		try
+		{
+			if ( addresses != null )
+			{
+				var validAddresses = addresses.Where( m => m.Latitude != 0 && m.Longitude != 0 ).ToList();
+				if ( validAddresses.Count() > 0 )
+				{
+					var lats = validAddresses.Select( m => m.Latitude ).ToList();
+					var lons = validAddresses.Select( m => m.Longitude ).ToList();
+					north = lats.Max();
+					east = lons.Max();
+					south = lats.Min();
+					west = lons.Min();
+					lat = ( north + south ) / 2;
+					lon = ( west + east ) / 2;
+				}
+			}
+		}
+		catch { }
+	}
+
+	public List<OrganizationRoleProfile> GetFilteredAgentsAndRoles( List<OrganizationRoleProfile> roles, bool onlyCreatorOwner, bool onlyQualityAssurance )
+	{
+		var roleData = new List<OrganizationRoleProfile>();
+		foreach ( var role in roles )
+		{
+			var applicableRoles = new List<EnumeratedItem>();
+			//Handle owner differently here because it is handled differently later
+			var ownerRoles = role.AgentRole.Items.Where( n => n.SchemaName.ToLower().Contains( "creat" ) || n.SchemaName.ToLower().Contains( "own" ) ).ToList();
+			var isOwner = ownerRoles.Count() > 0;
+			if ( onlyCreatorOwner )
+			{
+				applicableRoles = ownerRoles;
+			}
+			else if ( onlyQualityAssurance )
+			{
+				applicableRoles = role.AgentRole.Items.Where( m => m.IsSpecialValue ).ToList();
+			}
+			else
+			{
+				applicableRoles = role.AgentRole.Items.Where( n => !n.SchemaName.ToLower().Contains( "creat" ) && !n.SchemaName.ToLower().Contains( "own" ) && !n.IsSpecialValue ).ToList();
+			}
+
+			if ( applicableRoles.Count() > 0 )
+			{
+				var matchingData = roleData.FirstOrDefault( m => m.ActingAgent.Id == role.ActingAgent.Id );
+				if ( matchingData == null )
+				{
+					//For the creator/owner org, show all of its roles
+					if ( onlyCreatorOwner )
+					{
+						roleData.Add( new OrganizationRoleProfile() { ActingAgent = role.ActingAgent, AgentRole = new Enumeration() { Items = role.AgentRole.Items } } );
+					}
+					//Do not show the creator/owner org in other contexts
+					else if( !isOwner )
+					{
+						roleData.Add( new OrganizationRoleProfile() { ActingAgent = role.ActingAgent, AgentRole = new Enumeration() { Items = applicableRoles } } );
+					}
+				}
+				else
+				{
+					foreach ( var item in applicableRoles )
+					{
+						if ( matchingData.AgentRole.Items.FirstOrDefault( m => m.CodeId == item.CodeId ) == null )
+						{
+							role.AgentRole.Items.Add( item );
+						}
+					}
+				}
+			}
+		}
+
+		return roleData;
+	}
+	//
+
+	public string Count( object data, string text, bool countWithTag = true )
+	{
+		try {
+			var list = ( data as IEnumerable<object> );
+			var count = list.Count();
+			var plural = count != 1;
+			var countString = countWithTag ? "<span class=\"count\">" + count + "</span>" : count.ToString();
+			return text.Replace( "{#}", countString ).Replace( "{s}", plural ? "s" : "" ).Replace( "{es}", plural ? "es" : "" ).Replace( "{ies}", plural ? "ies" : "y" );
+		}
+		catch {
+			return text.Replace( "{#}", "multiple" ).Replace( "{s}", "s" ).Replace( "{es}", "es" ).Replace( "{ies}", "ies" );
+		}
+	}
+	//
+
+	public class SummaryData
+	{
+		public SummaryData()
+		{
+			AllRequirements = new List<ConditionProfile>();
+			AllRequiredCredentials = new List<Credential>();
+			AllRequiredCosts = new List<CostProfile>();
+			AllLearningOpportunityRequiredCosts = new List<CostProfile>();
+			AllAssessmentRequiredCosts = new List<CostProfile>();
+			AllRequiredCompetencies = new List<CredentialAlignmentObjectFrameworkProfile>();
+			AllAssessedCompetencies = new List<CredentialAlignmentObjectFrameworkProfile>();
+			AllTaughtCompetencies = new List<CredentialAlignmentObjectFrameworkProfile>();
+		}
+		public List<ConditionProfile> AllRequirements { get; set; }
+		public List<Credential> AllRequiredCredentials { get; set; }
+		public List<CostProfile> AllRequiredCosts { get; set; }
+		public List<CostProfile> AllLearningOpportunityRequiredCosts { get; set; }
+		public List<CostProfile> AllAssessmentRequiredCosts { get; set; }
+		public List<CredentialAlignmentObjectFrameworkProfile> AllRequiredCompetencies { get; set; }
+		public List<CredentialAlignmentObjectFrameworkProfile> AllAssessedCompetencies { get; set; }
+		public List<CredentialAlignmentObjectFrameworkProfile> AllTaughtCompetencies { get; set; }
+	}
+	//
+
+	public class ConnectionData
+	{
+		public ConnectionData()
+		{
+			foreach( var item in this.GetType().GetProperties().Where( m => m.PropertyType == typeof( List<ConditionProfile> ) ) )
+			{
+				item.SetValue( this, new List<ConditionProfile>() );
+			}
+		}
+		public ConnectionData( List<ConditionProfile> connections )
+		{
+			connections = connections ?? new List<ConditionProfile>();
+			Requires = connections.Where( m => m.ConnectionProfileTypeId == 1 && m.ConditionSubTypeId == 2 ).ToList();
+			Recommends = connections.Where( m => m.ConnectionProfileTypeId == 2 && m.ConditionSubTypeId == 2 ).ToList();
+			PreparationFrom = connections.Where( m => m.ConnectionProfileTypeId == 9 && m.ConditionSubTypeId == 2 ).ToList();
+			AdvancedStandingFrom = connections.Where( m => m.ConnectionProfileTypeId == 7 && m.ConditionSubTypeId == 2 ).ToList();
+			IsRequiredFor = connections.Where( m => m.ConnectionProfileTypeId == 3 && m.ConditionSubTypeId == 2 ).ToList();
+			IsRecommendedFor = connections.Where( m => m.ConnectionProfileTypeId == 4 && m.ConditionSubTypeId == 2 ).ToList();
+			IsAdvancedStandingFor = connections.Where( m => m.ConnectionProfileTypeId == 6 && m.ConditionSubTypeId == 2 ).ToList();
+			IsPreparationFor = connections.Where( m => m.ConnectionProfileTypeId == 8 && m.ConditionSubTypeId == 2 ).ToList();
+		}
+		public List<ConditionProfile> Requires { get; set; }
+		public List<ConditionProfile> Recommends { get; set; }
+		public List<ConditionProfile> PreparationFrom { get; set; }
+		public List<ConditionProfile> AdvancedStandingFrom { get; set; }
+		public List<ConditionProfile> IsRequiredFor { get; set; }
+		public List<ConditionProfile> IsRecommendedFor { get; set; }
+		public List<ConditionProfile> IsAdvancedStandingFor { get; set; }
+		public List<ConditionProfile> IsPreparationFor { get; set; }
+	}
+	//
+
+	public void GetAllLearnOppCompetencies( List<LearningOpportunityProfile> learnOpps, ref List<CredentialAlignmentObjectFrameworkProfile> required, ref List<CredentialAlignmentObjectFrameworkProfile> taught )
+	{
+		foreach ( var opp in learnOpps )
+		{
+			required = required.Concat( opp.RequiresCompetenciesFrameworks ).ToList();
+			taught = taught.Concat( opp.TeachesCompetenciesFrameworks ).ToList();
+			GetAllLearnOppCompetencies( opp.HasPart, ref required, ref taught );
+		}
+	}
+
+	public SummaryData GetSummaryData( List<ConditionProfile> conditions )
+	{
+		var result = new SummaryData() { AllRequirements = conditions };
+		var tempRequiredCredentials = new List<Credential>();
+		//Merge and pull data
+		foreach ( var condition in conditions )
+		{
+			try
+			{
+				var learnOppRequiredCompetencies = new List<CredentialAlignmentObjectFrameworkProfile>();
+				var learnOppTaughtCompetencies = new List<CredentialAlignmentObjectFrameworkProfile>();
+				var flattenedLearningOpps = GetLearningOpportunityTreeFlattened( condition.TargetLearningOpportunity );
+				learnOppRequiredCompetencies = flattenedLearningOpps.SelectMany( m => m.RequiresCompetenciesFrameworks ).ToList();
+				learnOppTaughtCompetencies = flattenedLearningOpps.SelectMany( m => m.TeachesCompetenciesFrameworks ).ToList();
+				//GetAllLearnOppCompetencies( condition.TargetLearningOpportunity, ref learnOppRequiredCompetencies, ref learnOppTaughtCompetencies );
+				tempRequiredCredentials = tempRequiredCredentials.Concat( condition.RequiredCredential )
+
+						.Where( m => m != null )
+						.ToList();
+				//.Concat( condition.TargetAssessment.SelectMany( m => m.Requires.SelectMany( n => n.RequiredCredential ) ) )
+				//.Concat( condition.TargetLearningOpportunity.SelectMany( m => m.Requires.SelectMany( n => n.RequiredCredential ) ) )
+				//????????????????????????????????
+
+				result.AllAssessmentRequiredCosts = result.AllAssessmentRequiredCosts
+					.Concat( condition.TargetAssessment.SelectMany( m => m.EstimatedCost ) )
+					.Where( m => m != null )
+					.ToList();
+
+				result.AllLearningOpportunityRequiredCosts = result.AllLearningOpportunityRequiredCosts
+					.Concat( flattenedLearningOpps.SelectMany( m => m.EstimatedCost ) )
+					.Where( m => m != null )
+					.ToList();
+
+				result.AllRequiredCosts = result.AllRequiredCosts
+					.Concat( result.AllAssessmentRequiredCosts )
+					.Concat( result.AllLearningOpportunityRequiredCosts )
+					.Where( m => m != null )
+					.ToList();
+
+
+				result.AllRequiredCompetencies = result.AllRequiredCompetencies.Concat( condition.RequiresCompetenciesFrameworks )
+						.Concat( condition.TargetAssessment.SelectMany( m => m.RequiresCompetenciesFrameworks ) )
+						.Concat( learnOppRequiredCompetencies )
+						//.Concat( condition.TargetLearningOpportunity.SelectMany( m => m.RequiresCompetenciesFrameworks ) )
+						//.Concat( condition.TargetLearningOpportunity.SelectMany( m => m.HasPart.SelectMany( n => n.RequiresCompetenciesFrameworks ) ) )
+						//.Concat( condition.TargetLearningOpportunity.SelectMany( m => m.HasPart.SelectMany( n => n.HasPart.SelectMany( o => o.RequiresCompetenciesFrameworks ) ) ) )
+						.Where( m => m != null )
+						.ToList();
+
+				result.AllAssessedCompetencies = result.AllAssessedCompetencies.Concat( condition.TargetAssessment.SelectMany( m => m.AssessesCompetenciesFrameworks ) ).Where( m => m != null ).ToList();
+				result.AllTaughtCompetencies = result.AllTaughtCompetencies.Concat( learnOppTaughtCompetencies ).ToList();
+				//result.AllTaughtCompetencies.Concat( condition.TargetLearningOpportunity.SelectMany( m => m.TeachesCompetenciesFrameworks ) ).Concat( condition.TargetLearningOpportunity.SelectMany( m => m.HasPart.SelectMany( n => n.TeachesCompetenciesFrameworks ) ) ).Concat( condition.TargetLearningOpportunity.SelectMany( m => m.HasPart.SelectMany( n => n.HasPart.SelectMany( o => o.TeachesCompetenciesFrameworks ) ) ) ).Where( m => m != null ).ToList();
+			}
+			catch { }
+		}
+		//Prevent duplicates
+		foreach ( var item in tempRequiredCredentials )
+		{
+			if ( !result.AllRequiredCredentials.Contains( item ) )
+			{
+				result.AllRequiredCredentials.Add( item );
+			}
+		}
+
+		return result;
+	}
+	//
+
+	public List<LearningOpportunityProfile> GetLearningOpportunityTreeFlattened( List<LearningOpportunityProfile> start )
+	{
+		var result = new List<LearningOpportunityProfile>();
+		foreach( var item in start )
+		{
+			result.Add( item );
+			result = result.Concat( GetLearningOpportunityTreeFlattened( item.HasPart.Where( m => m != null && m.Id > 0 ).ToList() ) ).ToList();
+		}
+		return result;
+	}
+
+	public void AddLinkToValues( List<TextValueProfile> values, string link, string title )
+	{
+		if ( !string.IsNullOrWhiteSpace( link ) )
+		{
+			values.Add( new TextValueProfile() { TextValue = link, ProfileName = title } );
+		}
+	}
+	//
+}
+@helper Wrap( bool doWrap, string tag, string extraClass, bool isOpening ) 
+{ 
+    if ( doWrap && HasText( tag ) )
+    {
+        if( isOpening ) {
+            @Html.Raw( "<" + tag + " class=\"" + extraClass + "\">" )
+        }
+        else {
+            @Html.Raw( "</" + tag +">" )
+        }
+    }
+}
+@helper RenderHeader( string text, int headerLevel, bool useHeaderTag, string extraClass, bool doRender = true, bool capitalizeCss = false ) 
+{ 
+    if ( HasText( text ) && doRender ) 
+    {
+        if ( useHeaderTag )
+        {
+            @Html.Raw("<h" + headerLevel +" class=\"" + extraClass + "\">" + text + "</h" + headerLevel + ">")
+        }
+        else
+        {
+            @Html.Raw( "<div class=\"header h" + headerLevel + " " + extraClass + " " + ( capitalizeCss ? "capitalize" : "" ) + "\">" + text + "</div>" )
+        }
+    }
+}
+@helper RenderText( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, string content, bool contentIsPreformatted, string extraClass, int maxLength = 0 ) 
+{ 
+    if ( HasText( content ) )
+    {
+        @Wrap( useWrapperDiv, "div", "text " + wrapperClass, true );
+    
+        @RenderHeader( header, headerLevel, false, "" )
+        <div class="text @(contentIsPreformatted ? "preformatted" : "") @extraClass">@Html.Raw( content.Length > maxLength && maxLength > 0 ? content.Substring( 0, maxLength ) + "..." : content )</div>
+        
+        @Wrap( useWrapperDiv, "div", "", false )
+    }
+}
+@helper RenderExternalLink( string href, string text, bool isBigButton ) 
+{ 
+    if ( HasText( href ) )
+    {
+        <a class="linkButton greenButton @( isBigButton ? "bigButton" : "" )" href="@href" target="_blank">@text <i class="fa fa-external-link"></i></a>
+    }
+}
+@helper RenderEnumeration( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, List<TextValueProfile> content, string typeCodeString ) 
+{ 
+    @RenderEnumerationGroup( useWrapperDiv, wrapperClass, header, headerLevel, null, new List<List<TextValueProfile>>() { content }, typeCodeString )
+}
+@helper RenderEnumeration( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, Enumeration content, string typeCodeString ) 
+{ 
+    @RenderEnumerationGroup( useWrapperDiv, wrapperClass, header, headerLevel, new List<Enumeration>() { content }, null, typeCodeString )
+}
+@helper RenderEnumerationGroup( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, List<Enumeration> enumerations, List<List<TextValueProfile>> textValues, string typeCodeString ) 
+{
+	//Prevent nulls
+	enumerations = enumerations ?? new List<Enumeration>();
+	textValues = textValues ?? new List<List<TextValueProfile>>();
+
+	if ( ( enumerations.Count() > 0 && enumerations.Where( m => m != null && m.Items != null && m.Items.Where( n => n != null ).Count() > 0 ).Count() > 0) || (textValues.Count() > 0 && textValues.Where( m => m != null && m.Count() > 0 ).Count() > 0) )
+	{
+		try
+		{
+			@Wrap( useWrapperDiv, "div", "enumeration " + wrapperClass, true );
+			@RenderHeader( header, headerLevel, false, "" )
+
+			var usedEnumerationIDs = new List<int>();
+			<div class="enumerationItems">
+				@foreach ( var content in enumerations.Where( m => m != null && m.Items != null && m.Items.Count() > 0 ).ToList() )
+				{
+					foreach ( var item in content.Items.Where( m => m != null && m.Id > 0 ).ToList() )
+					{
+						if ( !usedEnumerationIDs.Contains( item.Id ) && !item.Name.Contains( "z???" ) )
+						{
+							@*<a class="linkButton grayButton" target="searchWindow" href="@Url.Content( "~/search" )?autosearch=true&searchType=@typeCodeString&filters=@content.Id-@item.Id">@item.Name</a>*@
+							<a class="linkButton grayButton" target="searchWindow" href="@Url.Content( "~/search" )?autosearch=true&searchType=@typeCodeString&keywords=@item.Name">@item.Name</a> @* //Hack *@
+							usedEnumerationIDs.Add( item.Id );
+						}
+					}
+				}
+				@foreach ( var content in textValues.Where( m => m != null ).ToList() )
+				{
+					foreach ( var item in content )
+					{
+						<a class="linkButton grayButton" target="searchWindow" href="@Url.Content( "~/search" )?autosearch=true&searchType=@typeCodeString&keywords=@item.TextValue">@item.TextValue</a>
+					}
+				}
+			</div>
+			@Wrap( useWrapperDiv, "div", "", false )
+
+		}
+		catch { }
+	}
+}
+@helper RenderDateRange( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, string startDate, string endDate ) 
+{ 
+    if ( HasText( startDate ) || HasText( endDate ) )
+    {
+        @Wrap( useWrapperDiv, "div", "text dateRange " + wrapperClass, true );
+        @RenderHeader( header, headerLevel, false, "" )
+        if ( HasText( startDate ) || HasText( endDate ) )
+        {
+            if ( HasText( startDate ) && HasText( endDate ) )
+            {
+                <span>Valid @startDate - @endDate</span>
+            }
+            else if ( HasText( startDate ) && !HasText( endDate ) )
+            {
+                <span>As of @startDate</span>
+            }
+            else if ( !HasText( startDate ) && HasText( endDate ) )
+            {
+                <span>Expires @endDate</span>
+            }
+        }
+        @Wrap( useWrapperDiv, "div", "", false )
+    }
+}
+@helper RenderItemList( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, List<TextValueProfile> items, bool isOrdered, bool asLinks, bool asExternalLinks, bool maskURLs, string defaultMask, bool asEmailLinks = false ) 
+{ 
+    if ( items != null && items.Count() > 0 )
+    {
+        @Wrap( useWrapperDiv, "div", "itemList " + wrapperClass, true );
+        @RenderHeader( header, headerLevel, false, "" )
+        @Wrap( true, isOrdered ? "ol" : "ul", "list", true )
+        foreach ( var item in items )
+        {
+            var codeTitle = HasText( item.CodeTitle ) && item.CodeTitle != item.TextValue ? "<b>" + item.CodeTitle + ":</b> " : "";
+            if ( asLinks )
+            {
+                var name = HasText( item.TextTitle ) ? item.TextTitle :
+                    HasText( item.ProfileName ) ? item.ProfileName :
+                    HasText( item.CodeTitle ) ? item.CodeTitle :
+                    HasText( item.CategoryTitle ) ? item.CategoryTitle :
+                    defaultMask;
+                <li>@Html.Raw( codeTitle )<a href="@( asEmailLinks ? "mailto:" : "" )@item.TextValue" @Html.Raw( asExternalLinks ? "class=\"linkButton greenButton\"" : "" ) target="_blank">@( maskURLs ? name : item.TextValue )</a></li>
+            }
+            else
+            {
+                <li>@Html.Raw( codeTitle )@item.TextValue</li>
+            }
+        }
+        @Wrap( true, isOrdered ? "ol" : "ul", "", false )
+        @Wrap( useWrapperDiv, "div", "", false )
+    }
+} 
+@helper RenderCosts( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, List<CostProfile> costs, string overrideButtonText = "", bool isBigButton = false, bool isBlueButton = false, bool wrapInCollapseBox = true ) 
+{
+    if ( costs != null && costs.Count() > 0 && costs.SelectMany( m => m.Items ).Count() > 0 )
+    {
+        var validCosts = costs.Where( m => m.Items.Count() > 0 );
+        @Wrap( useWrapperDiv, "div", "costList", true );
+        @RenderHeader( header, headerLevel, false, "" )
+        @Wrap( wrapInCollapseBox, "div", "collapseBox " + wrapperClass, true )
+            <button class="@( isBigButton ? "bigButton" : "" ) @( isBlueButton ? "blueButton" : "whiteButton" ) collapseButton">@Html.Raw( HasText( overrideButtonText ) ? overrideButtonText : Count( validCosts, "{#} Cost Profile{s}" ) )</button>
+            <div class="collapseContent">
+                @foreach ( var profile in validCosts )
+                {
+                    if ( HasText( profile.DetailsUrl ) )
+                    {
+                        profile.ReferenceUrl.Insert( 0, new TextValueProfile() { TextTitle = "Cost Details", TextValue = profile.DetailsUrl } );
+                    }
+                    <div class="costProfile summary">
+                        @RenderHeader( profile.ProfileName, headerLevel + 1, false, "costProfileHeader summaryName" )
+                        <div class="summaryContent">
+                            @RenderText( false, "", "", 0, profile.Description, true, "description" )
+                            @RenderDateRange( true, "dates", "", 0, profile.DateEffective, profile.ExpirationDate )
+                            @RenderItemList( true, "references", "", 0, profile.ReferenceUrl, false, true, true, true, "Reference" )
+							@RenderJurisdictions( false, "", "", 3, profile.Jurisdiction, "This cost information applies in:", "This cost information does not apply in:" )
+							@RenderHeader( "Specific Cost Information", headerLevel + 2, true, "" )
+                            @foreach ( var costItem in profile.Items )
+                            {
+                                var costItemType = costItem.CostType.Items.FirstOrDefault();
+                                var name = HasText( costItem.ProfileName ) ? costItem.ProfileName : costItemType.Name;
+                                var audiences = string.Join( ", ", costItem.ApplicableAudienceType.Items.Where( m => m.Name != "Any/All" ).Select( m => m.Name ) );
+                                var residency = string.Join( ", ", costItem.ResidencyType.Items.Where( m => m.Name != "Any/All" ).Select( m => m.Name ) );
+                                //var enrollment = string.Join( ", ", costItem.EnrollmentType.Items.Where( m => m.Name != "Any/All" ).Select( m => m.Name ) );
+                                <div class="costItemProfile summary">
+                                    @{  //Need to add comma and clean up this formatting in general
+                                        var renderedPrice = ( profile.CurrencySymbol + costItem.Price); //Hack
+                                    }
+                                    @RenderHeader( name + ":<br />" + renderedPrice, headerLevel + 2, false, "costItemProfileHeader summaryName", true, true )
+                                    <div class="summaryContent">
+                                        @RenderText( false, "", "", 0, costItem.PaymentPattern, true, "paymentPattern" )
+                                        <div class="costItemDetails">
+                                            @RenderText( true, "costItemDetail", "Applicable Audiences:", 0, audiences, false, "" )
+                                            @RenderText( true, "costItemDetail", "Applicable Residency:", 0, residency, false, "" )
+                                            @*@RenderText( true, "costItemDetail", "Enrollment:", 0, enrollment, false, "" )*@
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        @Wrap( wrapInCollapseBox, "div", "", false )
+        @Wrap( useWrapperDiv, "div", "", false )
+    }
+}
+@helper RenderDurations( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, List<DurationProfile> durations )
+{
+    if ( durations != null && durations.Count() > 0 )
+    {
+        @Wrap( useWrapperDiv, "div", "durationList " + wrapperClass, true );
+        @RenderHeader( header, headerLevel, false, "" )
+        foreach ( var duration in durations )
+        {
+            <div class="durationProfile">
+				@*@RenderText( false, "", "", 0, ( duration.ProfileName.Trim().ToLower() == duration.Conditions.Trim().ToLower() ? "" : duration.ProfileName ), false, "" )*@
+				@if ( duration.IsRange )
+				{
+					@RenderText( true, "duration", "", 0, "<b>Minimum:</b> " + duration.MinimumDuration.Print(), false, "" )
+					@RenderText( true, "duration", "", 0, "<b>Maximum:</b> " + duration.MaximumDuration.Print(), false, "" )
+				}
+				else
+				{
+					@RenderText( true, "duration", "", 0, "<b>Estimated:</b> " + duration.ExactDuration.Print(), false, "" )
+				}
+                @RenderText( true, "", "", 0, duration.Conditions, false, "" )
+            </div>
+        }
+        @Wrap( useWrapperDiv, "div", "", false )
+    }
+}
+@helper RenderJurisdictions( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, List<JurisdictionProfile> jurisdictions, string mainRegionsHeader, string exceptionRegionsHeader )
+{
+    if ( jurisdictions != null && jurisdictions.Count() > 0 )
+    {
+        var allowed = jurisdictions.Select( m => m.MainJurisdiction ).Where( m => m.Id > 0 ).ToList();
+        var exceptions = jurisdictions.SelectMany( m => m.JurisdictionException ).Where( m => m.Id > 0 ).ToList();
+        if ( allowed.Count() > 0 || exceptions.Count() > 0 ) //Ignoring "online" and "global" selections for now
+        {
+            @Wrap( useWrapperDiv, "div", "jurisdiction " + wrapperClass, true );
+            @RenderHeader( header, headerLevel, false, "" )
+            if ( allowed.Count() > 0 )
+            {
+                @RenderHeader( mainRegionsHeader, headerLevel + 1, false, "indent" )
+                <ul class="list jurisdictionList">
+                    @foreach ( var item in allowed )
+                    {
+                        <li>@item.Name</li>
+                    }
+                </ul>
+            }
+            if ( exceptions.Count() > 0 )
+            {
+                @RenderHeader( exceptionRegionsHeader, headerLevel + 1, false, "indent" )
+                <ul class="list jurisdictionList">
+                    @foreach ( var item in exceptions )
+                    {
+                        <li>@item.Name</li>
+                    }
+                </ul>
+            }
+            @Wrap( useWrapperDiv, "div", "", false )
+        }
+    }
+}
+@helper RenderConditions( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, List<ConditionProfile> conditions, string typeCodeString, bool suppressTargets = true ) 
+{
+    if ( conditions != null && conditions.Count() > 0 )
+    {
+        <div class="collapseBox conditionProfileWrapper @wrapperClass">
+            <button class="bigButton collapseButton blueButton">@Html.Raw( header )</button>
+            <div class="collapseContent">
+                @Wrap( useWrapperDiv, "div", "conditionsList", true )
+                @{ var counter = 1; }
+                @foreach ( var condition in conditions.Where( m => m != null && m.Id > 0 ).ToList() )
+				{
+					try
+					{
+						var name = HasText( condition.ProfileName ) ? condition.ProfileName : header + " #" + counter;
+						condition.AssertedBy = (condition.AssertedBy == null || condition.AssertedBy.Id == 0) && (condition.AssertedByAgentUid != null || condition.AssertedByAgentUid != Guid.Empty) ? OrganizationServices.GetLightOrgByRowId( condition.AssertedByAgentUid.ToString() ) : condition.AssertedBy;
+						<div class="conditionProfile">
+							@RenderHeader( name, headerLevel, false, "conditionsProfileHeader", true, true )
+							<div class="conditionProfileContents">
+								@RenderText( false, "", "Description", headerLevel + 1, condition.Description, true, "" )
+								@RenderItemList( false, "", "", 0, condition.ConditionItem, false, false, false, false, "" )
+								@RenderText( false, "description", "Experience", headerLevel + 1, condition.Experience, true, "" )
+								@RenderText( false, "", "Years of Experience:", 0, condition.YearsOfExperience > 0 ? condition.YearsOfExperience.ToString() : "", false, "" )
+								@RenderText( false, "", "Minimum Age:", 0, condition.MinimumAge > 0 ? condition.MinimumAge.ToString() : "", false, "" )
+								@RenderText( false, "", "Weight of these Conditions:", 0, (condition.Weight > 0 ? (condition.Weight * 100) + "%" : ""), false, "" )
+								@try //Not sure if these work right or not
+								{
+									@RenderText( false, "", "Credit Hour Type:", 0, condition.CreditHourType, false, "" )
+									@RenderText( false, "", "Credit Hour Value:", 0, condition.CreditHourValue == 0 ? "" : condition.CreditHourValue.ToString(), false, "" )
+									@RenderEnumeration( true, "", "Credit Unit Type", headerLevel + 1, condition.CreditUnitType, typeCodeString )
+									@RenderText( false, "", "Credit Unit Type Description:", 0, condition.CreditUnitTypeDescription, false, "" )
+									@RenderText( false, "", "Credit Unit Value:", 0, condition.CreditUnitValue == 0 ? "" : condition.CreditUnitValue.ToString(), false, "" )
+								}
+								catch { }
+								@*@RenderItemList( true, "", "References", headerLevel + 1, condition.ReferenceUrl, false, true, true, true, "Reference" )*@
+								@RenderEnumeration( true, "", "Audiences", headerLevel + 1, condition.ApplicableAudienceType, typeCodeString )
+								@RenderJurisdictions( true, "", "Jurisdictions", headerLevel + 1, condition.Jurisdiction, "This information applies in these places:", "This information does not apply in these places:" )
+								@RenderJurisdictions( true, "", "Residency", headerLevel + 1, condition.ResidentOf, "This information applies to residents of these places:", "This information does not apply to residents of these places:" )
+								@RenderEnumeration( true, "", "Audience Level", headerLevel + 1, condition.AudienceLevel, typeCodeString )
+								@RenderDateRange( true, "", "", 0, condition.DateEffective, "" )
+								@*@RenderSummaryOrganizationsList( false, "", "Conditions Asserted By", headerLevel + 1, new List<Organization>() { condition.AssertedBy } )*@
+
+								@if ( !suppressTargets ) //Don't show embedded/target entities, by request
+								{
+									@RenderCompetencyFrameworksList( false, "", "", headerLevel + 1, condition.RequiresCompetenciesFrameworks )
+									@WrapInCollapseBox( condition.RequiredCredential.Count() > 0 && condition.RequiredCredential.Where( m => m.Id > 0 ).Count() > 0, true, @Count( condition.RequiredCredential, "{#} Credential{s}" ), RenderSummaryCredentialList( false, "", condition.RequiredCredential ).ToHtmlString(), "", "whiteButton", "" )
+									@WrapInCollapseBox( condition.TargetAssessment.Count() > 0, true, Count( condition.TargetAssessment, "{#} Assessment{s}" ), RenderSummaryAssessmentList( false, "", headerLevel + 1, condition.TargetAssessment ).ToHtmlString(), "", "whiteButton", "" )
+									@WrapInCollapseBox( condition.TargetLearningOpportunity.Count() > 0, true, Count( condition.TargetLearningOpportunity, "{#} Learning Opportunit{ies}" ), RenderSummaryLearningOpportunityList( false, "", headerLevel + 1, condition.TargetLearningOpportunity ).ToHtmlString(), "", "whiteButton", "" )
+									@*@WrapInCollapseBox( condition.TargetTask.Count() > 0, true, Count( condition.TargetTask, "{#} Task{s}" ), RenderSummaryTaskList( false, "", headerLevel + 1, condition.TargetTask ).ToHtmlString(), "", "whiteButton", "" )*@
+								}
+							</div>
+						</div>
+					}
+					catch { }
+					counter++;
+				}
+                @Wrap( useWrapperDiv, "div", "", false )
+            </div>
+        </div>
+    }
+}
+@helper RenderCompetencyFrameworksList( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, List<CredentialAlignmentObjectFrameworkProfile> frameworks, string buttonClass = "whiteButton" )
+{
+    if ( frameworks != null && frameworks.Count() > 0 && frameworks.Where( m => m.Items != null && m.Items.Count() > 0 ).Count() > 0 )
+    {
+        <div class="collapseBox @wrapperClass">
+            <button class="collapseButton @buttonClass">@Html.Raw( Count( @frameworks.SelectMany( m => m.Items ).Where( m => m.Id > 0 ).ToList(), "{#} " + header + " Competenc{ies}" ) )</button>
+            <div class="collapseContent">
+                @foreach ( var framework in frameworks.Where( m => m != null && m.Items.Count() > 0 ).ToList() )
+                {
+                    @RenderCompetencyFramework( true, "", framework.EducationalFrameworkName, headerLevel + 1, framework )
+                }
+            </div>
+        </div>
+    }
+} 
+@helper RenderCompetencyFramework( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, CredentialAlignmentObjectFrameworkProfile framework ) 
+{ 
+    if ( framework != null && framework.Items != null && framework.Items.Count() > 0 )
+    {
+        @Wrap( useWrapperDiv, "div", "competencyFramework summary " + wrapperClass, true );
+        @RenderHeader( header, headerLevel, false, "summaryName" )
+        <div class="summaryContent">
+            @foreach ( var competency in framework.Items )
+            {
+                var name = HasText( competency.TargetName ) ? competency.TargetName : competency.Name;
+                var description = HasText( competency.TargetDescription ) ? competency.TargetDescription : competency.Description;
+                name = Capitalize( name, false );
+                description = Capitalize( description, false );
+                <div class="competency @( HasText( name ) ? "hasName" : "" ) @( HasText( description ) ? "hasDescription" : "" )">
+                    @RenderText( false, "", "", 0, name, false, "competencyName" )
+                    @RenderText( false, "", "", 0, description, false, "competencyDescription" ) @* We want the header and/or content to show if either has content, so we don't use the header options here *@
+					@RenderExternalLink( competency.TargetUrl, "View", false )
+                </div>
+            }
+        </div>
+        @Wrap( useWrapperDiv, "div", "", false )
+    }
+}
+@helper RenderSummaryCredentialList( bool useWrapperDiv, string wrapperClass, List<Credential> credentials ) 
+{ 
+    try
+    {
+        if ( credentials != null && credentials.Count() > 0 && credentials.Where( m => m != null && m.Id != 0 ).Count() > 0 )
+        {
+            @Wrap( useWrapperDiv, "div", "summaryList credentialList " + wrapperClass, true );
+            foreach ( var credential in credentials.Where( m => m != null && m.Id != 0 ).ToList() )
+            {
+                <div class="summary credentialSummary">
+                    <a class="summaryName" target="_summaryWindow" href="@Url.Content( "~/detail/credential/" + credential.Id )">@credential.Name</a>
+                    <div class="summaryContent">
+                        @RenderText( false, "", "", 0, credential.Description, false, "", 300 )
+                        @RenderEnumeration( false, "", "", 0, credential.Subject, "credential" )
+                    </div>
+                </div>
+            }
+            @Wrap( useWrapperDiv, "div", "", false )
+        }
+    }
+    catch ( Exception ex )
+    {
+        <div class="error" style="display:none;">@ex.Message</div>
+        <div class="error" style="display:none;">@credentials.Count()</div>
+        <div class="error" style="display:none;">@Html.Raw( new System.Web.Script.Serialization.JavaScriptSerializer().Serialize( credentials ) )</div>
+    }
+}
+@helper RenderSummaryAssessmentList( bool useWrapperDiv, string wrapperClass, int headerLevel, List<AssessmentProfile> assessments, bool suppressCompetencies = true ) 
+{ 
+    if ( assessments != null && assessments.Count() > 0 )
+    {
+        @Wrap( useWrapperDiv, "div", "summaryList assessmentList " + wrapperClass, true );
+        foreach ( var assessment in assessments )
+        {
+            <div class="summary assessmentSummary">
+                <a class="summaryName" target="_summaryWindow" href="@Url.Content( "~/detail/assessment/" + assessment.Id )">@assessment.Name</a>
+                <div class="summaryContent">
+                    @RenderText( false, "", "", 0, assessment.Description, false, "", 300 )
+                    @RenderEnumerationGroup( false, "", "", 0, new List<Enumeration>() { assessment.AssessmentUseType }, new List<List<TextValueProfile>>() { assessment.Subject }, "assessment" )
+                    @if ( !suppressCompetencies )
+                    {
+                        @RenderCompetencyFrameworksList( false, "", "Assesses", headerLevel, assessment.AssessesCompetenciesFrameworks )
+                        @RenderCompetencyFrameworksList( false, "", "Requires", headerLevel, assessment.RequiresCompetenciesFrameworks )
+                    }
+                </div>
+            </div>
+        }
+        @Wrap( useWrapperDiv, "div", "", false )
+    }
+}
+@helper RenderSummaryLearningOpportunityList( bool useWrapperDiv, string wrapperClass, int headerLevel, List<LearningOpportunityProfile> learningOpportunities, bool suppressCompetencies = true ) 
+{ 
+    if ( learningOpportunities != null && learningOpportunities.Count() > 0 )
+    {
+        @Wrap( useWrapperDiv, "div", "summaryList learningOpportunityList " + wrapperClass, true );
+        foreach ( var learningOpportunity in learningOpportunities )
+        {
+            <div class="summary learningOpportunitySummary">
+                <a class="summaryName" target="_summaryWindow" href="@Url.Content( "~/detail/learningopportunity/" + learningOpportunity.Id )">@learningOpportunity.Name</a>
+                <div class="summaryContent">
+                    @RenderText( false, "", "", 0, learningOpportunity.Description, false, "", 300 )
+                    @RenderEnumerationGroup( false, "", "", 0, new List<Enumeration>() { learningOpportunity.DeliveryType }, new List<List<TextValueProfile>>() { learningOpportunity.Subject }, "learningopportunity" )
+                    @if ( !suppressCompetencies )
+                    {
+                        @RenderCompetencyFrameworksList( false, "", "Teaches", headerLevel, learningOpportunity.TeachesCompetenciesFrameworks )
+                        @RenderCompetencyFrameworksList( false, "", "Requires", headerLevel, learningOpportunity.RequiresCompetenciesFrameworks )
+                    }
+                </div>
+            </div>
+        }
+        @Wrap( useWrapperDiv, "div", "", false )
+    }
+}
+@helper RenderSummaryTaskList( bool useWrapperDiv, string wrapperClass, int headerLevel, List<TaskProfile> tasks ) 
+{ 
+    if ( tasks.Count() > 0 )
+    {
+        @Wrap( useWrapperDiv, "div", "summaryList taskList " + wrapperClass, true );
+        var count = 1;
+        foreach ( var task in tasks )
+        {
+            var name = HasText( task.ProfileName ) ? task.ProfileName : "Task #" + count;
+            if ( HasText( task.AvailabilityListing ) )
+            {
+                //task.ReferenceUrl.Insert( 0, new TextValueProfile() { TextTitle = "Availability Listing", TextValue = task.AvailabilityListing } );
+            }
+            if ( HasText( task.AvailableOnlineAt ) )
+            {
+                //task.ReferenceUrl.Insert( 0, new TextValueProfile() { TextTitle = "Available Online", TextValue = task.AvailableOnlineAt } );
+            }
+            <div class="summary taskSummary">
+                @RenderHeader( name, headerLevel, false, "summaryName" )
+                <div class="summaryContent">
+                    @RenderText( false, "", "Description", headerLevel + 1, task.Description, true, "" )
+                    @*@RenderItemList( false, "", "References", headerLevel + 1, task.ReferenceUrl, false, true, true, true, "Reference" )*@
+                    @RenderDurations( false, "", "Estimated Time to Complete", headerLevel + 1, task.EstimatedDuration )
+                    @RenderJurisdictions( false, "", "Jurisdiction", headerLevel + 1, task.Jurisdiction, "This task applies in these places:", "This task does not apply in these places:" )
+                    @RenderDateRange( true, "", "", 0, task.DateEffective, "" )
+                    @RenderCosts( false, "", "Estimated Costs", headerLevel + 1, task.EstimatedCost )
+                
+                    @if( task.Addresses.Count() > 0 )
+                    {
+                        <div class="collapseBox">
+                            <button class="collapseButton whiteButton">Available at @task.Addresses.Count() Addresses</button>
+                            @RenderAddressList( true, "collapseContent", "", 0, task.Addresses, false )
+                        </div>
+                    }
+                </div>
+            </div>
+            count++;
+        }
+        @Wrap( useWrapperDiv, "div", "", false )
+    }
+}
+@helper RenderSummaryOrganizationsList( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, List<Organization> organizations ) 
+{ 
+    if ( organizations != null && organizations.Count() > 0 && organizations.Where( m => m != null && m.Id > 0 ).Count() > 0 )
+    {
+        try
+        {
+            @Wrap( useWrapperDiv, "div", "summaryList organizationList " + wrapperClass, true );
+			@RenderHeader( header, headerLevel, false, "summaryName" )
+			foreach ( var organization in organizations.Where( m => m != null && m.Id != 0 ) )
+			{
+                <div class="summary withImage organizationSummary">
+                    <a class="summaryName" target="_summaryWindow" href="@Url.Content( "~/detail/organization/" + organization.Id )">@organization.Name</a>
+                    <div class="summaryContent">
+                        @RenderText( false, "", "", 0, organization.Description, false, "", 300 )
+                        <div class="summaryImage gradientBackground">
+                            <img src="@( string.IsNullOrWhiteSpace( organization.ImageUrl ) ? Url.Content( "~/images/v2/icons/flat_organization.png" ) : organization.ImageUrl )" />
+                        </div>
+                    </div>
+                </div>
+            }
+            @Wrap( useWrapperDiv, "div", "", false )
+        }
+        catch { }
+    }
+}
+@helper RenderAddressList( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, List<Address> addresses, bool asButtons )
+{
+    if( addresses != null && addresses.Count() > 0 )
+    {
+        @Wrap( useWrapperDiv, "div", "addressList " + wrapperClass, true );
+        @RenderHeader( header, headerLevel, false, "" )
+        foreach ( var address in addresses )
+        {
+            if ( asButtons )
+            {
+                <button class="addressButton whiteButton" data-addressID="@address.Id" data-latitude="@address.Latitude" data-longitude="@address.Longitude">
+                    @address.DisplayAddress()
+                </button>
+            }
+            else
+            {
+                <div class="address">
+                    @address.DisplayAddress()
+                </div>
+            }
+        }
+        @Wrap( useWrapperDiv, "div", "", false )
+    }
+}
+@helper WrapInCollapseBox( bool doWrap, bool wrapContentInCollapseDiv, string buttonContent, string collapseContent, string boxClass, string buttonClass, string contentClass ) 
+{ 
+    if( doWrap && HasText( collapseContent ) )
+    {
+        <div class="collapseBox @boxClass">
+            <button class="collapseButton @buttonClass">@Html.Raw( buttonContent )</button>
+            @if( wrapContentInCollapseDiv )
+            {
+                @:    <div class="collapseContent @contentClass">
+            }
+            @Html.Raw( collapseContent )
+            @if ( wrapContentInCollapseDiv )
+            {
+                @:    </div>
+            }
+        </div>
+    }
+}
+@helper RenderOrganizationRoles( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, List<OrganizationRoleProfile> roles, bool onlyCreatorOwner, bool onlyQualityAssurance, bool wrapInCollapseBox ) 
+{ 
+    if ( roles != null && roles.Count() > 0 )
+    {
+        //Get the normalized set of agents and roles we want
+        var data = GetFilteredAgentsAndRoles( roles, onlyCreatorOwner, onlyQualityAssurance );
+        
+        //Render the rest
+        if ( data.Count() > 0 )
+        {
+            @Wrap( useWrapperDiv, "div", "", true )
+            @RenderHeader( header, headerLevel, false, "" )
+            if ( wrapInCollapseBox )
+            {
+                var headerText = onlyCreatorOwner ? "Owner" :
+                    onlyQualityAssurance ? Count( data.SelectMany( m => m.AgentRole.Items ).ToList(), "{#} Quality Assurance" ) :
+                    Count( data, "{#} Organization{s}" );
+                @:<div class="collapseBox @wrapperClass">
+                @:    <button class="collapseButton bigButton blueButton">@Html.Raw( headerText )</button>
+                @:    <div class="collapseContent summaryList organizationList">
+            }
+            
+            foreach ( var role in data )
+            {
+                var org = role.ActingAgent;
+                <div class="summary withImage organizationSummary @( onlyCreatorOwner ? "creatorOwner" : "" ) @( onlyQualityAssurance ? "qualityAssurance" : "" )">
+                    <a class="summaryName" target="_summaryWindow" href="@Url.Content( "~/detail/organization/" + org.Id )">@org.Name</a>
+                    <div class="summaryContent">
+                        @RenderText( false, "", "", 0, org.Description, false, "", 300 )
+                        @RenderEnumeration( false, "", "", 0, role.AgentRole, "organization" )
+                        <div class="summaryImage gradientBackground">
+                            <img src="@( string.IsNullOrWhiteSpace( org.ImageUrl ) ? Url.Content( "~/images/v2/icons/flat_organization.png" ) : org.ImageUrl )" />
+                        </div>
+                    </div>
+                </div>
+            }
+    
+            if( wrapInCollapseBox )
+            {
+                @:    </div>
+                @:</div>
+            }
+            @Wrap( useWrapperDiv, "div", "", false )
+        }
+    }
+}
+@helper RenderSummaryConnections( bool useWrapperDiv, string wrapperClass, List<Credential> credentials, string countText ) 
+{ 
+    if ( credentials != null && credentials.Count() > 0 )
+    {
+        try
+        {
+            <div class="collapseBox @wrapperClass">
+                <button class="collapseButton bigButton blueButton">@Html.Raw( Count( credentials, countText ) )</button>
+                <div class="collapseContent">
+                    @RenderSummaryCredentialList( false, "", credentials )
+                </div>
+            </div>
+        }
+        catch { }
+    }
+}
+@helper RenderRevocationProfiles( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, List<RevocationProfile> profiles ) 
+{
+    if ( profiles != null && profiles.Count() > 0 )
+    {
+        try
+        {
+            @Wrap( useWrapperDiv, "div", "revocationProfileList", true )
+            <div class="collapseBox @wrapperClass">
+                <button class="collapseButton bigButton blueButton">@Html.Raw( header )</button>
+                <div class="collapseContent">
+                    @{ var counter = 1; }
+                    @foreach ( var profile in profiles )
+                    {
+                        <div class="revocationProfile summary">
+                            <div class="summaryName">@( HasText( profile.ProfileName ) ? profile.ProfileName : "Revocation Terms #" + counter )</div>
+                            <div class="summaryContent">
+                                @RenderText( false, "", "Description", headerLevel + 1, profile.Description, true, "" )
+								@RenderExternalLink( profile.RevocationCriteriaUrl, "More Information", true )
+                                @RenderJurisdictions( false, "", "Jurisdiction", headerLevel + 1, profile.Jurisdiction, "These terms apply in:", "These terms do not apply in:" )
+                            </div>
+                        </div>
+                        counter++;
+                    }
+                </div>
+            </div>
+            @Wrap( useWrapperDiv, "div", "", false )
+        }
+        catch { }
+    }
+}
+@helper RenderProcessProfiles( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, List<ProcessProfile> profiles, string typeCodeString )
+{
+    if ( profiles != null && profiles.Count() > 0 )
+    {
+        try
+        {
+            @Wrap( useWrapperDiv, "div", "processProfileList", true )
+            <div class="collapseBox @wrapperClass">
+                <button class="collapseButton bigButton blueButton">@Html.Raw( header )</button>
+                <div class="collapseContent">
+                    @{ var counter = 1; }
+                    @foreach ( var profile in profiles )
+                    {
+                        var links = new List<TextValueProfile>();
+                        AddLinkToValues( links, profile.TargetCompetencyFramework, "Competency Framework" );
+                       // AddLinkToValues( links, profile.DecisionInformationUrl, "Decision Information" );
+                     //   AddLinkToValues( links, profile.OfferedByDirectoryUrl, "Offered Credentials Directory" );
+                    //    AddLinkToValues( links, profile.PublicInformationUrl, "Public Information" );
+                       // AddLinkToValues( links, profile.StaffEvaluationUrl, "Staff Evaluation Information" );
+                        //AddLinkToValues( links, profile.OutcomeReviewUrl, "Outcome Review Information" );
+                       // AddLinkToValues( links, profile.PoliciesAndProceduresUrl, "Policies and Procedures" );
+                        //AddLinkToValues( links, profile.ProcessCriteriaUrl, "Process Criteria Information" );
+                       // AddLinkToValues( links, profile.ProcessCriteriaValidationUrl, "Process Criteria Validation Information" );
+                    //    AddLinkToValues( links, profile.StaffSelectionCriteriaUrl, "Staff Selection Criteria Information" );
+                        
+                        <div class="revocationProfile summary">
+                            <div class="summaryName">@( HasText( profile.ProfileName ) ? profile.ProfileName : "Process Set #" + counter )</div>
+                            <div class="summaryContent">
+                                @RenderText( false, "", "Description", headerLevel + 1, profile.Description, true, "" )
+                                @RenderText( false, "", "Frequency", headerLevel + 1, profile.ProcessFrequency, false, "" )
+                                @RenderSummaryOrganizationsList( false, "", "Process Provider", headerLevel + 1, new List<Organization>() { profile.ProcessingAgent } )
+                                @RenderEnumeration( false, "", "External Input Type", headerLevel + 1, profile.ExternalInput, typeCodeString )
+                                @*@RenderEnumeration( false, "", "Process Method", headerLevel + 1, profile.ProcessMethod, typeCodeString )*@
+                                @*@RenderEnumeration( false, "", "Staff Evaluation Method", headerLevel + 1, profile.StaffEvaluationMethod, typeCodeString )*@
+                                @RenderItemList( false, "", "References", headerLevel +1, links, false, true, true, true, "" )
+                                @RenderJurisdictions( false, "", "Jurisdiction", headerLevel + 1, profile.Jurisdiction, "These processes apply in:", "These processes do not apply in:" )
+                            </div>
+                        </div>
+                        counter++;
+                    }
+                </div>
+            </div>
+            @Wrap( useWrapperDiv, "div", "", false )
+        }
+        catch { }
+    }
+}
+@helper RenderSocialMedia( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, List<TextValueProfile> links ) 
+{ 
+	if ( links != null && links.Count() > 0 )
+	{
+	var icons = new Dictionary<string, string>()
+		{
+			{ "facebook", "facebook-square" },
+			{ "flickr", "flickr" },
+			{ "google", "google-plus-square" },
+			{ "instagram", "instagram" },
+			{ "linkedin", "linkedin-square" },
+			{ "pinterest", "pinterest-square" },
+			{ "youtube", "youtube-square" },
+			{ "twitter", "twitter-square" },
+		};
+
+		@Wrap( useWrapperDiv, "div", "socialMediaList " + wrapperClass, true )
+		foreach ( var link in links )
+		{
+			var icon = "share-alt-square";
+			var linkText = ( link.TextValue ?? "" ).ToLower();
+			try
+			{
+				icon = icons.FirstOrDefault( m => linkText.Contains( m.Key ) ).Value ?? "share-alt-square";
+			}
+			catch { }
+			<a class="socialMediaLink" title="@linkText" href="@linkText" target="_blank"><i class="fa fa-@icon"></i></a>
+        }
+		@Wrap( useWrapperDiv, "div", "", false )
+	}
+}
+@helper RenderRegistryInfo( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, string registryID, string registryURL )
+{
+@Wrap( useWrapperDiv, "div", "registryData", true )
+<div class="collapseBox @wrapperClass">
+    <button class="collapseButton bigButton blueButton">@Html.Raw( header )</button>
+    <div class="collapseContent">
+        <div class="summary">
+            <div class="summaryName">Registry Information</div>
+            <div class="summaryContent" id="registryInfo">
+                @if ( !string.IsNullOrWhiteSpace( registryID ) )
+        {
+        <a href="@string.Format(registryURL, registryID)" target="_blank">View in Registry</a>
+        }
+        else
+        {
+        <p>This information has not been published yet.</p>
+        }
+            </div>
+        </div>
+        <div class="summary">
+            <div class="summaryName">Raw Metadata</div>
+            <div class="summaryContent" id="rawMetadata">
+                <p>Raw Metadata not available yet.</p> @* Need something here to keep the script from removing the empty box *@
+            </div>
+        </div>
+    </div>
+</div>
+@Wrap( useWrapperDiv, "div", "", false )
+}
+@helper RenderVerificationServiceProfiles( bool useWrapperDiv, string wrapperClass, string header, int headerLevel, List<VerificationServiceProfile> services )
+{
+try
+{
+    if ( services != null && services.Count() > 0 )
+    {
+            @Wrap( useWrapperDiv, "div", "verificationService", true )
+            <div class="collapseBox @wrapperClass">
+                <button class="collapseButton bigButton blueButton">@Html.Raw( header )</button>
+                <div class="collapseContent">
+                    @foreach ( var service in services )
+                    {
+                        <div class="summary">
+                            <div class="summaryName">@service.ProfileName</div>
+                            <div class="summaryContent">
+                                @RenderText( false, "", "Description", headerLevel + 1, service.Description, true, "" )
+                                @if ( service.HolderMustAuthorize )
+                                {
+                                    <p>The holder of the credential must authorize this service.</p>
+}
+                                @RenderEnumeration( false, "", "Claim Type", headerLevel + 1, service.ClaimType, "organization" )
+                                @if ( service.RelevantCredential != null && service.RelevantCredential.Id > 0 )
+                                {
+                                    @RenderHeader( "Applies to Credential:", headerLevel + 1, false, "" )
+                                    @RenderSummaryCredentialList( false, "", new List<Credential>() { service.RelevantCredential } )
+}
+                                @RenderCosts( false, "", "Costs", headerLevel + 1, service.EstimatedCost, "", false, false, false )
+                                @RenderExternalLink( service.VerificationServiceUrl, "Verification Service", true )
+                            </div>
+                        </div>}
+                </div>
+            </div>
+            @Wrap( useWrapperDiv, "div", "", false )
+    }
+
+}
+catch { }
+}
+
+@helper RenderQualityAssuranceTargets(bool useWrapperDiv, string wrapperClass, string header, int headerLevel, List<OrganizationRoleProfile> targets, bool wrapInCollapseBox )
+{
+if ( targets != null && targets.Where( m => m != null ).Count() > 0 )
+{
+	try
+	{
+		@Wrap( useWrapperDiv, "div", "", true )
+		@RenderHeader( header, headerLevel, false, "" )
+
+		if ( wrapInCollapseBox )
+		{
+			var headerText = Count( targets.SelectMany( m => m.AgentRole.Items ).ToList(), "{#} Quality Assurance Performed" );
+            @:<div class="collapseBox @wrapperClass">
+            @:    <button class="collapseButton bigButton blueButton">@Html.Raw( headerText )</button>
+            @:    <div class="collapseContent summaryList organizationList">
+        }
+
+		var targetedOrgs = targets.Where( m => m.TargetOrganization != null && m.TargetOrganization.Id > 0 ).ToList();
+		var targetedCreds = targets.Where( m => m.TargetCredential != null && m.TargetCredential.Id > 0 ).ToList();
+		var targetedAsmts = targets.Where( m => m.TargetAssessment != null && m.TargetAssessment.Id > 0 ).ToList();
+		var targetedLopps = targets.Where( m => m.TargetLearningOpportunity != null && m.TargetLearningOpportunity.Id > 0 ).ToList();
+
+		foreach ( var item in targetedOrgs )
+		{
+			var target = item.TargetOrganization;
+			<div class="summary withImage organizationSummary">
+				<a class="summaryName" target="_summaryWindow" href="@Url.Content( "~/detail/organization/" + target.Id )">@target.Name</a>
+				<div class="summaryContent">
+					@RenderText( false, "", "", 0, target.Description, false, "", 300 )
+					@RenderEnumeration( false, "", "", 0, item.AgentRole, "organization" )
+					<div class="summaryImage gradientBackground">
+						<img src="@( string.IsNullOrWhiteSpace( target.ImageUrl ) ? Url.Content( "~/images/v2/icons/flat_organization.png" ) : target.ImageUrl )" />
+					</div>
+				</div>
+			</div>
+		}
+
+		foreach ( var item in targetedCreds )
+		{
+			var target = item.TargetCredential;
+			<div class="summary credentialSummary">
+				<a class="summaryName" target="_summaryWindow" href="@Url.Content( "~/detail/credential/" + target.Id )">@target.Name</a>
+				<div class="summaryContent">
+					@RenderText( false, "", "", 0, target.Description, false, "", 300 )
+					@RenderEnumeration( false, "", "", 0, item.AgentRole, "credential" )
+				</div>
+			</div>
+		}
+
+		foreach ( var item in targetedAsmts )
+		{
+			var target = item.TargetAssessment;
+			<div class="summary assessmentSummary">
+				<a class="summaryName" target="_summaryWindow" href="@Url.Content( "~/detail/assessment/" + target.Id )">@target.Name</a>
+				<div class="summaryContent">
+					@RenderText( false, "", "", 0, target.Description, false, "", 300 )
+					@RenderEnumeration( false, "", "", 0, item.AgentRole, "assessment" )
+				</div>
+			</div>
+		}
+
+		foreach ( var item in targetedLopps )
+		{
+			var target = item.TargetLearningOpportunity;
+			<div class="summary learningOpportunitySummary">
+				<a class="summaryName" target="_summaryWindow" href="@Url.Content( "~/detail/learningopportunity/" + target.Id )">@target.Name</a>
+				<div class="summaryContent">
+					@RenderText( false, "", "", 0, target.Description, false, "", 300 )
+					@RenderEnumeration( false, "", "", 0, item.AgentRole, "learningopportunity" )
+				</div>
+			</div>
+		}
+
+		if ( wrapInCollapseBox )
+		{
+            @:    </div>
+            @:</div>
+        }
+
+		@Wrap( useWrapperDiv, "div", "", false )
+	}
+	catch { }
+}
+}
+            <script type="text/javascript">
+                var rawMetadata = @Html.Raw( new System.Web.Script.Serialization.JavaScriptSerializer().Serialize( jsonData ) );
+
+                /* Initialization Functions */
+                $(document).ready(function () {
+                    setupCollapseBoxes();
+                    setupModalBoxes();
+                    removeEmptySubsections();
+                    printRawMetadata();
+                });
+
+                function setupCollapseBoxes() {
+                    $(".collapseBox").not(".collapseBoxInitialized").each(function () {
+                        var box = $(this);
+                        var button = box.find("> .collapseButton");
+                        var content = box.find("> .collapseContent");
+                        button.on("click", function () {
+                            if(box.hasClass("expanded")){
+                                closeModalBoxes();
+                                box.removeClass("expanded");
+                            }
+                            else {
+                                closeModalBoxes();
+                                box.addClass("expanded");
+                            }
+                        });
+                        button.html("<span class=\"buttonText\">" + button.html() + "</span><div class=\"collapseArrow\"><i class=\"fa fa-caret-down down\"></i><i class=\"fa fa-caret-right right\"></i></div>");
+                        box.addClass("collapseBoxInitialized");
+                    });
+                }
+                //
+
+                function setupModalBoxes() {
+                    $(".modalBox").not(".modalBoxInitialized").each(function() {
+                        var box = $(this);
+                        var button = box.find(".collapseButton").first();
+                        var content = box.find(".collapseContent").first();
+                        box.on("click", function(e) {
+                            e.stopPropagation();
+                        });
+                        button.find(".collapseArrow").html("<i class=\"fa fa-arrows-alt\"></i>");
+                        content.html("<div class=\"modalContent\">" + content.html() + "</div>");
+
+
+                        var header = $("<div class=\"header modalHeader\">" + button.find(".buttonText").html() + "</div>").prependTo(content);
+                        var closeButton = $("<button class=\"closeButton\"><i class=\"fa fa-close\"></i></button>").appendTo(header);
+                        closeButton.on("click", function(){
+                            closeModalBoxes();
+                        });
+
+                        box.addClass("modalBoxInitialized");
+                    });
+                    $("html").not(".modalBox").on("click", function() {
+                        closeModalBoxes();
+                    });
+                }
+                //
+
+                function closeModalBoxes() {
+                    $(".modalBox .collapseBox, .modalBox.collapseBox").removeClass("expanded");
+                }
+                //
+
+                function removeEmptySubsections() {
+                	$(".conditionProfileWrapper").each(function() {
+                		var box = $(this);
+                		var profiles = box.find(".conditionProfile");
+                		profiles.each(function() {
+                			var profile = $(this);
+                			if(profile.find(".conditionProfileContents").text().trim().length == 0 || profile.find(".conditionProfileContents *").length == 0){
+                				profile.remove();
+                			}
+                		});
+                		profiles = box.find(".conditionProfile"); //Refresh
+                		box.find(".buttonText .count").html(profiles.length);
+                		if(profiles.length == 0){
+                			box.remove();
+                		}
+                	});
+                	$(".subsection").each(function() {
+                        var box = $(this);
+                        if(box.find("*").not(".subsectionHeader").length == 0){
+                            box.remove();
+                        }
+                    });
+                    $(".summaryContent").each(function() {
+                        var box = $(this);
+                        if(box.text().trim().length == 0){
+                            box.remove();
+                        }
+                    });
+                }
+                //
+
+                function printRawMetadata(){
+                    try {
+                        $("#rawMetadata").html(JSON.stringify(rawMetadata, null, "\t"));
+                    }
+                    catch(e){}
+                }
+                //
+
+
+                //
+                function registerEntity() {
+                    modal.confirm(
+                        "Register This Data",
+                        "Are you sure that you want to register this entity?",
+                        function () {
+                            var context = {
+                                IsTopLevel: true,
+                                Profile: { Id: @Model.Id, RowId: "@Model.RowId", TypeName: "@Model.GetType().Name" }
+                            };
+                            doAjax("Editor", "Register", context, success_Publish, null, true);
+                        },
+                        function() {}
+                    );
+                }
+                //
+                function success_Publish(message, result){
+                    if(message.valid){
+                        consoleMessage.addSuccessMessage("Register was successful", "", 2000);
+                    }
+                    else {
+                        consoleMessage.addErrorMessage(message.status, "", 0);
+                    }
+                }
+                //
+                function unRegisterEntity() {
+                    modal.confirm(
+                        "Un-Register from the Credential Registry",
+                        "Are you sure that you want to remove this entity from the Credential Registry?",
+                        function () {
+                            var context = {
+                                IsTopLevel: true,
+                                Profile: { Id: @Model.Id, RowId: "@Model.RowId", TypeName: "@Model.GetType().Name" }
+                            };
+
+                            doAjax("Editor", "Unregister", context, success_unRegister, null, true);
+                        },
+                        function() {}
+                    );
+                }
+                //
+                function success_unRegister(message, result){
+                    if(message.valid){
+                        consoleMessage.addSuccessMessage("Remove was successful", "", 2000);
+                    }
+                    else {
+                        consoleMessage.addErrorMessage(message.status, "", 0);
+                    }
+                }
+            </script>
+            <script type="text/javascript">
+                /* AJAX Functions */
+
+                function showSpinner(){
+                    $("#waitWrapper").stop().fadeIn(250);
+                }
+                //
+
+                function hideSpinner() {
+                    $("#waitWrapper").stop().fadeOut(250);
+                }
+                //
+
+                //AJAX caller
+                function doAjax(controller, method, data, success, passThrough, useSpinner) {
+                    //Show spinner if appropriate
+                    if(useSpinner){
+                        showSpinner();
+                    }
+
+                    $.ajax({
+                        url: "@Url.Content( "~/" )" + controller + "/" + method,
+                        async: true,
+                        headers: { "Accept": "application/json", "Content-type": "application/json; charset=utf-8" },
+                        dataType: "json",
+                        type: "POST",
+                        data: JSON.stringify(data),
+                        success: function (message) {
+                            console.log("Response: ", message);
+                            if (typeof (success) == "function") {
+                                success(message, passThrough);
+                            }
+                        }
+                    }).always(function() {
+                        hideSpinner();
+                    });
+                }
+                //
+
+                function success_deleteData(message, passThrough){
+                    if (message.valid) {
+                        modal.alert("Data Deleted", "The data has been deleted. You will now be taken back to the search page.", function() { window.location.href = "@Url.Content("~/Search")"; });
+                    }
+                }
+                //
+
+            </script>
+            <script type="text/javascript">
+                /* Map Functions */
+                var googleMap = {};
+                var mapCenter = { lat: @mapCenterLat, lng: @mapCenterLon };
+                var mapBounds = { north: @mapBoundsNorth, east: @mapBoundsEast, south: @mapBoundsSouth, west: @mapBoundsWest };
+                var mapMarkerID = 0;
+                var markerList = [];
+
+                function setupMap() {
+                    //Create Map
+                    var mapBox = $("#mainMapBox");
+                    googleMap = new google.maps.Map(mapBox[0], { center: mapCenter, zoom: 4 });
+                    googleMap.fitBounds(mapBounds);
+
+                    //Initialize buttons
+                    $(".addressButton").each(function () {
+                        var button = $(this);
+                        //Decorate button
+                        button.append("<i class=\"markerIcon fa fa-map-marker \"></i>");
+
+                        //Add map functions
+                        try {
+                            var lat = parseFloat(button.attr("data-latitude"));
+                            var lon = parseFloat(button.attr("data-longitude"));
+                            var newMarker = addMarker(googleMap, button, lat, lon);
+                            button.attr("data-markerID", newMarker.markerID);
+                            button.on("click", function () {
+                                focusMapOnMarker(googleMap, parseInt(button.attr("data-markerID")));
+                            });
+                        }
+                        catch (e) { }
+                    });
+
+                    if(markerList.length == 1){
+                    	setTimeout(function() { 
+                    		googleMap.setZoom(14);
+                    	}, 100);
+                    }
+				}
+                //
+
+                function addMarker(map, button, lat, lon) {
+                    //Create marker
+                    var marker = new google.maps.Marker({
+                        map: map,
+                        position: { lat: lat, lng: lon },
+                        markerID: mapMarkerID
+                    });
+                    //Add functionality
+                    marker.addListener("click", function () {
+                        focusMapOnMarker(map, marker.markerID);
+                    });
+                    mapMarkerID++;
+                    markerList.push(marker);
+                    return marker;
+                }
+                //
+
+                function focusMapOnMarker(map, markerID) {
+                    console.log(markerID);
+                    console.log(map);
+                    for (var i in markerList) {
+                        //Find marker by ID
+                        if (markerList[i].markerID == markerID) {
+                            //Focus on map marker and highlight address button
+                            map.setCenter(markerList[i].position);
+                            $(".addressButton[data-markerID=" + markerID + "]").addClass("highlight");
+                            setTimeout(function () {
+                                $(".addressButton[data-markerID=" + markerID + "]").removeClass("highlight");
+                            }, 1000);
+                        }
+                    }
+                }
+                //
+            </script>
+            <style type="text/css">
+                /* Big Stuff */
+				.subsection { }
+				.bigButton { display: block; padding: 10px; width: 100%; margin: 5px 0; font-size: 18px; }
+				.enumerationItems { padding: 10px; }
+				.enumerationItems a { padding: 5px; margin: 2px; }
+				.header.capitalize { text-transform: capitalize; }
+				.text { padding: 0 5px; margin: 5px 0; }
+				.dateRange { font-style: italic; }
+				ul li a { display: block; margin-bottom: 2px; }
+				#waitWrapper { position: fixed; top: 0; bottom: 0; left: 0; right: 0; background-color: rgba(0,0,0,0.5); z-index: 999999; transition: none; display: none; }
+				#wait { width: 200px; margin: calc(50vh - 200px) auto; text-align: center; color: #FFF; }
+				#waitSpinner { width: 100%; display: block; font-size: 100px; line-height: 100px; }
+				#waitTitle { font-size: 26px; padding: 20px 5px 20px 20px; }
+
+				/* Headers */
+				.header.h1 { font-size: 30px; }
+				.header.h2 { font-size: 20px; }
+				.header.h3 { font-size: 18px; }
+				.header.indent { padding-left: 15px; }
+
+				/* Collapse Sections */
+				.collapseBox { margin: 5px 0; }
+				.collapseBox.expanded > .collapseButton .right { display: none; }
+				.collapseBox:not(.expanded) > .collapseButton .down { display: none; }
+				.collapseBox .collapseButton:not(.bigButton) { display: block; width: 100%; padding: 5px; }
+				.collapseBox .collapseButton { position: relative; padding-right: 30px; }
+				.collapseBox .collapseButton .collapseArrow { position: absolute; top: -2px; right: 5px; font-size: 30px; }
+				.collapseBox .collapseButton.bigButton .collapseArrow { top: 3px; }
+				.collapseBox .collapseButton .count { position: absolute; top: 2px; left: 5px; font-size: 30px; min-width: 30px; text-align: center; display: block; }
+				.collapseBox:not(.expanded) > .collapseContent { display: none; }
+				.collapseContent { padding: 0 5px; margin: 5px 0; }
+
+				/* Modal Collapse Sections */
+				.modalBox.expanded .collapseContent, .modalBox .expanded .collapseContent { position: fixed; z-index: 9999; top: 5vh; left: 10vw; width: 80vw; height: 80vh; background-color: #F5F5F5; padding: 0; box-shadow: 0 0 25px -2px rgba(0,0,0,0.5); border: 1px solid #CAD9DB; }
+				.modalBox .modalHeader { font-size: 20px; margin: 0; padding: 10px 40px 10px 10px; background-color: #CAD9DB; height: 45px; }
+				.modalBox .modalHeader .count { display: inline-block; min-width: 30px; text-align: center; background-color: rgba(0,0,0,0.1); font-size: inherit; margin-right: 10px; }
+				.modalBox .modalHeader .closeButton { width: 30px; height: 30px; position: absolute; top: 5px; right: 5px; }
+				.modalBox .modalContent { padding: 10px; overflow-y: auto; height: calc(100% - 45px); }
+				.modalBox .modalContent > .summary { margin-bottom: 20px; }
+
+				/* Summaries */
+				.summary, .conditionProfile { margin: 0 0 5px 0; background-color: #FCFCFC; border: 1px solid #CAD9DB; }
+				.summary .summaryName, .conditionProfile .conditionsProfileHeader { font-weight: bold; background-color: #CAD9DB; padding: 5px; display: block; text-transform: capitalize; }
+				.summary .summaryContent { padding: 5px; }
+				.summary.withImage .summaryContent { position: relative; padding-right: 80px; min-height: 80px; }
+				.summary.withImage .summaryImage { width: 75px; height: 75px; text-align: center; position: absolute; top: 5px; right: 5px; }
+				.summary.withImage .summaryImage img { max-width: 100%; max-height: 100%; }
+
+				/* Competencies */
+				.competencyFramework { }
+				.competencyFramework .competency { margin: 0 0 10px 0; border-top: 1px solid #CAD9DB; position: relative; padding: 0 80px 0 0; }
+				.competencyFramework .competency:first-of-type { border-top: none; }
+				.competencyFramework .competency.hasName.hasDescription .competencyDescription { padding: 0 0 0 25px; }
+				.competencyFramework .competency .linkButton { position: absolute; right: 0; top: 0; width: 75px; }
+
+				/* Cost Profiles */
+				.costProfile { }
+				.costProfile .header { }
+				.costProfile .costItemProfile { }
+				.costProfile .costItemProfile .costItemDetail { }
+				.costProfile .costItemProfile .costItemDetail .header, .costProfile .costItemProfile .costItemDetail .text { background-color: transparent; font-size: 14px; display: inline; padding: 0; margin: 0; }
+
+				/* Banner */
+				#banner { text-align: left; margin: 0 -1vw; padding: 10px calc(1vw + 160px) 10px 1vw; background-color: #0F3E63; color: #FFF; position: relative; min-height: 125px; }
+				#banner h1 { color: #FFF; font-size: 28px; margin: 0; padding: 5px 5px 10px 5px; }
+				#banner h2 { color: #FFF; font-weight: normal; font-size: 16px; margin: 0; padding: 5px; }
+				#banner h2 a { color: #FFF; }
+				#banner #tools { position: absolute; right: 1vw; top: 10px; width: 150px; }
+				#banner #tools .actionButton { display: block; padding: 2px; margin: 1px 0; width: 100%; }
+				#banner .objectType { font-style: italic; }
+
+				/* Sections */
+				#detailPageContent { font-size: 0; margin: 0 -4vw; text-align: center; }
+				.section { text-align: left; display: inline-block; vertical-align: top; width: 100%; max-width: calc(100% / 3.001); padding: 5px; }
+				.section .subsection > div { margin-bottom: 15px; }
+				.sectionHeader { font-size: 28px; margin: 0; padding: 5px; background-color: #F5F5F5; margin: -5px -5px 10px -5px; }
+
+				/* About */
+				#basicInfo { min-height: 100px; }
+				#basicInfoImage { float: right; margin: 0 0 10px 10px; max-width: 100px; max-height: 100px; }
+
+				/* Locations */
+				#mainMapBox { height: 50vh; min-height: 300px; }
+				.addressButton { display: block; width: 100%; margin: 5px 0; padding: 5px 5px 5px 45px; min-height: 50px; position: relative; }
+				.addressButton .markerIcon { margin: 0; font-size: 35px; position: absolute; top: 5px; left: 10px; color: #45A085; }
+				.addressButton.highlight { background-color: #E0DB80; }
+				.jurisdictionList { margin: 5px 0; }
+				.socialMediaList { text-align: center; }
+				.socialMediaLink .fa { font-size: 50px; display: inline-block; color: #45A085; opacity: 0.9; }
+				.socialMediaLink .fa:hover, .socialMedia .fa:focus { opacity: 1; cursor: pointer; }
+
+				/* Connections */
+				.conditionProfile { padding: 5px; }
+				.conditionProfile .conditionsProfileHeader { font-size: 20px; margin: -5px -5px 5px -5px; }
+
+				/* Misc */
+				#rawMetadata { background-color: #FCFCFC; font-family: Consolas, 'Courier New', monospace; font-size: 12px; padding: 10px; white-space: pre-wrap; }
+				.gradientBackground { background-image: linear-gradient(#AAA, #EEE); }
+				.durationProfile { border-left: 5px solid #F5F5F5; padding-left: 5px; margin-bottom: 15px; }
+
+				/* Responsive */
+				.section#about .sectionHeader { margin-left: calc(-1vw + -5px); padding-left: calc(1vw + 5px); }
+				.section#connections .sectionHeader { margin-right: calc(-1vw + -5px); padding-right: calc(1vw + 5px); }
+
+				@@media (max-width: 1000px) {
+					.section#about, .section#locations { max-width: 50%; }
+					.section#locations .sectionHeader { margin-right: calc(-1vw + -5px); padding-right: calc(1vw + 5px); }
+					.section#connections { max-width: 100%; display: block; }
+					.section#connections .sectionHeader { margin-left: calc(-1vw + -5px); padding-left: calc(1vw + 5px); }
+				}
+
+				@@media (max-width: 700px) {
+					.section#about, .section#locations { max-width: 100%; display: block; }
+					.section .sectionHeader { margin-left: calc(-1vw + -5px); padding-left: calc(1vw + 5px); margin-right: calc(-1vw + -5px); padding-right: calc(1vw + 5px); }
+				}
+            </style>
+
+<style type="text/css">
+    .credential[data-type*=adge] .typeIcon, .withIcon[data-type*=adge] { background-image: url('@Url.Content("~/images/V2/icons/flat_badge.png")'); }
+    .credential[data-type*=ertificate] .typeIcon, .withIcon[data-type*=ertificate] { background-image: url('@Url.Content("~/images/V2/icons/flat_certificate.png")'); }
+    .credential[data-type*=ertification] .typeIcon, .withIcon[data-type*=ertification] { background-image: url('@Url.Content("~/images/V2/icons/flat_certification.png")'); }
+    .credential[data-type*=egree] .typeIcon, .withIcon[data-type*=egree] { background-image: url('@Url.Content("~/images/V2/icons/flat_degree.png")'); }
+    .credential[data-type*=aster] .typeIcon, .withIcon[data-type*=aster] { background-image: url('@Url.Content("~/images/V2/icons/flat_degree.png")'); }
+    .credential[data-type*=ssociate] .typeIcon, .withIcon[data-type*=ssociate] { background-image: url('@Url.Content("~/images/V2/icons/flat_degree.png")'); }
+    .credential[data-type*=achelor] .typeIcon, .withIcon[data-type*=achelor] { background-image: url('@Url.Content("~/images/V2/icons/flat_degree.png")'); }
+    .credential[data-type*=iploma] .typeIcon, .withIcon[data-type*=iploma] { background-image: url('@Url.Content("~/images/V2/icons/flat_diploma.png")'); }
+    .credential[data-type*=icense] .typeIcon, .withIcon[data-type*=icense] { background-image: url('@Url.Content("~/images/V2/icons/flat_license.png")'); }
+    .credential[data-type*=pprentice] .typeIcon, .withIcon[data-type*=pprentice] { background-image: url('@Url.Content("~/images/V2/icons/flat_apprenticeship.png")'); }
+    .credential[data-type*=ilitary] .typeIcon, .withIcon[data-type*=ilitary] { background-image: url('@Url.Content("~/images/V2/icons/flat_military.png")'); }
+    .credential[data-type*=icro] .typeIcon, .withIcon[data-type*=icro] { background-image: url('@Url.Content("~/images/V2/icons/flat_micro.png")'); }
+    .credential[data-type*=uality] .typeIcon, .withIcon[data-type*=uality] { background-image: url('@Url.Content("~/images/V2/icons/flat_quality.png")'); }
+</style>
+<style type="text/css">
+    #socialMedia a { background-image: url('@Url.Content( "~/Images/Social/other.png" )'); }
+    #socialMedia a[href*='twitter.com'] { background-image: url('@Url.Content( "~/Images/Social/twitter.png" )'); }
+    #socialMedia a[href*='facebook.com'] { background-image: url('@Url.Content( "~/Images/Social/facebook.png" )'); }
+    #socialMedia a[href*='google.com'] { background-image: url('@Url.Content( "~/Images/Social/googleplus.png" )'); }
+    #socialMedia a[href*='pinterest.com'] { background-image: url('@Url.Content( "~/Images/Social/pinterest.png" )'); }
+    #socialMedia a[href*='youtube.com'] { background-image: url('@Url.Content( "~/Images/Social/youtube.png" )'); }
+    #socialMedia a[href*='linkedin.com'] { background-image: url('@Url.Content( "~/Images/Social/linkedin.png" )'); }
+    #socialMedia a[href*='apple.com'] { background-image: url('@Url.Content( "~/Images/Social/apple.png" )'); }
+    #socialMedia a[href*='yahoo.com'] { background-image: url('@Url.Content( "~/Images/Social/yahoo.png" )'); }
+    #socialMedia a[href*='flickr.com'] { background-image: url('@Url.Content( "~/Images/Social/flickr.png" )'); }
+    #socialMedia a[href*='instagram.com'] { background-image: url('@Url.Content( "~/Images/Social/instagram.png" )'); }
+</style>
+
+            <div id="detailPageContent" class="@typeCodeString">
+                @* Title Banner *@
+                <div class="@typeCodeString" id="banner">
+                    <h1>@dataGeneric.Name</h1>
+                    @if ( owner.Id > 0 )
+                    {
+                        <h2><a href="@Url.Content( "~/detail/organization/" + owner.Id )" target="window_orgRole">@owner.Name</a></h2>
+					}
+					<h2 class="objectType">@typeCodeTitle</h2>
+                    <div id="tools">
+                        <button class="actionButton" onclick="compare.toggleCompareItem(@Model.Id, '@typeCodeString', '@dataGeneric.Name');"><i class="fa fa-fw fa-copy"></i> Compare</button>
+                        @if ( canEditDocument )
+                        {
+                            <a class="linkButton actionButton" href="@Url.Content( "~/editor/" + typeCodeString + "/" + Model.Id )" target="_blank"><i class="fa fa-fw fa-pencil"></i> Edit</a>if ( typeCode != DataTypes.ENTITY )
+                            {
+                                <button class="actionButton" onclick="registerEntity('@dataGeneric.Name', '@typeCodeString' , @Model.Id);"><i class="fa fa-cloud-upload"></i> Register</button>if ( credentialRegistryId.Length == 36 )
+                                {
+                                    <button class="actionButton" onclick="unRegisterEntity('@dataGeneric.Name', '@typeCode', @Model.Id);"><i class="fa fa-fw fa-trash"></i> Un-Register</button>
+}
+                            }
+                            <button class="actionButton" onclick="deleteData('@dataGeneric.Name', '@typeCode', @Model.Id);" style="display:none;"><i class="fa fa-fw fa-trash"></i> Delete</button>
+}
+                    </div>
+                </div>
+
+                @* About *@
+                <div class="section @typeCodeString" id="about">
+                    <h2 class="sectionHeader">Basic Info</h2>
+                    <div class="subsection" id="basicInfo">
+                        @RenderExternalLink( dataGeneric.SubjectWebpage, "Connect to this " + typeCodeTitle, true )
+                        <img id="basicInfoImage" class="@( iconUrl.ToLower().Contains( "v2/icons/flat_" ) ? "" : "gradientBackground" )" src="@iconUrl" />
+                        @RenderText( false, "", "About this " + typeCodeTitle, 2, dataGeneric.Description, true, "" )
+						@RenderText( false, "", "Mission Statement", 2, dataOrganization.MissionAndGoalsStatementDescription, true, "" )
+						@RenderExternalLink( dataOrganization.MissionAndGoalsStatement, "Mission Statement", true )
+						@{ 
+							var credDurations = new List<DurationProfile>()// dataCredential.EstimatedDuration
+								.Concat( dataCredential.Requires.SelectMany( m => m.TargetCredential ).SelectMany( m => m.EstimatedDuration ) )
+								.Concat( dataCredential.Requires.SelectMany( m => m.TargetAssessment ).SelectMany( m => m.EstimatedDuration ) )
+								.Concat( dataCredential.Requires.SelectMany( m => m.TargetLearningOpportunity ).SelectMany( m => m.EstimatedDuration ) )
+								.ToList();
+
+							var credDurationCreds = dataCredential.Requires.SelectMany( m => m.TargetCredential ).ToList();
+							credDurationCreds.ForEach( m => m.EstimatedDuration.ForEach( n => n.ProfileName = m.Name ) );
+							var credDurationAsmts = dataCredential.Requires.SelectMany( m => m.TargetAssessment ).ToList();
+							credDurationAsmts.ForEach( m => m.EstimatedDuration.ForEach( n => n.ProfileName = m.Name ) );
+							var credDurationLopps = dataCredential.Requires.SelectMany( m => m.TargetLearningOpportunity ).ToList();
+							credDurationLopps.ForEach( m => m.EstimatedDuration.ForEach( n => n.ProfileName = m.Name ) );
+						}
+						@RenderDurations( true, "", "Estimated Time to Earn", 2, dataCredential.EstimatedDuration )
+						@RenderDurations( true, "", "Estimated Time to Complete Required Credentials", 2, credDurationCreds.SelectMany( m => m.EstimatedDuration ).ToList() )
+						@RenderDurations( true, "", "Estimated Time to Complete Required Assessments", 2, credDurationAsmts.SelectMany( m => m.EstimatedDuration ).ToList() )
+						@RenderDurations( true, "", "Estimated Time to Complete Required Learning Opportunities", 2, credDurationLopps.SelectMany( m => m.EstimatedDuration ).ToList() )
+                        @RenderDurations( true, "", "Estimated Time to Complete", 2, dataAssessment.EstimatedDuration )
+                        @RenderDurations( true, "", "Estimated Time to Complete", 2, dataLearningOpportunity.EstimatedDuration )
+                    </div>
+                    <div class="subsection" id="enumerations">
+                        @* Credential *@
+                        @*the subjects should have already been bubbled up
+                                .Concat( dataCredential.Requires.SelectMany( m => m.RequiredCredential ).SelectMany( m => m.Subject ) )
+                            .Concat( dataCredential.Requires.SelectMany( m => m.TargetLearningOpportunity ).SelectMany( m => m.Subject ) )
+                            .Concat( dataCredential.Requires.SelectMany( m => m.TargetAssessment ).SelectMany( m => m.Subject ) )*@
+                        @{ var allSubjects = dataCredential.Subject
+                                .ToList();
+                            var allKeywords = dataCredential.Keyword
+                                .Concat( dataCredential.Requires.SelectMany( m => m.RequiredCredential ).SelectMany( m => m.Keyword ) )
+                                .Concat( dataCredential.Requires.SelectMany( m => m.TargetLearningOpportunity ).SelectMany( m => m.Keyword ) )
+                                .Concat( dataCredential.Requires.SelectMany( m => m.TargetAssessment ).SelectMany( m => m.Keyword ) )
+                                .ToList();
+                        }
+                        @RenderEnumeration( true, "", "Credential Type", 2, dataCredential.CredentialType, typeCodeString )
+						@RenderEnumeration(true, "", "Credential Status", 2, dataCredential.CredentialStatusType, typeCodeString )
+                        @*@RenderEnumeration( true, "", "What It's For", 2, dataCredential.IntendedPurpose, typeCodeString )*@
+                        @RenderEnumeration( true, "", "Audience Levels", 2, dataCredential.AudienceLevelType, typeCodeString )
+                        @RenderEnumeration( true, "", "Subject", 2, allSubjects, typeCodeString )
+                        @RenderEnumerationGroup( true, "", "Occupations", 2, new List<Enumeration>() { dataCredential.Occupation }, new List<List<TextValueProfile>>() { dataCredential.OtherOccupations }, typeCodeString )
+                        @RenderEnumerationGroup( true, "", "Industries", 2, new List<Enumeration>() { dataCredential.Industry }, new List<List<TextValueProfile>>() { dataCredential.OtherIndustries }, typeCodeString )
+                        @RenderEnumeration( true, "", "Keyword", 2, allKeywords, typeCodeString )
+
+                        @* Organization *@
+                        @RenderEnumeration( true, "", "Organization Type", 2, dataOrganization.OrganizationType, typeCodeString )
+                        @RenderEnumeration( true, "", "Sector", 2, dataOrganization.OrganizationSectorType, typeCodeString )
+                        @RenderEnumeration( true, "", "Services", 2, dataOrganization.ServiceType, typeCodeString )
+
+                        @* Assessment *@
+                        @RenderEnumeration( true, "", "Instructional Program Classification", 2, dataAssessment.InstructionalProgramCategory, typeCodeString )
+                        @RenderEnumeration( true, "", "Methods", 2, dataAssessment.AssessmentMethodType, typeCodeString )
+                        @RenderEnumeration( true, "", "Assessment Use Type", 2, dataAssessment.AssessmentUseType, typeCodeString )
+                        @RenderEnumeration( true, "", "Delivery Type", 2, dataAssessment.DeliveryType, typeCodeString )
+                        @RenderEnumeration( true, "", "Subjects", 2, dataAssessment.Subject, typeCodeString )
+                        @RenderEnumeration( true, "", "Keyword", 2, dataAssessment.Keyword, typeCodeString )
+
+                        @* Learning Opportunity *@
+                        @RenderEnumeration( true, "", "Instructional Program Classification", 2, dataLearningOpportunity.InstructionalProgramCategory, typeCodeString )
+                        @RenderEnumeration( true, "", "Methods", 2, dataLearningOpportunity.DeliveryType, typeCodeString )
+                        @RenderEnumeration( true, "", "Subjects", 2, dataLearningOpportunity.Subject, typeCodeString )
+                        @RenderEnumeration( true, "", "Keyword", 2, dataLearningOpportunity.Keyword, typeCodeString )
+                    </div>
+                    <div class="subsection" id="otherBasicInfo">
+                        @RenderText( false, "", "Alternate Name", 2, dataCredential.AlternateName, false, "" )
+                        @RenderText( false, "", "Version", 2, dataCredential.Version, false, "" )
+						@* Not sure what to do with these
+                        @RenderText( false, "", "Latest Version", 2, dataCredential.LatestVersion, false, "" )
+                        @RenderText( false, "", "Previous Version", 2, dataCredential.PreviousVersion, false, "" )
+						*@
+						@RenderText( false, "", "Effective Date", 2, dataCredential.DateEffective, false, "" )
+                        @RenderText( false, "", "Identification Code", 2, dataCredential.CredentialId, false, "" )
+                        @RenderText( false, "", "Notation Code", 2, dataCredential.CodedNotation, false, "" )
+
+                        @RenderText( false, "", "Founding Date", 2, dataOrganization.Founded, false, "" )
+                        @RenderText( false, "", "Versioning Information", 2, dataOrganization.Versioning, true, "" )
+                        @RenderItemList( false, "", "Identification Codes", 2, dataOrganization.IdentificationCodes, false, false, false, false, "" )
+                    </div>
+					<div class="subsection" id="processBasicInfo">
+						@RenderText( false, "", "Process Standards", 2, dataCredential.ProcessStandardsDescription + ( string.IsNullOrWhiteSpace( dataCredential.ProcessStandards ) ? "" : "&nbsp;" ), false, "" )
+						@RenderExternalLink( dataCredential.ProcessStandards, "Process Standards", true )
+					</div>
+                </div>
+
+                @* Locations *@
+                <div class="section @typeCodeString" data-hasMap="@( hasMap ? "true" : "false" )" id="locations">
+                    <h2 class="sectionHeader">Location Info</h2>
+                    <div class="subsection" id="online">
+                        @RenderExternalLink( dataCredential.AvailableOnlineAt, "Available Online", true )
+                        @RenderExternalLink( dataAssessment.AvailableOnlineAt, "Available Online", true )
+                        @RenderExternalLink( dataLearningOpportunity.AvailableOnlineAt, "Available Online", true )
+                    </div>
+                    @if ( hasMap )
+                    {
+                        <div id="mainMapBox"></div>
+                        <script src="https://maps.googleapis.com/maps/api/js?key=@googleMapsKey&callback=setupMap" async defer></script>
+                        <div class="subsection" id="mapData">
+                            @RenderAddressList( false, "", "", 0, dataGeneric.Addresses, true )
+                        </div>
+}
+                    <div class="subsection" id="nonMapData">
+                        @* Online Availability and Location List Link *@
+                        @RenderExternalLink( dataGeneric.AvailabilityListing, "Location Listing", true )
+
+                        @RenderSocialMedia( true, "", "Social Media", 2, dataOrganization.SocialMediaPages )
+                        @RenderItemList( false, "", "Phone/Fax Numbers", 2, dataOrganization.PhoneNumbers, false, false, false, false, "" )
+                        @RenderItemList( false, "", "Emails", 2, dataOrganization.Emails, false, true, true, false, "", true )
+
+                        @* Jurisdictions *@
+                        @RenderJurisdictions( true, "jurisdiction", "Applicable Jurisdictions", 2, dataCredential.Jurisdiction, "This credential can be used in:", "This credential cannot be used in:" )
+                        @RenderJurisdictions( true, "jurisdiction", "Jurisdictions", 2, dataOrganization.Jurisdiction, "This organization has a notable presence in:", "This organization does not operate in:" )
+                        @RenderJurisdictions( true, "jurisdiction", "Applicable Jurisdictions", 2, dataAssessment.Jurisdiction, "This assessment is acknowledged in:", "This assessment is not acknowledged in:" )
+                        @RenderJurisdictions( true, "jurisdiction", "Applicable Jurisdictions", 2, dataLearningOpportunity.Jurisdiction, "This learning opportunity is acknowledged in:", "This learning opportunity is not acknowledged in:" )
+                    </div>
+                    <div class="subsection" id="owner">
+                        @RenderOrganizationRoles( false, "", "Owner", 2, dataCredential.OrganizationRole, true, false, false )
+                        @RenderOrganizationRoles( false, "", "Parent Organization", 2, dataOrganization.OrganizationRole, true, false, false )
+                        @RenderOrganizationRoles( false, "", "Owner", 2, dataAssessment.OrganizationRole, true, false, false )
+                        @RenderOrganizationRoles( false, "", "Owner", 2, dataLearningOpportunity.OrganizationRole, true, false, false )@**@
+                    </div>
+                    <div class="subsection" id="organizationRoles">
+                        @RenderOrganizationRoles( false, "", "Organization Connections", 2, dataCredential.OrganizationRole, false, false, false )
+                        @RenderOrganizationRoles( false, "", "Organization Connections", 2, dataOrganization.OrganizationRole, false, false, false )
+                        @RenderOrganizationRoles( false, "", "Organization Connections", 2, dataAssessment.OrganizationRole, false, false, false )
+                        @RenderOrganizationRoles( false, "", "Organization Connections", 2, dataLearningOpportunity.OrganizationRole, false, false, false )@**@
+						@RenderSummaryOrganizationsList( false, "", "Copyright Holder", 2, new List<Organization>() { dataCredential.CopyrightHolderOrganization } )
+                    </div>
+                </div>
+
+                @* Connections *@
+                <div class="section @typeCodeString" id="connections">
+                    <h2 class="sectionHeader">More Info</h2>
+                    <div class="subsection" id="competencies">
+                        <div class="header h2 subsectionHeader">Competencies</div>
+                        @RenderCompetencyFrameworksList( false, "modalBox", "Teaches", 2, summaryData.AllTaughtCompetencies, "blueButton bigButton" )
+                        @RenderCompetencyFrameworksList( false, "modalBox", "Assesses", 2, summaryData.AllAssessedCompetencies, "blueButton bigButton" )
+                        @RenderCompetencyFrameworksList( false, "modalBox", "Requires", 2, summaryData.AllRequiredCompetencies, "blueButton bigButton" )
+                    </div>
+                    @*
+                        <div class="subsection" id="connections">
+                            <div class="header h2 subsectionHeader">Credential Connections</div>
+                            @// All of the credentials, competencies, costs, etc that relate to the current Credential, Organization, Assessment, or Learning Opportunity
+                            @RenderSummaryConnections( false, "", summaryData.AllRequiredCredentials, "Requires {#} Credentials" )
+                            @RenderSummaryConnections( false, "", dataCredential.IsRequiredFor.Concat( dataAssessment.IsPartOfConditionProfile ).Concat( dataLearningOpportunity.IsPartOfConditionProfile ).Select( m => m.ParentCredential ).Where( m => m != null ).ToList(), "Required For {#} Credentials" )
+                            @RenderSummaryConnections( false, "", dataCredential.Recommends.Concat( dataAssessment.Recommends ).Concat( dataLearningOpportunity.Recommends ).SelectMany( m => m.RequiredCredential ).Where( m => m != null ).ToList(), "Recommends {#} Credentials" )
+                            @RenderSummaryConnections( false, "", dataCredential.IsRecommendedFor.SelectMany( m => m.RequiredCredential ).Where( m => m != null ).ToList(), "Recommended For {#} Credentials" )
+                            @RenderSummaryConnections( false, "", dataCredential.AdvancedStandingFrom.SelectMany( m => m.RequiredCredential ).Where( m => m != null ).ToList(), "Advanced Standing From {#} Credentials" )
+                            @RenderSummaryConnections( false, "", dataCredential.AdvancedStandingFor.SelectMany( m => m.RequiredCredential ).Where( m => m != null ).ToList(), "Advanced Standing For {#} Credentials" )
+                            @RenderSummaryConnections( false, "", dataCredential.PreparationFrom.SelectMany( m => m.RequiredCredential ).Where( m => m != null ).ToList(), "Preparation From {#} Credentials" )
+                            @RenderSummaryConnections( false, "", dataCredential.IsPreparationFor.SelectMany( m => m.RequiredCredential ).Where( m => m != null ).ToList(), "Preparation For {#} Credentials" )
+
+                            @// Credential
+                            @WrapInCollapseBox( dataCredential.Id > 0, true, Count( dataCredential.EmbeddedCredentials, "Includes {#} Credential{s}" ), RenderSummaryCredentialList( false, "", dataCredential.EmbeddedCredentials ).ToHtmlString(), "", "blueButton bigButton", "" )
+                            @WrapInCollapseBox( dataCredential.Id > 0, true, Count( dataCredential.IsPartOf, "Included with {#} Credential{s}" ), RenderSummaryCredentialList( false, "", dataCredential.IsPartOf ).ToHtmlString(), "", "blueButton bigButton", "" )
+                            @RenderConditions( true, "advancedStandingFor", Count( dataCredential.AdvancedStandingFor, "Advanced Standing for {#} set{s} of Other Items" ), 2, dataCredential.AdvancedStandingFor, typeCodeString )
+                            @RenderConditions( true, "preparationFor", Count( dataCredential.IsPreparationFor, "Prepares for {#} set{s} of Other Items" ), 2, dataCredential.IsPreparationFor, typeCodeString )
+                            @RenderConditions( true, "requiredFor", Count( dataCredential.IsRequiredFor, "Required for {#} set{s} of Other Items" ), 2, dataCredential.IsRequiredFor, typeCodeString )
+                            @RenderConditions( true, "recommendedFor", Count( dataCredential.IsRecommendedFor, "Recommended for {#} set{s} of Other Items" ), 2, dataCredential.IsRecommendedFor, typeCodeString )
+                            @RenderConditions( true, "advancedStandingFrom", Count( dataCredential.AdvancedStandingFrom, "Advanced Standing from {#} set{s} of Other Items" ), 2, dataCredential.AdvancedStandingFrom, typeCodeString )
+                            @RenderConditions( true, "preparationFrom", Count( dataCredential.AdvancedStandingFrom, "Preparation from {#} set{s} of Other Items" ), 2, dataCredential.PreparationFrom, typeCodeString )
+
+                                @// Organization
+                                @WrapInCollapseBox( dataOrganization.Id > 0, true, Count( dataOrganization.CreatedCredentials, "Owner of {#} Credential{s}" ), RenderSummaryCredentialList( false, "", dataOrganization.CreatedCredentials ).ToHtmlString(), "", "blueButton bigButton", "" )
+
+                                @// Assessment
+                                @{ var asmtRequiredFor = dataAssessment.IsPartOfConditionProfile.Select( m => m.ParentCredential ).ToList(); }
+                                @WrapInCollapseBox( dataAssessment.Id > 0, true, Count( asmtRequiredFor, "Required for {#} Credential{s}" ), RenderSummaryCredentialList( false, "", asmtRequiredFor ).ToHtmlString(), "", "blueButton bigButton", "" )
+
+                                @// Learning Opportunity
+                                @{ var learnOppRequiredFor = dataLearningOpportunity.IsPartOfConditionProfile.Select( m => m.ParentCredential ).ToList(); }
+                                @WrapInCollapseBox( dataLearningOpportunity.Id > 0, true, Count( learnOppRequiredFor, "Required for {#} Credential{s}" ), RenderSummaryCredentialList( false, "", learnOppRequiredFor ).ToHtmlString(), "", "blueButton bigButton", "" )
+                            </div>*@
+                    <div class="subsection" id="connections">
+                        <div class="header h2 subsectionHeader">Credential Connections</div>
+                        @WrapInCollapseBox( dataCredential.Id > 0, true, Count( dataCredential.EmbeddedCredentials, "{#} Included Credential{s}" ), RenderSummaryCredentialList( false, "", dataCredential.EmbeddedCredentials ).ToHtmlString(), "modalBox", "blueButton bigButton", "" )
+                        @WrapInCollapseBox( dataCredential.Id > 0, true, Count( dataCredential.IsPartOf, "{#} Included with Credential{s}" ), RenderSummaryCredentialList( false, "", dataCredential.IsPartOf ).ToHtmlString(), "modalBox", "blueButton bigButton", "" )
+
+                        @*@{ var allRequiredForCredentials = dataCredential.IsRequiredFor.Concat( dataAssessment.IsPartOfConditionProfile ).Concat( dataLearningOpportunity.IsPartOfConditionProfile ).Select( m => m.ParentCredential ).Where( m => m != null && m.Id != 0 ).ToList(); }*@
+                        @**@@{ var allRequiredForCredentials = dataAssessment.IsPartOfConditionProfile.Concat( dataLearningOpportunity.IsPartOfConditionProfile ).Select( m => m.ParentCredential ).Where( m => m != null && m.Id != 0 ).ToList(); }
+                            @RenderSummaryConnections( false, "modalBox", allRequiredForCredentials, "{#} Required For Credential{s}" )
+
+                        @RenderSummaryConnections( false, "modalBox", connectionData.IsRecommendedFor.SelectMany( m => m.RequiredCredential ).Where( m => m != null ).ToList(), "{#} Recommended For Credential{s}" )
+                        @RenderSummaryConnections( false, "modalBox", connectionData.AdvancedStandingFrom.SelectMany( m => m.RequiredCredential ).Where( m => m != null ).ToList(), "{#} Advanced Standing From Credential{s}" )
+                        @RenderSummaryConnections( false, "modalBox", connectionData.IsAdvancedStandingFor.SelectMany( m => m.RequiredCredential ).Where( m => m != null ).ToList(), "{#} Advanced Standing For Credential{s}" )
+                        @RenderSummaryConnections( false, "modalBox", connectionData.PreparationFrom.SelectMany( m => m.RequiredCredential ).Where( m => m != null ).ToList(), "{#} Preparation From Credential{s}" )
+                        @RenderSummaryConnections( false, "modalBox", connectionData.IsPreparationFor.SelectMany( m => m.RequiredCredential ).Where( m => m != null ).ToList(), "{#} Preparation For Credential{s}" )
+
+                        @RenderConditions( true, "modalBox requiredFor", Count( connectionData.IsRequiredFor, "{#} Required For" ), 2, connectionData.IsRequiredFor, typeCodeString )
+                        @RenderConditions( true, "modalBox recommendedFor", Count( connectionData.IsRecommendedFor, "{#} Recommended For" ), 2, connectionData.IsRecommendedFor, typeCodeString )
+                        @RenderConditions( true, "modalBox advancedStandingFor", Count( connectionData.IsAdvancedStandingFor, "{#} Advanced Standing" ), 2, connectionData.IsAdvancedStandingFor, typeCodeString )
+                        @RenderConditions( true, "modalBox preparationFor", Count( connectionData.IsPreparationFor, "{#} Prepares For" ), 2, connectionData.IsPreparationFor, typeCodeString )
+                        @RenderConditions( true, "modalBox advancedStandingFrom", Count( connectionData.AdvancedStandingFrom, "{#} Advanced Standing From" ), 2, connectionData.AdvancedStandingFrom, typeCodeString )
+                        @RenderConditions( true, "modalBox preparationFrom", Count( connectionData.AdvancedStandingFrom, "{#} Preparation From" ), 2, connectionData.PreparationFrom, typeCodeString )
+
+                    </div>
+                    <div class="subsection" id="ownedCredentials">
+                        <div class="header h2 subsectionHeader">Credentials</div>
+                        @WrapInCollapseBox( dataOrganization.Id > 0, true, Count( dataOrganization.CreatedCredentials, "{#} Credential{s}" ), RenderSummaryCredentialList( false, "", dataOrganization.CreatedCredentials ).ToHtmlString(), "modalBox", "blueButton bigButton", "" )
+                    </div>
+                    <div class="subsection" id="qualityAssurance">
+                        @{ 
+							var ownerQA = owner.OrganizationRole.Where( m => m.AgentRole.Items.Where( n => n.IsSpecialValue ).Count() > 0 ).ToList();
+                        }
+                        @RenderOrganizationRoles( false, "modalBox", "Owning Organization's Quality Assurance", 2, ownerQA, false, true, true )
+
+                        @RenderOrganizationRoles( false, "modalBox", "Quality Assurance", 2, dataCredential.OrganizationRole, false, true, true )
+                        @RenderOrganizationRoles( false, "modalBox", "Quality Assurance", 2, dataOrganization.OrganizationRole, false, true, true )
+                        @RenderOrganizationRoles( false, "modalBox", "Quality Assurance", 2, dataAssessment.OrganizationRole, false, true, true )
+                        @RenderOrganizationRoles( false, "modalBox", "Quality Assurance", 2, dataLearningOpportunity.OrganizationRole, false, true, true )
+						@RenderQualityAssuranceTargets( false, "modalBox", "Quality Assurance Performed", 2, dataOrganization.OrganizationRole_Actor, true )
+                    </div>
+                    <div class="subsection" id="requirements">
+                        <div class="header h2 subsectionHeader">Requirements and Recommendations</div>
+                        @RenderSummaryConnections( false, "modalBox", summaryData.AllRequiredCredentials, "{#} Requires Credential{s}" )
+                        @RenderSummaryConnections( false, "modalBox", dataCredential.Recommends.SelectMany( m => m.RequiredCredential ).Where( m => m != null ).ToList(), "{#} Recommends Credential{s}" )
+                        @*.Concat( dataAssessment.Recommends )
+                            //.Concat(dataLearningOpportunity.Recommends)*@
+
+                        @{
+                            @* Combine all requirements together from everything and display them together, by request *@
+var allRequirements = dataCredential.Requires.ToList();
+                        //.Concat( dataAssessment.Requires )
+                        //.Concat( dataLearningOpportunity.Requires
+
+                        var allRequiredAssessments = allRequirements.SelectMany( m => m.TargetAssessment ).ToList();
+                        var allRequiredLearningOpportunities = allRequirements.SelectMany( m => m.TargetLearningOpportunity ).ToList();
+                        }
+                        @WrapInCollapseBox( allRequiredAssessments.Count() > 0, true, Count( allRequiredAssessments, "{#} Requires Assessment{s}" ), RenderSummaryAssessmentList( false, "", 2, allRequiredAssessments ).ToHtmlString(), "modalBox", "bigButton blueButton", "" )
+                        @WrapInCollapseBox( allRequiredLearningOpportunities.Count() > 0, true, Count( allRequiredLearningOpportunities, "{#} Requires Learning Opportunit{ies}" ), RenderSummaryLearningOpportunityList( false, "", 2, allRequiredLearningOpportunities ).ToHtmlString(), "modalBox", "bigButton blueButton", "" )
+
+                        @RenderConditions( true, "modalBox requirements", Count( dataCredential.Requires, "{#} Requirements" ), 2, dataCredential.Requires, typeCodeString )
+                        @RenderConditions( true, "modalBox renewal", Count( dataCredential.Renewal, "{#} Renewal Condition{s}" ), 2, dataCredential.Renewal, typeCodeString )
+                        @**@@RenderConditions( true, "modalBox requirements", Count( dataAssessment.Requires, "{#} Requirements" ), 2, dataAssessment.Requires, typeCodeString )
+                        @**@@RenderConditions( true, "modalBox requirements", Count( dataLearningOpportunity.Requires, "{#} Requirements" ), 2, dataLearningOpportunity.Requires, typeCodeString )
+
+                        @RenderConditions( true, "modalBox recommendations", Count( dataCredential.Recommends, "{#} Recommendation{s}" ), 2, dataCredential.Recommends, typeCodeString )
+                        @*@RenderConditions( true, "modalBox recommendations", Count( dataAssessment.Recommends, "{#} Recommendation{s}" ), 2, dataAssessment.Recommends, typeCodeString )*@
+                        @*@RenderConditions( true, "modalBox recommendations", Count( dataLearningOpportunity.Recommends, "{#} Recommendation{s}" ), 2, dataLearningOpportunity.Recommends, typeCodeString )*@
+                    </div>
+                    <div class="subsection" id="costs">
+						<div class="header h2 subsectionHeader">Costs</div>
+                        @RenderCosts( true, "modalBox", "Estimated Costs", 2, dataCredential.EstimatedCosts, Count( dataCredential.EstimatedCosts, "{#} Direct Estimated Cost{s}" ), true, true )
+                        @RenderCosts( true, "modalBox", "Estimated Costs", 2, dataAssessment.EstimatedCost, Count( dataAssessment.EstimatedCost, "{#} Direct Estimated Cost{s}" ), true, true )
+                        @RenderCosts( true, "modalBox", "Estimated Costs", 2, dataLearningOpportunity.EstimatedCost, Count( dataLearningOpportunity.EstimatedCost, "{#} Direct Estimated Cost{s}" ), true, true )
+                        @*@RenderCosts( false, "modalBox", "", 2, summaryData.AllRequiredCosts, Count( summaryData.AllRequiredCosts, "{#} Estimated Cost{s}" ), true, true )*@
+                        @RenderCosts( false, "modalBox", "", 2, summaryData.AllAssessmentRequiredCosts, Count( summaryData.AllAssessmentRequiredCosts, "{#} Estimated Assessment Cost{s}" ), true, true )
+                        @RenderCosts( false, "modalBox", "", 2, summaryData.AllLearningOpportunityRequiredCosts, Count( summaryData.AllLearningOpportunityRequiredCosts, "{#} Estimated Learning Opportunity Cost{s}" ), true, true )
+                    </div>
+                    <div class="subsection" id="details">
+                        <div class="header h2 subsectionHeader">Details</div>
+                        @RenderRevocationProfiles( false, "modalBox", Count( dataCredential.Revocation, "{#} Revocation Term{s}" ), 2, dataCredential.Revocation )
+
+                        @RenderProcessProfiles( false, "modalBox", Count( dataCredential.CredentialProcess, "{#} Process{es}" ), 2, dataCredential.CredentialProcess, typeCodeString )
+
+                        @RenderVerificationServiceProfiles( false, "modalBox", Count( dataOrganization.VerificationServiceProfiles, "{#} Verification Service{s}" ), 2, dataOrganization.VerificationServiceProfiles )
+                    </div>
+                    <div class="subsection" id="registry">
+                        <div class="header h2 subsectionHeader">Registry Information</div>
+                        @RenderRegistryInfo( false, "modalBox", "Registry Info", 2, registryID, registryURL )
+                    </div>
+                </div>
+
+            </div>
+            <div id="waitWrapper">
+                <div id="wait"><i id="waitSpinner" class="fa fa-spin fa-spinner"></i><div id="waitTitle">Working...</div></div>
+            </div>
+            @if ( Request.Params[ "showRaw" ] == "true" )
+            {
+                <div id="rawData">
+                    <style type="text/css">
+                        .rawData {
+                            white-space: pre-wrap;
+                            font-family: Consolas, 'Courier New', monospace;
+                            padding: 20px;
+                            margin-bottom: 25px;
+                        }
+                    </style>
+                    <script type="text/javascript">
+                        var rawCredential = @Html.Raw( Newtonsoft.Json.JsonConvert.SerializeObject( dataCredential ) );
+                        var rawOrganization = @Html.Raw( Newtonsoft.Json.JsonConvert.SerializeObject( dataOrganization ) );
+                        var rawAssessment = @Html.Raw( Newtonsoft.Json.JsonConvert.SerializeObject( dataAssessment ) );
+                        var rawLearningOpportunity = @Html.Raw( Newtonsoft.Json.JsonConvert.SerializeObject( dataLearningOpportunity ) );
+                        $(document).ready(function() {
+                            $("#rawCredential").html(JSON.stringify(rawCredential, null, "\t"));
+                            $("#rawOrganization").html(JSON.stringify(rawOrganization, null, "\t"));
+                            $("#rawAssessment").html(JSON.stringify(rawAssessment, null, "\t"));
+                            $("#rawLearningOpportunity").html(JSON.stringify(rawLearningOpportunity, null, "\t"));
+                        });
+                    </script>
+                    <h2>Raw Credential</h2>
+                    <div class="rawData" id="rawCredential">
+
+                    </div>
+                    <h2>Raw Organization</h2>
+                    <div class="rawData" id="rawOrganization">
+
+                    </div>
+                    <h2>Raw Assessment</h2>
+                    <div class="rawData" id="rawAssessment">
+
+                    </div>
+                    <h2>Raw Learning Opportunity</h2>
+                    <div class="rawData" id="rawLearningOpportunity">
+
+                    </div>
+                </div>
+}
+
+            @Html.Partial( "~/Views/V2/Compare/_CompareBar.cshtml", "" )

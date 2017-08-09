@@ -23,5 +23,6 @@ namespace Data
         public Nullable<bool> IsImported { get; set; }
         public Nullable<int> UserId { get; set; }
         public Nullable<int> DefaultRoleId { get; set; }
+        public string InitialPassword { get; set; }
     }
 }

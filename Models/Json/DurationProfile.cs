@@ -12,7 +12,7 @@ namespace Models.Json
 	{
 		public DurationProfile()
 		{
-			type = "ctdl:DurationProfile";
+			type = "ceterms:DurationProfile";
 		}
 	}
 

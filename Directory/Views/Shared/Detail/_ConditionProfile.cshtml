@@ -103,29 +103,6 @@
             </div>
         }
 
-        @if ( Model.TargetTask.Count() > 0 )
-        {
-            <div class="condition">
-                <h4>@ViewData["conditionHeader"] Tasks</h4>
-                @foreach ( var item in Model.TargetTask )
-                {
-                    <div class="conditionItem">
-                        <div class="conditionDescription">@item.Description</div>
-                        <div class="conditionCosts">
-                            @if ( item.EstimatedCost.Count() > 0 )
-                            {
-                                <h5>Estimated Costs:</h5>
-                                foreach ( var cost in item.EstimatedCost )
-                                {
-                                    @Html.Partial( "~/Views/Shared/Detail/_CostProfile.cshtml", cost );
-                                }
-                            }
-                        </div>
-                    </div>
-                }
-            </div>
-        }
-
         @if ( Model.Jurisdiction.Count() > 0 )
         {
             <div class="condition">

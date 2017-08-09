@@ -24,5 +24,8 @@ namespace Data
         public string CrossReferences { get; set; }
         public string Examples { get; set; }
         public Nullable<int> Totals { get; set; }
+        public string Url { get; set; }
+    
+        public virtual CIPCode2010_JobFamily CIPCode2010_JobFamily { get; set; }
     }
 }

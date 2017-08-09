@@ -1868,7 +1868,7 @@
 			
 			<div class="subfield column2">
 				<i>Select the type of relationship this organization has to the target.</i>
-				@Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetAllAgentRoles( EnumerationType.MULTI_SELECT ))
+				@Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetCredentialAllAgentRoles( EnumerationType.MULTI_SELECT ) )
 			</div>
             <div class="subfield column2">
                 <i>Select the target organization that plays the role:</i>
@@ -2061,18 +2061,18 @@
             <input type="button" class="repeaterRemover redButton" value="Delete" onclick="removeProfile({id},{dbID},'OrganizationDept');" />
         </div>
     </script>
-    @* agent to subsiduary Role Profile (Inverse) *@
-    <script type="text/template" id="template_AgentSubsiduaryProfileInverse">
+    @* agent to Subsidiary Role Profile (Inverse) *@
+    <script type="text/template" id="template_AgentSubsidiaryProfileInverse">
         @{
             if ( allOrganizationsList.Count() == 0 )
             {
                 allOrganizationsList = OrganizationServices.Agent_Search();
             }
         }
-        <div class="repeaterField" data-property="OrganizationSubsiduary" data-repeaterid="{id}" data-databaseid="{dbID}">
-            <h3 class="repeaterHeader">Organization Subsiduary</h3>
+        <div class="repeaterField" data-property="OrganizationSubsidiary" data-repeaterid="{id}" data-databaseid="{dbID}">
+            <h3 class="repeaterHeader">Organization Subsidiary</h3>
             <div class="subfield">
-                <i>Select the organization that is a subsiduary of this organization:</i>
+                <i>Select the organization that is a Subsidiary of this organization:</i>
                 <select data-property="ActingAgentUid" data-type="select" data-selecttype="text">
                     <option value="" data-url="">Select an Organization</option>
                     @foreach ( var org in allOrganizationsList )
@@ -2081,8 +2081,8 @@
                     }
                 </select>
             </div>
-            <br /><a href="@Url.Content( "~/OrganizationManagement/Edit" )" class="linkButton" target="ctiLOpp">Create a new Subsiduary.</a>
-            <input type="button" class="repeaterRemover redButton" value="Delete" onclick="removeProfile({id},{dbID},'OrganizationSubsiduary');" />
+            <br /><a href="@Url.Content( "~/OrganizationManagement/Edit" )" class="linkButton" target="ctiLOpp">Create a new Subsidiary.</a>
+            <input type="button" class="repeaterRemover redButton" value="Delete" onclick="removeProfile({id},{dbID},'OrganizationSubsidiary');" />
         </div>
     </script>
 
@@ -2296,7 +2296,7 @@
                 <input type="button" value="Assessments" onclick="showProfileTab({id}, ['TargetAssessment'], this);" />
                 <input type="button" value="Learning Opportunities" onclick="showProfileTab({id}, ['TargetLearningOpportunity'], this);" />
                 <input type="button" value="Competencies" onclick="showProfileTab({id}, ['RequiredCompetency'], this);" />
-                <input type="button" value="Tasks" onclick="showProfileTab({id}, ['TargetTask'], this);" />
+                @*<input type="button" value="Tasks" onclick="showProfileTab({id}, ['TargetTask'], this);" />*@
             </div>
             <div class="subfield">
                 <i>Indicate the name of profile. <span class="required">(Required)</span></i>
@@ -2444,7 +2444,7 @@
                     } )
             </div>
 
-			<div class="subfield repeating">
+			@*<div class="subfield repeating">
                 <i>Describe the other tasks someone must complete in order to meet this condition's criteria.</i>
                     <div class="repeaterItems" data-repeaterid="ConditionProfile_TargetTask_{id}" data-title="Task"></div>
                     <div class="repeater withItems" data-property="TargetTask" id="ConditionProfile_TargetTask_{id}" data-profile="TaskProfile"></div>
@@ -2452,7 +2452,7 @@
                         <input type="button" onclick="addProfile('TaskProfile', 'ConditionProfile_TargetTask_{id}', null, null, true);" value="Add a Task" />
                     </div>
            
-            </div>
+            </div>*@
 			<input type="button" class="repeaterRemover redButton" value="{delete}" onclick="removeProfile({id},{dbID},'ConditionProfile');" />
 				</div>
 	</script>
@@ -2531,7 +2531,7 @@
             <div class="subfield">
                 <i>Describe the primary region for this item.</i>
                 <label data-property="IsGlobalJurisdiction" data-type="label_boolean"><input type="checkbox" /> The jurisdiction is Worldwide</label>
-                <label data-property="IsOnlineJurisdiction" data-type="label_boolean"><input type="checkbox" /> The jurisdiction is Online</label>
+               
                 @Html.Partial( "~/Views/Shared/Management/_MicroSearch.cshtml",
                 new MicroSearchSettings()
                 {
@@ -2628,7 +2628,7 @@
 			<div class="subfield column2">
 				<i>Indicate the type(s) of learning opportunity. Check all that apply.</i>
 				@Html.Partial( "~/Views/Shared/Management/_EnumerationEditor.cshtml", enumServices.GetSampleEnumeration( "courseProfile_courseType", "CourseDeliveryType", EnumerationType.MULTI_SELECT ) )
-				<input type="text" data-property="LearningOpportunityDeliveryType" data-type="other" placeholder="If you selected &quot;other&quot;, explain here." />
+				<input type="text" data-property="deliveryType" data-type="other" placeholder="If you selected &quot;other&quot;, explain here." />
 			</div>
 			<div class="subfield">
 				<i>Identify the specific instructional program classifications that apply to this learning opportunity. We recommend using the <a href="https://nces.ed.gov/ipeds/cipcode/browse.aspx?y=55" target="_blank">CIP codes</a>.</i>
@@ -2648,7 +2648,7 @@
 			</div>
             <div class="subfield">
                 <i>Provide links to any noteworthy or important learning resources for this learning opportunity.</i>
-                <textarea data-property="LearningResourceUrl" data-type="multi"></textarea>
+                <textarea data-property="ResourceUrls" data-type="multi"></textarea>
 				</div>
             <div class="subfield">
                 <i>Indicate which organization provides this learning opportunity.</i>

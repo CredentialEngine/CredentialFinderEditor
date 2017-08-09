@@ -23,5 +23,8 @@ namespace Data
         public Nullable<int> NacisNumber { get; set; }
         public string URL { get; set; }
         public Nullable<int> Totals { get; set; }
+        public Nullable<System.DateTime> EffectiveDate { get; set; }
+    
+        public virtual NAICS_NaicsGroup NAICS_NaicsGroup { get; set; }
     }
 }

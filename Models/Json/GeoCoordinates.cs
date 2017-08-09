@@ -13,7 +13,7 @@ namespace Models.Json
 	{
 		public GeoCoordinates()
 		{
-			type = "schema:GeoCoordinates";
+			type = "ceterms:GeoCoordinates";
 		}
 
 		[DataMember( Name = "latitude" )]

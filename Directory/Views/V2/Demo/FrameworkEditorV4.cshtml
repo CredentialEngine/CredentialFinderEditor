@@ -1,0 +1,341 @@
+﻿
+@{
+    ViewBag.Title = "Framework Editor V4";
+
+	var selectedFrameworkURL = "";
+}
+
+<h1>Framework Editor</h1>
+
+<script type="text/javascript">
+	//Framework object
+	var Framework = {
+		FrameworkUrl: "@selectedFrameworkURL",
+		FrameworkNode: { Name: "New Framework", Description: "", NotationCode: "", Url: "@selectedFrameworkURL" },
+		Nodes: [],
+		Relations: []
+	};
+
+	//Initialization
+	$(document).ready(function() {
+		initializeFramework();
+	});
+
+	//Initialize Framework
+	function initializeFramework(){
+		//Parts
+		Framework.Editor = $(".editor");
+		Framework.FormBox = $(".formBox");
+		Framework.TreeBox = $(".treeBox");
+		Framework.Status = $(".status");
+		Framework.CurrentlyEditingNode = null;
+		Framework.CurrentlySelectedNode = null;
+
+		//Functions
+		Framework.FormBox.find("[data-action=save]").on("click", function () {
+			saveNode(Framework.CurrentlyEditingNode);
+		});
+
+		//Tracking
+
+		//Misc
+		if (Framework.FrameworkUrl != "") {
+			Framework.Status.html("Getting Framework Data...");
+			doAjax("Cass", "GetFrameworkData", { frameworkURL: Framework.FrameworkUrl }, success_getFrameworkData, null);
+		}
+		else {
+			renderFramework();
+			editNode(Framework.FrameworkNode);
+		}
+	}
+	//
+</script>
+<script type="text/javascript">
+	//Editor Functions
+
+	//Edit an item
+	function editNode(nodeData) {
+		if (getNodeStatus(nodeData) == "editing") {
+			clearEditorForm();
+			resetNodeStatuses();
+		}
+		else {
+			resetNodeStatuses();
+			setNodeStatus(nodeData, "editing", "Editing");
+			readNode(nodeData);
+			Framework.CurrentlyEditingNode = nodeData;
+		}
+	}
+	//
+
+	//Read a node into the editor form
+	function readNode(nodeData) {
+		var inputs = Framework.Editor.find("[data-property]");
+		inputs.each(function () {
+			var input = $(this);
+			var property = input.attr("data-property");
+			input.val(nodeData[property]);
+		});
+	}
+	//
+
+	//Clear the editor
+	function clearEditorForm() {
+		Framework.Editor.find("[data-property]").val("");
+		resetNodeStatuses("editing");
+		Framework.CurrentlyEditingNode = null;
+	}
+	//
+
+	//Reset node statuses
+	//TODO: rewrite the status management - it's a mess
+	function resetNodeStatuses(condition) {
+		if (condition) {
+			if (Framework.FrameworkNode.Status == condition) {
+				setNodeStatus(Framework.FrameworkNode, "", "");
+			}
+			for (var i in Framework.Nodes) {
+				if (Framework.Nodes[i].Status == condition) {
+					setNodeStatus(Framework.Nodes[i]);
+				}
+			}
+		}
+		else {
+			setNodeStatus(Framework.FrameworkNode, "", "");
+			for (var i in Framework.Nodes) {
+				setNodeStatus(Framework.Nodes[i]);
+			}
+		}
+	}
+	//
+
+	//Select a node
+	function selectNode(nodeData) {
+		clearEditorForm();
+		if (getNodeStatus(nodeData) == "selected") {
+			resetNodeStatuses();
+		}
+		else {
+			setNodeStatus(nodeData, "selected", "Selected");
+		}
+	}
+	//
+
+	//Set a node's status
+	function setNodeStatus(nodeData, status, message) {
+		nodeData.Status = status;
+		var html = nodeData.Parts.TreeItem;
+		html.attr("data-status", status)
+		html.find(".nodeStatus").html(message);
+	}
+	//
+
+	//Get a node's status
+	function getNodeStatus(nodeData) {
+		return nodeData.Status;
+	}
+	//
+
+	//Create a new child node
+	function createNode(parentNodeData) {
+		if (parentNodeData == Framework.FrameworkNode) {
+			if (Framework.FrameworkUrl == "") {
+				Framework.Status.html("You must save the Framework node first.");
+				return;
+			}
+		}
+	}
+	//
+
+	//Save the node currently being edited
+	function saveNode(nodeData) {
+		if (nodeData == null) {
+			return;
+		}
+		if (nodeData == Framework.FrameworkNode) {
+			doAjax("Cass", "SaveFrameworkData", { frameworkData: Framework }, success_saveNodeData, { nodeData: nodeData });
+		}
+		else {
+			doAjax("Cass", "SaveNodeData", { nodeData: nodeData }, success_saveNodeData, { nodeData: nodeData });
+		}
+	}
+	//
+</script>
+<script type="text/javascript">
+	//AJAX calls
+	function doAjax(controller, method, data, success, passThrough) {
+		$.ajax({
+			url: "@Url.Content( "~/" )" + controller + "/" + method,
+			async: true,
+			headers: { "Accept": "application/json", "Content-type": "application/json; charset=utf-8" },
+			dataType: "json",
+			type: "POST",
+			data: JSON.stringify(data),
+			success: function (message) {
+				console.log("Response: ", message);
+				success(message, passThrough);
+			}
+		});
+	}
+	//
+
+	//Get Framework data
+	function success_getFrameworkData(message, passThrough) {
+		if (message.valid) {
+			Framework.FrameworkNode = message.FrameworkNode;
+			Framework.Nodes = message.Nodes;
+			Framework.Relations = message.Relations;
+			renderFramework();
+			Framework.Status.html("Framework Loaded.");
+			editNode(Framework.FrameworkNode);
+		}
+		else {
+			Framework.Status.html(message.status);
+		}
+	}
+	//
+
+	//Save Node data
+	function success_saveNodeData(message, passThrough) {
+		var nodeData = passThrough.nodeData;
+		if (message.valid) {
+			for (var i in message.data) {
+				nodeData[i] = message.data[i];
+			}
+			editNode(nodeData);
+		}
+		else {
+			Framework.Status.html(message.status);
+		}
+	}
+	//
+</script>
+<script type="text/javascript">
+	//Rendering
+	function renderFramework() {
+		var box = Framework.TreeBox.find(".treeView");
+		box.html("");
+		renderNode(box, Framework.FrameworkNode);
+	}
+	//
+
+	//Render a node
+	function renderNode(parentHTML, nodeData) {
+		//Parts
+		var template = $("#template_node").html();
+		var newTreeItem = $(template).appendTo(parentHTML);
+		if (nodeData == Framework.FrameworkNode) {
+			newTreeItem.addClass("frameworkNode");
+		}
+		nodeData.Parts = {};
+		nodeData.Parts.TreeItem = newTreeItem;
+
+		//Functions
+		newTreeItem.find("[data-action=edit]").on("click", function () {
+			editNode(nodeData);
+		});
+		newTreeItem.find("[data-action=select]").on("click", function () {
+			selectNode(nodeData);
+		});
+		newTreeItem.find("[data-action=createChild]").on("click", function () {
+			createChild(nodeData);
+		});
+
+		//Misc
+		console.log(nodeData);
+		newTreeItem.find(".label").html(nodeData.Name != "" ? nodeData.Name : nodeData.Description != "" ? nodeData.Description : nodeData.NotationCode != "" ? nodeData.NotationCode : "Unnamed Node");
+
+		return nodeData;
+	}
+	//
+</script>
+<style type="text/css">
+	.editor { display: flex; min-height: 500px; }
+	.editor .treeBox { flex: 0 0 50%; }
+	.editor .formBox { flex: 0 0 50%; }
+	.editor .buttons { display: flex; justify-content: flex-end; }
+	.editor .status { min-height: 1.5em; padding: 5px; text-align: right; }
+
+	.editor .treeBox .treeView { padding: 5px; background-color: rgba(0,0,0,0.01); min-height: 500px; max-height: 90vh; overflow: auto; }
+	.editor .treeBox .toolBar { display: flex; justify-content: flex-end; background-color: rgba(0,0,0,0.03); padding: 5px; min-height: 35px; }
+	.editor .treeBox .toolBar button { margin-right: 2px; }
+	
+	.editor .formBox { padding: 0 10px; }
+	.editor .formBox .formItem { display: flex; align-items: baseline; margin-bottom: 10px; }
+	.editor .formBox .formItem .label { flex: 0 0 150px; text-align: right; padding: 5px; }
+	.editor .formBox input[type=text], .editor .formBox textarea { display: block; width: 100%; }
+	.editor .formBox textarea { resize: vertical; min-height: 10em; }
+
+	.editor .selectionOptions { display: none; }
+	.editor .reparentButtons { display: none; }
+	.editor.hasSelection .selectionOptions { display: block; }
+	.editor.canReparent .reparentButtons { display: block; }
+
+	.editor .node { background-color: #FFF; margin-bottom: 1px; padding: 5px; border: 1px solid #EEE; border-left-width: 10px; }
+	.editor .node[data-status=editing] { border-color: rgba(10,200,50,0.8); }
+	.editor .node[data-status=selected] { border-color: rgba(10,50,200,0.8); }
+	.editor .node .nodeContent { display: flex; align-items: baseline; }
+	.editor .node .nodeContent .label { flex: 1 1 100%; padding-right: 5px; }
+	.editor .node .nodeContent .nodeStatus { flex: 1 1 100px; padding: 3px 5px; font-style: italic; text-align: center; background-color: rgba(0,0,0,0.01); }
+	.editor .node .nodeContent .buttons { flex: 0 0 200px; }
+	.editor .node .nodeContent .buttons button { margin-right: 2px; }
+</style>
+
+<div class="editor">
+	<div class="formBox">
+		<div class="formItem">
+			<div class="label">Editing</div>
+			<input type="text" disabled="disabled" readonly="readonly" data-property="Uri" />
+		</div>
+		<div class="formItem">
+			<div class="label">Name</div>
+			<input type="text" data-property="Name" />
+		</div>
+		<div class="formItem">
+			<div class="label">Notation Code</div>
+			<input type="text" data-property="NotationCode" />
+		</div>
+		<div class="formItem">
+			<div class="label">Description</div>
+			<textarea data-property="Description"></textarea>
+		</div>
+		<div class="status"></div>
+		<div class="buttons">
+			<button data-action="save">Save</button>
+		</div>
+	</div>
+	<div class="treeBox">
+		<div class="treeView"></div>
+		<div class="toolBar">
+			<div class="buttons selectionOptions">
+				<button data-action="moveUp">Move Up</button>
+				<button data-action="moveDown">Move Down</button>
+				<button data-action="makeChildOf">Make Child Of...</button>
+				<button data-action="delete">Delete</button>
+			</div>
+			<div class="buttons reparentButtons">
+				<button data-action="cancelReparent">Cancel</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div id="templates" style="display:none;">
+	<script type="text/template" id="template_node">
+		<div class="node">
+			<div class="nodeContent">
+				<div class="label"></div>
+				<div class="nodeStatus"></div>
+				<div class="buttons">
+					<button data-action="createChild">New Child</button>
+					<button data-action="edit">Edit</button>
+					<button data-action="select">Select</button>
+				</div>
+				<div class="buttons reparentButtons">
+					<button data-action="reparentHere">Make Child of This Node</button>
+				</div>
+			</div>
+			<div class="nodeChildren"></div>
+		</div>
+	</script>
+</div>

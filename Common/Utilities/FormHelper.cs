@@ -16,7 +16,7 @@ namespace Utilities
 	/// </summary>
 	public class FormHelper
 	{
-        string thisClassName = "FormHelper";
+        static string thisClassName = "FormHelper";
 
 		/// <summary>
 		/// Default constructor for FormHelper
@@ -671,7 +671,7 @@ namespace Utilities
 			} catch ( Exception ex )
 			{
 				//report error and continue
-				LoggingHelper.LogError( ex, "FormHelper.FormatHelpLinksStyle exception encountered" );
+				LoggingHelper.LogError( ex, thisClassName + ".FormatHelpLinksStyle exception encountered" );
 			}
 		}//		
 		private static string GetControlId( Control c )
@@ -688,7 +688,7 @@ namespace Utilities
 		}//
 		#endregion
 
-		#region ===== validation ======================================================
+		#region ===== validation ===============================
 
 		/// <summary>
 		/// IsDate - test if passed string is a valid date

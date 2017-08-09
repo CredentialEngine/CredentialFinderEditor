@@ -20,12 +20,12 @@ namespace Models.ProfileModels
 		public System.Guid ParentUid { get; set; }
 		public int ParentTypeId { get; set; }
 		public System.Guid AgentUid { get; set; }
+		public int AgentId { get; set; }
 		//not clear if necessay here
 		//public Organization ActingAgent { get; set; }
 		public int RelationshipTypeId { get; set; }
 		public string Relationship { get; set; } 
 		public string URL { get; set; }
-		public string Description { get; set; }
 
 		
 	}

@@ -36,7 +36,7 @@ namespace Models.Elastic
 		public Enumeration CredentialLevel { get; set; }
 		public string AvailableOnlineAt { get; set; }
 		public string LatestVersionUrl { get; set; }
-		public string ReplacesVersionUrl { get; set; }
+		public string PreviousVersion { get; set; }
 		public List<string> Subjects { get; set; }
 		public List<string> Keywords { get; set; }
 
@@ -60,7 +60,7 @@ namespace Models.Elastic
 		public List<CostProfile> EstimatedCosts { get; set; }
 
 		//handle efficiently
-		public List<Credential> EmbeddedCredentials { get; set; }
+		//public List<Credential> EmbeddedCredentials { get; set; }
 
 		public bool HasCompetencies { get; set; }
 		public bool ChildHasCompetencies { get; set; }

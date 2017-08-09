@@ -13,7 +13,7 @@ namespace Models.Json
 	{
 		public AlignmentObject()
 		{
-			type = "schema:AlignmentObject";
+			type = "ceterms:AlignmentObject";
 		}
 
 	}

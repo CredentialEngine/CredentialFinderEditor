@@ -4,11 +4,9 @@ using System.Data;
 using System.IO;
 using System.Text;
 using System.Web;
-using Scripting;
 
-using ILPathways.Business;
 
-namespace ILPathways.Utilities
+namespace Utilities
 {
 	public class FileSystemHelper
 	{
@@ -16,172 +14,6 @@ namespace ILPathways.Utilities
 
 		public FileSystemHelper() 
 		{ }
-
-		#region Documents
-        public static string HandleDocumentCaching( string targetFolder, IDocument document )
-        {
-            bool overwritingFile = false;
-            return HandleDocumentCaching( targetFolder, document, overwritingFile );
-        } //
-
-        public static string HandleImageCaching( string targetFolder, IDocument document)
-        {
-            bool overwritingFile = false;
-            return HandleDocumentCaching( targetFolder, document, overwritingFile );
-        } //
-        public static string HandleImageCaching( string targetFolder, IDocument document, bool overwritingFile )
-        {
-            //bool overwritingFile = false;
-            return HandleDocumentCaching( targetFolder, document, overwritingFile );
-        } //
-
-		/// <summary>
-		/// Handle document caching. Check if file exists, if not cache the document
-		/// </summary>
-		/// <param name="targetFolder"></param>
-		/// <param name="document"></param>
-		/// <returns>Blank if was successful, otherwise an error message</returns>
-        public static string HandleDocumentCaching( string targetFolder, IDocument document, bool overwritingFile )
-		{
-			string message = "";
-            string destFile = "";
-            if ( document == null || document.FileName == null || document.FileName.Trim().Length == 0 )
-            {
-                message = "Error - an invalid or incomplete document was encountered.";
-                return message;
-            }
-           
-			try
-			{
-                if ( targetFolder == null || targetFolder.Trim().Length == 0 )
-                {
-                    //just in case, use default and report
-                    targetFolder = UtilityManager.GetAppKeyValue( "path.ContentOutputPath", "C:\\" );
-
-                    LoggingHelper.LogError( string.Format( thisClassName + ".HandleDocumentCaching() - targetFolder not provided, using path.ContentOutputPath. RowId: {0}, FileName: {1}", document.RowId, document.FileName ), true );
-                }
-                //check if target contains file name
-                if ( targetFolder.ToLower().IndexOf( document.FileName.ToLower() ) > -1 )
-                {
-                    destFile = targetFolder;
-                }
-                else
-                {
-                    if ( targetFolder.Trim().EndsWith( "\\" ) == false )
-                    {
-                        targetFolder = targetFolder.Trim() + "\\";
-                    }
-                    destFile = targetFolder + document.FileName;
-                }
-
-				if ( System.IO.File.Exists( destFile ) )
-				{
-					//may want to return path for display in a link?
-                    if ( overwritingFile )
-                    {
-						LoggingHelper.DoTrace( 3, thisClassName + ".HandleDocumentCaching() overwriting existing file: " + destFile );
-                        //download
-                        byte[] buffer = document.ResourceData;
-                        using ( FileStream fs = new FileStream( destFile, FileMode.Create ) )
-                        {
-                            fs.Write( buffer, 0, buffer.Length );
-                        }
-                    }
-				} else
-				{
-					//ensure directory structure exists
-					CreateDirectory( targetFolder );
-                    
-					//download
-					byte[] buffer = document.ResourceData;
-					using ( FileStream fs = new FileStream( destFile, FileMode.Create ) )
-					{
-						fs.Write( buffer, 0, buffer.Length );
-					}
-				}
-
-			} catch ( Exception ex )
-			{
-				LoggingHelper.LogError( ex, thisClassName + ".HandleDocumentCaching() - Unexpected error encountered while retrieving document:<br/>" + ex.Message );
-
-				message = thisClassName + ".HandleDocumentCaching() - Unexpected error encountered. You could try closing the form and then try again. System Administration has been notified)<br/>" + ex.ToString();
-			}
-
-			return message;
-		}//
-
-
-        /// <summary>
-        /// Set a filepath from a url
-        /// </summary>
-        /// <param name="url"></param>
-        /// <param name="fileName"></param>
-        /// <returns></returns>
-        public static string SetFilePathFromUrl( string url, string fileName )
-        {
-            if ( url == null || url.Trim().Length < 5 )
-                return "";
-
-            string documentFolder = "";
-            string baseUrl = UtilityManager.GetAppKeyValue( "path.ContentOutputUrl", "/Content/" );
-            string basePath = UtilityManager.GetAppKeyValue( "path.ContentOutputPath" );
-
-            //the base url should be in the url
-            int start = url.ToLower().IndexOf( baseUrl.ToLower() );
-            if ( start > -1 )
-            {
-                documentFolder = basePath + url.Substring( start + baseUrl.Length );
-                documentFolder = documentFolder.Replace( "/", "\\" );
-                //extract filename
-                int pos = documentFolder.ToLower().IndexOf( fileName.ToLower() );
-                if ( pos > -1 )
-                {
-                    documentFolder = documentFolder.Substring( 0, pos - 1 );
-                }
-
-            }
-            else
-            {
-                //if not, then a problem
-            }
-
-            return documentFolder;
-        }//
-
-        /// <summary>
-        /// Delete file from server
-        /// </summary>
-        /// <param name="targetFolder"></param>
-        /// <param name="document"></param>
-        /// <returns></returns>
-        public static bool DeleteDocumentFromServer( string targetFolder, IDocument document )
-        {
-            bool isSuccessful = false;
-            string message = "";
-
-            string destFile = targetFolder + "\\" + document.FileName;
-            try
-            {
-                if ( System.IO.File.Exists( destFile ) )
-                {
-                    System.IO.File.Delete( destFile );
-                    isSuccessful = true;
-                }
-                else
-                {
-                    isSuccessful = true;
-                }
-
-            }
-            catch ( Exception ex )
-            {
-                LoggingHelper.LogError( ex, thisClassName + ".DeleteDocumentFromServer() - Unexpected error encountered while deleting document:<br/>" + ex.Message );
-
-                message = thisClassName + ".DeleteDocumentFromServer() - Unexpected error encountered. You could try closing the form and then try again. System Administration has been notified)<br/>" + ex.ToString();
-            }
-            return isSuccessful;
-        }
-		#endregion 
 
 		#region export methods
 
@@ -193,9 +25,9 @@ namespace ILPathways.Utilities
 		public void ExportDataTableAsCsv( DataTable dt, string tempFilename )
 		{
 			string datePrefix = System.DateTime.Today.ToString( "u" ).Substring( 0, 10 );
-			string logFile = UtilityManager.GetAppKeyValue( "path.ReportsOutputPath", "C:\\VOS_LOGS.txt" );
+			string filePath = UtilityManager.GetAppKeyValue( "path.ReportsOutputPath", "" );
 
-			string outputFile = logFile + datePrefix + "_" + tempFilename;
+			string outputFile = filePath + datePrefix + "_" + tempFilename;
 			//
 			//string filename = "budgetExport.csv";
 
@@ -213,10 +45,12 @@ namespace ILPathways.Utilities
 
 		/// <summary>
 		/// DataTableAsCsv - formats a DataTable in csv format
-		/// 								 The code first loops through the columns of the data table to export the names of all the data columns. 
-		/// 								 Then in next loop the code iterates over each data row to export all the values in the table. 
-		///									 This method creates a temporary file on the server. This temporary file will need to
-		///									 be manually deleted at a later time.
+		/// 				 The code first loops through the columns of the data table 
+		/// 				 to export the names of all the data columns. 
+		/// 				 Then in next loop the code iterates over each data row to export 
+		/// 				 all the values in the table. 
+		///					 This method creates a temporary file on the server. This temporary file will 
+		///					 need to be manually deleted at a later time.
 		/// </summary>
 		/// <param name="dt">DataTable</param>
 		/// <param name="tempFilename">Name of temporary file</param>
@@ -282,6 +116,56 @@ namespace ILPathways.Utilities
 
 		} //
 
+
+		//public FileContentResult ExportConversion(MyFilters filters)
+		//{
+		//  try
+		//  {
+		//	var Data = IService.SomeMethod("filters").ToList();
+
+		//	var bytes = GenericHelper.GetBytesForCSVFile(Data, DataPreparer.FormatCSV,
+		//												   "TotalItemsPerday, SpecialItemsPerDay, SpecialItemsPercentage");
+
+		//	return File(bytes, "text/csv", "FileName");
+
+		// }
+		// catch (Exception exception)
+		// {
+		//	//_logger.LogError(exception);
+		//	throw;
+		// }
+		//}
+
+		//public static class GenericHelper
+		//{
+		//   public static byte[] GetBytesForCSVFile<T>(List<T> Data, Converter<T, string> converter,string headerrow="")
+		//	{
+		//		if (Data.Any())
+		//		{
+		//			var convertAll = Data.ConvertAll(converter);
+
+		//			convertAll.Insert(0, headerrow + Environment.NewLine);
+
+		//			string completeString = String.Concat(convertAll);
+
+		//			return new UTF8Encoding().GetBytes(completeString);
+		//		}
+		//		else
+		//		{
+		//			return new byte[]{};
+		//		}
+		//	}
+		//}
+
+		//public static class DataPreparer
+		//{
+		//	public static string FormatCSV(Item item)
+		//	{
+		//		return TotalItemsPerDay.ToString() + 
+		//					  "," + SpecialItemsPerday.ToString() + 
+		//					  "," + SpecialItemsPercentage.ToString() +"%" + Environment.NewLine;
+		//	}
+		//}
 		#endregion
 
 
@@ -405,10 +289,9 @@ namespace ILPathways.Utilities
 
 
 				path = path.TrimEnd( Path.DirectorySeparatorChar );
-                Scripting.FileSystemObject fso = new Scripting.FileSystemObject();  //.FileSystemObjectClass();
                 // check if folder exists, if yes - no work to do
 
-                if ( !fso.FolderExists( path ) )
+                if ( !Directory.Exists( path ) )
                 {
                     int i = path.LastIndexOf( Path.DirectorySeparatorChar );
                     // find last\lowest folder name
@@ -421,9 +304,11 @@ namespace ILPathways.Utilities
 
                     CreateDirectory( ParentDirectoryPath );
                     // create last folder in current path
+					DirectoryInfo dirInfo = new DirectoryInfo(ParentDirectoryPath);
+					dirInfo.CreateSubdirectory(CurrentDirectoryName);
 
-                    Scripting.Folder folder = fso.GetFolder( ParentDirectoryPath );
-                    folder.SubFolders.Add( CurrentDirectoryName );
+					//Scripting.Folder folder = fso.GetFolder( ParentDirectoryPath );
+					//folder.SubFolders.Add( CurrentDirectoryName );
 
                 }
 			} catch ( Exception ex )
@@ -432,65 +317,65 @@ namespace ILPathways.Utilities
 			}
 		}
 
-		/// <summary>
-		/// Get the domain for the current environment
-		/// </summary>
-		/// <returns></returns>
-		public static string GetThisDomainUrl()
-		{
-			string domain = UtilityManager.GetAppKeyValue( "envDomainUrl" );
-			return domain;
-		}
+
 
 		/// <summary>
 		/// Get the root path for the current environment
 		/// </summary>
 		/// <returns></returns>
-		public static string GetThisRootPath()
-		{
-			return UtilityManager.GetAppKeyValue( "path.RootPath" );
-		}
+		//public static string GetThisRootPath()
+		//{
+		//	return UtilityManager.GetAppKeyValue( "path.RootPath" );
+		//}
 
-		/// <summary>
-		/// Get absolute url for cache
-		/// </summary>
-		/// <returns></returns>
-		public static string GetCacheOutputUrl()
-		{
-			return GetCacheOutputUrl( "" );
-		}
-		/// <summary>
-		/// Get absolute url for cache
-		/// </summary>
-		/// <param name="subPath"></param>
-		/// <returns></returns>
-		public static string GetCacheOutputUrl( string subPath )
-		{
-			string domain = GetThisDomainUrl();
-			string cacheUrl = UtilityManager.GetAppKeyValue( "path.CacheUrl" );
-			
-			if ( subPath.Length > 0 )
-				return domain + cacheUrl + "/" + subPath + "/";
-			else
-				return domain + cacheUrl + "/";
-		}
-		/// <summary>
-		/// Get output path for cache
-		/// </summary>
-		/// <returns></returns>
-		public static string GetCacheOutputPath()
-		{
-			return GetCacheOutputPath( "" );
-		}
-		public static string GetCacheOutputPath(string subPath)
-		{
-			string root = GetThisRootPath();
-			string cacheFolder = UtilityManager.GetAppKeyValue( "path.CacheFolder" );
-			if (subPath.Length > 0)
-				return root + cacheFolder + "\\" + subPath + "\\";
-			else 
-				return root + cacheFolder + "\\";
-        }
+		///// <summary>
+		///// Get absolute url for cache
+		///// </summary>
+		///// <returns></returns>
+		//public static string GetCacheOutputUrl()
+		//{
+		//	return GetCacheOutputUrl( "" );
+		//}
+		///// <summary>
+		///// Get absolute url for cache
+		///// </summary>
+		///// <param name="subPath"></param>
+		///// <returns></returns>
+		//public static string GetCacheOutputUrl( string subPath )
+		//{
+		//	string domain = GetThisDomainUrl();
+		//	string cacheUrl = UtilityManager.GetAppKeyValue( "path.CacheUrl" );
+
+		//	if ( subPath.Length > 0 )
+		//		return domain + cacheUrl + "/" + subPath + "/";
+		//	else
+		//		return domain + cacheUrl + "/";
+		//}
+		///// <summary>
+		///// Get output path for cache
+		///// </summary>
+		///// <returns></returns>
+		//public static string GetCacheOutputPath()
+		//{
+		//	return GetCacheOutputPath( "" );
+		//}
+		//public static string GetCacheOutputPath(string subPath)
+		//{
+		//	string root = GetThisRootPath();
+		//	string cacheFolder = UtilityManager.GetAppKeyValue( "path.CacheFolder" );
+		//	if (subPath.Length > 0)
+		//		return root + cacheFolder + "\\" + subPath + "\\";
+		//	else 
+		//		return root + cacheFolder + "\\";
+		//}
         #endregion
+		}
+			
+	public class Item
+		{
+		public int Id { get; set; }
+		public decimal TotalItemsPerDay { get; set; }
+		public decimal SpecialItemsPerDay { get; set; }
+		public decimal SpecialItemsPercentage { get; set; }
     }
 }

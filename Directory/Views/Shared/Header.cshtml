@@ -1,8 +1,18 @@
-﻿@{ var url = Request.Url.PathAndQuery.ToLower(); }
+﻿@using Utilities
+@{ var url = Request.Url.PathAndQuery.ToLower(); }
 @if ( !AccountServices.CanUserViewSite() && !AccountServices.CanUserPublishContent() && !url.Contains( "home/about" ) && !url.ToLower().Contains( "account/" ) && !url.ToLower().Contains( "manage/" ) )
 {
     Response.Redirect("~/Home/About");
 }
+ @if ( Request.Url.Host.StartsWith( "www" ) )
+    {
+        //&& !url.ToLower().Contains( "credentialfinder.org" )
+        //LoggingHelper.DoTrace( 2, "Request.Url: " + Request.Url.ToString() );
+        string newURL = Request.Url.ToString().Replace( "//www.", "//" );
+        //LoggingHelper.DoTrace( 2, "newURL: " + newURL );
+        Response.Redirect( newURL, true );
+    }
+
 <div id="navbar">
 	<input type="button" id="btnToggleNavbar" title="Show Navigation" value="Menu" onclick="common.toggleNavbar();" />
 	<div id="navItems" class="collapsed">

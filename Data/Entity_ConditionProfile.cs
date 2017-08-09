@@ -30,8 +30,19 @@ namespace Data
         public Nullable<System.DateTime> LastUpdated { get; set; }
         public Nullable<int> LastUpdatedById { get; set; }
         public System.Guid RowId { get; set; }
+        public Nullable<decimal> Weight { get; set; }
+        public Nullable<decimal> CreditHourValue { get; set; }
+        public Nullable<int> CreditUnitTypeId { get; set; }
+        public string CreditUnitTypeDescription { get; set; }
+        public Nullable<decimal> CreditUnitValue { get; set; }
+        public string CreditHourType { get; set; }
+        public Nullable<int> ConditionSubTypeId { get; set; }
+        public string SubjectWebpage { get; set; }
     
         public virtual Codes_PropertyValue Codes_PropertyValue { get; set; }
         public virtual Entity Entity { get; set; }
+        public virtual Account Account_Creator { get; set; }
+        public virtual Account Account_Modifier { get; set; }
+        public virtual Codes_ConditionProfileType Codes_ConditionProfileType { get; set; }
     }
 }

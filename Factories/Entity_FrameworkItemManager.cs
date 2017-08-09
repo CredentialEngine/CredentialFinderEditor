@@ -7,15 +7,17 @@ using System.Threading.Tasks;
 
 using Models;
 using Models.Common;
+using MC = Models.Common;
 using Models.ProfileModels;
 using Data;
 using Utilities;
 using DBentity = Data.Entity_FrameworkItem;
+using DBRefentity = Data.Entity_Reference;
 using Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
 namespace Factories
 {
-	public class Entity_FrameworkItemManager
+	public class Entity_FrameworkItemManager : BaseFactory
 	{
 		static string thisClassName = "Entity_FrameworkItemManager";
 
@@ -112,7 +114,10 @@ namespace Factories
 			var items = new List<EnumeratedItem>();
 			using ( var context = new ViewContext() )
 			{
-				List<Entity_FrameworkItemSummary> entities = context.Entity_FrameworkItemSummary.Where( s => recordIds.Contains( s.Id ) ).ToList();
+				List<Entity_FrameworkItemSummary> entities = context.Entity_FrameworkItemSummary
+					.Where( s => recordIds.Contains( s.Id ) )
+					.OrderBy( s => s.CategoryId).ThenBy(s => s.Title)
+					.ToList();
 				foreach ( var entity in entities )
 				{
 					items.Add( new EnumeratedItem()
@@ -168,12 +173,12 @@ namespace Factories
 
 		}
 
-		public static EnumeratedItem ItemGet( int recordId, int categoryId, int codeID )
+		public static EnumeratedItem ItemGet( int parentEntityId, int categoryId, int codeID )
 		{
 			EnumeratedItem item = new EnumeratedItem();
 			using ( var context = new ViewContext() )
 			{
-				Entity_FrameworkItemSummary entity = context.Entity_FrameworkItemSummary.FirstOrDefault( s => s.ParentId == recordId 
+				Entity_FrameworkItemSummary entity = context.Entity_FrameworkItemSummary.FirstOrDefault( s => s.EntityId == parentEntityId
 							&& s.CategoryId == categoryId 
 							&& s.CodeId == codeID );
 				if ( entity != null && entity.Id > 0 )
@@ -289,6 +294,102 @@ namespace Factories
 				return entity;
 			}
 		}
+
+		public static List<TextValueProfile> GetAll_Other( Guid parentUid, int categoryId )
+		{
+			TextValueProfile entity = new TextValueProfile();
+			List<TextValueProfile> list = new List<TextValueProfile>();
+			MC.Entity parent = EntityManager.GetEntity( parentUid );
+			if ( parent == null || parent.Id == 0 )
+			{
+				return list;
+			}
+			try
+			{
+				using ( var context = new Data.CTIEntities() )
+				{
+					var query = from Q in context.Entity_Reference
+							.Where( s => s.EntityId == parent.Id && s.CategoryId == categoryId )
+								select Q;
+					if ( categoryId == CodesManager.PROPERTY_CATEGORY_SUBJECT
+					  || categoryId == CodesManager.PROPERTY_CATEGORY_KEYWORD )
+					{
+						query = query.OrderBy( p => p.TextValue );
+					}
+					else
+					{
+						query = query.OrderBy( p => p.Id );
+					}
+					var count = query.Count();
+					var results = query.ToList();
+
+					if ( results != null && results.Count > 0 )
+					{
+						foreach ( DBRefentity item in results )
+						{
+							entity = new TextValueProfile();
+							ToMap( item, entity );
+
+							list.Add( entity );
+						}
+					}
+				}
+			}
+			catch ( Exception ex )
+			{
+				LoggingHelper.LogError( ex, thisClassName + ".Entity_GetAll" );
+			}
+			return list;
+		}//
+		private static void ToMap( DBRefentity from, TextValueProfile to )
+		{
+			to.Id = from.Id;
+			to.ParentId = from.EntityId;
+			to.TextTitle = from.Title;
+			to.CategoryId = from.CategoryId;
+			if ( to.CategoryId == CodesManager.PROPERTY_CATEGORY_PHONE_TYPE )
+			{
+				to.TextValue = PhoneNumber.DisplayPhone( from.TextValue );
+			}
+			else if ( to.CategoryId == CodesManager.PROPERTY_CATEGORY_ORGANIZATION_IDENTIFIERS )
+			{
+				to.TextValue = from.TextValue;
+			}
+			else
+			{
+				to.TextValue = from.TextValue;
+			}
+
+			//if ( from.Codes_PropertyValue != null)
+			//	to.CodeTitle = from.Codes_PropertyValue.Title;
+			to.CodeId = ( int ) ( from.PropertyValueId ?? 0 );
+
+			to.ProfileSummary = to.TextTitle + " - " + to.TextValue;
+			if ( from.Codes_PropertyValue != null
+				&& from.Codes_PropertyValue.Title != null )
+			{
+				to.CodeTitle = from.Codes_PropertyValue.Title;
+				to.CodeSchema = from.Codes_PropertyValue.SchemaName ?? "";
+
+				//to.ProfileSummary += " (" + from.Codes_PropertyValue.Title + ")";
+				to.ProfileSummary = from.Codes_PropertyValue.Title + " - " + to.TextValue;
+				//to.TextTitle = from.Codes_PropertyValue.Title;
+				//just in case
+				if ( to.CodeId == 0 )
+					to.CodeId = from.Codes_PropertyValue.Id;
+			}
+
+
+			if ( IsValidDate( from.Created ) )
+				to.Created = ( DateTime ) from.Created;
+			to.CreatedById = from.CreatedById == null ? 0 : ( int ) from.CreatedById;
+			if ( IsValidDate( from.LastUpdated ) )
+				to.LastUpdated = ( DateTime ) from.LastUpdated;
+			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
+
+
+		}
+
 		#endregion
 	}
 }

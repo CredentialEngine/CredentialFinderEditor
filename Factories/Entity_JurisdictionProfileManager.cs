@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using CM = Models.Common;
+using MC = Models.Common;
 using EM = Data;
 using Utilities;
 using Data;
@@ -21,11 +21,19 @@ namespace Factories
 		//static string DEFAULT_GUID = "00000000-0000-0000-0000-000000000000";
 		public static int JURISDICTION_PURPOSE_SCOPE = 1;
 		public static int JURISDICTION_PURPOSE_RESIDENT = 2;
+		public static int JURISDICTION_PURPOSE_OFFERREDIN = 3;
 
 		#region JurisdictionProfile  =======================
 		#region JurisdictionProfile Core  =======================
 
-		public bool JurisdictionProfile_Add( ThisEntity entity, ref List<String> messages )
+		/// <summary>
+		/// Add a jurisdiction profile
+		/// </summary>
+		/// <param name="entity"></param>
+		/// <param name="property">Can be blank. Set to a property where additional validation is necessary</param>
+		/// <param name="messages"></param>
+		/// <returns></returns>
+		public bool Add( ThisEntity entity, string property, ref List<String> messages )
 		{
 			bool isValid = true;
 
@@ -38,57 +46,66 @@ namespace Factories
 				}
 
 				//ensure we have a parentId/EntityId
-				//Views.Entity_Summary parent = EntityManager.GetDBEntity( entity.ParentId );
-				Views.Entity_Summary parent = EntityManager.GetDBEntity( entity.ParentEntityId );
-				//Entity parent = EntityManager.GetEntity(entity.ParentEntityId  );
+				MC.Entity parent = EntityManager.GetEntity( entity.ParentEntityId );
 				if ( parent == null || parent.Id == 0 )
 				{
 					messages.Add( "Error - the parent entity was not found." );
 					return false;
 				}
 
-
-				//will be obsolete!!!!
-				entity.ParentTypeId = parent.EntityTypeId;
 				//check for Empty
 				//==> not sure what is the minimum required fields!
-				if ( !IsEmpty( entity ) )
+				bool isEmpty = false;
+
+				if ( ValidateProfile( entity, property, ref isEmpty, ref messages ) == false )
 				{
-					//prob not necessary, check
-					entity.ParentEntityId = parent.EntityUid;
-
-					//id = JurisdictionProfile_Add( entity, ref messages );
-					DBentity efEntity = new DBentity();
-					FromMap( entity, efEntity );
-					efEntity.EntityId = parent.Id;
-					efEntity.RowId = Guid.NewGuid();
-					entity.RowId = efEntity.RowId;
-
-					if ( efEntity.JProfilePurposeId == null || efEntity.JProfilePurposeId == 0 )
-						efEntity.JProfilePurposeId = 1;
-
-					efEntity.Created = System.DateTime.Now;
-					efEntity.LastUpdated = System.DateTime.Now;
-
-					context.Entity_JurisdictionProfile.Add( efEntity );
-
-					int count = context.SaveChanges();
-					if ( count > 0 )
-					{
-						entity.Id = efEntity.Id;
-						UpdateJPRegions( entity, entity.LastUpdatedById, ref  messages );
-					}
+					return false;
 				}
-				else
+				if ( isEmpty )
 				{
-					messages.Add( "You must enter a description." );
+					messages.Add( "Error - Jurisdiction profile is empty. " );
+					return false;
 				}
+				
+
+				//id = JurisdictionProfile_Add( entity, ref messages );
+				DBentity efEntity = new DBentity();
+				FromMap( entity, efEntity );
+				efEntity.EntityId = parent.Id;
+				efEntity.RowId = Guid.NewGuid();
+				entity.RowId = efEntity.RowId;
+
+				if ( efEntity.JProfilePurposeId == null || efEntity.JProfilePurposeId == 0 )
+					efEntity.JProfilePurposeId = 1;
+
+				efEntity.Created = efEntity.LastUpdated = DateTime.Now;
+				efEntity.CreatedById = efEntity.LastUpdatedById = entity.LastUpdatedById;
+
+				context.Entity_JurisdictionProfile.Add( efEntity );
+
+				int count = context.SaveChanges();
+				if ( count > 0 )
+				{
+					entity.Id = efEntity.Id;
+					//update parts
+					UpdateParts( entity, true, ref messages );
+
+					UpdateJPRegions( entity, entity.LastUpdatedById, ref  messages );
+				}
+	
 
 			}
 
 			return isValid;
 		}
-		public bool JurisdictionProfile_Update( ThisEntity entity, ref List<String> messages )
+		/// <summary>
+		/// Update a jurisdiction profile
+		/// </summary>
+		/// <param name="entity"></param>
+		/// <param name="property">Can be blank. Set to a property where additional validation is necessary</param>
+		/// <param name="messages"></param>
+		/// <returns></returns>
+		public bool Update( ThisEntity entity, string property, ref List<String> messages )
 		{
 			bool isValid = true;
 
@@ -100,37 +117,56 @@ namespace Factories
 					return false;
 				}
 
-				Views.Entity_Summary parent = EntityManager.GetDBEntity( entity.ParentEntityId );
+				MC.Entity parent = EntityManager.GetEntity( entity.ParentEntityId );
 				if ( parent == null || parent.Id == 0 )
 				{
 					messages.Add( "Error - the parent entity was not found." );
 					return false;
 				}
-
+				bool isEmpty = false;
+				if ( ValidateProfile( entity, property, ref isEmpty, ref messages ) == false )
+				{
+					return false;
+				}
 
 				DBentity efEntity =
 					context.Entity_JurisdictionProfile.SingleOrDefault( s => s.Id == entity.Id );
 
 				entity.RowId = efEntity.RowId;
 				FromMap( entity, efEntity );
+				
 
 				if ( HasStateChanged( context ) )
 				{
 					efEntity.LastUpdated = DateTime.Now;
+					efEntity.LastUpdatedById = entity.LastUpdatedById;
 					int count = context.SaveChanges();
 					if ( count > 0 )
 					{
-						isValid = true;
+						
 					}
 				}
+				//always do parts
+				isValid = UpdateParts( entity, false, ref messages );
 			}
+
+			return isValid;
+		}
+		public bool UpdateParts( ThisEntity entity, bool isAdd, ref List<String> messages )
+		{
+			bool isValid = true;
+
+			EntityPropertyManager mgr = new EntityPropertyManager();
+
+			if ( mgr.UpdateProperties( entity.JurisdictionAssertion, entity.RowId, CodesManager.ENTITY_TYPE_JURISDICTION_PROFILE, CodesManager.PROPERTY_CATEGORY_JurisdictionAssertionType, entity.LastUpdatedById, ref messages ) == false )
+				isValid = false;
 
 			return isValid;
 		}
 		public bool UpdateJPRegions( ThisEntity entity, int userId, ref List<String> messages )
 		{
 			bool isValid = true;
-			List<CM.GeoCoordinates> list = new List<CM.GeoCoordinates>();
+			List<MC.GeoCoordinates> list = new List<MC.GeoCoordinates>();
 			if ( entity.MainJurisdiction != null && entity.MainJurisdiction.GeoNamesId > 0 )
 			{
 				list.Add( entity.MainJurisdiction );
@@ -173,6 +209,71 @@ namespace Factories
 
 			return isEmpty;
 		}
+		public bool ValidateProfile( ThisEntity profile, string property, ref bool isEmpty, ref List<string> messages )
+		{
+			bool isValid = true;
+			int count = messages.Count;
+			isEmpty = false;
+			//this will be problematic as the two bools default to false
+			if ( string.IsNullOrWhiteSpace( profile.Description )
+				&& ( profile.MainJurisdiction == null || profile.MainJurisdiction.GeoNamesId == 0 )
+				&& ( profile.JurisdictionException == null || profile.JurisdictionException.Count == 0 )
+				&& ( !IsValidGuid( profile.AssertedBy ) )
+				&& ( profile.JurisdictionAssertion == null || profile.JurisdictionAssertion.Items.Count == 0 )
+				)
+			{
+				//isEmpty = true;
+				//messages.Add( "No data has been entered, save was cancelled." );
+				//return false;
+			}
+			if ( property == "JurisdictionAssertions"  && profile.Id > 0)
+			{
+				if (!IsValidGuid(profile.AssertedBy))
+					messages.Add( "Please select the Agent that makes these assertions." );
+				if ( profile.JurisdictionAssertion == null || profile.JurisdictionAssertion.Items.Count == 0 )
+					messages.Add( "Please select at least one assertion." );
+			}
+
+			if ( profile.MainJurisdiction == null || profile.MainJurisdiction.GeoNamesId == 0 )
+			{
+				List<MC.GeoCoordinates> regions = GetAll( profile.RowId, false );
+				if ( regions != null && regions.Count > 0 )
+				{
+					profile.MainJurisdiction = regions[ 0 ];
+				}
+			}
+			//need to have a main jurisdiction, or is global
+			if ( profile.MainJurisdiction != null
+				&& profile.MainJurisdiction.GeoNamesId > 0
+				&& profile.MainJurisdiction.Name != "Earth" )
+			{
+				//should not have global
+				if ((profile.IsGlobalJurisdiction ?? false) == true)
+				{
+					messages.Add( "Is Global cannot be set to 'Is Global' when an main region has been selected." );
+				}
+			} else
+			{
+				//no regions, must specify global
+				//may want to make configurable
+				if ( ( profile.IsGlobalJurisdiction ?? false ) == false )
+				{
+					if ( profile.Description != "Auto-saved Jurisdiction" )
+					{
+						if ( UtilityManager.GetAppKeyValue( "requireRegionOrIsGlobal", false ) == true )
+						{
+							messages.Add( "Please select a main region, OR set 'Is Global' to 'This jurisdiction is global'." );
+						}
+					}
+				}
+			}
+				
+
+			if ( messages.Count > count )
+				isValid = false;
+			return isValid;
+		}
+
 		/// <summary>
 		/// Delete a JurisdictionProfile
 		/// </summary>
@@ -227,8 +328,7 @@ namespace Factories
 			List<ThisEntity> list = new List<ThisEntity>();
 			int count = 0;
 
-			//TODO - pass entityId if available?
-			Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
+			MC.Entity  parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
 			{
 				return list;
@@ -237,7 +337,8 @@ namespace Factories
 			using ( var context = new Data.CTIEntities() )
 			{
 				List<DBentity> Items = context.Entity_JurisdictionProfile
-							.Where( s => s.EntityId == parent.Id && s.JProfilePurposeId == jprofilePurposeId )
+							.Where( s => s.EntityId == parent.Id 
+								&& s.JProfilePurposeId == jprofilePurposeId )
 							.OrderBy( s => s.Id ).ToList();
 
 				if ( Items.Count > 0 )
@@ -261,7 +362,7 @@ namespace Factories
 		/// </summary>
 		/// <param name="rowId"></param>
 		/// <returns></returns>
-		public static ThisEntity Jurisdiction_Get( int id )
+		public static ThisEntity Get( int id )
 		{
 			ThisEntity entity = new ThisEntity();
 			using ( var context = new Data.CTIEntities() )
@@ -283,7 +384,7 @@ namespace Factories
 		/// </summary>
 		/// <param name="rowId"></param>
 		/// <returns></returns>
-		public static ThisEntity Jurisdiction_Get( Guid rowId )
+		public static ThisEntity Get( Guid rowId )
 		{
 			ThisEntity entity = new ThisEntity();
 			using ( var context = new Data.CTIEntities() )
@@ -305,15 +406,15 @@ namespace Factories
 		/// Mapping from interface model to entity model
 		/// Assuming that for updates, the entity model is always populated from DB, so here we can make assumptions regarding what can be updated.
 		/// </summary>
-		/// <param name="fromEntity"></param>
+		/// <param name="from"></param>
 		/// <param name="to"></param>
-		private static void FromMap( ThisEntity fromEntity, DBentity to )
+		private static void FromMap( ThisEntity from, DBentity to )
 		{
-			to.Id = fromEntity.Id;
-			//to.EntityId = fromEntity.ParentId;
+			to.Id = from.Id;
+			//to.EntityId = from.ParentId;
 			//don't allow a change if an update
-			if ( fromEntity.Id == 0 )
-				to.JProfilePurposeId = fromEntity.JProfilePurposeId > 0 ? fromEntity.JProfilePurposeId : 1;
+			if ( from.Id == 0 )
+				to.JProfilePurposeId = from.JProfilePurposeId > 0 ? from.JProfilePurposeId : 1;
 			else
 			{
 				//handle unexpected
@@ -321,70 +422,120 @@ namespace Factories
 					to.JProfilePurposeId = 1;
 			}
 
-			if ( fromEntity.MainJurisdiction != null && !string.IsNullOrWhiteSpace( fromEntity.MainJurisdiction.Name ) )
-				to.Name = fromEntity.MainJurisdiction.Name;
-			else
-				to.Name = "Default jurisdiction";
-			if ( fromEntity.Description.ToLower() != "auto-saved jurisdiction" )
-				to.Description = fromEntity.Description;
-			else
-				to.Description = null;
-			to.IsOnlineJurisdiction = fromEntity.IsOnlineJurisdiction;
-			to.IsGlobalJurisdiction = fromEntity.IsGlobalJurisdiction;
-
-
-			if ( to.Id < 1 )
+			//from.MainJurisdiction is likely null
+			if ( from.MainJurisdiction != null && from.MainJurisdiction.GeoNamesId == 0 )
 			{
-				to.CreatedById = fromEntity.CreatedById;
-				to.LastUpdatedById = fromEntity.LastUpdatedById;
+				List<MC.GeoCoordinates> regions = GetAll( to.RowId, false );
+				if ( regions != null && regions.Count > 0 )
+				{
+					from.MainJurisdiction = regions[ 0 ];
+				}
 			}
 
+			if ( from.MainJurisdiction != null && !string.IsNullOrWhiteSpace( from.MainJurisdiction.Name ) )
+				to.Name = from.MainJurisdiction.Name;
+			else
+				to.Name = "Default jurisdiction";
+			if ( from.Description.ToLower() != "auto-saved jurisdiction" )
+			{
+				to.Description = from.Description;
+				if ( to.Description.IndexOf( "jQuery" ) > 5 )
+				{
+					int len = to.Description.Length - to.Description.IndexOf( "jQuery" );
+					to.Description = to.Description.Substring( 0, len );
+				}
+			}
+			else
+				to.Description = null;
 
+			//TODO - if a main jurisdiction exists, then global should be false
+			//may not be available
+			if ( from.MainJurisdiction != null 
+				&& from.MainJurisdiction.GeoNamesId > 0 
+				&& from.MainJurisdiction.Name != "Earth" )
+				to.IsGlobalJurisdiction = false;
+
+			else if ( from.IsGlobalJurisdiction != null )
+				to.IsGlobalJurisdiction = from.IsGlobalJurisdiction;
+			else
+				to.IsGlobalJurisdiction = null;
+
+			if ( IsGuidValid( from.AssertedBy ) )
+			{
+				if ( to.Id > 0 && to.AssertedByAgentUid != from.AssertedBy )
+				{
+					if ( IsGuidValid( to.AssertedByAgentUid ) )
+					{
+						//need to remove the previous roles on change of asserted by
+						string statusMessage = "";
+						new Entity_AgentRelationshipManager().Delete( to.RowId, to.AssertedByAgentUid, Entity_AgentRelationshipManager.ROLE_TYPE_OWNER, ref statusMessage );
+					}
+				}
+				to.AssertedByAgentUid = from.AssertedBy;
+			}
+			else
+			{
+				to.AssertedByAgentUid = null;
+			}
 		}
-		private static void ToMap( DBentity fromEntity, ThisEntity to, int count )
+		private static void ToMap( DBentity from, ThisEntity to, int count )
 		{
-			to.Id = fromEntity.Id;
-			to.RowId = fromEntity.RowId;
-			to.ParentId = (int)fromEntity.EntityId;
+			to.Id = from.Id;
+			to.RowId = from.RowId;
+			to.ParentId = (int)from.EntityId;
 
 			//these will probably no lonber be necessary
-			to.ParentTypeId = fromEntity.Entity.EntityTypeId;
-			to.ParentEntityId = fromEntity.Entity.EntityUid;
+			to.ParentTypeId = from.Entity.EntityTypeId;
+			to.ParentEntityId = from.Entity.EntityUid;
 
-			to.JProfilePurposeId = fromEntity.JProfilePurposeId != null ? ( int ) fromEntity.JProfilePurposeId : 1;
+			to.JProfilePurposeId = from.JProfilePurposeId != null ? ( int ) from.JProfilePurposeId : 1;
 
-			//to.Name = fromEntity.Name;
-			to.Description = fromEntity.Description;
-			to.IsOnlineJurisdiction = ( bool ) fromEntity.IsOnlineJurisdiction;
-			to.IsGlobalJurisdiction = ( bool ) fromEntity.IsGlobalJurisdiction;
+			if ( IsGuidValid( from.AssertedByAgentUid ) )
+			{
+				to.AssertedBy = ( Guid ) from.AssertedByAgentUid;
+				
+			}
+			//to.Name = from.Name;
+			if ( (from.Description ?? "") == "Auto-saved Jurisdiction" )
+				to.Description = "";
+			else
+				to.Description = from.Description;
 
-			if ( fromEntity.Created != null )
-				to.Created = ( DateTime ) fromEntity.Created;
-			to.CreatedById = fromEntity.CreatedById == null ? 0 : ( int ) fromEntity.CreatedById;
+			if ( from.Created != null )
+				to.Created = ( DateTime ) from.Created;
+			to.CreatedById = from.CreatedById == null ? 0 : ( int ) from.CreatedById;
 
-			if ( fromEntity.LastUpdated != null )
-				to.LastUpdated = ( DateTime ) fromEntity.LastUpdated;
-			to.LastUpdatedById = fromEntity.LastUpdatedById == null ? 0 : ( int ) fromEntity.LastUpdatedById;
+			if ( from.LastUpdated != null )
+				to.LastUpdated = ( DateTime ) from.LastUpdated;
+			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
 
 			//get geoCoordinates via jp.Id
 			//apparantly only allowing one, but that will get old
-			//List<CM.GeoCoordinates> regions = GetAllForJurisdiction( to.Id, false );
+			//List<MC.GeoCoordinates> regions = GetAllForJurisdiction( to.Id, false );
 			//if ( regions != null && regions.Count > 0 )
 			//{
 			//	to.MainJurisdiction = regions[ 0 ];
 			//}
 			//to.JurisdictionException = GetAllForJurisdiction( to.Id, true );
+			//to.IsOnlineJurisdiction = ( bool ) from.IsOnlineJurisdiction;
 
-			List<CM.GeoCoordinates> regions = GetAll( to.RowId, false );
+
+			List<MC.GeoCoordinates> regions = GetAll( to.RowId, false );
 			if ( regions != null && regions.Count > 0 )
 			{
 				to.MainJurisdiction = regions[ 0 ];
 			}
 			to.JurisdictionException = GetAll( to.RowId, true );
 
-			if ( !string.IsNullOrWhiteSpace( fromEntity.Description ) )
+
+			if ( to.MainJurisdiction != null && to.MainJurisdiction.GeoNamesId > 0 && to.MainJurisdiction.Name != "Earth")
+				to.IsGlobalJurisdiction = false;
+			else
+				to.IsGlobalJurisdiction = from.IsGlobalJurisdiction;
+
+			if ( !string.IsNullOrWhiteSpace( from.Description ) )
 			{
-				to.ProfileSummary = fromEntity.Description;
+				to.ProfileSummary = from.Description;
 			}
 			else
 			{
@@ -393,16 +544,60 @@ namespace Factories
 					to.ProfileSummary = to.MainJurisdiction.ProfileSummary;
 				}
 				else
-					to.ProfileSummary = "JurisdictionProfile Summary - " + count.ToString();
+				{
+					if ( (bool)(to.IsGlobalJurisdiction ?? false) )
+						to.ProfileSummary = "Global";
+					else
+						to.ProfileSummary = "JurisdictionProfile Summary - " + count.ToString();
+				}
 			}
-		}
+			//use of properities, requires creating an Entity for Jurisdiction???
+			to.JurisdictionAssertion = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_JurisdictionAssertionType );
+		} //
 
+
+		//public static MC.Enumeration FillEnumeration( Guid parentUid, int categoryId )
+		//{
+		//	MC.Enumeration entity = new MC.Enumeration();
+		//	entity = CodesManager.GetEnumeration( categoryId );
+
+		//	entity.Items = new List<MC.EnumeratedItem>();
+		//	MC.EnumeratedItem item = new MC.EnumeratedItem();
+
+		//	using ( var context = new ViewContext() )
+		//	{
+		//		List<EntityProperty_Summary> results = context.EntityProperty_Summary
+		//			.Where( s => s.EntityUid == parentUid
+		//				&& s.CategoryId == categoryId )
+		//			.OrderBy( s => s.CategoryId ).ThenBy( s => s.SortOrder ).ThenBy( s => s.Property )
+		//			.ToList();
+
+		//		if ( results != null && results.Count > 0 )
+		//		{
+		//			foreach ( EntityProperty_Summary prop in results )
+		//			{
+
+		//				item = new MC.EnumeratedItem();
+		//				item.Id = prop.PropertyValueId;
+		//				item.Value = prop.PropertyValueId.ToString();
+		//				item.Selected = true;
+
+		//				item.Name = prop.Property;
+		//				item.SchemaName = prop.PropertySchemaName;
+		//				entity.Items.Add( item );
+
+		//			}
+		//		}
+		//		//entity.OtherValue = EntityOtherProperty_Get( parentUid, categoryId );
+		//		return entity;
+		//	}
+		//}
 		#endregion
 		#endregion
 
 		#region GeoCoordinate  =======================
 		#region GeoCoordinate Core  =======================
-		public bool GeoCoordinate_Update( List<CM.GeoCoordinates> list,
+		public bool GeoCoordinate_Update( List<MC.GeoCoordinates> list,
 					Guid parentUid,
 					int userId, bool isExceptions,
 					ref List<String> messages )
@@ -422,10 +617,10 @@ namespace Factories
 				return true;
 			}
 			EM.GeoCoordinate efEntity = new EM.GeoCoordinate();
-			int id = 0;
+		
 			using ( var context = new Data.CTIEntities() )
 			{
-				foreach ( CM.GeoCoordinates item in list )
+				foreach ( MC.GeoCoordinates item in list )
 				{
 					efEntity = new EM.GeoCoordinate();
 					item.IsException = isExceptions;
@@ -473,10 +668,10 @@ namespace Factories
 			return isValid;
 		}
 
-		public int GeoCoordinates_Add( CM.GeoCoordinates entity, ref string statusMessage )
+		public int GeoCoordinates_Add( MC.GeoCoordinates entity, ref string statusMessage )
 		{
 			EM.GeoCoordinate efEntity = new EM.GeoCoordinate();
-			CM.GeoCoordinates existing = new CM.GeoCoordinates();
+			MC.GeoCoordinates existing = new MC.GeoCoordinates();
 			List<String> messages = new List<string>();
 			if ( entity.GeoNamesId == 0 )
 			{
@@ -550,7 +745,7 @@ namespace Factories
 		}
 
 
-		public bool GeoCoordinate_Update( CM.GeoCoordinates entity, ref List<String> messages )
+		public bool GeoCoordinate_Update( MC.GeoCoordinates entity, ref List<String> messages )
 		{
 			bool isValid = true;
 
@@ -637,10 +832,10 @@ namespace Factories
 		/// </summary>
 		/// <param name="Id"></param>
 		/// <returns></returns>
-		public static CM.GeoCoordinates GeoCoordinates_Get( int Id )
+		public static MC.GeoCoordinates GeoCoordinates_Get( int Id )
 		{
-			CM.GeoCoordinates entity = new CM.GeoCoordinates();
-			List<CM.GeoCoordinates> list = new List<CM.GeoCoordinates>();
+			MC.GeoCoordinates entity = new MC.GeoCoordinates();
+			List<MC.GeoCoordinates> list = new List<MC.GeoCoordinates>();
 			using ( var context = new Data.CTIEntities() )
 			{
 				EM.GeoCoordinate item = context.GeoCoordinate
@@ -686,10 +881,10 @@ namespace Factories
 		/// <param name="parentUid"></param>
 		/// <param name="isException"></param>
 		/// <returns></returns>
-		public static bool Jurisdiction_HasMainRegion( Guid parentUid, ref CM.GeoCoordinates entity )
+		public static bool Jurisdiction_HasMainRegion( Guid parentUid, ref MC.GeoCoordinates entity )
 		{
 			bool isFound = false;
-			//CM.GeoCoordinates entity = new CM.GeoCoordinates();
+			//MC.GeoCoordinates entity = new MC.GeoCoordinates();
 			using ( var context = new Data.CTIEntities() )
 			{
 				List<EM.GeoCoordinate> list = context.GeoCoordinate
@@ -710,15 +905,15 @@ namespace Factories
 		/// </summary>
 		/// <param name="Ids"></param>
 		/// <returns></returns>
-		public static List<CM.GeoCoordinates> GeoCoordinates_GetList( List<int> Ids )
+		public static List<MC.GeoCoordinates> GeoCoordinates_GetList( List<int> Ids )
 		{
-			List<CM.GeoCoordinates> entities = new List<CM.GeoCoordinates>();
+			List<MC.GeoCoordinates> entities = new List<MC.GeoCoordinates>();
 			using ( var context = new Data.CTIEntities() )
 			{
 				List<EM.GeoCoordinate> items = context.GeoCoordinate.Where( m => Ids.Contains( m.Id ) ).ToList();
 				foreach ( var item in items )
 				{
-					CM.GeoCoordinates entity = new CM.GeoCoordinates();
+					MC.GeoCoordinates entity = new MC.GeoCoordinates();
 					ToMap( item, entity );
 					entities.Add( entity );
 				}
@@ -734,10 +929,10 @@ namespace Factories
 		/// <param name="jurisdictionId"></param>
 		/// <returns></returns>
 		[Obsolete]
-		private static List<CM.GeoCoordinates> GetAllForJurisdiction( int jurisdictionId, bool isException )
+		private static List<MC.GeoCoordinates> GetAllForJurisdiction( int jurisdictionId, bool isException )
 		{
-			CM.GeoCoordinates entity = new CM.GeoCoordinates();
-			List<CM.GeoCoordinates> list = new List<CM.GeoCoordinates>();
+			MC.GeoCoordinates entity = new MC.GeoCoordinates();
+			List<MC.GeoCoordinates> list = new List<MC.GeoCoordinates>();
 			using ( var context = new Data.CTIEntities() )
 			{
 				List<EM.GeoCoordinate> Items = context.GeoCoordinate
@@ -749,7 +944,7 @@ namespace Factories
 				{
 					foreach ( EM.GeoCoordinate item in Items )
 					{
-						entity = new CM.GeoCoordinates();
+						entity = new MC.GeoCoordinates();
 						ToMap( item, entity );
 						list.Add( entity );
 					}
@@ -765,10 +960,10 @@ namespace Factories
 		/// </summary>
 		/// <param name="parentId"></param>
 		/// <returns></returns>
-		public static List<CM.GeoCoordinates> GetAll( Guid parentId, bool isException = false )
+		public static List<MC.GeoCoordinates> GetAll( Guid parentId, bool isException = false )
 		{
-			CM.GeoCoordinates entity = new CM.GeoCoordinates();
-			List<CM.GeoCoordinates> list = new List<CM.GeoCoordinates>();
+			MC.GeoCoordinates entity = new MC.GeoCoordinates();
+			List<MC.GeoCoordinates> list = new List<MC.GeoCoordinates>();
 			using ( var context = new Data.CTIEntities() )
 			{
 				List<EM.GeoCoordinate> Items = context.GeoCoordinate
@@ -779,7 +974,7 @@ namespace Factories
 				{
 					foreach ( EM.GeoCoordinate item in Items )
 					{
-						entity = new CM.GeoCoordinates();
+						entity = new MC.GeoCoordinates();
 						ToMap( item, entity );
 						list.Add( entity );
 					}
@@ -794,10 +989,10 @@ namespace Factories
 		/// </summary>
 		/// <param name="userId"></param>
 		/// <returns></returns>
-		public static List<CM.GeoCoordinates> GetAll( int userId )
+		public static List<MC.GeoCoordinates> GetAll( int userId )
 		{
-			CM.GeoCoordinates entity = new CM.GeoCoordinates();
-			List<CM.GeoCoordinates> list = new List<CM.GeoCoordinates>();
+			MC.GeoCoordinates entity = new MC.GeoCoordinates();
+			List<MC.GeoCoordinates> list = new List<MC.GeoCoordinates>();
 			int prevGeoId = 0;
 			using ( var context = new Data.CTIEntities() )
 			{
@@ -813,7 +1008,7 @@ namespace Factories
 					{
 						if ( prevGeoId != ( int ) item.GeoNamesId )
 						{
-							entity = new CM.GeoCoordinates();
+							entity = new MC.GeoCoordinates();
 							ToMap( item, entity );
 							list.Add( entity );
 							prevGeoId = ( int ) item.GeoNamesId;
@@ -825,46 +1020,46 @@ namespace Factories
 			return list;
 		}
 
-		private static void FromMap( CM.GeoCoordinates fromEntity, EM.GeoCoordinate to )
+		private static void FromMap( MC.GeoCoordinates from, EM.GeoCoordinate to )
 		{
-			to.Id = fromEntity.Id;
-			to.ParentId = fromEntity.ParentEntityId;
+			to.Id = from.Id;
+			to.ParentId = from.ParentEntityId;
 
-			to.GeoNamesId = fromEntity.GeoNamesId;
-			to.Name = fromEntity.Name;
-			to.IsException = fromEntity.IsException;
-			to.AddressRegion = fromEntity.Region;
-			to.Country = fromEntity.Country;
-			to.Latitude = fromEntity.Latitude;
-			to.Longitude = fromEntity.Longitude;
-			to.Url = fromEntity.Url;
+			to.GeoNamesId = from.GeoNamesId;
+			to.Name = from.Name;
+			to.IsException = from.IsException;
+			to.AddressRegion = from.Region;
+			to.Country = from.Country;
+			to.Latitude = from.Latitude;
+			to.Longitude = from.Longitude;
+			to.Url = from.Url;
 
 			//if ( to.Id < 1 )
 			//{
-			//	to.CreatedById = fromEntity.CreatedById;
-			//	to.LastUpdatedById = fromEntity.LastUpdatedById;
+			//	to.CreatedById = from.CreatedById;
+			//	to.LastUpdatedById = from.LastUpdatedById;
 			//}
-			//if ( fromEntity.Created != null )
-			//	to.Created = ( DateTime ) fromEntity.Created;
+			//if ( from.Created != null )
+			//	to.Created = ( DateTime ) from.Created;
 
-			//if ( fromEntity.LastUpdated != null )
-			//	to.LastUpdated = fromEntity.LastUpdated;
+			//if ( from.LastUpdated != null )
+			//	to.LastUpdated = from.LastUpdated;
 
 
 		}
-		private static void ToMap( EM.GeoCoordinate fromEntity, CM.GeoCoordinates to )
+		private static void ToMap( EM.GeoCoordinate from, MC.GeoCoordinates to )
 		{
-			to.Id = fromEntity.Id;
-			to.ParentEntityId = fromEntity.ParentId;
-			to.GeoNamesId = fromEntity.GeoNamesId != null ? ( int ) fromEntity.GeoNamesId : 0;
+			to.Id = from.Id;
+			to.ParentEntityId = from.ParentId;
+			to.GeoNamesId = from.GeoNamesId != null ? ( int ) from.GeoNamesId : 0;
 
-			to.Name = fromEntity.Name;
-			to.IsException = fromEntity.IsException != null ? ( bool ) fromEntity.IsException : false;
-			to.Region = fromEntity.AddressRegion;
-			to.Country = fromEntity.Country;
-			to.Latitude = fromEntity.Latitude;
-			to.Longitude = fromEntity.Longitude;
-			to.Url = fromEntity.Url;
+			to.Name = from.Name;
+			to.IsException = from.IsException != null ? ( bool ) from.IsException : false;
+			to.Region = from.AddressRegion;
+			to.Country = from.Country;
+			to.Latitude = from.Latitude;
+			to.Longitude = from.Longitude;
+			to.Url = from.Url;
 			to.ProfileSummary = to.Name;
 			if ( !string.IsNullOrWhiteSpace( to.Region ) )
 			{
@@ -875,13 +1070,13 @@ namespace Factories
 				to.ProfileSummary += ", " + to.Country;
 			}
 
-			if ( fromEntity.Created != null )
-				to.Created = ( DateTime ) fromEntity.Created;
-			to.CreatedById = fromEntity.CreatedById == null ? 0 : ( int ) fromEntity.CreatedById;
+			if ( from.Created != null )
+				to.Created = ( DateTime ) from.Created;
+			to.CreatedById = from.CreatedById == null ? 0 : ( int ) from.CreatedById;
 
-			if ( fromEntity.LastUpdated != null )
-				to.LastUpdated = ( DateTime ) fromEntity.LastUpdated;
-			to.LastUpdatedById = fromEntity.LastUpdatedById == null ? 0 : ( int ) fromEntity.LastUpdatedById;
+			if ( from.LastUpdated != null )
+				to.LastUpdated = ( DateTime ) from.LastUpdated;
+			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
 
 
 		}

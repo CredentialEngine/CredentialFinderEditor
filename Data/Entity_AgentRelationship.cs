@@ -26,12 +26,11 @@ namespace Data
         public Nullable<int> LastUpdatedById { get; set; }
         public System.Guid RowId { get; set; }
         public Nullable<bool> IsInverseRole { get; set; }
-        public Nullable<System.DateTime> AssertionValidatedDate { get; set; }
-        public Nullable<int> AssertionValidatedById { get; set; }
-        public System.Guid ParentUid { get; set; }
-        public int ParentTypeId { get; set; }
+        public int ActedUponEntityId { get; set; }
     
         public virtual Codes_CredentialAgentRelationship Codes_CredentialAgentRelationship { get; set; }
         public virtual Entity Entity { get; set; }
+        public virtual Account Account_Creator { get; set; }
+        public virtual Account Account_Modifier { get; set; }
     }
 }

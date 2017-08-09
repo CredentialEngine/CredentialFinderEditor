@@ -5,7 +5,7 @@
         {
             <div class="mainJurisdictionName">@Model.MainJurisdiction.TitleFormatted</div>
         }
-        @if ( Model.IsOnlineJurisdiction || Model.IsGlobalJurisdiction )
+        @if ( Model.IsGlobalJurisdiction )
         {
             <div>
                 @if ( !string.IsNullOrWhiteSpace( Model.MainJurisdiction.TitleFormatted ) )
@@ -14,7 +14,6 @@
                 }
             </div>
             <ul class="extraJurisdictions">
-                @if(Model.IsOnlineJurisdiction){ <li>Online</li> }
                 @if(Model.IsGlobalJurisdiction){ <li>Globally/Worldwide</li> }
             </ul>
         }

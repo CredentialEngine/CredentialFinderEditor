@@ -4,11 +4,8 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Web;
-using System.Web.Script.Serialization;
 
 using Models;
 using CM = Models.Common;
@@ -34,17 +31,21 @@ namespace CTIServices
 		/// <param name="credentialId"></param>
 		/// <param name="user"></param>
 		/// <param name="statusMessage"></param>
-		/// <param name="crEnvelopeId"></param>
+		/// <param name="list"></param>
 		/// <returns></returns>
-		public bool MetadataRegistry_PublishCredential( int credentialId,
+		public bool PublishCredential( int credentialId,
 									Models.AppUser user, 
 									ref string statusMessage,
 									ref List<SiteActivity> list )
 		{
-			CM.Credential entity = CredentialServices.GetCredentialDetail( credentialId, user );
+			CM.Credential entity = CredentialServices.GetCredentialForPublish( credentialId, user );
 			if ( entity.Id == 0 )
 			{
-				statusMessage = "Error - invalid Credential identifier";
+				statusMessage = "Error - invalid Credential identifier. " ;
+				if (!string.IsNullOrWhiteSpace(entity.StatusMessage))
+				{
+					statusMessage += entity.StatusMessage;
+				}
 				return false;
 			}
 			if ( !entity.CanEditRecord )
@@ -57,18 +58,19 @@ namespace CTIServices
 			string action = "";
 			string comment = "";
 			var payload = "";
-			bool usingV2 = true;
-			if ( usingV2 )
+			//bool usingV2 = true;
+			//if ( usingV2 )
 				payload = new JsonLDServices().GetCredentialV2ForRegistry( entity ).ToString();
-			else
-				payload = new JsonLDServices().GetSerializedJsonLDCredential( entity );
+			//else
+			//	payload = new JsonLDServices().GetSerializedJsonLDCredential( entity );
 
 			//temp until CR changes the prefix
-			//payload = payload.Replace( "ctdl:", "cti:" );
+			//payload = payload.Replace( "ceterms:", "cti:" );
 
 			string crEnvelopeId = entity.CredentialRegistryId;
 
-			bool success = MetadataRegistry_Publish( payload.ToString(), user.FullName(),
+			bool success = Publish( payload.ToString(), user.FullName()
+									, "credential_" + credentialId.ToString(),
 									ref statusMessage,
 									ref crEnvelopeId );
 			if ( success )
@@ -78,22 +80,22 @@ namespace CTIServices
 				//if was an add, update CredentialRegistryId
 				if ( crEnvelopeId != null && crEnvelopeId != entity.CredentialRegistryId )
 				{
-					action = "Register Credential";
+					action = "Registered Credential";
 					comment = string.Format( "{0} registered credential: {1}. Returned envelopeId: {2}", user.FullName(), credentialId, crEnvelopeId );
 				}
 				else
 				{
-					action = "Update Credential";
+					action = "Updated Credential";
 					comment = string.Format( "{0} updated previously registered credential: {1}. Returned envelopeId: {2}", user.FullName(), credentialId, crEnvelopeId );
 
 				}
-				new ActivityServices().AddActivity( new SiteActivity() { ActivityType = "Credential", Activity = "Metadata Registry", Event = action, Comment = comment, ActionByUserId = user.Id, ActivityObjectId = credentialId } );
+				new ActivityServices().AddActivity( new SiteActivity() { ActivityType = "Credential", Activity = "Credential Registry", Event = action, Comment = comment, ActionByUserId = user.Id, ActivityObjectId = credentialId } );
 
-				//new ActivityServices().AddActivity( "Metadata Registry", action, comment, user.Id, 0, credentialId );
+				//new ActivityServices().AddActivity( "Credential Registry", action, comment, user.Id, 0, credentialId );
 
 				if ( user.FullName().IndexOf( "Incomplete -" ) > -1 )
 				{
-					LoggingHelper.LogError( string.Format( thisClassName + ".MetadataRegistry_PublishCredential() Error - encountered user with incomplete profile - or more likely issue at login/session creation. User: {0}", user.Email ), true );
+					LoggingHelper.LogError( string.Format( thisClassName + ".PublishCredential() Error - encountered user with incomplete profile - or more likely issue at login/session creation. User: {0}", user.Email ), true );
 				}
 
 				list = ActivityManager.GetPublishHistory( "Credential", credentialId );
@@ -102,7 +104,7 @@ namespace CTIServices
 			{
 				//ensure a message is returned
 				if ( string.IsNullOrWhiteSpace( statusMessage ) )
-					statusMessage = "The document was not saved in the Metadata Registry.";
+					statusMessage = "The document was not saved in the Credential Registry.";
 				successful = false;
 			}
 			return successful;
@@ -116,9 +118,9 @@ namespace CTIServices
 		/// <param name="statusMessage"></param>
 		/// <param name="crEnvelopeId"></param>
 		/// <returns></returns>
-		public bool MetadataRegistry_PublishOrganization( int orgId, Models.AppUser user, ref string statusMessage, ref List<SiteActivity> list )
+		public bool PublishOrganization( int orgId, Models.AppUser user, ref string statusMessage, ref List<SiteActivity> list )
 		{
-			CM.Organization entity = OrganizationServices.GetOrganizationDetail( orgId, user );
+			CM.Organization entity = OrganizationServices.GetOrganizationForPublish( orgId, user );
 			if ( entity.Id == 0 )
 			{
 				statusMessage = "Error - invalid Organization identifier";
@@ -130,15 +132,19 @@ namespace CTIServices
 				return false;
 			}
 			bool successful = true;
-
-			string payload = new JsonLDServices().GetOrganizationV2ForRegistry( entity );
+			string payload = "";
+			if ( entity.ISQAOrganization)
+				payload = new JsonLDServices().GetQAOrganizationForRegistry( entity );
+			else
+				payload = new JsonLDServices().GetOrganizationV2ForRegistry( entity );
 			//temp until CR changes the prefix
-			//payload = payload.Replace( "ctdl:", "cti:" );
+			//payload = payload.Replace( "ceterms:", "cti:" );
 
 			string crEnvelopeId = entity.CredentialRegistryId;
 
 			//???
-			successful = MetadataRegistry_Publish( payload.ToString(), user.FullName(),
+			successful = Publish( payload.ToString(), user.FullName()
+									, "organization_" + orgId.ToString(),
 									ref statusMessage,
 									ref crEnvelopeId );
 
@@ -151,17 +157,17 @@ namespace CTIServices
 
 				if ( crEnvelopeId != null && crEnvelopeId != entity.CredentialRegistryId )
 				{
-					action = "Register Organization";
+					action = "Registered Organization";
 					comment = string.Format( "{0} registered Organization: {1}. Returned envelopeId: {2}", user.FullName(), orgId, crEnvelopeId );
 					
 				}
 				else
 				{
-					action = "UpdateOrganization";
+					action = "Updated Organization";
 					comment = string.Format( "{0} updated previously registered Organization: {1}. Returned envelopeId: {2}", user.FullName(), orgId, crEnvelopeId );
 
 				}
-				new ActivityServices().AddActivity( new SiteActivity() { ActivityType = "Organization", Activity = "Metadata Registry", Event = action, Comment = comment, ActionByUserId = user.Id, ActivityObjectId = orgId } );
+				new ActivityServices().AddActivity( new SiteActivity() { ActivityType = "Organization", Activity = "Credential Registry", Event = action, Comment = comment, ActionByUserId = user.Id, ActivityObjectId = orgId } );
 
 				list = ActivityManager.GetPublishHistory( "Organization", orgId );
 			}
@@ -169,7 +175,7 @@ namespace CTIServices
 			{
 				//ensure a message is returned
 				if (string.IsNullOrWhiteSpace(statusMessage))
-					statusMessage = "The document was not saved in the Metadata Registry.";
+					statusMessage = "The document was not saved in the Credential Registry.";
 				successful = false;
 			}
 			return successful;
@@ -178,60 +184,318 @@ namespace CTIServices
 		/// <summary>
 		/// publish an assessment to the registry
 		/// </summary>
-		/// <param name="orgId"></param>
+		/// <param name="assessmentId"></param>
 		/// <param name="user"></param>
 		/// <param name="statusMessage"></param>
-		/// <param name="crEnvelopeId"></param>
+		/// <param name="list"></param>
 		/// <returns></returns>
-		public bool MetadataRegistry_PublishAssessment( int orgId, Models.AppUser user,
+		public bool PublishAssessment( int assessmentId, 
+								Models.AppUser user,
 								ref string statusMessage,
-								ref string crEnvelopeId )
+								ref List<SiteActivity> list )
 		{
 			bool successful = true;
 
-			AssessmentProfile entity = AssessmentServices.GetDetail( orgId, user );
+			AssessmentProfile entity = AssessmentServices.GetDetail( assessmentId, user );
 			if ( !entity.CanEditRecord )
 			{
-				statusMessage = "Error - not authorized to publish this Organization to the registry";
+				statusMessage = "Error - not authorized to publish this Assessment to the registry";
 				return false;
 			}
-			
-			//TODO
-			// Not developed yet.
-			throw new NotImplementedException();
 
-			//return successful;
+			list = new List<SiteActivity>();
+			string action = "";
+			string comment = "";
+
+			var payload = new JsonLDServices().GetAssessmentV2ForRegistry( entity ).ToString();
+			//payload = payload.Replace( "@type\": \"ceterms:AssessmentProfile", "@type\": \"AssessmentProfile" );
+			//if ( ServiceHelper.IsTestEnv() )
+			//	payload = payload.Replace( "ceterms:name", "schema:name" );
+			string crEnvelopeId = entity.CredentialRegistryId;
+			//payload = payload.Replace( "@type\": \"ceterms:AssessmentProfile", "@type\": \"AssessmentProfile" );
+			//ceterms:CredentialAlignmentObject
+			//payload = payload.Replace( "@type\": \"AssessmentProfile", "@type\": \"ceterms:AssessmentProfile" );
+			//ceterms:assessmentMethodType
+		
+
+			bool success = Publish( payload.ToString(), user.FullName(),
+									"assessment_" + assessmentId.ToString(),
+									ref statusMessage,
+									ref crEnvelopeId );
+			if ( success )
+			{
+				//call update regardless
+				new AssessmentManager().UpdateEnvelopeId( assessmentId, crEnvelopeId, user.Id, ref statusMessage );
+				//if was an add, update CredentialRegistryId
+				if ( crEnvelopeId != null && crEnvelopeId != entity.CredentialRegistryId )
+				{
+					action = "Registered Assessment";
+					comment = string.Format( "{0} registered Assessment: {1}. Returned envelopeId: {2}", user.FullName(), assessmentId, crEnvelopeId );
+				}
+				else
+				{
+					action = "Updated Assessment";
+					comment = string.Format( "{0} updated previously registered Assessment: {1}. Returned envelopeId: {2}", user.FullName(), assessmentId, crEnvelopeId );
+
+				}
+				new ActivityServices().AddActivity( new SiteActivity() { ActivityType = "AssessmentProfile", Activity = "Credential Registry", Event = action, Comment = comment, ActionByUserId = user.Id, ActivityObjectId = assessmentId } );
+
+				if ( user.FullName().IndexOf( "Incomplete -" ) > -1 )
+				{
+					LoggingHelper.LogError( string.Format( thisClassName + ".PublishAssessment() Error - encountered user with incomplete profile - or more likely issue at login/session creation. User: {0}", user.Email ), true );
+				}
+
+				list = ActivityManager.GetPublishHistory( "AssessmentProfile", assessmentId );
+			}
+			else
+			{
+				//ensure a message is returned
+				if ( string.IsNullOrWhiteSpace( statusMessage ) )
+					statusMessage = "The document was not saved in the Credential Registry.";
+				successful = false;
+			}
+			return successful;
 		}
 
-	
+		public bool PublishLearningOpportunity( int learningOppId,
+								Models.AppUser user,
+								ref string statusMessage,
+								ref List<SiteActivity> list )
+		{
+			bool successful = true;
+
+			LearningOpportunityProfile entity = LearningOpportunityServices.GetForDetail( learningOppId, user );
+			if ( !entity.CanEditRecord )
+			{
+				statusMessage = "Error - not authorized to publish this Learning Opportunity to the registry";
+				return false;
+			}
+
+			list = new List<SiteActivity>();
+			string action = "";
+			string comment = "";
+
+			var payload = new JsonLDServices().GetLearningOpportunityV2ForRegistry( entity ).ToString();
+			//if(ServiceHelper.IsTestEnv())
+			//	payload = payload.Replace( "ceterms:name", "schema:name" );
+			string crEnvelopeId = entity.CredentialRegistryId;
+
+			bool success = Publish( payload.ToString(), user.FullName(),
+									"learningOpp_" + learningOppId.ToString(),
+									ref statusMessage,
+									ref crEnvelopeId );
+			if ( success )
+			{
+				//call update regardless
+				new LearningOpportunityManager().UpdateEnvelopeId( learningOppId, crEnvelopeId, user.Id, ref statusMessage );
+				//if was an add, update CredentialRegistryId
+				if ( crEnvelopeId != null && crEnvelopeId != entity.CredentialRegistryId )
+				{
+					action = "Registered LearningOpportunity";
+					comment = string.Format( "{0} registered LearningOpportunity: {1}. Returned envelopeId: {2}", user.FullName(), learningOppId, crEnvelopeId );
+				}
+				else
+				{
+					action = "Updated LearningOpportunity";
+					comment = string.Format( "{0} updated previously registered LearningOpportunity: {1}. Returned envelopeId: {2}", user.FullName(), learningOppId, crEnvelopeId );
+
+				}
+				new ActivityServices().AddActivity( new SiteActivity() { ActivityType = "LearningOpportunity", Activity = "Credential Registry", Event = action, Comment = comment, ActionByUserId = user.Id, ActivityObjectId = learningOppId } );
+
+				if ( user.FullName().IndexOf( "Incomplete -" ) > -1 )
+				{
+					LoggingHelper.LogError( string.Format( thisClassName + ".PublishLearningOpportunity() Error - encountered user with incomplete profile - or more likely issue at login/session creation. User: {0}", user.Email ), true );
+				}
+
+				list = ActivityManager.GetPublishHistory( "LearningOpportunity", learningOppId );
+			}
+			else
+			{
+				//ensure a message is returned
+				if ( string.IsNullOrWhiteSpace( statusMessage ) )
+					statusMessage = "The document was not saved in the Credential Registry.";
+				successful = false;
+			}
+			return successful;
+		}
+
+
+		public bool PublishConditionManifest( int manifestId,
+								Models.AppUser user,
+								ref string statusMessage,
+								ref List<SiteActivity> list )
+		{
+			bool successful = true;
+
+			CM.ConditionManifest entity = ConditionManifestServices.GetForDetail( manifestId, user );
+			if ( !entity.CanEditRecord )
+			{
+				statusMessage = "Error - not authorized to publish this Condition Manifest to the registry";
+				return false;
+			}
+
+			list = new List<SiteActivity>();
+			string action = "";
+			string comment = "";
+
+			var payload = new JsonLDServices().GetConditionManifestForRegistry( entity ).ToString();
+			//if(ServiceHelper.IsTestEnv())
+			//	payload = payload.Replace( "ceterms:name", "schema:name" );
+			string crEnvelopeId = entity.CredentialRegistryId;
+
+			bool success = Publish( payload.ToString(), user.FullName(),
+									"ConditionManifest_" + manifestId.ToString(),
+									ref statusMessage,
+									ref crEnvelopeId );
+			if ( success )
+			{
+				//call update regardless
+				new ConditionManifestManager().UpdateEnvelopeId( manifestId, crEnvelopeId, user.Id, ref statusMessage );
+				//if was an add, update CredentialRegistryId
+				if ( crEnvelopeId != null && crEnvelopeId != entity.CredentialRegistryId )
+				{
+					action = "Registered ConditionManifest";
+					comment = string.Format( "{0} registered ConditionManifest: {1}. Returned envelopeId: {2}", user.FullName(), manifestId, crEnvelopeId );
+				}
+				else
+				{
+					action = "Updated ConditionManifest";
+					comment = string.Format( "{0} updated previously registered ConditionManifest: {1}. Returned envelopeId: {2}", user.FullName(), manifestId, crEnvelopeId );
+
+				}
+				new ActivityServices().AddActivity( new SiteActivity() { ActivityType = "ConditionManifest", Activity = "Credential Registry", Event = action, Comment = comment, ActionByUserId = user.Id, ActivityObjectId = manifestId } );
+
+				if ( user.FullName().IndexOf( "Incomplete -" ) > -1 )
+				{
+					LoggingHelper.LogError( string.Format( thisClassName + ".PublishConditionManifest() Error - encountered user with incomplete profile - or more likely issue at login/session creation. User: {0}", user.Email ), true );
+				}
+
+				list = ActivityManager.GetPublishHistory( "ConditionManifest", manifestId );
+			}
+			else
+			{
+				//ensure a message is returned
+				if ( string.IsNullOrWhiteSpace( statusMessage ) )
+					statusMessage = "The document was not saved in the Credential Registry.";
+				successful = false;
+			}
+			return successful;
+		}
+
+
+		public bool PublishCostManifest( int manifestId,
+								Models.AppUser user,
+								ref string statusMessage,
+								ref List<SiteActivity> list )
+		{
+			bool successful = true;
+
+			CM.CostManifest entity = CostManifestServices.GetForDetail( manifestId, user );
+			if ( !entity.CanEditRecord )
+			{
+				statusMessage = "Error - not authorized to publish this Cost Manifest to the registry";
+				return false;
+			}
+
+			list = new List<SiteActivity>();
+			string action = "";
+			string comment = "";
+
+			var payload = new JsonLDServices().GetCostManifestForRegistry( entity ).ToString();
+			//if(ServiceHelper.IsTestEnv())
+			//	payload = payload.Replace( "ceterms:name", "schema:name" );
+			string crEnvelopeId = entity.CredentialRegistryId;
+
+			bool success = Publish( payload.ToString(), user.FullName(),
+									"CostManifest_" + manifestId.ToString(),
+									ref statusMessage,
+									ref crEnvelopeId );
+			if ( success )
+			{
+				//call update regardless
+				new CostManifestManager().UpdateEnvelopeId( manifestId, crEnvelopeId, user.Id, ref statusMessage );
+				//if was an add, update CredentialRegistryId
+				if ( crEnvelopeId != null && crEnvelopeId != entity.CredentialRegistryId )
+				{
+					action = "Registered CostManifest";
+					comment = string.Format( "{0} registered CostManifest: {1}. Returned envelopeId: {2}", user.FullName(), manifestId, crEnvelopeId );
+				}
+				else
+				{
+					action = "Updated CostManifest";
+					comment = string.Format( "{0} updated previously registered CostManifest: {1}. Returned envelopeId: {2}", user.FullName(), manifestId, crEnvelopeId );
+
+				}
+				new ActivityServices().AddActivity( new SiteActivity() { ActivityType = "CostManifest", Activity = "Credential Registry", Event = action, Comment = comment, ActionByUserId = user.Id, ActivityObjectId = manifestId } );
+
+				if ( user.FullName().IndexOf( "Incomplete -" ) > -1 )
+				{
+					LoggingHelper.LogError( string.Format( thisClassName + ".PublishCostManifest() Error - encountered user with incomplete profile - or more likely issue at login/session creation. User: {0}", user.Email ), true );
+				}
+
+				list = ActivityManager.GetPublishHistory( "CostManifest", manifestId );
+			}
+			else
+			{
+				//ensure a message is returned
+				if ( string.IsNullOrWhiteSpace( statusMessage ) )
+					statusMessage = "The document was not saved in the Credential Registry.";
+				successful = false;
+			}
+			return successful;
+		}
+
+
+
 		/// <summary>
-		/// Publish a document to the metadata registry
+		/// Publish a document to the Credential Registry
 		/// </summary>
 		/// <param name="payload"></param>
 		/// <param name="submitter"></param>
 		/// <param name="statusMessage"></param>
 		/// <param name="crEnvelopeId"></param>
 		/// <returns></returns>
-		public bool MetadataRegistry_Publish( string payload,
+		public bool Publish( string payload,
 									string submitter,
+									string identifier,
 									ref string statusMessage,
 									ref string crEnvelopeId )
 		{
+			var successful = true;
+			var result = Publish( payload, submitter, identifier, ref successful, ref statusMessage, ref crEnvelopeId );
+			return successful;				
+		}
 
-			bool successful = true;
-			string publicKeyPath = "";
-			string privateKeyPath = "";
-			string postBody = "";
+
+		//Used for demo page, and possibly other cases where the raw response is desired
+		public string Publish( string payload, 
+				string submitter, 
+				string identifier, 
+				ref bool valid, 
+				ref string status, 
+				ref string crEnvelopeId, 
+				bool forceSkipValidation = false )
+		{
+			valid = true;
+			var publicKeyPath = "";
+			var privateKeyPath = "";
+			var postBody = "";
+
 			try
 			{
-				if (GetKeys(ref publicKeyPath, ref privateKeyPath, ref statusMessage) == false) 
+				if ( GetKeys( ref publicKeyPath, ref privateKeyPath, ref status ) == false )
 				{
-					return false;
+					valid = false;
+					//no, the proper error is returned from GetKeys
+					//status = "Error getting CER Keys";
+					return status;
 				}
 
 				//todo - need to add signer and other to the content
 				//note for new, DO NOT INCLUDE an EnvelopeIdentifier property 
 				//		-this is necessary due to a bug, and hopefully can change back to a single call
+
+				LoggingHelper.DoTrace( 5, "RegistryServices.Publish - payload: \r\n" + payload );
 
 				if ( string.IsNullOrWhiteSpace( crEnvelopeId ) )
 				{
@@ -242,8 +506,9 @@ namespace CTIServices
 
 					postBody = JsonConvert.SerializeObject( envelope );
 
-					LoggingHelper.DoTrace( 4, "RegistryServices.MetadataRegistry_Publish - ADD envelope: \r\n" + postBody );
-				} else 
+					LoggingHelper.DoTrace( 6, "RegistryServices.Publish - ADD envelope: \r\n" + postBody );
+				}
+				else
 				{
 					UpdateEnvelope envelope = new UpdateEnvelope();
 					RegistryHandler.CreateEnvelope( publicKeyPath, privateKeyPath, payload, envelope );
@@ -252,12 +517,25 @@ namespace CTIServices
 					envelope.EnvelopeIdentifier = crEnvelopeId;
 					postBody = JsonConvert.SerializeObject( envelope );
 
-					LoggingHelper.DoTrace( 4, "RegistryServices.MetadataRegistry_Publish - update envelope: \r\n" + postBody );
+					LoggingHelper.DoTrace( 6, "RegistryServices.Publish - update envelope: \r\n" + postBody );
 				}
 
 				//Do publish
-				string serviceUri = UtilityManager.GetAppKeyValue( "metadataRegistryPublishUrl" );
-
+				string serviceUri = UtilityManager.GetAppKeyValue( "credentialRegistryPublishUrl" );
+				var skippingValidation = forceSkipValidation ? true : UtilityManager.GetAppKeyValue( "skippingValidation" ) == "yes";
+				if ( skippingValidation )
+				{
+					if ( serviceUri.ToLower().IndexOf( "skip_validation" ) > 0 )
+					{
+						//assume OK, or check to change false to true
+						serviceUri = serviceUri.Replace( "skip_validation=false", "skip_validation=true" );
+					}
+					else
+					{
+						//append
+						serviceUri += "&skip_validation=true";
+					}
+				}
 				try
 				{
 					using ( var client = new HttpClient() )
@@ -265,58 +543,85 @@ namespace CTIServices
 						client.DefaultRequestHeaders.
 							Accept.Add( new MediaTypeWithQualityHeaderValue( "application/json" ) );
 
-
 						var task = client.PostAsync( serviceUri,
 							new StringContent( postBody, Encoding.UTF8, "application/json" ) );
 						task.Wait();
 						var response = task.Result;
 						//should get envelope_id from contents?
-						var contents = task.Result.Content.ReadAsStringAsync();
+						var contents = task.Result.Content.ReadAsStringAsync().Result;
 
 						if ( response.IsSuccessStatusCode == false )
 						{
-							RegistryResponseContent contentsJson = JsonConvert.DeserializeObject<RegistryResponseContent>( contents.Result );
-							//logging???
-							successful = false;
-							LoggingHelper.LogError( "RegistryServices.MetadataRegistry_Publish Failed\n\r" + JsonConvert.SerializeObject( response )
-								+ "\n\r" + contents );
-							statusMessage = string.Join( ",", contentsJson.Errors.ToArray() );
+							RegistryResponseContent contentsJson = JsonConvert.DeserializeObject<RegistryResponseContent>( contents );
+							//
+							valid = false;
+							string queryString = GetRequestContext();
 
+							LoggingHelper.LogError( identifier + " RegistryServices.Publish Failed:"
+								+ "\n\rURL:\n\r " + queryString
+								+ "\n\rERRORS:\n\r " + string.Join( ",", contentsJson.Errors.ToArray() )
+								+ "\n\rRESPONSE:\n\r " + JsonConvert.SerializeObject( response )
+								+ "\n\rCONTENTS:\n\r " + JsonConvert.SerializeObject( contents )
+								+ "\n\rPAYLOAD:\n\r " + payload, true, "CredentialRegistry publish failed for " + identifier );
+							status = string.Join( ",", contentsJson.Errors.ToArray() );
+
+							LoggingHelper.WriteLogFile( 4, identifier + "_payload_failed", payload, "", false );
+							LoggingHelper.WriteLogFile( 4, identifier + "_envelope_failed", postBody, "", false );
 							//statusMessage =contents.err contentsJson.Errors.ToString();
 						}
 						else
 						{
-							UpdateEnvelope ue = JsonConvert.DeserializeObject<UpdateEnvelope>( contents.Result );
+							valid = true;
+							UpdateEnvelope ue = JsonConvert.DeserializeObject<UpdateEnvelope>( contents );
 							crEnvelopeId = ue.EnvelopeIdentifier;
 
-							LoggingHelper.DoTrace( 6, "response: " + JsonConvert.SerializeObject( contents ) );
+							LoggingHelper.DoTrace( 7, "response: " + JsonConvert.SerializeObject( contents ) );
+
+							LoggingHelper.WriteLogFile( 5, identifier + "_payload_Successful", payload );
+							LoggingHelper.WriteLogFile( 6, identifier + "_envelope_Successful", postBody );
 						}
 
+						return contents;
 					}
 				}
-				catch ( Exception exc )
+				catch ( Exception ex )
 				{
-					LoggingHelper.LogError( exc, "RegistryServices.MetadataRegistry_Publish - POST" );
-					successful = false;
-					statusMessage = "Failed to Publish: " + exc.Message;
-					return false;
+					LoggingHelper.LogError( ex, "RegistryServices.Publish - POST" );
+					valid = false;
+					status = "Failed on Registry Publish: " + BaseFactory.FormatExceptions( ex );
+					return status;
 				}
 				//Set return values
 				//no cr id returned?
-				
+
 			}
 			catch ( Exception ex )
 			{
-				LoggingHelper.LogError( ex, "RegistryServices.MetadataRegistry_Publish" );
+				LoggingHelper.LogError( ex, "RegistryServices.Publish" );
 
-				successful = false;
+				valid = false;
 				crEnvelopeId = "";
-				statusMessage = "Failed to Publish: " + ex.Message;
+				status = "Failed during Registry preperations: " + BaseFactory.FormatExceptions( ex );
+				return status;
 			}
+		}
+		//
 
-			return successful;
+
+		//
+		private static string GetRequestContext()
+		{
+			string queryString = "batch";
+			try
+			{
+				queryString = HttpContext.Current.Request.Url.AbsoluteUri.ToString();
 			}
-
+			catch ( Exception exc )
+			{
+				return queryString;
+			}
+			return queryString;
+		}
 		private static bool PostRequest( string postBody, string serviceUri, ref string response )
 		{
 			try
@@ -377,7 +682,7 @@ namespace CTIServices
 		{
 			bool successful = true;
 			//get credential
-			CM.CredentialSummary entity = CredentialServices.GetLightCredentialById( credentialId );
+			CM.Credential entity = CredentialServices.GetBasicCredential( credentialId );
 			if ( entity.Id == 0 )
 			{
 				statusMessage = "Error - invalid Credential identifier";
@@ -395,7 +700,7 @@ namespace CTIServices
 				return false;
 			}
 
-			successful = MetadataRegistry_Delete( entity.CredentialRegistryId, entity.CTID, user.FullName(), ref statusMessage );
+			successful = CredentialRegistry_Delete( entity.CredentialRegistryId, entity.CTID, user.FullName(), ref statusMessage );
 			if ( successful )
 			{
 				//reset envelope id and status
@@ -403,7 +708,7 @@ namespace CTIServices
 
 				string comment = string.Format( "{0} removed registered credential: {1}. ", user.FullName(), credentialId );
 
-				new ActivityServices().AddActivity( new SiteActivity() { ActivityType = "Credential", Activity = "Metadata Registry", Event = "Removed", Comment = comment, ActionByUserId = user.Id, ActivityObjectId = credentialId } );
+				new ActivityServices().AddActivity( new SiteActivity() { ActivityType = "Credential", Activity = "Credential Registry", Event = "Removed Credential", Comment = comment, ActionByUserId = user.Id, ActivityObjectId = credentialId } );
 
 				list = ActivityManager.GetPublishHistory( "Credential", credentialId );
 			}
@@ -411,7 +716,7 @@ namespace CTIServices
 			{
 				//ensure a message is returned
 				if ( string.IsNullOrWhiteSpace( statusMessage ) )
-					statusMessage = "The document was not removed from the Metadata Registry.";
+					statusMessage = "The document was not removed from the Credential Registry.";
 				else 
 				{
 					if ( statusMessage == "Couldn't find Envelope" )
@@ -441,7 +746,9 @@ namespace CTIServices
 		{
 			bool successful = true;
 			//get credential
-			CM.Organization entity = OrganizationServices.GetLightOrgById( orgId );
+			//CM.Organization entity = OrganizationServices.GetLightOrgById( orgId );
+			CM.Organization entity = OrganizationServices.GetForSummary( orgId );
+			
 			if ( entity.Id == 0 )
 			{
 				statusMessage = "Error - invalid Organization identifier";
@@ -459,7 +766,7 @@ namespace CTIServices
 				return false;
 			}
 
-			successful = MetadataRegistry_Delete( entity.CredentialRegistryId, entity.ctid, user.FullName(), ref statusMessage );
+			successful = CredentialRegistry_Delete( entity.CredentialRegistryId, entity.ctid, user.FullName(), ref statusMessage );
 			if ( successful )
 			{
 				//reset envelope id and status
@@ -468,7 +775,7 @@ namespace CTIServices
 
 					string comment = string.Format( "{0} removed registered Organization: {1}. ", user.FullName(), orgId );
 
-					new ActivityServices().AddActivity( new SiteActivity() { ActivityType = "Organization", Activity = "Metadata Registry", Event = "Removed", Comment = comment, ActionByUserId = user.Id, ActivityObjectId = orgId } );
+					new ActivityServices().AddActivity( new SiteActivity() { ActivityType = "Organization", Activity = "Credential Registry", Event = "Removed Organization", Comment = comment, ActionByUserId = user.Id, ActivityObjectId = orgId } );
 
 					list = ActivityManager.GetPublishHistory( "Organization", orgId );
 				}
@@ -481,7 +788,7 @@ namespace CTIServices
 			{
 				//ensure a message is returned
 				if ( string.IsNullOrWhiteSpace( statusMessage ) )
-					statusMessage = "The document was not removed from the Metadata Registry.";
+					statusMessage = "The document was not removed from the Credential Registry.";
 				else
 				{
 					if ( statusMessage == "Couldn't find Envelope" )
@@ -504,7 +811,265 @@ namespace CTIServices
 
 		}
 
-		public bool MetadataRegistry_Delete( string crEnvelopeId, string ctid, string requestedBy, ref string statusMessage)
+		public bool Unregister_Assessment( int assessmentId,
+								Models.AppUser user,
+								ref string statusMessage,
+								ref List<SiteActivity> list )
+		{
+			bool successful = true;
+			//get record
+			AssessmentProfile entity = AssessmentServices.GetLightAssessmentById( assessmentId );
+			if ( entity.Id == 0 )
+			{
+				statusMessage = "Error - invalid Assessment Profile identifier";
+				return false;
+			}
+			if ( !AssessmentServices.CanUserUpdateAssessment( entity.RowId, user, ref statusMessage ) )
+			{
+				statusMessage = "Error - not authorized to remove this AssessmentProfile from the registry";
+				return false;
+			}
+
+			if ( string.IsNullOrWhiteSpace( entity.CredentialRegistryId ) )
+			{
+				statusMessage = "Error - This AssessmentProfile cannot be removed from the registry as an registry identifier was not found.";
+				return false;
+			}
+
+			successful = CredentialRegistry_Delete( entity.CredentialRegistryId, entity.ctid, user.FullName(), ref statusMessage );
+			if ( successful )
+			{
+				//reset envelope id and status
+				new AssessmentManager().UnPublish( assessmentId, user.Id, ref statusMessage );
+
+				string comment = string.Format( "{0} removed registered Assessment: {1}. ", user.FullName(), assessmentId );
+
+				new ActivityServices().AddActivity( new SiteActivity() { ActivityType = "Assessment", Activity = "Credential Registry", Event = "Removed Assessment", Comment = comment, ActionByUserId = user.Id, ActivityObjectId = assessmentId } );
+
+				list = ActivityManager.GetPublishHistory( "Assessment", assessmentId );
+			}
+			else
+			{
+				//ensure a message is returned
+				if ( string.IsNullOrWhiteSpace( statusMessage ) )
+					statusMessage = "The document was not removed from the Credential Registry.";
+				else
+				{
+					if ( statusMessage == "Couldn't find Envelope" )
+					{
+						statusMessage = "";
+						//just remove the CredentialRegistryId regardless
+						if ( new AssessmentManager().UnPublish( assessmentId, user.Id, ref statusMessage ) )
+						{
+							statusMessage = "Couldn't find Envelope in registry. The Assessment has been set to unregistered regardless.";
+						}
+						else
+						{
+							statusMessage = "Couldn't find Envelope in registry, and an issue was encountered while attempting to unregister the Assessment. " + statusMessage;
+						}
+					}
+				}
+				successful = false;
+			}
+			return successful;
+
+		}
+
+		public bool Unregister_LearningOpportunity( int recordId,
+								Models.AppUser user,
+								ref string statusMessage,
+								ref List<SiteActivity> list )
+		{
+			bool successful = true;
+			//get record
+			LearningOpportunityProfile entity = LearningOpportunityServices.GetLightLearningOpportunityById( recordId );
+			if ( entity.Id == 0 )
+			{
+				statusMessage = "Error - invalid LearningOpportunity Profile identifier";
+				return false;
+			}
+			if ( !LearningOpportunityServices.CanUserUpdateLearningOpportunity( entity.RowId, user, ref statusMessage ) )
+			{
+				statusMessage = "Error - not authorized to remove this LearningOpportunityProfile from the registry";
+				return false;
+			}
+
+			if ( string.IsNullOrWhiteSpace( entity.CredentialRegistryId ) )
+			{
+				statusMessage = "Error - This LearningOpportunityProfile cannot be removed from the registry as an registry identifier was not found.";
+				return false;
+			}
+
+			successful = CredentialRegistry_Delete( entity.CredentialRegistryId, entity.ctid, user.FullName(), ref statusMessage );
+			if ( successful )
+			{
+				//reset envelope id and status
+				new LearningOpportunityManager().UnPublish( recordId, user.Id, ref statusMessage );
+
+				string comment = string.Format( "{0} removed registered LearningOpportunity: {1}. ", user.FullName(), recordId );
+
+				new ActivityServices().AddActivity( new SiteActivity() { ActivityType = "LearningOpportunity", Activity = "Credential Registry", Event = "Removed LearningOpportunity", Comment = comment, ActionByUserId = user.Id, ActivityObjectId = recordId } );
+
+				list = ActivityManager.GetPublishHistory( "LearningOpportunity", recordId );
+			}
+			else
+			{
+				//ensure a message is returned
+				if ( string.IsNullOrWhiteSpace( statusMessage ) )
+					statusMessage = "The document was not removed from the Credential Registry.";
+				else
+				{
+					if ( statusMessage == "Couldn't find Envelope" )
+					{
+						statusMessage = "";
+						//just remove the CredentialRegistryId regardless
+						if ( new LearningOpportunityManager().UnPublish( recordId, user.Id, ref statusMessage ) )
+						{
+							statusMessage = "Couldn't find Envelope in registry. The LearningOpportunity has been set to unregistered regardless.";
+						}
+						else
+						{
+							statusMessage = "Couldn't find Envelope in registry, and an issue was encountered while attempting to unregister the LearningOpportunity. " + statusMessage;
+						}
+					}
+				}
+				successful = false;
+			}
+			return successful;
+
+		}
+
+		public bool Unregister_ConditionManifest( int recordId,
+							Models.AppUser user,
+							ref string statusMessage,
+							ref List<SiteActivity> list )
+		{
+			bool successful = true;
+			//get record
+			CM.ConditionManifest entity = ConditionManifestServices.GetBasic( recordId );
+			if ( entity.Id == 0 )
+			{
+				statusMessage = "Error - invalid ConditionManifest Profile identifier";
+				return false;
+			}
+			if ( !ConditionManifestServices.CanUserUpdateConditionManifest( entity, user, ref statusMessage ) )
+			{
+				statusMessage = "Error - not authorized to remove this ConditionManifest from the registry";
+				return false;
+			}
+
+			if ( string.IsNullOrWhiteSpace( entity.CredentialRegistryId ) )
+			{
+				statusMessage = "Error - This ConditionManifest cannot be removed from the registry as an registry identifier was not found.";
+				return false;
+			}
+
+			successful = CredentialRegistry_Delete( entity.CredentialRegistryId, entity.CTID, user.FullName(), ref statusMessage );
+			if ( successful )
+			{
+				//reset envelope id and status
+				new ConditionManifestManager().UnPublish( recordId, user.Id, ref statusMessage );
+
+				string comment = string.Format( "{0} removed registered ConditionManifest: {1}. ", user.FullName(), recordId );
+
+				new ActivityServices().AddActivity( new SiteActivity() { ActivityType = "ConditionManifest", Activity = "Credential Registry", Event = "Removed ConditionManifest", Comment = comment, ActionByUserId = user.Id, ActivityObjectId = recordId } );
+
+				list = ActivityManager.GetPublishHistory( "ConditionManifest", recordId );
+			}
+			else
+			{
+				//ensure a message is returned
+				if ( string.IsNullOrWhiteSpace( statusMessage ) )
+					statusMessage = "The document was not removed from the Credential Registry.";
+				else
+				{
+					if ( statusMessage == "Couldn't find Envelope" )
+					{
+						statusMessage = "";
+						//just remove the CredentialRegistryId regardless
+						if ( new ConditionManifestManager().UnPublish( recordId, user.Id, ref statusMessage ) )
+						{
+							statusMessage = "Couldn't find Envelope in registry. The ConditionManifest has been set to unregistered regardless.";
+						}
+						else
+						{
+							statusMessage = "Couldn't find Envelope in registry, and an issue was encountered while attempting to unregister the ConditionManifest. " + statusMessage;
+						}
+					}
+				}
+				successful = false;
+			}
+			return successful;
+
+		}
+
+		public bool Unregister_CostManifest( int recordId,
+							Models.AppUser user,
+							ref string statusMessage,
+							ref List<SiteActivity> list )
+		{
+			bool successful = true;
+			//get record
+			CM.CostManifest entity = CostManifestServices.GetBasic( recordId );
+			if ( entity.Id == 0 )
+			{
+				statusMessage = "Error - invalid CostManifest Profile identifier";
+				return false;
+			}
+			if ( !CostManifestServices.CanUserUpdateCostManifest( entity, user, ref statusMessage ) )
+			{
+				statusMessage = "Error - not authorized to remove this CostManifest from the registry";
+				return false;
+			}
+
+			if ( string.IsNullOrWhiteSpace( entity.CredentialRegistryId ) )
+			{
+				statusMessage = "Error - This CostManifest cannot be removed from the registry as an registry identifier was not found.";
+				return false;
+			}
+
+			successful = CredentialRegistry_Delete( entity.CredentialRegistryId, entity.CTID, user.FullName(), ref statusMessage );
+			if ( successful )
+			{
+				//reset envelope id and status
+				new CostManifestManager().UnPublish( recordId, user.Id, ref statusMessage );
+
+				string comment = string.Format( "{0} removed registered CostManifest: {1}. ", user.FullName(), recordId );
+
+				new ActivityServices().AddActivity( new SiteActivity() { ActivityType = "CostManifest", Activity = "Credential Registry", Event = "Removed CostManifest", Comment = comment, ActionByUserId = user.Id, ActivityObjectId = recordId } );
+
+				list = ActivityManager.GetPublishHistory( "CostManifest", recordId );
+			}
+			else
+			{
+				//ensure a message is returned
+				if ( string.IsNullOrWhiteSpace( statusMessage ) )
+					statusMessage = "The document was not removed from the Credential Registry.";
+				else
+				{
+					if ( statusMessage == "Couldn't find Envelope" )
+					{
+						statusMessage = "";
+						//just remove the CredentialRegistryId regardless
+						if ( new CostManifestManager().UnPublish( recordId, user.Id, ref statusMessage ) )
+						{
+							statusMessage = "Couldn't find Envelope in registry. The CostManifest has been set to unregistered regardless.";
+						}
+						else
+						{
+							statusMessage = "Couldn't find Envelope in registry, and an issue was encountered while attempting to unregister the CostManifest. " + statusMessage;
+						}
+					}
+				}
+				successful = false;
+			}
+			return successful;
+
+		}
+
+
+
+		public bool CredentialRegistry_Delete( string crEnvelopeId, string ctid, string requestedBy, ref string statusMessage)
 		{
 			string publicKeyPath = "";
 			string privateKeyPath = "";
@@ -515,7 +1080,7 @@ namespace CTIServices
 			//crEnvelopeId, 
 			DeleteEnvelope envelope = RegistryHandler.CreateDeleteEnvelope( publicKeyPath, privateKeyPath, ctid, requestedBy );
 
-			string serviceUri = string.Format( UtilityManager.GetAppKeyValue( "metadataRegistryGet" ), crEnvelopeId );
+			string serviceUri = string.Format( UtilityManager.GetAppKeyValue( "credentialRegistryGet" ), crEnvelopeId );
 
 
 			string postBody = JsonConvert.SerializeObject( envelope );
@@ -563,10 +1128,10 @@ namespace CTIServices
 					{
 						//logging???
 						//response = contents.Result;
-						LoggingHelper.LogError( "RegistryServices.PostRequest Failed\n\r" + response + "\n\rError: " + contents.ToString() );
+						LoggingHelper.LogError( "RegistryServices.DeleteRequest Failed\n\r" + response + "\n\rError: " + JsonConvert.SerializeObject( contents ) );
 
 						RegistryResponseContent contentsJson = JsonConvert.DeserializeObject<RegistryResponseContent>( contents.Result );
-						response = string.Join( ",", contentsJson.Errors.ToArray() );
+						response = string.Join( "<br/>", contentsJson.Errors.ToArray() );
 					}
 					else
 					{
@@ -603,9 +1168,14 @@ namespace CTIServices
 			string publicKeyLocation = UtilityManager.GetAppKeyValue( "pemKeyLocation", "" );
 			if ( string.IsNullOrWhiteSpace( publicKeyLocation ) )
 			{
-				statusMessage = "Error - missing application key of publicKeyLocation";
+				statusMessage = "Error - missing application key of pemKeyLocation";
 				return false;
 			}
+			//processing for dev env - where full path will vary by machine
+			//could use a common location like @logs\keys??
+			//if it works, then adjust the value stored in appkeys
+			//doens't work = mike.parsons\appData\roaming
+			//var fileName = Path.Combine( Environment.GetFolderPath( 	Environment.SpecialFolder.ApplicationData ), publicKeyLocation );
 
 			if ( publicKeyLocation.ToLower().StartsWith( "c:\\" ) )
 				publicKeyPath = publicKeyLocation;
@@ -635,11 +1205,11 @@ namespace CTIServices
 		#endregion
 		#region Reading
 
-		public static ReadEnvelope MetadataRegistry_Get( string crEnvelopeId,
+		public static ReadEnvelope CredentialRegistry_Get( string crEnvelopeId,
 									ref string statusMessage )
 		{
 			string document = "";
-			string serviceUri = string.Format( UtilityManager.GetAppKeyValue( "metadataRegistryGet" ), crEnvelopeId );
+			string serviceUri = string.Format( UtilityManager.GetAppKeyValue( "credentialRegistryGet" ), crEnvelopeId );
 			ReadEnvelope envelope = new ReadEnvelope();
 			Models.Json.Credential credential = new Models.Json.Credential();
 			try
@@ -676,18 +1246,18 @@ namespace CTIServices
 			}
 			catch ( Exception exc )
 			{
-				LoggingHelper.LogError( exc, "RegistryServices.MetadataRegistry_Get" );
+				LoggingHelper.LogError( exc, "RegistryServices.CredentialRegistry_Get" );
 			}
 			return envelope;
 
 		}
 
 
-		public static List<ReadEnvelope> MetadataRegistry_GetLatest( string type, string startingDate, string endingDate, int pageNbr, int pageSize, ref string statusMessage )
+		public static List<ReadEnvelope> CredentialRegistry_GetLatest( string type, string startingDate, string endingDate, int pageNbr, int pageSize, ref string statusMessage )
 		{
 			string document = "";
 			string filter = "";
-			string serviceUri = UtilityManager.GetAppKeyValue( "metadataRegistrySearch" );
+			string serviceUri = UtilityManager.GetAppKeyValue( "credentialRegistrySearch" );
 			//from=2016-08-22T00:00:00&until=2016-08-31T23:59:59
 			//resource_type=credential
 			if ( !string.IsNullOrWhiteSpace( type ) )
@@ -740,7 +1310,7 @@ namespace CTIServices
 				foreach ( ReadEnvelope item in list )
 				{
 					credential = new Models.Json.Credential();
-					credential = JsonConvert.DeserializeObject<Models.Json.Credential>( envelope.DecodedResource.ToString() );
+					credential = JsonConvert.DeserializeObject<Models.Json.Credential>( item.DecodedResource.ToString() );
 
 					//TODO add to a list
 				}
@@ -749,7 +1319,7 @@ namespace CTIServices
 			}
 			catch ( Exception exc )
 			{
-				LoggingHelper.LogError( exc, "RegistryServices.MetadataRegistry_GetLatest" );
+				LoggingHelper.LogError( exc, "RegistryServices.CredentialRegistry_GetLatest" );
 			}
 			return list;
 }

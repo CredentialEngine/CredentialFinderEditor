@@ -1,0 +1,220 @@
+﻿
+@{
+    ViewBag.Title = "CTDL Metadata";
+}
+@functions{
+
+    public string RenderText( string text )
+    {
+        return string.IsNullOrWhiteSpace( text ) ? "" : text;
+    }
+    public string RenderAttribute( string attribute, string value )
+    {
+        return string.IsNullOrWhiteSpace( value ) ? "" : attribute + "=\"" + value + "\"";
+    }
+}
+@helper RenderPanel( string id, string cssClass, string title, HelperResult content ) 
+{ 
+    @RenderPanel( id, cssClass, title, content.ToString() )
+}
+@helper RenderPanel( string id = "", string cssClass = "", string title = "Panel", string content = "In Development" )
+{
+    <div class="panel @RenderText( cssClass )" @RenderAttribute( "id", id )>
+        <button class="panelButton">@title</button>
+        <div class="panelContent">@Html.Raw( content )</div>
+    </div>
+}
+@helper RenderPropertyText( string property, string label ) 
+{ 
+    <div class="formItem">
+        <div class="label">@label</div>
+        <div class="data">
+            <input type="text" data-property="@property" />
+        </div>
+    </div>
+}
+@helper RenderPropertyTextArea( string property, string label )
+{
+    <div class="formItem">
+        <div class="label">@label</div>
+        <div class="data">
+            <textarea data-property="@property"></textarea>
+        </div>
+    </div>
+}
+@helper RenderTestInterface() 
+{
+    @RenderPropertyText( "Name", "Name" )
+    @RenderPropertyText( "AlternateName", "Abbreviation" )
+    @RenderPropertyTextArea( "Description", "Description" )
+    @RenderPropertyText( "SubjectWebpage", "Webpage URL" )
+
+    @Helpers.MakeNote( "My test note content." )
+}
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        setupPanels();
+
+        setupSections();
+    });
+
+    function setupPanels() {
+        $(document).on("click", ".panelButton", function () {
+            $(this).parent().toggleClass("expanded");
+        });
+    }
+
+    $(document).ready(function () {
+        // Grab all elements with the class "hasTooltip"
+        $('.hasTooltip').each(function () { // Notice the .each() loop, discussed below
+            $(this).qtip({
+                content: {
+                    text: $(this).next('div') // Use the "div" element next to this for the content
+                }
+            });
+        });
+
+        // MAKE SURE YOUR SELECTOR MATCHES SOMETHING IN YOUR HTML!!!
+        $('a').each(function () {
+            $(this).qtip({
+                content: {
+                    text: function (event, api) {
+                        $.ajax({
+                            url: api.elements.target.attr('href') // Use href attribute as URL
+                        })
+                        .then(function (content) {
+                            // Set the tooltip content upon successful retrieval
+                            api.set('content.text', content);
+                        }, function (xhr, status, error) {
+                            // Upon failure... set the tooltip content to error
+                            api.set('content.text', status + ': ' + error);
+                        });
+
+                        return 'Loading...'; // Set some initial text
+                    }
+                },
+                position: {
+                    viewport: $(window)
+                },
+                style: 'qtip-wiki'
+            });
+        });
+    });
+
+    //Setup sections buttons - MP
+    function setupSections() {
+        var buttons = $("button[data-detailName]");
+        var tabs = $(".detailTab");
+        tabs.hide();
+        buttons.each(function () {
+            var button = $(this);
+            button.on("click", function () {
+                button.toggleClass("selected");
+                var tab = $(".detailTab[data-detailName=" + button.attr("data-detailName") + "]");
+                if (button.hasClass("selected")) {
+                    tab.addClass("selected").slideDown();
+                }
+                else {
+                    tab.removeClass("selected").slideUp();
+                }
+
+            });
+        });
+
+    }
+</script>
+<style type="text/css">
+    /* Panels */
+    .panel:not(.expanded) > .panelContent { display: none; }
+    .panel .panelButton { display: block; width: 100%; }
+
+    /* Context */
+    #contextBox { display: flex; flex-direction: row; flex-wrap: nowrap; justify-content: center; padding: 10px; }
+    #contextBox .contextItem { margin: 0 5px; min-width: 200px; }
+
+    /* Panels */
+    .panelsList .panel { margin-bottom: 5px; }
+    .panelsList .panel .panelContent { padding: 5px 0; }
+
+    .qtip-wiki{
+    max-width: 385px;
+}
+
+.qtip-wiki p{
+    margin: 0 0 6px;
+}
+
+.qtip-wiki h1{
+    font-size: 20px;
+    line-height: 1.1;
+    margin: 0 0 5px;
+}
+
+.qtip-wiki img{
+    float: left;
+    margin: 10px 10px 10px 0;
+}
+
+.qtip-wiki .info{
+    overflow: hidden;
+}
+
+.qtip-wiki p.note{
+    font-weight: 700;
+}
+</style>
+
+<div id="editorBox">
+    <div id="contextBox">
+        @RenderPanel( "contextOrganization", "contextItem", "Organization" )
+        @RenderPanel( "contextCredential", "contextItem", "Credential" )
+        @RenderPanel( "contextCredentialType", "contextItem", "Credential Type" )
+        @Helpers.RenderPanel2( "contextCredentialType", "contextItem", "Credential Type 2" )
+     
+
+    </div>
+    <div id="panelsBox">
+        <h2>Expected Data</h2>
+        <div class="panelsList">
+
+            @RenderPanel( "", "", "Credential Information", RenderTestInterface() )
+            @RenderPanel( "", "", "Credential Connections", RenderTestInterface() )
+            @RenderPanel( "", "", "Occupations & Industries", RenderTestInterface() )
+            @RenderPanel( "", "", "Learning Opportunity", RenderTestInterface() )
+            @RenderPanel( "", "", "Competencies", RenderTestInterface() )
+            @RenderPanel( "", "", "Conditions & Recommendations", RenderTestInterface() )
+            @RenderPanel( "", "", "Costs", RenderTestInterface() )
+            @RenderPanel( "", "", "Verification Services", RenderTestInterface() )
+            @RenderPanel( "", "", "Processes", RenderTestInterface() )
+
+        </div>
+        @Helpers.Testing()
+    </div>
+
+    @Helpers.SectionButton1( "Basic Information", "cr_basic", 1, 1 )
+    <div class="detailTab" data-detailname="cr_basic">
+        HELLO
+        </div>
+    </div>
+
+<div class="hasTooltip">Hover me to see a tooltip</div>
+<div class="hidden">
+    <!-- This class should hide the element, change it if needed -->
+    <p><b>Complex HTML</b> for your tooltip <i>here</i>!</p>
+</div>
+
+
+<div class="examples">
+    <a href='http://qtip2.com/demos/data/owl'>Owl</a>
+
+    <ul class="blocks">
+    <li id="contents-text" data-hasqtip="text" aria-describedby="qtip-text"><span>Simple text</span><a href="http://jsfiddle.net/qTip2/usfrfdje" target="_blank" class="source">view source</a></li>
+    <li id="contents-html" data-hasqtip="html" aria-describedby="qtip-html"><span>Inline HTML</span><a href="http://jsfiddle.net/qTip2/jd5nbj5x" target="_blank" class="source">view source</a></li>
+    <li id="contents-button" data-hasqtip="button" aria-describedby="qtip-button"><span>Close buttons</span></li><li id="contents-title" data-hasqtip="title" aria-describedby="qtip-title"><span>Add a title</span></li><li id="contents-titlebutton" data-hasqtip="titlebutton"><span>Combined title and button</span></li>
+    <li id="contents-ajax" data-hasqtip="ajax" aria-describedby="qtip-ajax"><span>AJAX'd HTML</span><a href="http://jsfiddle.net/qTip2/zok1Lyzo" target="_blank" class="source">view source</a></li><li id="contents-iframe" data-hasqtip="iframe"><span>Embedded &lt;iframe&gt;</span></li>
+    </ul></div>
+<div id="wizardBox">
+
+</div>
+

@@ -25,7 +25,10 @@ namespace Data
         public System.Guid RowId { get; set; }
         public string RevocationCriteriaUrl { get; set; }
         public Nullable<System.DateTime> DateEffective { get; set; }
+        public string RevocationCriteriaDescription { get; set; }
     
         public virtual Entity Entity { get; set; }
+        public virtual Account Account_Creator { get; set; }
+        public virtual Account Account_Modifier { get; set; }
     }
 }

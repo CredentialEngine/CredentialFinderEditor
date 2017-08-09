@@ -1,0 +1,257 @@
+﻿
+@{ 
+	ViewBag.Title = "CER Search Demo";
+}
+
+<script type="text/javascript">
+	//Initialization
+	var Search = {
+		Timer: 0,
+		Page: 1,
+		PageSize: 20,
+	};
+	$(document).ready(function () {
+		setupSearch();
+		setupFilters();
+	});
+	//
+
+	//Setup search elements
+	function setupSearch() {
+		Search.Keywords = $("#txtKeywords");
+		Search.Filters = $("#filters");
+		Search.JSONName = $("#txtJSONName");
+		Search.JSONValue = $("#txtJSONValue");
+		Search.Query = $("#query");
+		Search.Status = $("#status");
+		Search.Results = $("#results");
+		Search.Previous = "";
+
+		Search.Keywords.on("keyup change", function () {
+			resetCountdown();
+		});
+		$("[data-apply=txtFilters]").on("click", function () {
+			doSearch(false);
+		});
+		$("[data-apply=txtJSON]").on("click", function () {
+			doSearch(false);
+		});
+	}
+	//
+
+	//Setup filters
+	function setupFilters() {
+		$("[data-action=addFilter]").on("click", function () {
+			addFilter();
+		});
+	}
+	//
+</script>
+<script type="text/javascript">
+	//Utility Functions
+
+	function addFilter() {
+		var template = $("#template_filter").html();
+		var newFilter = $(template).appendTo(Search.Filters);
+		newFilter.find("[data-action=removeFilter]").on("click", function () {
+			newFilter.remove();
+			resetCountdown();
+		});
+	}
+	//
+</script>
+<script type="text/javascript">
+	//Search Functions
+
+	function resetCountdown() {
+		clearTimeout(Search.Timer);
+		Search.Timer = setTimeout(function () {
+			doSearch(false);
+		}, 800);
+	}
+	//
+
+	function doSearch(isPaging) {
+		if (!isPaging) {
+			Search.Page = 1;
+		}
+
+		var queryBasis = "http://lr-staging.learningtapestry.com/ce-registry/search?";
+		var query = [];
+
+		//Keywords
+		var keywords = Search.Keywords.val().trim();
+		if (keywords != "") {
+			query.push({ name: "fts", value: encodeURIComponent(keywords) });
+		}
+
+		//Filters
+		var filtersRaw = Search.Filters.find(".filter");
+		filtersRaw.each(function () {
+			var filter = $(this);
+			var name = filter.find(".name").val().trim();
+			var value = filter.find(".value").val().trim();
+			if (name != "" && value != "") {
+				query.push({ name: encodeURIComponent(name), value: encodeURIComponent(value) });
+			}
+		});
+
+		//JSON
+		var jsonName = Search.JSONName.val().trim();
+		var jsonValue = Search.JSONValue.val().trim();
+		if (jsonName != "" && jsonValue != "") {
+			query.push({ name: encodeURIComponent(jsonName), value: encodeURIComponent(Search.JSONValue.val().trim()) });
+		}
+
+		var queryCombined = "start?";
+		for (var i in query) {
+			queryCombined = queryCombined + "&" + query[i].name + "=" + query[i].value;
+		}
+		queryCombined = queryCombined.replace("start?&", "").replace("start?", "");
+		var queryFinal = queryBasis + queryCombined;
+
+		if (Search.Previous == queryFinal) {
+			return;
+		}
+		Search.Previous = queryFinal;
+		Search.Query.html("<a href=\"" + queryFinal + "\" target=\"_blank\">" + queryFinal + "</a>");
+
+		$.ajax({
+			url: "@Url.Content( "~/Demo/ProxyQuery" )",
+			async: true,
+			headers: { "Accept": "application/json", "Content-type": "application/json; charset=utf-8" },
+			dataType: "json",
+			type: "POST",
+			data: JSON.stringify({ query: queryCombined }),
+			success: function (msg) {
+				console.log(msg);
+				success_doSearch(msg);
+			}
+		});
+	}
+	//
+
+	function success_doSearch(msg) {
+		if (msg.valid) {
+			var data = JSON.parse(msg.data);
+			console.log(data);
+			renderResults(data);
+		}
+	}
+	//
+</script>
+<script type="text/javascript">
+	//Rendering Functions
+
+	function renderResults(data) {
+		var box = Search.Results;
+		var template = $("#template_searchResult").html();
+		var envelopeProperties = ["envelope_community", "envelope_id", "envelope_type", "envelope_version", "resource_encoding", "resource_format"];
+
+		box.html("");
+		for (var i in data) {
+			var item = data[i];
+			var result = $(template
+				.replace(/{ceterms:name}/g, item.decoded_resource["ceterms:name"])
+				.replace(/{ceterms:description}/g, item.decoded_resource["ceterms:description"])
+				.replace(/{@@id}/g, item.decoded_resource["@@id"])
+				).appendTo(box);
+			var resourcePropertiesBox = result.find(".resourceProperties");
+			var envelopePropertiesBox = result.find(".envelopeProperties");
+			var rawDataBox = result.find(".rawData");
+			for (var j in item.decoded_resource) {
+				if (typeof (item.decoded_resource[j]) == "string") {
+					if (j == "ceterms:name" || j == "ceterms:description" || j == "@@id") {
+						continue;
+					}
+					resourcePropertiesBox.append("<div><b>" + j + ":</b> " + item.decoded_resource[j] + "</div>");
+				}
+				if (Array.isArray(item.decoded_resource[j]) && item.decoded_resource[j].length > 0 && typeof (item.decoded_resource[j][0]) == "string") {
+					resourcePropertiesBox.append("<div><b>" + j + ":</b> " + item.decoded_resource[j].join(", ") + "</div>");
+				}
+			}
+			for (var j in envelopeProperties) {
+				envelopePropertiesBox.append("<div><b>" + envelopeProperties[j] + ":</b> " + item[envelopeProperties[j]] + "</div>");
+			}
+			rawDataBox.html(JSON.stringify(item.decoded_resource, null, "\t"));
+		}
+	}
+</script>
+<style type="text/css">
+	#content { padding: 0 1vw; }
+	#cerSearch { display: flex; }
+	#leftColumn { padding: 5px; width: 300px; }
+	#rightColumn { padding: 5px; width: calc(100% - 300px); }
+	#header { margin-bottom: 10px; }
+	#header input[type=text], #header textarea { display: block; width: 100%; }
+	#header textarea { resize: vertical; min-height: 6em; max-height: 24em; }
+	#query { background-color: #EEE; padding: 5px; font-family: Consolas, 'Courier New', monospace; }
+	.buttons { text-align: right; padding: 5px 0; }
+	.filter { display: flex; padding: 5px 0; border-bottom: 1px solid #DDD; }
+	.filter * { margin: 0 2.5px; }
+	.filter input[type=text] { width: 125px; }
+	.filter button { width: auto; }
+	.result { display: flex; min-height: 400px; max-height: 600px; margin-bottom: 10px;  }
+	.result .resultHeader { background-color: #EEE; font-weight: bold; font-size: 18px; margin-bottom: 5px; }
+	.result .renderedData { width: 50%; overflow: auto; }
+	.result .renderedData div b { width: 150px; text-align: right; padding-right: 5px; opacity: 0.8; }
+	.result .rawData { width: 50%; min-height: 400px; max-height: 100%; background-color: #EEE; padding: 5px; font-family: Consolas, 'Courier New', monospace; font-size: 12px; overflow: auto; white-space: pre-wrap; }
+	.result .resourceData, .result .envelopeData { margin-bottom: 10px; }
+</style>
+<h2>CER Search Demo</h2>
+<div id="cerSearch">
+	<div id="leftColumn">
+		<h3>Filters</h3>
+		<div id="filters"></div>
+		<div class="buttons">
+			<button class="greenButton" data-action="addFilter">Add Filter</button>
+			<button class="applyButton" data-apply="txtFilters">Apply</button>
+		</div>
+	</div>
+	<div id="rightColumn">
+		<div id="header">
+			<h3>Keywords</h3>
+			<input type="text" id="txtKeywords" placeholder="full text search" />
+			<h3>JSON subdocument</h3>
+			<input type="text" id="txtJSONName" placeholder="JSON subdocument property name" />
+			<textarea id="txtJSONValue" placeholder="JSON subdocument value"></textarea>
+			<div class="buttons">
+				<button class="applyButton" data-apply="txtJSON">Apply</button>
+			</div>
+			<h3>Query</h3>
+			<div id="query"></div>
+		</div>
+		<div id="resultsBox">
+			<div id="status"></div>
+			<div id="results"></div>
+		</div>
+	</div>
+</div>
+
+<div id="templates" style="display:none">
+	<script type="text/template" id="template_filter">
+		<div class="filter">
+			<input type="text" class="name" placeholder="ceterms:name" />
+			<input type="text" class="value" placeholder="exact value" />
+			<button class="redButton" data-action="removeFilter"><i class="fa fa-close"></i></button>
+		</div>
+	</script>
+	<script type="text/template" id="template_searchResult">
+		<div class="result">
+			<div class="renderedData">
+				<div class="resourceData">
+					<div class="resultHeader">Resource Data</div>
+					<div><b>Name:</b> {ceterms:name}</div>
+					<div><b>Description:</b> {ceterms:description}</div>
+					<div><b>@@id:</b> <a href="http://lr-staging.learningtapestry.com/resources/{@@id}" target="_blank">{@@id}</a></div>
+					<div class="resourceProperties"></div>
+				</div>
+				<div class="envelopeData">
+					<div class="resultHeader">Envelope Data</div>
+					<div class="envelopeProperties"></div>
+				</div>
+			</div>
+			<div class="rawData"></div>
+		</div>
+	</script>
+</div>

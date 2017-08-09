@@ -16,13 +16,10 @@ namespace Data
     {
         public int Id { get; set; }
         public int EntityId { get; set; }
-        public int ParentTypeId { get; set; }
         public int PropertyValueId { get; set; }
         public Nullable<System.DateTime> Created { get; set; }
         public Nullable<int> CreatedById { get; set; }
-        public System.Guid ParentUid { get; set; }
     
-        public virtual Codes_EntityType Codes_EntityType { get; set; }
         public virtual Codes_PropertyValue Codes_PropertyValue { get; set; }
         public virtual Entity Entity { get; set; }
     }

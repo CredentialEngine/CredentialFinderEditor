@@ -16,27 +16,32 @@ namespace Models.ProfileModels
 		{
 			AgentRole = new Enumeration();
 			TargetOrganization = new Organization();
+			TargetCredential = new Credential();
+			TargetAssessment = new AssessmentProfile();
+			TargetLearningOpportunity = new LearningOpportunityProfile();
 		}
+
+		//parent had been an entity like credential. this may now be the context, and 
+		//will use ActedUponEntityUid separately as the target entity
 		public Guid ParentUid { get; set; }
-		public Guid ActedUponEntityUid
-		{
-			get { return ParentUid; }
-			set { ParentUid = value; }
-		}
+
+		public Guid ActedUponEntityUid { get; set; }
+		public Entity ActedUponEntity { get; set; }
+		public int ActedUponEntityId { get; set; }
+
 		public int ParentTypeId { get; set; }
 		public string ParentType { get; set; }
-		//TargetCredentialId is the parentId in credential to org roles
-		public int TargetCredentialId { get; set; }
+		public string ParentName { get; set; }
+		
 
 		public Organization ActingAgent { get; set; }
 		public int ActingAgentId { get; set; }
 		public Guid ActingAgentUid { get; set; }
 
-		public Guid ReverseAgentUid
-		{
-			get { return ActingAgentUid; }
-			set { ActingAgentUid = value; }
-		}
+		//????how is participant different from acting
+		public Guid ParticipantAgentUid { get; set; }
+		public Organization ParticipantAgent { get; set; }
+
 		public bool IsQAActionRole { get; set; }
 		public Enumeration AgentRole { get; set; }
 		//public Enumeration RoleType 
@@ -49,38 +54,67 @@ namespace Models.ProfileModels
 		public string AllRoles { get; set; } 
 		public bool IsInverseRole { get; set; }
 
+		[Obsolete]
+		public string Url { get; set; } // url
+
+		//public string SchemaTag { get; set; }
+		//public string ReverseSchemaTag { get; set; }
+
+		#region === Targets - where acted upon by the agent ======================
+
 		/// <summary>
-		/// If referenced, indicates that the TargetOrganizationId is the parent in the action
+		/// TargetCredentialId is the parentId in credential to org roles
+		/// The credential acted upon by the agent
+		/// </summary>
+		public Credential TargetCredential { get; set; }
+		public int TargetCredentialId { get; set; }
+
+		/// <summary>
+		/// If referenced, indicates that the TargetOrganizationId is the parent in the action - again acted upon by the agent
 		/// </summary>
 		public int TargetOrganizationId { get; set; }
 		public Organization TargetOrganization { get; set; }
 
-		public string Url { get; set; } // url
-
-		public string SchemaTag { get; set; }
-		public string ReverseSchemaTag { get; set; } 
 
 		/// <summary>
 		/// If referenced, indicates that the TargetAssessment is the parent in the action
 		/// </summary>
 		public AssessmentProfile TargetAssessment { get; set; }
 		public int TargetAssessmentId { get; set; }
+
+		public LearningOpportunityProfile TargetLearningOpportunity { get; set; }
 		public int TargetLearningOpportunityId { get; set; }
+
 		public string TargetCompetency { get; set; } // url
 		public string TargetCompetencyFramework { get; set; } // url
 
 		//Used for publishing
+		//TODO - make more concrete, and use entityUid to get actual entity/concrete object
 		public object TargetDetermined
 		{
 			get
 			{
-				if ( TargetCredentialId > 0 ) { return new Credential() { Id = TargetCredentialId }; }
-				else if ( TargetOrganizationId > 0 ) { return new Organization() { Id = TargetOrganizationId }; }
-				else if ( TargetAssessmentId > 0 ) { return new AssessmentProfile() { Id = TargetAssessmentId }; }
-				else if ( TargetLearningOpportunityId > 0 ) { return new LearningOpportunityProfile() { Id = TargetLearningOpportunityId }; }
-				else { return null; }
+				if ( TargetCredential != null && TargetCredential.Id != 0 )
+				{
+					return TargetCredential;
+				}
+				if ( TargetOrganization != null && TargetOrganization.Id != 0 )
+				{
+					return TargetOrganization;
+				}
+				if ( TargetAssessment != null && TargetAssessment.Id != 0 )
+				{
+					return TargetAssessment;
+				}
+				if ( TargetLearningOpportunity != null && TargetLearningOpportunity.Id != 0 )
+				{
+					return TargetLearningOpportunity;
+				}
+				return null;
 		} }
 		public object TargetOverride { get; set; }
+
+		#endregion 
 	}
 	//
 

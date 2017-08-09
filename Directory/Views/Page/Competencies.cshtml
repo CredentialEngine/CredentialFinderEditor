@@ -1,0 +1,919 @@
+﻿
+@{
+	ViewBag.Title = "Competencies";
+
+	var showFinalButtons = Request.Params[ "showFinalButtons" ] == "true";
+	var jsonStartID = int.Parse( Request.Params[ "jsonStartID" ] ?? "0" );
+	var testText = Request.Params[ "testText" ] ?? "testText";
+}
+
+<script type="text/javascript">
+	var mainFrameworkItem = {
+		children: [],
+		indents: -1,
+		id: -1,
+		grades: []
+	}
+	var frameworkItems = [];
+	var undos = [];
+	var redos = [];
+	var undoTimer = 0;
+	var saveTimer = 0;
+	var saveReminderInterval = 5 * 60 * 1000;
+	var jsonStartID = @jsonStartID;
+
+	$(document).ready(function () {
+		setupParser();
+		$("#entry").val($("#@testText").text().trim()).trigger("keyup");
+		saveUndo();
+		resetSaveReminder();
+	});
+
+	//Setup Parser
+	function setupParser() {
+		var entry = $("#entry");
+		var rawEntry = entry[0];
+		//Handle tabs
+		entry.on("keydown", function (e) {
+			var code = e.which || e.keyCode;
+			if (code == 9) {
+				saveUndo();
+				e.preventDefault();
+				var value = entry.val();
+				var start = rawEntry.selectionStart;
+				var end = rawEntry.selectionEnd;
+				if (e.shiftKey && value[start - 1] == "\t") {
+					entry.val(value.substring(0, start - 1) + value.substring(start));
+					rawEntry.selectionStart = start - 1;
+					rawEntry.selectionEnd = start - 1;
+				}
+				else if(!e.shiftKey) {
+					entry.val(value.substring(0, start) + "\t" + value.substring(start));
+					rawEntry.selectionStart = start + 1;
+					rawEntry.selectionEnd = start + 1;
+				}
+				return false;
+			}
+		});
+		//Handle pasting data
+		entry.on("paste", function (e) {
+
+			if ($("#stripLineBreaksOnPaste").prop("checked")) {
+				saveUndo();
+				var initialStart = rawEntry.selectionStart;
+				var initialEnd = rawEntry.selectionEnd;
+				var initialValue = entry.val();
+				var initialBefore = initialValue.substring(0, initialStart);
+				var initialAfter = initialValue.substring(initialEnd);
+				setTimeout(function () {
+					var newValue = entry.val();
+					var pastedLength = newValue.length - (initialValue.length - initialEnd + initialStart);
+					var pastedText = newValue.slice(initialStart, initialStart + pastedLength);
+					var desiredText = pastedText.replace(/\n/g, " ").replace(/\r\n/g, " ").trim();
+					entry.val(initialBefore + desiredText + initialAfter);
+					rawEntry.selectionStart = initialBefore.length + desiredText.length;
+					rawEntry.selectionEnd = rawEntry.selectionStart;
+				}, 1);
+			}
+		});
+		//Handle insertion of auto-tabs on shift-enter
+		entry.on("keydown", function (e) {
+			var code = e.which || e.keyCode;
+			if (code == 13 && e.shiftKey) {
+				saveUndo();
+				var initialValue = entry.val();
+				var rowNumber = initialValue.substring(0, rawEntry.selectionStart).split("\n").length;
+				var tabs = countIndents(initialValue.split("\n")[rowNumber - 1]);
+				setTimeout(function () {
+					if (tabs > 0) {
+						var toInsert = "";
+						var value = entry.val();
+						for (var i = 0; i < tabs; i++) {
+							toInsert = toInsert + "\t";
+						}
+						var initialStart = rawEntry.selectionStart;
+						entry.val(value.substring(0, rawEntry.selectionStart) + toInsert + value.substring(rawEntry.selectionEnd));
+						rawEntry.selectionStart = initialStart + tabs;
+						rawEntry.selectionEnd = rawEntry.selectionStart;
+					}
+				}, 1);
+			}
+		});
+		//Handle undo/redo
+		entry.on("change", function () {
+			saveUndo();
+			limitHistory();
+		});
+		entry.on("keydown", function (e) {
+			var code = e.which || e.keyCode;
+			if (code == 90 && e.ctrlKey && undos.length > 0) {
+				console.log("Undo");
+				e.preventDefault();
+				redos.push(entry.val());
+				entry.val(undos.pop());
+			}
+			if (code == 89 && e.ctrlKey && redos.length > 0) {
+				console.log("Redo");
+				e.preventDefault();
+				undos.push(entry.val());
+				entry.val(redos.pop());
+			}
+			limitHistory();
+		});
+		entry.on("keyup", function (e) {
+			if (!e.ctrlKey) {
+				clearTimeout(undoTimer);
+				undoTimer = setTimeout(function () {
+					saveUndo();
+				}, 500);
+			}
+		});
+		//Parse data
+		$(".process").on("click", function () {
+			parseEntry();
+		});
+		//Handle downloads
+		$(".downloadText").on("click", function () {
+			downloadText();
+		});
+		$(".downloadJSON").on("click", function () {
+			downloadJSON();
+		});
+		$(".printTable").on("click", function() {
+			showOutputTable();
+		});
+	}
+	//
+
+	//Save an undo/redo
+	function saveUndo() {
+		console.log("Saved Undo");
+		var value = $("#entry").val();
+		var test = undos.pop();
+		if (test == value) {
+			undos.push(test);
+		}
+		else {
+			undos.push(test);
+			undos.push(value);
+		}
+	}
+	//
+
+	//Parse
+	function parseEntry() {
+		parseTreeFlat();
+		console.log(frameworkItems);
+		renderTree();
+	}
+	//
+
+	function parseTreeFlat() {
+		//Reset for multi-parse
+		mainFrameworkItem.children = [];
+		frameworkItems = [];
+
+		//Continue parsing
+		var entry = $("#entry");
+		var rows = entry.val().trim().split("\n");
+		var idCounter = jsonStartID;
+		var currentItem = {
+			id: idCounter,
+			indents: 0,
+			rows: [],
+			parentID: -1,
+			children: []
+		};
+		idCounter++;
+
+		//Divide into objects
+		var previousRow = "";
+		for (var i in rows) {
+			var row = rows[i];
+			var isBlank = row.trim() == "";
+			if (isBlank) {
+				if (previousRow.trim() == "") {
+					//Ignore double blank rows
+					continue;
+				}
+				frameworkItems.push(currentItem);
+				currentItem = {
+					id: idCounter,
+					indents: 0,
+					rows: [],
+					parentID: -1,
+					children: []
+				}
+				idCounter++;
+				previousRow = row;
+			}
+			else {
+				var rowData = parseRow(row);
+				if(rowData.valid){
+					currentItem.indents = countIndents(row);
+					currentItem.rows.push(rowData);
+					previousRow = row;
+				}
+			}
+		}
+		frameworkItems.push(currentItem);
+
+		//Construct hierarchy
+		var currentParent = mainFrameworkItem;
+		var previousItem = null;
+		for (var i in frameworkItems) {
+			var item = frameworkItems[i];
+			if (item.indents == 0) {
+				//Top level child
+				currentParent = mainFrameworkItem;
+				item.parentID = mainFrameworkItem.id;
+			}
+			else if(item.indents == previousItem.indents) {
+				//Sibling
+				item.parentID = currentParent.id;
+				currentParent.children.push(item.id);
+			}
+			else if (item.indents == previousItem.indents + 1) {
+				//Child
+				currentParent = previousItem;
+				item.parentID = previousItem.id;
+				previousItem.children.push(item.id);
+			}
+			else if (item.indents < previousItem.indents) {
+				//End branch
+				var difference = previousItem.indents - item.indents;
+				for (var j = 0; j < difference; j++) {
+					currentParent = findFrameworkItem(currentParent.parentID);
+				}
+				item.parentID = currentParent.id;
+				currentParent.children.push(item.id);
+			}
+			previousItem = item;
+		}
+
+		//Compress objects
+		for (var i in frameworkItems) {
+			var item = frameworkItems[i];
+			for (var j in item.rows) {
+				var row = item.rows[j];
+				item[row.type] = typeof (item[row.type]) == "undefined" ? row.value : item[row.type] + "\n" + row.value;
+				item["text"] = row.text;
+			}
+			var replacement = {};
+			for (var j in item) {
+				if (j != "rows") {
+					replacement[j] = item[j];
+				}
+			}
+			//Handle empty values
+			handleUndefinedValue(replacement, "name", "");
+			handleUndefinedValue(replacement, "description", "");
+			handleUndefinedValue(replacement, "code", "");
+			handleUndefinedValue(replacement, "grades", findFrameworkItem(replacement.parentID).grades);
+			//Replace the item
+			frameworkItems[i] = replacement;
+		}
+
+		//Remove empty layers
+		var replacer = [];
+		for(var i in frameworkItems){
+			var item = frameworkItems[i];
+			//If the layer is empty
+			if(item.empty){
+				//Get the parent
+				var parent = findFrameworkItem(item.parentID);
+				//Reassociate links
+				var newChildren = [];
+				for(var j in parent.children){
+					if(parent.children[j] != item.id){
+						newChildren.push(parent.children[j]);
+					}
+				}
+				newChildren = newChildren.concat(item.children);
+				parent.children = newChildren;
+				for(var j in item.children){
+					findFrameworkItem(item.children[j]).parentID = parent.id;
+				}
+				//Update the parent's grade levels
+				for(var j in item.grades){
+					if(parent.grades.indexOf(item.grades[j]) == -1){
+						parent.grades.push(item.grades[j]);
+					}
+				}
+			}
+			//Otherwise, add the item
+			else{
+				replacer.push(item);
+			}
+		}
+		frameworkItems = replacer;
+
+	}
+
+	function handleUndefinedValue(item, property, value) {
+		if (typeof (item[property]) == "undefined") {
+			item[property] = value;
+			return value;
+		}
+		else {
+			return item[property];
+		}
+	}
+	//
+
+	function findFrameworkItem(id) {
+		if (id == mainFrameworkItem.id) {
+			return mainFrameworkItem;
+		}
+		for (var i in frameworkItems) {
+			if (frameworkItems[i].id == id) {
+				return frameworkItems[i];
+			}
+		}
+	}
+	//
+
+	function parseRow(row) {
+		row = row.trim();
+		var type = "";
+		var text = "";
+		var value = "";
+		var valid = true;
+		for (var i = 0; i < row.length; i++) {
+			type = type + row[i];
+			if (row[i + 1] == ":") {
+				text = row.substring(i + 2).trim();
+				break;
+			}
+		}
+		switch (type.toLowerCase()) {
+			case "n": type = "name"; value = text; break;
+			case "d": type = "description"; value = text; break;
+			case "c": type = "code"; value = text; break;
+			case "g": type = "grades"; value = splitParts(text, ",", false); break;
+			case "empty": type = "empty"; value = true; break;
+			default: valid = false; break;
+		}
+		return {
+			type: type,
+			value: value,
+			text: text,
+			valid: valid
+		};
+	}
+	//
+
+	function countIndents(text){
+		var indents = 0;
+		for(var i in text){
+			if(text[i] == "\t"){
+				indents++;
+			}
+			else{
+				return indents;
+			}
+		}
+		return indents;
+	}
+	//
+
+	function splitParts(text, separator, parse){
+		var parts = text.split(separator);
+		var result = [];
+		for (var i in parts) {
+			if (parse) {
+				result.push(parseFloat(parts[i].trim()));
+			}
+			else {
+				result.push(parts[i].trim());
+			}
+		}
+		return result;
+	}
+	//
+
+	function renderTree() {
+		var box = $("#output");
+		var template = $("#template_statement").html();
+
+		box.html("");
+		for (var i in frameworkItems) {
+			if (frameworkItems[i].parentID == -1) {
+				renderTreeItem(box, frameworkItems[i], template);
+			}
+		}
+	}
+	//
+
+	function renderTreeItem(box, item, template) {
+		var html = $(autoFillTemplate(item, template)).appendTo(box);
+		var childrenBox = html.find(".childrenBox");
+		for (var i in item.children) {
+			renderTreeItem(childrenBox, findFrameworkItem(item.children[i]), template);
+		}
+	}
+	//
+
+	function autoFillTemplate(data, template) {
+		for (var i in data) {
+			var replacer = new RegExp("{" + i + "}", "g");
+			switch (typeof (data[i])) {
+				case "string":
+				case "number":
+					template = template.replace(replacer, data[i]);
+					break;
+				case "object":
+					if (Array.isArray(data[i])) {
+						template = template.replace(replacer, data[i].join(", "));
+					}
+					break;
+				default: break;
+			}
+		}
+		return template;
+	}
+	//
+
+	//Get date (for download file names)
+	function getDateName() {
+		var date = new Date();
+		return date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate() + "_" + date.getHours() + "-" + date.getMinutes() + "-" + date.getSeconds();
+	}
+	//
+
+	//Download Text
+	function downloadText() {
+		$(".downloadText")
+			.attr("href", "data:text/plain;charset=utf-8," + encodeURIComponent($("#entry").val().replace(/\n/g, "\r\n")))
+			.attr("download", "Competency Text " + getDateName() + ".txt");
+		resetSaveReminder();
+	}
+	//
+
+	//Download JSON
+	function downloadJSON() {
+		parseEntry();
+		var output = [];
+		for (var i in frameworkItems) {
+			var item = frameworkItems[i];
+			output.push({
+				id: item.id,
+				children: item.children,
+				grades: item.grades,
+				description: (item.description.length == 0 ? item.name : item.description),
+				code: item.code
+			});
+		}
+		var outputRaw = JSON.stringify(output);
+		var outputText = outputRaw
+			.replace(/"id":/g, "id:")
+			.replace(/"children":/g, "children:")
+			.replace(/"grades":/g, "grades:")
+			.replace(/"description":/g, "description:")
+			.replace(/"code":/g, "code:");
+		$(".downloadJSON")
+			.attr("href", "data:application/json;charset=utf-8," + encodeURIComponent("var competencies = " + outputText) + ";")
+			.attr("download", "Competency Text " + getDateName() + ".json");
+	}
+	//
+
+	//Show output table
+	//10590
+	function showOutputTable(){
+		parseEntry();
+		var table = $("#outputTable");
+		table.find("tr").not(".header").remove();
+		for(var i in frameworkItems){
+			var item = frameworkItems[i];
+			table.find("tbody").append("<tr>" +
+				"<td>" + item.id + "</td>" +
+				"<td>" + (item.parentID == -1 ? "NULL" : item.parentID) + "</td>" +
+				"<td>" + determineLevelType(item) + "</td>" +
+				"<td>" + item.code + "</td>" +
+				"<td>" + (item.description.length == 0 ? item.name : item.description) + "</td>" +
+				"<td>" + "NULL" + "</td>" +
+				"<td>" + "NULL" + "</td>" +
+				"<td>" + "NULL" + "</td>" +
+				"<td>" + 0 + "</td>" +
+				"<td>" + "NULL" + "</td>" +
+				"<td>" + "NULL" + "</td>" +
+			"</tr>");
+		}
+	}
+	function determineLevelType(item){
+		return item.indents == 0 ? "Domain" : 
+			item.indents == 1 ? "Cluster" :
+			item.indents == 2 ? "Standard" :
+			item.indents >= 3 && item.children.length == 0 ? "Component" :
+			"Standard";
+	}
+	//
+
+	//Limit history
+	function limitHistory() {
+		while (undos.length > 25) {
+			console.log("Cleaning up undo");
+			undos.shift();
+		}
+		while (redos.length > 15) {
+			console.log("Cleaning up redo");
+			redos.shift();
+		}
+	}
+	//
+
+	//Remind the user to save every so often
+	function resetSaveReminder() {
+		clearTimeout(saveTimer);
+		hideSaveReminder();
+		saveTimer = setTimeout(function () {
+			showSaveReminder();
+		}, saveReminderInterval);
+	}
+	function hideSaveReminder() {
+		$("#saveReminder").fadeOut();
+	}
+	function showSaveReminder() {
+		$("#saveReminder").fadeIn();
+	}
+	//
+</script>
+<style type="text/css">
+	#content { padding: 0 10px; }
+	#editor { display: flex; min-height: 75vh; align-items: stretch; padding: 10px 0; }
+	#entryBox { display: flex; flex-direction: column; width: 50%; padding: 5px; z-index: 99; }
+	#outputBox { width: 50%; padding: 5px; }
+	#entry { flex: 100% 1 1; min-width: 100%; resize: horizontal; font-size: 14px; }
+	.buttons { display: flex; padding: 5px; }
+	.process { margin-left: auto; }
+	.statement { border-left: 5px solid #F5F5F5; margin-bottom: 5px; }
+	.statement, .statement * { font-size: 14px; }
+	.statement .stats { display: flex; background-color: #F5F5F5;  }
+	.statement .stats div { padding: 2px 10px; font-size: 10px; }
+	.statement .data > div { display: flex; }
+	.statement .title { flex: 100px 0 0; width: 100px; background-color: #F5F5F5; text-align: right; padding: 2px 5px; font-weight: bold; }
+	.statement .value { padding: 2px 5px; }
+	.statement .childrenBox { padding: 5px 10px; }
+	.statement .childrenBox:empty { padding: 0; }
+	.statement .description { white-space: pre-line; }
+	#stickyBar { display: flex; align-items: baseline; position: fixed; z-index: 999; bottom: 0; left: 0; width: 100%; height: 40px; background-color: #EEE; padding: 5px; }
+	#stickyBar .settings { }
+	#stickyBar .settings label { cursor: pointer; padding: 5px 10px; }
+	#stickyBar .stickyBarButtons { margin-left: auto;}
+	#stickyBar button { margin: 0 10px; }
+	.downloadLink { display: none; }
+	button, .linkButton { padding: 5px 10px; }
+	#saveReminder { transition: none; display: inline-block; padding: 5px; background-color: #E33; color: #FFF; font-weight: bold; }
+	#outputTable { width: 100%; max-width: none; }
+	#outputTable * { font-size: 12px; }
+
+	#guidance { display: flex; background-color: #F5F5F5; margin: 0 0 10px 0; }
+	#guidance ul { margin: 5px 0; }
+	#guidance p { padding: 0 0 5px 0; line-height: initial }
+	#guidance ul li, #guidance ol li { margin-bottom: 5px; }
+	#guidance .guidanceItem { width: 25%; padding: 10px; }
+	#guidance .fakeText { border: 1px solid #CCC; white-space: pre-wrap; padding: 5px 10px; margin-bottom: 5px; }
+	#guidance .codeLetters b { color: #0F3E63; }
+</style>
+
+<h2>Competencies</h2>
+
+<div id="guidance">
+	<div class="guidanceItem">
+		<p>The recommended steps for creating data:</p>
+		<ol>
+			<li>Open the editor and the source document side by side.</li>
+			<li>Drag the text area in the editor to make it wider if you want more room to work in.</li>
+			<li>Skim through the document and build an outline of its structure (domain, cluster, standard, component, etc.) and determine how you will interpret and convert the document's data into a normalized hierarchy of standards.</li>
+			<li>Once your outline is constructed, go back through the document and fill in all of the missing pieces.</li>
+			<li>Save early, save often!</li>
+			<li>To edit data, just open the original text file in a program like wordpad and copy/paste it into the editor. Remember to uncheck the "strip line breaks on paste" box in the bar at the bottom of the screen first.</li>
+			<li>You may instead want to use a separate program (like wordpad) to do your editing and streamline saving data, then paste the text into the editor below to check your work.</li>
+		</ol>
+	</div>
+	<div class="guidanceItem">
+		<p>Create statements with these properties:</p>
+		<ul class="codeLetters">
+			<li><b>n</b>ame</li>
+			<li><b>c</b>ode</li>
+			<li><b>d</b>escription</li>
+			<li><b>g</b>rades</li>
+		</ul>
+		<p>For example:</p>
+		<div class="fakeText">n:My statement name
+c:A.B.11.c
+d:This is the text of the description
+d:This is another paragraph in the same description
+g:K,1,2,3</div>
+		<p>Separate statements with a blank line between them.</p>
+		<p>The order of properties within a statement does not matter.</p>
+		<p>No properties are required; a statement can be as small as any one property.</p>
+	</div>
+	<div class="guidanceItem">
+		<p>Create hierarchies with indents:</p>
+		<div class="fakeText">n:Illinois Fine Arts Standards
+g:Pre-K,1,2,3,4,5,6,7,8,9,10,11,12
+
+	n:Dance
+
+		n:Creating
+		d:Anchor Standard 1: Generate and conceptualize artistic ideas and work.
+		d:Enduring Understanding: Choreographers use a variety of sources as inspiration and...
+
+			n:Explore
+			g:Pre-K
+			c:DA:Cr1.1.PK.a
+			d:Respond in movement to a variety of sensory stimuli.</div>
+	</div>
+	<div class="guidanceItem">
+		<p>More tips:</p>
+		<ul>
+			<li>Click the "Process" button every so often to check for errors in the structure of your data. If something looks wrong, check to make sure every statement is separated by a blank line and that every new line of text begins with one of the four letters (and a : ) defined for a property.</li>
+			<li>Grade levels are automatically inherited from a parent node unless you explicitly define them.</li>
+			<li>You can press Shift + Enter to create a new line with the same level of indentation as the current line.</li>
+			<li>The checkbox in the bar at the bottom of the screen will enable/disable automatic removal of line breaks when you paste something into the editor. This is useful for PDFs that force line breaks mid-paragraph, but remember to turn it off if you're cutting and pasting data within the editor and wish to preserve the line breaks.</li>
+			<li><b>Remember to save often</b> - this editor is a beta, so there may still be bugs! The undo command is not necessarily reliable here.</li>
+		</ul>
+	</div>
+</div>
+<div id="editor">
+	<div id="entryBox">
+		<div class="buttons">
+			<button class="blueButton process">Process <i class="fa fa-arrow-right"></i></button>
+		</div>
+		<textarea id="entry"></textarea>
+		<div class="buttons">
+			<button class="blueButton process">Process <i class="fa fa-arrow-right"></i></button>
+		</div>
+	</div>
+	<div id="outputBox">
+		<div id="output"></div>
+	</div>
+	<a class="downloadLink"></a>
+</div>
+@if ( showFinalButtons )
+{
+	<div id="outputTableBox">
+		<table id="outputTable">
+			<tbody>
+				<tr class="header">
+					<th>Id</th>
+					<th>ParentId</th>
+					<th>LevelType</th>
+					<th>NotationCode</th>
+					<th>Description</th>
+					<th>StandardUrl</th>
+					<th>AltUrl</th>
+					<th>StandardGuid</th>
+					<th>WarehouseTotal</th>
+					<th>GradeLevels</th>
+					<th>LastUpdated</th>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+}
+<div id="stickyBar">
+	<div class="settings">
+		<label><input type="checkbox" id="stripLineBreaksOnPaste" /> Strip Line Breaks on Paste</label>
+	</div>
+	<div class="stickyBarButtons">
+		<div id="saveReminder"><i class="fa fa-save fa-spin"></i> You haven't saved in a while. It's probably a good time to do that. <i class="fa fa-arrow-right"></i></div>
+		<a class="linkButton greenButton downloadText">Download Text <i class="fa fa-download"></i></a>
+		@if ( showFinalButtons )
+		{
+			<a class="linkButton greenButton downloadJSON">Download JSON <i class="fa fa-download"></i></a>
+			<a class="linkButton greenButton printTable">Render Table <i class="fa fa-table"></i></a>
+		}
+		<button class="blueButton process">Process Text <i class="fa fa-arrow-right"></i></button>
+	</div>
+</div>
+
+<div id="templates" style="display:none">
+	<script type="text/template" id="template_statement">
+		<div class="statement" data-id="{id}" data-parentID="{parentID}">
+			<div class="stats">
+				<div>ID: {id}</div>
+				<div>ParentID: {parentID}</div>
+				<div>ChildrenIDs: {children}</div>
+				<div>Indents: {indents}</div>
+			</div>
+			<div class="data">
+				<div class="code"><div class="title">Code</div><div class="value">{code}</div></div>
+				<div class="name"><div class="title">Name</div><div class="value">{name}</div></div>
+				<div class="description"><div class="title">Description</div><div class="value">{description}</div></div>
+				<div class="grades"><div class="title">Grades</div><div class="value">{grades}</div></div>
+			</div>
+			<div class="childrenBox"></div>
+		</div>
+	</script>
+</div>
+
+<div id="testText2" style="display:none;">
+n:Illinois Fine Arts Standards
+g:Pre-K,1,2,3,4,5,6,7,8,9,10,11,12
+
+	n:Dance
+
+		n:Creating
+		d:Anchor Standard 1: Generate and conceptualize artistic ideas and work.
+		d:Enduring Understanding: Choreographers use a variety of sources as inspiration and transform concepts and ideas into movement for artistic expression. Essential Question: What inspires choreographers to create dance?
+
+			n:Explore
+			g:Pre-K
+			c:DA:Cr1.1.PK.a
+			d:Respond in movement to a variety of sensory stimuli (for example, music/sound, visual, tactile).
+
+			n:Explore
+			g:Pre-K
+			c:DA:Cr1.1.PK.b
+			d:Find a different way to do several basic locomotor and nonlocomotor movements.
+
+			n:Explore
+			g:K
+			c:DA:Cr1.1.K.a
+			d:Respond in movement to a variety of stimuli (for example, music/ sound, text, objects, images, symbols, observed dance).
+
+			n:Explore
+			g:K
+			c:DA:Cr1.1.K.b
+			d:Explore different ways to do basic locomotor and non-locomotor movements by changing at least one of the elements of dance.
+
+		n:Creating
+		d:Anchor Standard 2: Organize and develop artistic ideas and work.
+		d:Enduring Understanding: The elements of dance, dance structures, and choreographic devices serve as both a foundation and a departure point for choreographers. Essential Question: What influences choice making in creating choreography?
+
+			n:Plan
+			g:Pre-K
+			c:DA:Cr2.1.PK.a
+			d:Improvise dance that starts and stops on cue.
+
+			n:Plan
+			g:Pre-K
+			c:DA:Cr2.1.PK.b
+			d:Engage in dance experiences moving alone or with a partner.
+
+		n:Creating
+		d:Anchor Standard 3: Revise, refine, and complete artistic work.
+		d:Enduring Understanding: Choreographers analyze, evaluate, refine, and document their work to communicate meaning.
+		d:Essential Question: How do choreographers use self-reflection, feedback from others, and documentation to improve the quality of their work?
+
+			n:Revise
+			g:Pre-K
+			c:DA:Cr3.1.PK.a
+			d:Respond to suggestions for changing movement through guided improvisational experiences.
+
+			n:Revise
+			g:Pre-K
+			c:DA:Cr3.1.PK.b
+			d:Identify parts of the body and document a body shape or position by drawing a picture.
+
+		n:Performing
+
+		n:Responding
+
+		n:Connecting
+
+	n:Media Arts
+
+		n:Creating
+
+		n:Producing
+
+		n:Responding
+
+		n:Connecting
+
+	n:Music
+
+		n:Creating
+
+		n:Performing
+
+		n:Responding
+
+		n:Connecting
+
+	n:Theatre
+
+		n:Creating
+		d:Anchor Standard 1: Generate and conceptualize artistic ideas and work.
+		d:Enduring Understanding: Theatre artists rely on intuition, curiosity, and critical inquiry. 
+		d:Essential Question: What happens when theatre artists use their imaginations and/or learned theatre skills while engaging in creative exploration and inquiry?
+
+			n:Envision/Conceptualize
+			c:Cr1.a
+			d:Conceptualize a unified piece of theatre.
+
+				g:Pre-K
+				c:TH:Cr1.1.PK.a
+				d:With prompting and support, transition between imagination and reality in dramatic play or a guided drama experience (for example, process drama, story drama, creative drama).
+
+				g:K
+				c:TH:Cr1.1.K.a
+				d:With prompting and support, invent and inhabit an imaginary elsewhere in dramatic play or a guided drama experience (for example, process drama, story drama, creative drama).
+
+				g:1
+				c:TH:Cr1.1.1.a
+				d:Propose potential choices characters could make in a guided drama experience (for example, process drama, story drama, creative drama).
+
+			n:Envision/Conceptualize
+			c:Cr1.b
+			d:Imagine technical elements for a unified drama/theatre concept.
+
+				g:Pre-K
+				c:TH:Cr1.1.PK.b
+				d:With prompting and support, use nonrepresentational materials to create props, puppets, and costume pieces for dramatic play or a guided drama experience (for example, process drama, story drama, creative drama).
+
+				g:K
+				c:TH:Cr1.1.K.b
+				d:With prompting and support, use nonrepresentational materials to create props, puppets, and costume pieces for dramatic play or a guided drama experience (for example, process drama, story drama, creative drama).
+
+				g:1
+				c:TH:Cr1.1.1.b
+				d:Collaborate with peers to conceptualize costumes and props in a guided drama experience (for example, process drama, story drama, creative drama).
+
+		n:Performing
+
+		n:Responding
+
+		n:Connecting
+
+	n:Visual Arts
+
+		n:Creating
+
+		n:Presenting
+
+		n:Responding
+
+		n:Connecting
+
+
+
+</div>
+<div id="testText" style="display:none;">
+n:Competency 1
+d:This is the description for this competency
+g:1,2,3
+c:A.1
+
+	n:Competency 1.1
+	d:Another description
+	g:1
+	c:A.1.1
+
+	n:Competency 1.2
+	d:Description here
+	g:2
+	c:A.1.2
+
+		n:Competency 1.2.a
+		d:This describes this
+		g:2
+		c:A.1.2.a
+
+			n:Competency 1.2.a.i
+			d:Yet another description
+			g:2
+			c:A.1.2.a.i
+
+		n:Competency 1.2.b
+		d:This describes this competency
+		g:2
+		c:A.1.2.b
+
+			n:Competency 1.2.b.i
+			d:More describing
+			g:2
+			c:A.1.2.b.i
+
+	n:Competency 1.3
+	d:Description goes here too
+	g:3
+	c:A.1.3
+
+n:Competency 2
+d:This is another top-level competency
+g:3,4,5
+c:A.2
+
+	n:Competency 2.1
+	d:This is another description
+	g:3,4
+	c:A.2.1
+
+		n:Competency 2.1.a
+		d:Yet one more description
+		g:3
+		c:A.2.1.a
+
+		n:Competency 2.1.b
+		d:Another of these descriptions
+		g:4
+		c:A.2.1.b
+
+	n:Competency 2.2
+	d:This describes this next competency
+	g:5
+	c:A.2.2.b</div>

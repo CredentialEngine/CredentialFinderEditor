@@ -23,7 +23,6 @@ namespace Data.Views
         public string IdentificationCode { get; set; }
         public Nullable<int> ManagingOrgId { get; set; }
         public string ManagingOrganization { get; set; }
-        public string SourceToAgentRelationship { get; set; }
         public int OrgId { get; set; }
         public string Organization { get; set; }
         public Nullable<System.DateTime> Created { get; set; }
@@ -31,8 +30,8 @@ namespace Data.Views
         public Nullable<System.DateTime> LastUpdated { get; set; }
         public Nullable<int> LastUpdatedById { get; set; }
         public System.Guid RowId { get; set; }
-        public int owingOrgId { get; set; }
-        public string owingOrganization { get; set; }
         public string availableOnlineAt { get; set; }
+        public string CTID { get; set; }
+        public string CredentialRegistryId { get; set; }
     }
 }

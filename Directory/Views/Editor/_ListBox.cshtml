@@ -1,19 +1,54 @@
-﻿@model Models.Node.Interface.ListInputSettings
-@using Models.Node.Interface;
+﻿@using Models.Node.Interface;
+@using Models;
+@model ListInputSettings
 
 @{
+    var cntr = -1;
     var items = new Dictionary<string, string>();
-    foreach ( var item in Model.CodeItems )
-    {
-        AddItem( items, item.Id.ToString(), item.Name );
+    var listItems = new List<CodeItem>();
+    var prevParent = "";
+    var indentClass = "";
+    var tooltipTemplate = "{name} - {description} - {term}";
+    var tooltipTemplate2 = "<p><b>{name}</b></p><p>{description}</p>";
+    var tooltipProperty = Model.Property;
+    if ((Model.PropertySchema ?? "") == "{none}")  {
+        tooltipProperty = "";
+
+    } else if ((Model.PropertySchema ?? "").Length > 2)  {
+        tooltipProperty = Model.PropertySchema;
     }
-    foreach ( var item in Model.EnumItems )
+
+    var tooltipVocabProperty ="";
+    var tooltipVocabClass ="hasVocabTooltip";
+
+    if ( Model.CodeItems != null )
     {
-        AddItem( items, item.Id.ToString(), item.Name );
+        foreach ( var item in Model.CodeItems )
+        {
+            AddItem( items, item.Id.ToString(), item.Name );
+            //listItems.Add( item );
+            listItems.Add( new CodeItem() { Code = item.Id.ToString(), Name = item.Name, SchemaName = item.SchemaName, Description = item.Description } );
+        }
     }
-    foreach ( var item in Model.StringItems )
+    if ( Model.EnumItems != null )
     {
-        AddItem( items, item.Key, item.Value );
+        foreach ( var item in Model.EnumItems )
+        {
+            //using the string Code instead of Id to accomodate Model.StringItems, that can have a non-integer key
+            // Code = item.CodeId.ToString(),
+            AddItem( items, item.Id.ToString(), item.Name );
+            listItems.Add( new CodeItem() { Code = item.Id.ToString(),Name = item.Name, SchemaName = item.SchemaName, Description = item.Description, ParentSchemaName = item.ParentSchemaName } ); //match the fields appropriately
+        }
+
+    }
+    if ( Model.StringItems != null )
+    {
+        //need special handling for non-integer keys
+        foreach ( var item in Model.StringItems )
+        {
+            AddItem( items, item.Key, item.Value );
+            listItems.Add( new CodeItem() { Code = item.Key, Title = item.Value, SchemaName = "", Description = "" } ); //match the fields appropriately
+        }
     }
 }
 @functions {
@@ -27,17 +62,66 @@
 }
 
 <div class="propertyBox tabItem @string.Join( " ", Model.ExtraClasses )" data-property="@Model.Property" @foreach(var item in Model.Attributes){ @Html.Raw( item.Key + "=\"" + item.Value + "\"" ) } >
-    <div class="label">@Model.Label</div>
+    <div class="label  @(Model.RequireValue ? " isRequired" : "")">@Model.Label</div>
     <div class="data">
+        @if ( tooltipProperty == "" )
+                {
+            <div class="guidance">@Html.Raw( Model.Guidance )&nbsp;<a onclick="return false" href=""></a></div>
+                }
+                else
+                {
+            <div class="guidance">@Html.Raw( Model.Guidance )&nbsp;<a onclick="return false" href="" title="@tooltipProperty" class="hasToolTip"><img src="~/Images/Icons/icon_infobubble.gif" /></a></div>
+                }
         @switch ( Model.Type )
         {
             case ListInputSettings.InterfaceType.CHECKBOX_LIST:
             {
-                <div class="guidance">@Model.Guidance</div>
+                
                 <div class="list propertyInput" data-property="@Model.Property" data-type="checkboxlist" data-valueType="number">
-                    @foreach ( var item in items )
-                    {
-                        <label><input type="checkbox" value="@item.Key" /> @item.Value</label>
+                                                             @foreach ( var item in listItems )
+                     {
+                         cntr++;
+                         var tip = tooltipTemplate.Replace( "{name}", item.Name ).Replace( "{description}", item.Description ).Replace( "{term}", item.SchemaName );
+                         
+                         if ( ( item.SchemaName ?? "" ).Length > 2 )
+                         {
+                             tooltipVocabProperty = item.SchemaName;
+                             tooltipVocabClass = "hasVocabTooltip";
+                         }
+                         else { 
+                             tooltipVocabClass = "";
+                             tooltipVocabProperty = "";
+                         }
+                                                                 
+                         if ( ( item.ParentSchemaName ?? "" ).Length > 0 )
+                         {
+                             if ( item.ParentSchemaName != prevParent )
+                            {
+                                prevParent = item.ParentSchemaName;
+                                 indentClass = "indentItem";
+                                 //if (@item.Title == "Postsecondary Level FILLER")
+                                 //not sure if will have a title
+        <label style="margin-left: -20px;">@item.ParentSchemaName</label>
+                                }
+                            }
+                            else
+                            {
+                                indentClass = "";
+                            }
+
+                            if ( Model.Property == "RoleTypeIds" )
+                            {
+
+                            }
+
+                            if ( Model.PreSelectedItem == cntr )
+                            {
+                    <label class="listItem  @string.Join( " ", indentClass ) "><input type="checkbox" value="@item.Code" checked="checked" /> @item.Title&nbsp;<img src="~/Images/Icons/icon_infobubble.gif" class="@tooltipVocabClass" data-vocabulary="@tooltipProperty" data-term="@tooltipVocabProperty" /></label>
+                         }
+                        else
+                        {
+                    <label class="listItem  @string.Join( " ", indentClass ) "><input type="checkbox" value="@item.Code" /> @item.Title&nbsp;<img src="~/Images/Icons/icon_infobubble.gif" class="@tooltipVocabClass" data-vocabulary="@tooltipProperty" data-term="@tooltipVocabProperty" /></label>
+                        }
                     }
                 </div>
             }
@@ -51,26 +135,79 @@
                     }
                     @foreach ( var item in items )
                     {
-                        <option value="@item.Key">@item.Value</option>
+                         cntr++;
+                         if ( Model.PreSelectedItem == cntr )
+                         {
+                             <option value="@item.Key" selected="selected">@item.Value</option>
+                         } else {
+                             <option value="@item.Key" >@item.Value</option>
+                         }
+                        
                     }
                 </select>
-                <div class="guidance">@Model.Guidance</div>
+                
             }
             break;
             case ListInputSettings.InterfaceType.BOOLEAN_CHECKBOX_LIST:
             {
-                <div class="guidance">@Model.Guidance</div>
+                
                 <div class="list">
                     @foreach ( var item in items )
                     {
-                        <label class="boolean"><input type="checkbox" data-type="boolean" data-property="@item.Key" class="propertyInput"  data-enableUncheck="@( Model.EnableUncheck ? "true" : "false" )" /> @item.Value</label>
+                            <label class="boolean"><input type="checkbox" data-type="boolean" data-property="@item.Key" class="propertyInput" data-enableuncheck="@( Model.EnableUncheck ? "true" : "false" )" /> @item.Value</label>
+                        
+                    }
+				</div>
+			}
+			break;
+			case ListInputSettings.InterfaceType.RADIO_LIST:
+				{
+
+                <div class="list propertyInput" data-property="@Model.Property" data-type="radiolist" data-valuetype="number">
+                    @foreach ( var item in listItems )
+                    {
+                        cntr++;
+                        var tip = tooltipTemplate.Replace( "{name}", item.Name ).Replace( "{description}", item.Description ).Replace( "{term}", item.SchemaName );
+                        if ( ( item.SchemaName ?? "" ).Length > 2 )
+                        {
+                            tooltipVocabProperty = item.SchemaName;
+                            tooltipVocabClass = "hasVocabTooltip";
+                        }
+                        else
+                        {
+                            tooltipVocabClass = "";
+                            tooltipVocabProperty = "";
+                        }
+                        if ( cntr == 0 && Model.AddNoneOption )
+                        {
+                            <label><input type="radio" name="@Model.Property" value="0" /> None&nbsp;</label>
+                        }
+                        if ( Model.PreSelectedItem == cntr )
+                        {
+                            <label ><input type="radio" name="@Model.Property" value="@item.Code" checked="checked" /> @item.Title&nbsp;<img src="~/Images/Icons/icon_infobubble.gif" class="@tooltipVocabClass" data-vocabulary="@tooltipProperty" data-term="@tooltipVocabProperty" /></label>
+                        }
+                        else
+                        {
+                            if ( ( item.ParentSchemaName ?? "" ).Length > 0 )
+                            {
+                                if ( item.ParentSchemaName != prevParent )
+                                {
+                                    prevParent = item.ParentSchemaName;
+                                    <label style="margin-left: -20px;">@item.ParentSchemaName</label>
+                                }
+                                <label style="margin-left:25px;"><input type="radio" name="@Model.Property" value="@item.Code" /> @item.Title&nbsp;<img src="~/Images/Icons/icon_infobubble.gif" class="@tooltipVocabClass" data-vocabulary="@tooltipProperty" data-term="@tooltipVocabProperty" /></label>
+                            }
+                            else
+                            {
+                                <label ><input type="radio" name="@Model.Property" value="@item.Code" /> @item.Title&nbsp;<img src="~/Images/Icons/icon_infobubble.gif" class="@tooltipVocabClass" data-vocabulary="@tooltipProperty" data-term="@tooltipVocabProperty" /></label>
+                            }
+                        }
                     }
                 </div>
             }
             break;
             case ListInputSettings.InterfaceType.BOOLEAN_RADIO_LIST:
             {
-                <div class="guidance">@Model.Guidance</div>
                 var temp = Guid.NewGuid();
                 <div class="list" data-listName="radioList_@temp">
                     @foreach ( var item in items )

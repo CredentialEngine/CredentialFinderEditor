@@ -15,23 +15,31 @@ namespace Models.Common
 			//DateEffective = new DateTime();
 			Created = new DateTime();
 			LastUpdated = new DateTime();
-			IsNewVersion = false;
+			IsStarterProfile = false;
+			//IsNewVersion = true;
 			HasCompetencies = false;
 			ChildHasCompetencies = false;
+			Publish_Type = "ceterms:entity";
+			StatusMessage = "";
 		}
 		public int Id { get; set; }
+		public bool IsStarterProfile{ get; set; }
 		public bool IsNewVersion { get; set; }
 		public bool CanEditRecord { get; set; }
 		public bool CanUserEditEntity { 
 			get { return this.CanEditRecord; }
-			set { this.CanEditRecord = value; }
+			set { 
+				this.CanEditRecord = value; 
+			}
 
 		}
+		public bool CanViewRecord { get; set; }
 		public Guid RowId { get; set; }
 		public int ParentId { get; set; }
 		public bool HasCompetencies { get; set; }
 		public bool ChildHasCompetencies { get; set; }
 		public string DateEffective { get; set; }
+		public string StatusMessage { get; set; }
 
 		public DateTime Created { get; set; }
 		public int CreatedById { get; set; }
@@ -54,6 +62,19 @@ namespace Models.Common
 		}
 		public int LastUpdatedById { get; set; }
 		public string LastUpdatedBy { get; set; }
+
+		//Publishing properties
+		public string Publish_Type { get; set; }
+		public virtual Dictionary<string, object> Publish_GetPublishableVersion()
+		{
+			return new Dictionary<string, object>()
+			{
+				{ "@type", Publish_Type },
+				{ "@id", "http://credentialregistry.org/resource/" + RowId.ToString() }
+			};
+		}
+		//
+
 	}
 	//
 

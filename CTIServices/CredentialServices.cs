@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -53,27 +54,40 @@ namespace CTIServices
 			
 			return CredentialManager.Autocomplete( where, 1, maxTerms, userId, ref pTotalRows );
 		}
-
-		public static List<string> Autocomplete_Subjects( string keyword, int maxTerms = 25 )
+		public static List<string> AutocompleteCompetencies( string keyword, int maxTerms = 25 )
 		{
-			//tough to do the user specific stuff
+			int userId = 0;
+			string where = "";
+			int pTotalRows = 0;
+			AppUser user = AccountServices.GetCurrentUser();
+			if ( user != null && user.Id > 0 )
+				userId = user.Id;
+			SetAuthorizationFilter( user, ref where );
 
-			//int userId = 0;
-			//string where = "";
-			//int pTotalRows = 0;
-			//AppUser user = AccountServices.GetCurrentUser();
-			//if ( user != null && user.Id > 0 )
-			//	userId = user.Id;
-			//SetAuthorizationFilter( user, ref where );
+			SetCompetenciesAutocompleteFilter( keyword, ref where );
 
-			List<string> list = 
-			Entity_ReferenceManager.QuickSearch_TextValue(1, 34, keyword, maxTerms );
-
-			//return CredentialManager.Autocomplete( where, 1, maxTerms, userId, ref pTotalRows );
-
-			return list;
+			return CredentialManager.Autocomplete( where, 1, maxTerms, userId, ref pTotalRows );
 		}
-		//public static List<MC.CredentialSummary> QuickSearch( string keyword = "" )
+		//public static List<string> Autocomplete_Subjects( string keyword, int maxTerms = 25 )
+		//{
+		//	//tough to do the user specific stuff
+
+		//	//int userId = 0;
+		//	//string where = "";
+		//	//int pTotalRows = 0;
+		//	//AppUser user = AccountServices.GetCurrentUser();
+		//	//if ( user != null && user.Id > 0 )
+		//	//	userId = user.Id;
+		//	//SetAuthorizationFilter( user, ref where );
+
+		//	List<string> list = 
+		//	Entity_ReferenceManager.QuickSearch_TextValue(1, 34, keyword, maxTerms );
+
+		//	//return CredentialManager.Autocomplete( where, 1, maxTerms, userId, ref pTotalRows );
+
+		//	return list;
+		//}
+		////public static List<MC.CredentialSummary> QuickSearch( string keyword = "" )
 		//{
 		//	int userId = 0;
 		//	string where = "";
@@ -108,7 +122,7 @@ namespace CTIServices
 			string AND = "";
 			int userId = AccountServices.GetCurrentUserId();
 			//string filter = " ( base.EntityUid in ( SELECT  [ParentUid] FROM [dbo].[EntityProperty_Summary] where categoryid = 2  and PropertySchemaName = 'qualityAssurance')) ";
-			string filter = " ( base.CredentialTypeSchema = 'qualityAssurance') ";
+			string filter = " (  IsAQACredential = 1 ) ";
 			//string filter = "";
 
 			if ( filter.Length > 0 )
@@ -118,7 +132,7 @@ namespace CTIServices
 				keywords = ServiceHelper.HandleApostrophes( keywords );
 				if ( keywords.IndexOf( "%" ) == -1 )
 					keywords = "%" + keywords.Trim() + "%";
-				filter = filter + AND + string.Format( " (base.name like '{0}' OR base.Description like '{0}'  OR base.Url like '{0}' OR organizationName like '{0}'  OR owingOrganization like '{0}')", keywords );
+				filter = filter + AND + string.Format( " (base.name like '{0}' OR base.Description like '{0}'  OR base.Url like '{0}' OR CreatorOrgs like '{0}'  OR OwningOrgs like '{0}')", keywords );
 			}
 			if ( orgId > 0 )
 			{
@@ -131,26 +145,49 @@ namespace CTIServices
 
 		}
 	
+		/// <summary>
+		/// Used for limited custom searches
+		/// </summary>
+		/// <param name="keywords"></param>
+		/// <param name="pageNumber"></param>
+		/// <param name="pageSize"></param>
+		/// <param name="pTotalRows"></param>
+		/// <returns></returns>
 		public static List<MC.CredentialSummary> Search( string keywords, int pageNumber, int pageSize, ref int pTotalRows )
 		{
 			string pOrderBy = "";
 			string filter = "";
-			int userId = AccountServices.GetCurrentUserId();
+			int userId = 0;
+			AppUser user = AccountServices.GetCurrentUser();
+			if ( user != null && user.Id > 0 )
+				userId = user.Id;
 
-			if ( !string.IsNullOrWhiteSpace( keywords )) 
-			{
-				keywords = ServiceHelper.HandleApostrophes( keywords );
-				if ( keywords.IndexOf( "%" ) == -1 )
-					keywords = "%" + keywords.Trim() + "%";
-				//OR base.Url like '{0}' 
-				filter = string.Format( " (base.name like '{0}' OR base.Description like '{0}'  OR organizationName like '{0}' OR owingOrganization like '{0}')", keywords );
-			}
+			SetKeywordFilter( keywords, false, ref filter );
+			SetAuthorizationFilter( user, ref filter );
+			//if ( !string.IsNullOrWhiteSpace( keywords )) 
+			//{
+			//	keywords = ServiceHelper.HandleApostrophes( keywords );
+			//	if ( keywords.IndexOf( "%" ) == -1 )
+			//		keywords = "%" + keywords.Trim() + "%";
+			//	//OR base.Url like '{0}' 
+			//	filter = string.Format( " (base.name like '{0}' OR base.Description like '{0}'  OR CreatorOrgs like '{0}' OR OwningOrgs like '{0}')", keywords );
+			//}
 			return CredentialManager.Search( filter, pOrderBy, pageNumber, pageSize, ref pTotalRows, userId );
 		}
 
+		/// <summary>
+		/// Full credentials search
+		/// </summary>
+		/// <param name="data"></param>
+		/// <param name="pTotalRows"></param>
+		/// <returns></returns>
 		public static List<MC.CredentialSummary> Search( MainSearchInput data, ref int pTotalRows )
 		{
 			string where = "";
+			DateTime start = DateTime.Now;
+			//Stopwatch stopwatch = new Stopwatch();
+			//stopwatch.Start();
+			LoggingHelper.DoTrace( 6, string.Format( "===CredentialServices.Search === Started: {0}", start ) );
 			int userId = 0;
 			List<string> competencies = new List<string>();
 
@@ -159,45 +196,122 @@ namespace CTIServices
 				userId = user.Id;
 
 			SetKeywordFilter( data.Keywords, false, ref where );
-			SearchServices.SetSubjectsFilter( data, "Credential", ref where );
+			where = where.Replace( "[USERID]", user.Id.ToString() );
+
+			SearchServices.SetSubjectsFilter( data, CodesManager.ENTITY_TYPE_CREDENTIAL, ref where );
 
 			SetAuthorizationFilter( user, ref where );
+
+			SearchServices.HandleCustomFilters( data, 58, ref where );
+
+			//Should probably move this to its own method?
+			string agentRoleTemplate = " ( id in (SELECT [CredentialId] FROM [dbo].[CredentialAgentRelationships_Summary] where RelationshipTypeId = {0} and OrgId = {1})) ";
+			int roleId = 0;
+			int orgId = 0;
+			string AND = "";
+			if ( where.Length > 0 )
+				AND = " AND ";
+
+			//Updated to use FilterV2
+			foreach( var filter in data.FiltersV2.Where(m => m.Name == "qualityAssuranceBy" ).ToList() )
+			{
+				roleId = filter.GetValueOrDefault( "RoleId", 0 );
+				orgId = filter.GetValueOrDefault( "AgentId", 0 );
+				where = where + AND + string.Format( agentRoleTemplate, roleId, orgId );
+				AND = " AND ";
+			}
+
+			/* //Retained for reference
+			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.Name == "qualityAssuranceBy" ) )
+			{
+				if ( filter.Data.ContainsKey( "RoleId" ) )
+					roleId = (int)filter.Data[ "RoleId" ];
+				if ( filter.Data.ContainsKey( "AgentId" ) )
+					orgId = ( int ) filter.Data[ "AgentId" ];
+				where = where + AND + string.Format( agentRoleTemplate, roleId, orgId );
+			}
+			*/
 
 			SetPropertiesFilter( data, ref where );
 
 			SearchServices.SetRolesFilter( data, ref where );
 			SearchServices.SetBoundariesFilter( data, ref where );
-			//SetBoundariesFilter( data, ref where );
+			//need to fix rowId
 
 			//naics, ONET
 			SetFrameworksFilter( data, ref where );
 			//Competencies
 			SetCompetenciesFilter( data, ref where, ref competencies );
-			SetCredCategoryFilter( data, ref where );
+			SetCredCategoryFilter( data, ref where ); //Not updated for FiltersV2 - I don't think we're using this anymore - NA 5/11/2017
+			SetConnectionsFilter( data, ref where );
+			
+			TimeSpan timeDifference = start.Subtract( DateTime.Now );
+			LoggingHelper.DoTrace( 5, thisClassName + string.Format( ".Search(). Filter: {0}, elapsed: {1} ", where, timeDifference.TotalSeconds ) );
+			List<MC.CredentialSummary> list = CredentialManager.Search( where, data.SortOrder, data.StartPage, data.PageSize, ref pTotalRows, userId );
 
-			return CredentialManager.Search( where, data.SortOrder, data.StartPage, data.PageSize, ref pTotalRows, userId );
+			//stopwatch.Stop();
+			timeDifference = start.Subtract( DateTime.Now );
+			LoggingHelper.DoTrace( 6, string.Format( "===CredentialServices.Search === Ended: {0}, Elapsed: {1}", DateTime.Now, timeDifference.TotalSeconds ) );
+			return list;
 		}
 	
 		private static void SetKeywordFilter(string keywords, bool isBasic, ref string where)
 		{
-			if ( string.IsNullOrWhiteSpace( keywords ) )
+			if ( string.IsNullOrWhiteSpace( keywords ) || string.IsNullOrWhiteSpace( keywords.Trim() ) )
 				return;
-			string text = " (base.name like '{0}' OR base.Description like '{0}'  OR organizationName like '{0}' OR owingOrganization like '{0}' ) ";
-			string subjectsEtc = " OR (base.Id in (SELECT c.id FROM [dbo].[Entity.Reference] a inner join Entity b on a.EntityId = b.Id inner join Credential c on b.EntityUid = c.RowId where [CategoryId] in (10,11,34 ,35) and a.TextValue like '{0}' )) ";
-			string frameworkItems = " OR (EntityUid in (SELECT EntityUid FROM [dbo].[Entity.FrameworkItemSummary_ForCredentials] a where  a.title like '{0}' )) ";
+			//OR CreatorOrgs like '{0}' 
+			bool isCustomSearch = false;
+			string text = " (base.name like '{0}' OR base.Description like '{0}'  OR base.AlternateName like '{0}' OR OwningOrganization like '{0}'  ) ";
+			//for ctid, needs a valid ctid or guid
+			if ( keywords.IndexOf("ce-") > -1 && keywords.Length == 39 )
+			{
+				text = " ( CTID = '{0}' ) ";
+				isCustomSearch = true;
+			} else if (  ServiceHelper.IsValidGuid( keywords )  )
+			{
+				text = " ( CTID = 'ce-{0}' ) ";
+				isCustomSearch = true;
+			}
+			else if ( ServiceHelper.IsInteger( keywords ) )
+			{
+				text = " ( Id = '{0}' ) ";
+				isCustomSearch = true;
+			}
+			else if ( keywords.ToLower() == "[hascredentialregistryid]" )
+			{
+				text = " ( len(Isnull(CredentialRegistryId,'') ) = 36 ) ";
+				isCustomSearch = true;
+			}
+			else if ( keywords.ToLower() == "[canedit]"  && !isBasic )
+			{
+				text = string.Format( "((base.StatusId = {0}) OR (base.Id in (SELECT cs.Id FROM [dbo].[Organization.Member] om inner join [Credential_Summary] cs on om.ParentOrgId = cs.ManagingOrgId where userId = {1}) ))", CodesManager.ENTITY_STATUS_PUBLISHED, "[USERID]" );
+				isCustomSearch = true;
+			}
+			//removed 10,11 as part of the frameworkItemSummary
+			string keywordsFilter = " OR (base.Id in (SELECT c.id FROM [dbo].[Entity.Reference] a inner join Entity b on a.EntityId = b.Id inner join Credential c on b.EntityUid = c.RowId where [CategoryId] = 35 and a.TextValue like '{0}' )) ";
+
+			string subjects = " OR  (base.EntityUid in (SELECT EntityUid FROM [Entity_Subjects] a where EntityTypeId = 1 AND a.Subject like '{0}' )) ";
+
+			string frameworkItems = " OR (EntityUid in (SELECT EntityUid FROM [dbo].[Entity.FrameworkItemSummary_ForCredentials] a where  a.title like '{0}' ) ) ";
 			string AND = "";
 			if ( where.Length > 0 )
 				AND = " AND ";
-
+			//
 			keywords = ServiceHelper.HandleApostrophes( keywords );
-			if ( keywords.IndexOf( "%" ) == -1 )
-				keywords = "%" + keywords.Trim() + "%";
+			if ( keywords.IndexOf( "%" ) == -1 && !isCustomSearch )
+			{
+				keywords = SearchServices.SearchifyWord( keywords );
+				//keywords = "%" + keywords.Trim() + "%";
+				//keywords = keywords.Replace( "&", "%" ).Replace( " and ", "%" ).Replace( " in ", "%" ).Replace( " of ", "%" );
+				//keywords = keywords.Replace( " - ", "%" );
+				//keywords = keywords.Replace( " % ", "%" );
+			}
 
 			//skip url  OR base.Url like '{0}' 
-			if ( isBasic )
+			if ( isBasic || isCustomSearch )
 				where = where + AND + string.Format( " ( " + text + " ) ", keywords );
-			else 
-				where = where + AND + string.Format( " ( " + text + subjectsEtc + frameworkItems + " ) ", keywords );
+			else
+				where = where + AND + string.Format( " ( " + text + keywordsFilter + subjects + frameworkItems + " ) ", keywords );
 			
 		}
 		
@@ -234,25 +348,87 @@ namespace CTIServices
 		private static void SetPropertiesFilter( MainSearchInput data, ref string where )
 		{
 			string AND = "";
-			string template = " ( base.EntityUid in ( SELECT  [ParentUid] FROM [dbo].[Entity.Property] where [PropertyValueId] in ({0}))) ";
-			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.CategoryId >= 2 && s.CategoryId < 5 ) )
+			string searchCategories = UtilityManager.GetAppKeyValue( "credSearchCategories", "21,37," );
+			string template = " ( base.Id in ( SELECT  [EntityBaseId] FROM [dbo].[EntityProperty_Summary] where EntityTypeId= 1 AND [PropertyValueId] in ({0}))) ";
+			//.Where( s => s.CategoryId >= 2 && s.CategoryId < 5 ) 
+
+			//Updated to use FiltersV2
+			string next = "";
+			if ( where.Length > 0 )
+				AND = " AND ";
+			foreach ( var filter in data.FiltersV2.Where( m => m.Type == MainSearchFilterV2Types.CODE ).ToList() )
 			{
-				string next = "";
-				if ( where.Length > 0 )
-					AND = " AND ";
-				foreach ( string item in filter.Items )
+				var item = filter.AsCodeItem();
+				if ( searchCategories.Contains( item.CategoryId.ToString() ) ) 
 				{
-					next += item + ",";
+					next += item.Id + ",";
 				}
-				next = next.Trim( ',' );
+			}
+			next = next.Trim( ',' );
+			if ( !string.IsNullOrWhiteSpace( next ) )
+			{
 				where = where + AND + string.Format( template, next );
 			}
+
+			/* //Retained for reference
+			foreach ( MainSearchFilter filter in data.Filters)
+			{
+				if ( searchCategories.IndexOf( filter.CategoryId.ToString() ) > -1 )
+				{
+					string next = "";
+					if ( where.Length > 0 )
+						AND = " AND ";
+					foreach ( string item in filter.Items )
+					{
+						next += item + ",";
+					}
+					next = next.Trim( ',' );
+					where = where + AND + string.Format( template, next );
+				}
+			}
+			*/
 		}
 		private static void SetFrameworksFilter( MainSearchInput data, ref string where )
 		{
 			string AND = "";
-			string codeTemplate = "  (base.Id in (SELECT c.id FROM [dbo].[Entity.FrameworkItemSummary] a inner join Entity b on a.EntityId = b.Id inner join Credential c on b.EntityUid = c.RowId where [CategoryId] = {0} and ([CodeGroup] in ({1})  OR ([CodeId] in ({1}) )  )) ) ";
+			string codeTemplate = "  (base.Id in (SELECT c.id FROM [dbo].[Entity.FrameworkItemSummary] a inner join Entity b on a.EntityId = b.Id inner join Credential c on b.EntityUid = c.RowId where [CategoryId] = {0} and ([CodeGroup] in ({1})  OR ([CodeId] in ({2}) )  )) ) ";
+
+			
 			//string codeTemplate1 = "  (base.Id in (SELECT c.id FROM [dbo].[Entity.FrameworkItemSummary] a inner join Entity b on a.EntityId = b.Id inner join Credential c on b.EntityUid = c.RowId where [CategoryId] = {0} and [CodeId] in ({1}))  ) ";
+
+			//Updated to use FiltersV2
+			string next = "";
+			string groups = "";
+			if ( where.Length > 0 )
+				AND = " AND ";
+			var categoryID = 0;
+			foreach( var filter in data.FiltersV2.Where(m => m.Type == MainSearchFilterV2Types.FRAMEWORK ) )
+			{
+				var item = filter.AsCodeItem();
+				var isTopLevel = filter.GetValueOrDefault<bool>( "IsTopLevel", false );
+				if( item.CategoryId == 10 || item.CategoryId == 11 )
+				{
+					categoryID = item.CategoryId;
+					if ( isTopLevel )
+						groups += item.Id + ",";
+					else
+						next += item.Id + ",";
+				}
+			}
+			if ( next.Length > 0 )
+				next = next.Trim( ',' );
+			else
+				next = "''";
+			if ( groups.Length > 0 )
+				groups = groups.Trim( ',' );
+			else
+				groups = "''";
+			if ( groups != "''" || next != "''" )
+			{
+				where = where + AND + string.Format( codeTemplate, categoryID, groups, next );
+			}
+
+			/* //Retained for reference
 			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.CategoryId == 10 || s.CategoryId == 11 ) )
 			{
 				string next = "";
@@ -265,7 +441,8 @@ namespace CTIServices
 				next = next.Trim( ',' );
 				where = where + AND + string.Format( codeTemplate, filter.CategoryId, next );
 			}
-}
+			*/
+		}
 		private static void SetCompetenciesAutocompleteFilter( string keywords, ref string where)
 		{
 			List<string> competencies = new List<string>();
@@ -280,15 +457,49 @@ namespace CTIServices
 			string AND = "";
 			string OR = "";
 			string keyword = "";
-			string template = " ( base.Id in (SELECT distinct  CredentialId FROM [dbo].[ConditionProfile_LearningOpp_Competencies_Summary]  where AlignmentType in ('teaches', 'assesses') AND ({0}) ) ) ";
+			//just learning opps
+			//string template = " ( base.Id in (SELECT distinct  CredentialId FROM [dbo].[ConditionProfile_Competencies_Summary]  where AlignmentType in ('teaches', 'assesses') AND ({0}) ) ) ";
+			//learning opps and asmts:
+			string template = " ( base.Id in (SELECT distinct  CredentialId FROM [dbo].[ConditionProfile_Competencies_Summary]  where ({0}) ) ) ";
+			//
 			string phraseTemplate = " ([Name] like '%{0}%' OR [Description] like '%{0}%') ";
 			//
+
+			//Updated to use FiltersV2
+			string next = "";
+			if ( where.Length > 0 )
+				AND = " AND ";
+			foreach ( var filter in data.FiltersV2.Where(m => m.Name == "competencies" ) )
+			{
+				var text = filter.AsText();
+
+				//No idea what this is supposed to do
+				try
+				{
+					if ( text.IndexOf( " - " ) > -1 )
+					{
+						text = text.Substring( text.IndexOf( " -- " ) + 4 );
+					}
+				}
+				catch { }
+
+				competencies.Add( text.Trim() );
+				next += OR + string.Format( phraseTemplate, text.Trim() );
+				OR = " OR ";
+
+			}
+			if ( !string.IsNullOrWhiteSpace( next ) )
+			{
+				where = where + AND + string.Format( template, next );
+			}
+
+			/* //Retained for reference
 			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.Name == "competencies" ) )
 			{
 				string next = "";
 				if ( where.Length > 0 )
 					AND = " AND ";
-				foreach ( string item in filter.Items )
+				foreach ( string item in filter.Texts )
 				{
 					keyword = ServiceHelper.HandleApostrophes( item );
 					//if ( keyword.IndexOf( "%" ) == -1 )
@@ -296,16 +507,24 @@ namespace CTIServices
 					if ( keyword.IndexOf( ";" ) > -1 )
 					{
 						var words = keyword.Split( ';' );
+						string nextWord = "";
 						foreach ( string word in words )
 						{
-							competencies.Add( word.Trim() );
-							next += OR + string.Format( phraseTemplate, word.Trim() );
+							nextWord = word;
+							if ( nextWord.IndexOf( " - " ) > -1 )
+								nextWord = nextWord.Substring( nextWord.IndexOf( " -- " ) + 4 );
+
+							competencies.Add( nextWord.Trim() );
+							next += OR + string.Format( phraseTemplate, nextWord.Trim() );
 							OR = " OR ";
 						}
 
 					}
 					else
 					{
+						if ( keyword.IndexOf( " -- " ) > -1 )
+							keyword = keyword.Substring( keyword.IndexOf( " - " ) + 4 );
+
 						competencies.Add( keyword.Trim() );
 						//next = "%" + keyword.Trim() + "%";
 						next = string.Format( phraseTemplate, keyword.Trim() );
@@ -320,6 +539,7 @@ namespace CTIServices
 
 				break;
 			}
+			*/
 		}
 		//
 		private static void SetCredCategoryFilter( MainSearchInput data, ref string where )
@@ -340,94 +560,177 @@ namespace CTIServices
 			}
 		}
 
+		public static void SetConnectionsFilter( MainSearchInput data, ref string where )
+		{
+			string AND = "";
+			string OR = "";
+			if ( where.Length > 0 )
+				AND = " AND ";
+
+			//Should probably get this from the database
+			MC.Enumeration entity = CodesManager.GetCredentialsConditionProfileTypes();
+
+			var validConnections = new List<string>(); 
+			//{ 
+			//	"requires", 
+			//	"recommends", 
+			//	"requiredFor", 
+			//	"isRecommendedFor", 
+			//	//"renewal", //Not a connection type
+			//	"isAdvancedStandingFor", 
+			//	"advancedStandingFrom", 
+			//	"preparationFor", 
+			//	"preparationFrom", 
+			//	"isPartOf", 
+			//	"hasPart"	
+			//};
+			//validConnections = validConnections.ConvertAll( m => m.ToLower() ); //Makes comparisons easier when combined with the .ToLower() below
+			validConnections = entity.Items.Select(s => s.SchemaName.ToLower()).ToList(); 
+
+			string conditionTemplate = " {0}Count > 0 ";
+
+			//Updated for FiltersV2
+			string next = "";
+			string condition = "";
+			if ( where.Length > 0 )
+				AND = " AND ";
+			foreach ( var filter in data.FiltersV2.Where(m => m.Type == MainSearchFilterV2Types.CODE ) )
+			{
+				var item = filter.AsCodeItem();
+				if( item.CategoryId != 15 )
+				{
+					continue;
+				}
+
+				//Prevent query hijack attacks
+				if ( validConnections.Contains( item.SchemaName.ToLower() ) )
+				{
+					condition = item.SchemaName;
+					next += OR + string.Format( conditionTemplate, condition );
+					OR = " OR ";
+				}
+			}
+			next = next.Trim();
+			next = next.Replace( "ceterms:", "" );
+			if ( !string.IsNullOrWhiteSpace( next ) )
+			{
+				where = where + AND + "(" + next + ")";
+			}
+
+			/* //Retained for reference
+			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.CategoryId == 15 ) )
+			{
+				string next = "";
+				string condition = "";
+				if ( where.Length > 0 )
+					AND = " AND ";
+
+				/*foreach ( string item in filter.Items )
+				{
+					if ( item.Equals( "1" ) )
+						condition = "Requires";
+					else if ( item.Equals( "2" ) )
+						condition = "recommends";
+					else if ( item.Equals( "3" ) )
+						condition = "requiredFor";
+					else if ( item.Equals( "4" ) )
+						condition = "isRecommendedFor";
+					else if ( item.Equals( "5" ) )
+						condition = "renewal";
+					else if ( item.Equals( "6" ) )
+						condition = "isAdvancedStandingFor";
+					else if ( item.Equals( "7" ) )
+						condition = "advancedStandingFrom";
+					else if ( item.Equals( "8" ) )
+						condition = "preparationFor";
+					else if ( item.Equals( "9" ) )
+						condition = "preparationFrom";
+					else if ( item.Equals( "2293" ) )
+						condition = "isPartOf";
+					else if ( item.Equals( "2294" ) )
+						condition = "hasPart";
+
+					next += OR + string.Format( conditionTemplate, condition );
+					OR = " OR ";
+				}*//*
+				foreach ( var item in filter.Schemas )
+				{
+					//Prevent query hijack attacks
+					if ( validConnections.Contains( item.ToLower() ) )
+					{
+						condition = item;
+						next += OR + string.Format( conditionTemplate, condition );
+						OR = " OR ";
+					}
+				}
+				next = next.Trim();
+				next = next.Replace( "ceterms:", "" );
+				where = where + AND + "(" +  next + ")";
+			}
+			*/
+		}
+		//private string GetCondtionSchema( string id )
+		//{
+
+		//}
+
+
+		public static List<MC.Entity> CredentialAssetsSearch( int credentialId )
+		{
+			//SetKeywordFilter( keywords, false, ref filter );
+
+			return CredentialManager.CredentialAssetsSearch( credentialId );
+		}
 		#endregion
 
 		#region Retrievals
-		public static MC.Credential GetCredential( int id, bool forEditView = false, bool isNewVersion = true)
+		public static MC.Credential GetForEdit( int id )
 		{
-
-			MC.Credential cred = CredentialManager.Credential_Get( id, forEditView, isNewVersion );
-
-			//get properties
+			MC.Credential cred = CredentialManager.GetForEdit( id );
 			return cred;
 		}
+
 		/// <summary>
-		/// Get a minimal credential
+		/// Get a minimal credential - typically for a link, or need just basic properties
 		/// </summary>
 		/// <param name="id"></param>
 		/// <returns></returns>
-		public static MC.Credential GetBasicCredential( int id, bool isNewVersion = true )
+		public static MC.Credential GetBasicCredential( int credentialId )
 		{
-
-			MC.Credential cred = CredentialManager.Credential_GetBasic( id, false, false );
-
-			return cred;
+			return CredentialManager.GetBasic( credentialId );
 		}
-		public static MC.Credential GetBasicCredential( Guid uid, bool forEditView = false, bool isNewVersion = true )
-		{
-			return CredentialManager.Credential_GetByRowId( uid,false, false, forEditView );
-		
-		}
-
+	
 		/// <summary>
-		/// Get a 'light' credential by Id
-		/// This will return mimimum information, and NO child properties
-		/// Used by search, so user check is not necessary as done by search
+		/// Get a minimal credential - typically for a link, or need just basic properties
 		/// </summary>
 		/// <param name="rowId"></param>
 		/// <returns></returns>
-		public static MC.CredentialSummary GetLightCredentialByRowId( string rowId )
+		public static MC.Credential GetBasicCredentialAsLink( Guid rowId )
 		{
-			if ( !CredentialManager.IsValidGuid( rowId ) )
-				return null;
-
-			string where = string.Format( " EntityUid = '{0}'", rowId );
-			int pTotalRows = 0;
-
-			List<MC.CredentialSummary> list = CredentialManager.Search( where, "", 1, 50, ref pTotalRows );
-
-			if ( list.Count > 0 )
-				return list[ 0 ];
-			else
-				return null;
+			return CredentialManager.GetBasic( rowId, false, true);
 		}
-
+		public static MC.Credential GetBasicCredential( Guid rowId )
+		{
+			return CredentialManager.GetBasic( rowId, false, false );
+		}
 		/// <summary>
-		/// Get a 'light' credential by Id
-		/// This will return mimimum information, and NO child properties
-		/// Used by search, so user check is not necessary as done by search
+		/// Get a credential for detailed display
 		/// </summary>
-		/// <param name="credentialId"></param>
+		/// <param name="id"></param>
+		/// <param name="user"></param>
+		/// <param name="skippingCache">If true, do not use the cached version</param>
 		/// <returns></returns>
-		public static MC.CredentialSummary GetLightCredentialById( int credentialId )
+		public static MC.Credential GetCredentialDetail( int id, AppUser user, bool skippingCache = false )
 		{
-			if ( credentialId < 1 )
-				return null;
-			string where = string.Format( " base.Id = {0}", credentialId );
-			int pTotalRows = 0;
-
-			List<MC.CredentialSummary> list = Mgr.Search( where, "", 1, 50, ref pTotalRows );
-
-			if ( list.Count > 0 )
-				return list[ 0 ];
-			else
-				return null;
-		}
-		public static MC.Credential GetCredentialDetail( int id )
-		{
-			AppUser user = AccountServices.GetCurrentUser();
-			return GetCredentialDetail( id, user );
-
-		}
-		public static MC.Credential GetCredentialDetail( int id, AppUser user )
-		{
+			//
 			string statusMessage = "";
 			int cacheMinutes= UtilityManager.GetAppKeyValue( "credentialCacheMinutes", 0 );
 			DateTime maxTime  = DateTime.Now.AddMinutes( cacheMinutes * -1 );
 
 			string key = "credential_" + id.ToString();
 
-			if ( HttpRuntime.Cache[ key ] != null && cacheMinutes > 0 )
+			if ( skippingCache ==  false 
+				&& HttpRuntime.Cache[ key ] != null && cacheMinutes > 0 )
 			{
 				var cache = ( CachedCredential ) HttpRuntime.Cache[ key ];
 				try
@@ -451,12 +754,15 @@ namespace CTIServices
 			}
 			else
 			{
-				LoggingHelper.DoTrace( 6, string.Format( "****** CredentialServices.GetCredentialDetail === Retrieving full version of credential, Id: {0}", id ) );
+				LoggingHelper.DoTrace( 8, string.Format( "****** CredentialServices.GetCredentialDetail === Retrieving full version of credential, Id: {0}", id ) );
 			}
 
 			DateTime start = DateTime.Now;
 
-			MC.Credential entity = CredentialManager.Credential_Get( id, false, true );
+			CredentialRequest cr = new CredentialRequest();
+			cr.IsDetailRequest();
+
+			MC.Credential entity = CredentialManager.GetForDetail( id, cr );
 			if ( CanUserUpdateCredential( entity, user, ref statusMessage ) )
 				entity.CanUserEditEntity = true;
 
@@ -496,6 +802,32 @@ namespace CTIServices
 			return entity;
 		}
 
+
+		/// <summary>
+		/// Get credential in preparation to publish
+		/// </summary>
+		/// <param name="id"></param>
+		/// <param name="user"></param>
+		/// <returns></returns>
+		public static MC.Credential GetCredentialForPublish( int id, AppUser user )
+		{
+			//NO caching for publishing
+			string statusMessage = "";
+			
+			DateTime start = DateTime.Now;
+
+			//not used
+
+			CredentialRequest cr = new CredentialRequest();
+			cr.IsPublishRequest();
+
+			MC.Credential entity = CredentialManager.GetForDetail( id, cr );
+			if ( CanUserUpdateCredential( entity, user, ref statusMessage ) )
+				entity.CanUserEditEntity = true;
+
+			return entity;
+		}
+
 		/// <summary>
 		/// Retrieve Credential for compare purposes
 		/// - name, description, cred type, education level, 
@@ -510,12 +842,6 @@ namespace CTIServices
 		{
 			//not clear if checks necessary, as interface only allows selection of those to which the user has access.
 			AppUser user = AccountServices.GetCurrentUser();
-			if ( Utilities.UtilityManager.GetAppKeyValue( "usingNewCompareMethod", true ) == false )
-			{
-				LoggingHelper.DoTrace( 2, string.Format( "GetCredentialForCompare - using OLD GetCredentialDetail for cred: {0}", id ) );
-
-				return GetCredentialDetail( id, user );
-			}
 
 			LoggingHelper.DoTrace( 2, string.Format( "GetCredentialForCompare - using new compare get for cred: {0}", id ) );
 			//================================================
@@ -539,7 +865,7 @@ namespace CTIServices
 
 			DateTime start = DateTime.Now;
 
-			entity = CredentialManager.Credential_Get( id, cr );
+			entity = CredentialManager.GetForCompare( id, cr );
 
 			if ( CanUserUpdateCredential( entity, user, ref statusMessage ) )
 				entity.CanUserEditEntity = true;
@@ -631,7 +957,7 @@ namespace CTIServices
 				return true;
 			else if ( AccountServices.IsUserSiteStaff( user ) )
 				return true;
-			MC.Credential entity = GetBasicCredential( credentialUid, false );
+			MC.Credential entity = GetBasicCredential( credentialUid );
 
 			return CanUserUpdateCredential( entity, user, ref status );
 		}
@@ -663,6 +989,42 @@ namespace CTIServices
 			return isValid;
 		}
 
+		/// <summary>
+		/// Determine if user can view the credential
+		/// - if published, all can view
+		/// - if private, only staff, select roles, or user from the owning org can view
+		/// </summary>
+		/// <param name="credentialId"></param>
+		/// <param name="user"></param>
+		/// <returns></returns>
+		public static bool CanUserViewCredential( int credentialId, AppUser user, ref MC.Credential entity )
+		{
+			bool isValid = false;
+			if ( credentialId == 0 )
+				return false;
+
+			entity = GetBasicCredential( credentialId );
+			if ( entity.Id == 0 )
+				return false;
+			if ( entity.StatusId == CodesManager.ENTITY_STATUS_PUBLISHED )
+				return true;
+
+			if ( user == null || user.Id == 0 )
+				return false;
+			else if ( user.UserRoles.Contains( "Administrator" )
+			  || user.UserRoles.Contains( "Site Manager" )
+			  || user.UserRoles.Contains( "Site Staff" )
+			  || user.UserRoles.Contains( "Site Partner" )
+			  || user.UserRoles.Contains( "Site Reader" ) //????
+				)
+				return true;
+
+			//is a member of the credential managing organization 
+			if ( OrganizationServices.IsOrganizationMember( user.Id, entity.ManagingOrgId ) )
+				return true;
+
+			return isValid;
+		}
 
 		/// <summary>
 		/// Determine if user has edit access to the credential profile
@@ -700,16 +1062,18 @@ namespace CTIServices
 		/// </summary>
 		/// <param name="entity"></param>
 		/// <returns></returns>
-		public int Credential_Add( MC.Credential entity, AppUser user, ref bool valid, ref string status )
+		public int Add( MC.Credential entity, AppUser user, ref bool valid, ref string status )
 		{
 			//, bool isNewVersion = true
+			entity.CreatedById = entity.LastUpdatedById = user.Id;
+
 			LoggingHelper.DoTrace( 5, string.Format( thisClassName + ".Credential_Add. Credential: {0}, userId: {1}", entity.Name, entity.CreatedById ) );
 			var id = 0;
 			List<string> messages = new List<string>();
 			Mgr mgr = new Mgr();
-			if ( !ValidateCredential( entity, ref messages ) )
+			if ( !ValidateCredential( entity, false, ref messages ) )
 			{
-				status = string.Join( ",", messages.ToArray() );
+				status = string.Join( "<br/>", messages.ToArray() );
 				valid = false;
 				return 0;
 			}
@@ -719,14 +1083,25 @@ namespace CTIServices
 				//entity.IsNewVersion = isNewVersion;
 
 				//set the managing orgId
-				entity.ManagingOrgId = OrganizationManager.GetPrimaryOrganizationId( user.Id );
+				if ( entity.ManagingOrgId == 0 )
+				{
+					MC.Organization org = OrganizationManager.GetForSummary( entity.OwningAgentUid );
+					entity.ManagingOrgId = org.Id;
+					//entity.ManagingOrgId = OrganizationManager.GetPrimaryOrganizationId( user.Id );
+				}
 
-				id = mgr.Credential_Add( entity, ref status );
+				id = mgr.Add( entity, ref status );
 				valid = id > 0;
 				if ( id > 0 )
 				{
 					ConsoleMessageHelper.SetConsoleInfoMessage( "Successfully Added Credential" );
 					activityMgr.AddActivity( "Credential", "Add", string.Format("{0} added a new credential: {1}", user.FullName(), entity.Name), entity.CreatedById, 0, id );
+
+					string url = UtilityManager.FormatAbsoluteUrl( "/editor/Credential/" + id.ToString(), true );
+					//notify administration
+					string message = string.Format( "New Credential. <ul><li>Credential Id: {0}</li><li><a href='{4}'>Credential: {1}</a></li><li>Description:</br>{2}</li><li>Created By: {3}</li></ul>", entity.Id, entity.Name, entity.Description, user.FullName(), url );
+
+					Utilities.EmailManager.SendSiteEmail( "New Credential has been created", message );
 				}
 			}
 			catch ( Exception ex )
@@ -747,23 +1122,27 @@ namespace CTIServices
 		/// <returns></returns>
 		public bool Credential_Save( MC.Credential entity, AppUser user, ref string status )
 		{
-			entity.IsNewVersion = true;
+			//entity.IsNewVersion = true;
 			return Credential_Update( entity, user, ref status );
 		}
 
 		public bool Credential_Update( MC.Credential entity, AppUser user, ref string status )
 		{
+			entity.LastUpdatedById = user.Id;
 			LoggingHelper.DoTrace( 5, string.Format( thisClassName + ".Credential_Update. CredentialId: {0}, userId: {1}", entity.Id, entity.LastUpdatedById ) );
 			Mgr mgr = new Mgr();
 			bool valid = true;
-			if ( !ValidateCredential( entity, ref messages ) )
+			if ( !ValidateCredential( entity, false, ref messages ) )
 			{
-				status = string.Join( ",", messages.ToArray() );
+				status = string.Join( "<br/>", messages.ToArray() );
 				return false;
 			}
 			try
 			{
-				valid = mgr.Credential_Update( entity, ref status );
+				if ( entity.ManagingOrgId == 0 )
+					entity.ManagingOrgId = OrganizationManager.GetPrimaryOrganizationId( user.Id );
+
+				valid = mgr.Update( entity, ref status );
 				if ( valid )
 				{
 					ConsoleMessageHelper.SetConsoleInfoMessage( "Successfully Updated Credential" );
@@ -821,87 +1200,56 @@ namespace CTIServices
 			return valid;
 		}
 
-		//[Obsolete]
-		//public bool DeleteProfile( int profileId, string profileName, AppUser user, ref string status )
-		//{
-		//	//TODO - need to validate user has access to the current credential
-		//	//		- either interface passes the credentialId or look up based on clientProfile
-		//	bool valid = true;
-		//	try
-		//	{
-		//		switch ( profileName.ToLower() )
-		//		{
-
-		//			case "durationprofile":
-		//				//valid = new CredentialTimeToEarnManager().Credential_TimeToEarnDelete( profileId, ref status );
-
-		//				valid = new DurationProfileManager().DurationProfile_Delete( profileId, ref status );
-		//				break;
-		//			case "geocoordinates":
-		//				valid = new RegionsManager().GeoCoordinate_Delete( profileId, ref status );
-		//				break;
-		//			case "jurisdictionprofile":
-		//				valid = new RegionsManager().JurisdictionProfile_Delete( profileId, ref status );
-		//				break;
-		//			case "organizationrole":
-		//				valid = new OrganizationRoleManager().CredentialOrgRole_Delete( profileId, ref status );
-		//				break;
-		//			case "qualityassuranceaction":
-		//				valid = new OrganizationRoleManager().CredentialOrgRole_Delete( profileId, ref status );
-		//				break;
-		//			case "conditionprofile":
-		//				valid = new ConnectionProfileManager().ConditionProfile_Delete( profileId, ref status );
-		//				break;
-		//			case "taskprofile":
-		//				valid = new Entity_TaskProfileManager().TaskProfile_Delete( profileId, ref status );
-		//				break;
-		//			case "remove":
-		//				valid = new Entity_RevocationProfileManager().Delete( profileId, ref status );
-		//				break;
-		//			case "revocationprofile":
-		//				valid = new Entity_RevocationProfileManager().Delete( profileId, ref status );
-		//				break;
-		//			case "urlprofile":
-		//				valid = new Entity_ReferenceManager().Delete( profileId, ref status );
-		//				break;
-		//			default:
-		//				valid = false;
-		//			status = "Deleting the requested clientProfile is not handled at this time.";
-		//				return false;
-		//		}
-			
-
-		//		if ( valid )
-		//		{
-		//			//if valid, status contains the cred name and id
-		//			activityMgr.AddActivity( "Credential Profile", "Delete profileName", string.Format( "{0} deleted credential clientProfile {1}", user.FullName(), profileName ), user.Id, 0, profileId );
-		//			status = "";
-		//		}
-		//	}
-		//	catch ( Exception ex )
-		//	{
-		//		LoggingHelper.LogError( ex, thisClassName + ".DeleteProfile" );
-		//		status = ex.Message;
-		//		valid = false;
-		//	}
-
-		//	return valid;
-		//}
-		private bool ValidateCredential( MC.Credential entity, ref List<string> messages )
+	
+		private bool ValidateCredential( MC.Credential entity, bool skippingCredentialTypeEdit, ref List<string> messages )
 		{
 			bool isValid = true;
 //			List<string> messages = new List<string>();
 			if ( string.IsNullOrWhiteSpace( entity.Name ) )
 				messages.Add("Credential name is required");
 
-			if ( string.IsNullOrWhiteSpace( entity.Description ) )
+			if ( entity.IsDescriptionRequired && string.IsNullOrWhiteSpace( entity.Description ) )
 				messages.Add( "Credential description is required" );
+			//entity.IsNewVersion && 
+			//if ( entity.Id == 0 )
+			//{		}
+				if ( !ServiceHelper.IsValidGuid( entity.OwningAgentUid ) )
+				{
+					messages.Add( "An owning organization must be selected" );
+				}
+
+				if ( entity.OwnerRoles == null || entity.OwnerRoles.Items.Count == 0 )
+				{
+					messages.Add( "Invalid request, please select one or more roles for the owing agent." );
+				}
+
+			//if ( entity.CredentialOrganizationTypeId.GetFirstItemId() < 1 )
+			//if ( entity.CredentialOrganizationTypeId < 1 )
+			//{
+			//	messages.Add( "The type of owning organization must be selected" );
+			//}
+
+			//if ( entity.EarningCredentialPrimaryMethodId < 1 )
+			//{
+			//	messages.Add( "Select the primary method to earn this credential" );
+			//}
+			
 
 			//must have a type
-			if ( CodesManager.GetEnumerationSelection( entity.CredentialType ) == 0
-				&& string.IsNullOrWhiteSpace( entity.CredentialType.OtherValue))
-				messages.Add( "Credential type is required" );
+			//==> unless from the quick add??
 
+			if ( CodesManager.GetEnumerationSelection( entity.CredentialType ) == 0
+				&& string.IsNullOrWhiteSpace( entity.CredentialType.OtherValue ) )
+			{
+				if ( skippingCredentialTypeEdit == false )
+				{
+					//OR set a default value?
+					messages.Add( "Credential type is required" );
+				}
+			}
+
+			if ( string.IsNullOrWhiteSpace( entity.SubjectWebpage ) )
+				messages.Add( "Subject Webpage is required" );
 
 			if ( messages.Count > 0 )
 				isValid = false;
@@ -997,7 +1345,7 @@ namespace CTIServices
 
 
 		//		if ( !valid )
-		//			status += string.Join( ",", messages.ToArray() );
+		//			status += string.Join( "<br/>", messages.ToArray() );
 
 		//		if ( valid )
 		//		{
@@ -1038,7 +1386,7 @@ namespace CTIServices
 		//		}
 
 		//		if ( !valid )
-		//			status += string.Join( ",", messages.ToArray() );
+		//			status += string.Join( "<br/>", messages.ToArray() );
 		//		count += actionsCount;
 
 		//		if ( valid )
@@ -1098,7 +1446,7 @@ namespace CTIServices
 		//	}
 		//	if ( messages.Count > 0 )
 		//	{
-		//		status += string.Join( ",", messages.ToArray() );
+		//		status += string.Join( "<br/>", messages.ToArray() );
 		//		return false;
 		//	}
 		//	OrganizationRoleManager mgr = new OrganizationRoleManager();
@@ -1116,7 +1464,7 @@ namespace CTIServices
 		//		if ( mgr.Credential_UpdateOrganizationRoleProfile( entity, credentialId, user.Id, ref messages ) == false )
 		//		{
 		//			valid = false;
-		//			status += string.Join( ",", messages.ToArray() );
+		//			status += string.Join( "<br/>", messages.ToArray() );
 		//		}
 		//		else 
 		//		{
@@ -1214,7 +1562,7 @@ namespace CTIServices
 		//	}
 		//	if ( messages.Count > 0 )
 		//	{
-		//		status += string.Join( ",", messages.ToArray() );
+		//		status += string.Join( "<br/>", messages.ToArray() );
 		//		return false;
 		//	}
 		//	OrganizationRoleManager mgr = new OrganizationRoleManager();
@@ -1224,7 +1572,7 @@ namespace CTIServices
 		//		if ( mgr.Credential_SaveQAActions( entity, user.Id, ref messages ) == false )
 		//		{
 		//			valid = false;
-		//			status += string.Join( ",", messages.ToArray() );
+		//			status += string.Join( "<br/>", messages.ToArray() );
 		//		}
 		//		else
 		//		{
@@ -1289,35 +1637,10 @@ namespace CTIServices
 		/// </summary>
 		/// <param name="parentId"></param>
 		/// <returns></returns>
-		public static List<DurationProfile> DurationProfile_GetAll( Guid parentId )
-		{
-			List<DurationProfile> list = DurationProfileManager.GetAll( parentId );
-			return list;
-		}
-
-		/// <summary>
-		/// Get all Duration Profiles for credential from Credential.TimeToEarn
-		/// NOTE: the base Credential is still using Credential_TimeToEarn, rather than Entity.DurationProfile. So use this method until converted. 
-		/// Again for duration on Credential ONLY
-		/// </summary>
-		/// <param name="credentialId"></param>
-		/// <returns></returns>
-		//public static List<DurationProfile> DurationProfile_GetAllTimeToEarn( int credentialId )
+		//public static List<DurationProfile> DurationProfile_GetAll( Guid parentId )
 		//{
-		//	List<DurationProfile> list = CredentialTimeToEarnManager.DurationProfile_GetAll( credentialId );
+		//	List<DurationProfile> list = DurationProfileManager.GetAll( parentId );
 		//	return list;
-		//}
-		/// <summary>
-		/// Get a Duration Profile By integer Id from Credential.TimeToEarn
-		/// NOTE: the base Credential is still using Credential_TimeToEarn, rather than Entity.DurationProfile. So use this method until converted. 
-		/// Again for duration on Credential ONLY
-		/// </summary>
-		/// <param name="id"></param>
-		/// <returns></returns>
-		//public static DurationProfile DurationProfile_GetTimeToEarn( int id )
-		//{
-		//	DurationProfile profile = CredentialTimeToEarnManager.Get( id );
-		//	return profile;
 		//}
 
 		/// <summary>
@@ -1330,71 +1653,38 @@ namespace CTIServices
 			DurationProfile profile = DurationProfileManager.Get( id );
 			return profile;
 		}
-		//public int DurationProfile_Add( DurationProfile entity, Guid parentUid, Guid credentialUid, int userId, ref string statusMessage )
-		//{
-		//	int newId = 0;
-		//	List<String> messages = new List<string>();
-		//	if ( entity == null || !BaseFactory.IsGuidValid( parentUid ) )
-		//	{
-		//		statusMessage = "Error - missing an identifier for the DurationProfile" ;
-		//		return 0;
-		//	}
-		//	//validate credential and access
-		//	//MC.Credential credential = GetCredential()
-		//	//if (CanUserUpdateCredential( credentialUid, userId, ref statusMessage ) == false) 
-		//	//{
-		//	//	messages.Add( "Error - missing credential identifier" );
-		//	//	return false;
-		//	//}
-		//	//CanUser update entity?
-		//	MC.Entity e = EntityManager.GetEntity( parentUid );
 
-		//	//remove this if properly passed from client
-		//	//plus need to migrate to the use of EntityId
-		//	entity.ParentUid = parentUid;
-		//	entity.EntityId = e.Id;
-		//	entity.CreatedById = entity.LastUpdatedById = userId;
 
-		//	bool isValid = new DurationProfileManager().DurationProfileUpdate( entity, e.EntityTypeId, ref messages );
-		//	if ( isValid )
-		//	{
-		//		newId = entity.Id;
-		//	}
-		//	else
-		//	{
-		//		statusMessage = string.Join( ",", messages.ToArray() );
-		//	}
-		//	return newId;
-
-		//}
-
-		public bool DurationProfile_Update( DurationProfile entity, Guid parentUid, Guid credentialUid, int userId, ref string statusMessage )
+		public bool DurationProfile_Update( DurationProfile entity, Guid contextParentUid, Guid contextMainUid, int userId, ref string statusMessage )
 		{
+			//LoggingHelper.DoTrace( 2, string.Format( "CredentialServices.DurationProfile_Update. contextParentUid: {0} contextMainUid: {1} ", contextParentUid.ToString(), contextMainUid.ToString() ) 				);
+
 			List<String> messages = new List<string>();
-			if ( entity == null || !BaseFactory.IsGuidValid( parentUid ) )
+			if ( entity == null || !BaseFactory.IsGuidValid( contextParentUid ) )
 			{
 				messages.Add( "Error - missing an identifier for the DurationProfile" );
 				return false;
 			}
 			//validate credential and access
+			//==> not just from a credential
 			//MC.Credential credential = GetCredential()
-			//if (CanUserUpdateCredential( credentialUid, userId, ref statusMessage ) == false) 
-		//{
+			//if (CanUserUpdateCredential( contextMainUid, userId, ref statusMessage ) == false) 
+			//{
 			//	messages.Add( "Error - missing credential identifier" );
 			//	return false;
 			//}
 			//CanUser update entity?
-			MC.Entity e = EntityManager.GetEntity( parentUid );
+			MC.Entity e = EntityManager.GetEntity( contextParentUid );
 
 			//remove this if properly passed from client
 			//plus need to migrate to the use of EntityId
-			entity.ParentUid = parentUid;
+			//entity.ParentUid = parentUid;
 			entity.EntityId = e.Id;
 			entity.CreatedById = entity.LastUpdatedById = userId;
 
 			//if an add, the new id will be returned in the entity
-			bool isValid = new DurationProfileManager().DurationProfileUpdate( entity, e.EntityTypeId, ref messages );
-			statusMessage = string.Join( ",", messages.ToArray() );
+			bool isValid = new DurationProfileManager().DurationProfileUpdate( entity, userId, ref messages );
+			statusMessage = string.Join( "<br/>", messages.ToArray() );
 			return isValid;
 
 		}
@@ -1431,523 +1721,9 @@ namespace CTIServices
 			return valid;
 		}
 
-		//public bool DurationProfile_AddTimeToEarn( DurationProfile entity, Guid credentialUid, int userId, ref string statusMessage )
-		//{
-		//	bool isValid = true;
-		//	List<String> messages = new List<string>();
-		//	if ( entity == null || !BaseFactory.IsGuidValid( credentialUid ) )
-		//	{
-		//		messages.Add( "Error - missing an identifier for the DurationProfile" );
-		//		return false;
-		//	}
-		//	//validate credential and access
-		//	MC.Credential credential = GetBasicCredential(credentialUid);
-		//	//MC.Credential credential = GetCredential()
-		//	//if (CanUserUpdateCredential( credentialUid, userId, ref statusMessage ) == false) 
-		//	//{
-		//	//	messages.Add( "Error - missing credential identifier" );
-		//	//	return false;
-		//	//}
-		//	//CanUser
-		//	//MC.Entity e = EntityManager.GetEntity( credentialUid );
-
-		//	//remove this if properly passed from client
-		//	//plus need to migrate to the use of EntityId
-		//	entity.ParentUid = credentialUid;
-		//	entity.CredentialId = credential.Id;
-		//	//N/A here entity.EntityId = e.Id;
-		//	entity.CreatedById = entity.LastUpdatedById = userId;
-
-		//	isValid = new CredentialTimeToEarnManager().TimeToEarn_Update( entity, credential.Id, ref statusMessage );
-
-		//	//bool isValid = new DurationProfileManager().DurationProfileUpdate( entity, e.EntityTypeId, ref messages );
-
-		//	return isValid;
-
-		//}
-		//public bool DurationProfile_UpdateTimeToEarn( DurationProfile entity, Guid credentialUid, int userId, ref string statusMessage )
-		//{
-		//	bool isValid = true;
-		//	List<String> messages = new List<string>();
-		//	if ( entity == null || !BaseFactory.IsGuidValid( credentialUid ) )
-		//	{
-		//		messages.Add( "Error - missing an identifier for the DurationProfile" );
-		//		return false;
-		//	}
-		//	//validate credential and access
-		//	MC.Credential credential = GetBasicCredential( credentialUid );
-		//	//MC.Credential credential = GetCredential()
-		//	//if (CanUserUpdateCredential( credentialUid, userId, ref statusMessage ) == false) 
-		//	//{
-		//	//	messages.Add( "Error - missing credential identifier" );
-		//	//	return false;
-		//	//}
-		//	//CanUser
-		//	//MC.Entity e = EntityManager.GetEntity( credentialUid );
-
-		//	//remove this if properly passed from client
-		//	//plus need to migrate to the use of EntityId
-		//	entity.ParentUid = credentialUid;
-		//	entity.CredentialId = credential.Id;
-		//	//N/A here entity.EntityId = e.Id;
-		//	entity.CreatedById = entity.LastUpdatedById = userId;
-
-		//	//if an add, the new id will be returned in the entity
-		//	isValid = new CredentialTimeToEarnManager().TimeToEarn_Update( entity, credential.Id, ref statusMessage );
-
-		//	return isValid;
-
-		//}
-
-
-		//public bool DurationProfile_DeleteTimeToEarn( int profileID, ref string status )
-		//{
-		//	bool isValid = false;
-		//	AppUser user = AccountServices.GetCurrentUser();
-		//	if ( user == null || user.Id == 0 )
-		//	{
-		//		status = "You must be logged and authorized to perform this action.";
-		//		return false;
-		//	}
-		//	try
-		//	{
-		//		//ensure has access
-
-		//		isValid = new CredentialTimeToEarnManager().Credential_TimeToEarnDelete( profileID, ref status );
-		//		if ( isValid )
-		//		{
-		//			//if isValid, status contains the cred name and id
-		//			activityMgr.AddActivity( "DurationProfile", "Delete", string.Format( "{0} deleted CredentialTimeToEarn {1}", user.FullName(), status ), user.Id, 0, profileID );
-		//			status = "";
-		//		}
-		//	}
-		//	catch ( Exception ex )
-		//	{
-		//		LoggingHelper.LogError( ex, thisClassName + ".DurationProfile_DeleteTimeToEarn" );
-		//		status = ex.Message;
-		//		isValid = false;
-		//	}
-
-		//	return isValid;
-		//}
 		#endregion
 
-		#region Credential Condition Profiles
-		/// <summary>
-		/// Get a full ConditionProfile for editor (usually, so forEditView is true)
-		/// </summary>
-		/// <param name="profileId"></param>
-		/// <param name="includeProperties"></param>
-		/// <param name="incudingResources"></param>
-		/// <returns></returns>
-		public static ConditionProfile ConditionProfile_GetForEdit( int profileId,
-				bool forEditView = true )
-		{
-			bool includeProperties = true;
-			bool incudingResources = true;
-			if ( forEditView == false )
-			{
-				includeProperties = false;
-				incudingResources = false;
-			}
-			ConditionProfile profile = ConnectionProfileManager.ConditionProfile_Get( profileId, includeProperties, incudingResources, forEditView );
-
-			return profile;
-		}
-		/// <summary>
-		/// Get a minimal ConditionProfile
-		/// </summary>
-		/// <param name="profileId"></param>
-		/// <returns></returns>
-		public static ConditionProfile ConditionProfile_GetBasic( int profileId )
-		{
-			ConditionProfile profile = ConnectionProfileManager.ConditionProfile_Get( profileId, false, false, false );
-
-			return profile;
-		}
-		/// <summary>
-		/// Get Condition Profile as a ProfileLink
-		/// </summary>
-		/// <param name="profileId"></param>
-		/// <returns></returns>
-		//public static MN.ProfileLink ConditionProfile_GetProfileLink( int profileId )
-		//{
-			
-		//	MN.ProfileLink entity = ConnectionProfileManager.ConditionProfile_GetProfileLink( profileId );
 		
-		//	return entity;
-		//}
-
-		//private bool Credential_UpdateConditionProfiles( MC.Credential entity, string type,  AppUser user, ref string status )
-		//{
-		//	bool valid = true;
-		//	status = "";
-		//	List<string> messages = new List<string>();
-		//	ConnectionProfileManager mgr = new ConnectionProfileManager();
-		//	try
-		//	{
-		//		int count = 0;
-		//		entity.LastUpdatedById = user.Id;
-		//		//if handling all from a list ==> prefer to NOT do this - one at a time?
-		//		//also assume delete will be immediate, and so only adds are done? Actually could change the role at any time!
-		//		if ( mgr.Credential_UpdateCondition( entity, type, ref messages, ref count ) == false )
-		//		{
-		//			valid = false;
-		//		}
-		//		else if ( count > 0 )
-		//		{
-		//			status = "Successful";
-		//			ConsoleMessageHelper.SetConsoleInfoMessage( "Successfully Added Credential - Organization Role(s)" );
-		//			activityMgr.AddActivity( "CredentialOrgRole", "Modify", string.Format( "{0} added/updated credential to org role(s): {1}, count:{2}", user.FullName(), entity.Name, count ), user.Id, 0, entity.Id );
-		//		}
-
-				
-		//		status = string.Join( ",", messages.ToArray() );
-				
-		//		//single updates
-		//		//bool roleUpdates = new OrganizationRoleManager().CredentialOrgRole_Add( credentialId, orgId, roleId, userId, ref string status )
-		//		//need to check for a count!!!!
-		//		if ( valid )
-		//		{
-		//			if ( count == 0 )
-		//			{
-		//				//nothing to update
-		//				ConsoleMessageHelper.SetConsoleInfoMessage( "No Action - There were no role(s) to update" );
-		//			}
-		//		}
-		//	}
-		//	catch ( Exception ex )
-		//	{
-		//		LoggingHelper.LogError( ex, thisClassName + ".Credential_UpdateConditionProfiles" );
-		//		valid = false;
-		//		status = ex.Message;
-		//	}
-		//	return valid;
-		//}
-
-		public bool ConditionProfile_Save( ConditionProfile entity, Guid credentialUid, string type, string action, AppUser user, ref string status, bool isQuickCreate = false )
-		{
-			bool valid = true;
-			status = "";
-			
-			entity.IsNewVersion = true;
-
-			List<string> messages = new List<string>();
-			ConnectionProfileManager mgr = new ConnectionProfileManager();
-			MC.Credential credential = GetBasicCredential( credentialUid );
-			try
-			{
-				entity.ParentId = credential.Id;
-				entity.CreatedById = entity.LastUpdatedById = user.Id;
-
-				if ( mgr.HandleProfile( credential, entity, type, ref messages ) == false )
-				{
-					valid = false;
-				}
-				else 
-				{
-					if ( isQuickCreate )
-					{
-						status = "Created an initial Profile. Please provide a meaningful name, and fill out the remainder of the profile";
-					}
-					else
-					{
-						status = "Successfully Saved Credential - Condition Profile";
-						activityMgr.AddActivity( "Condition Profile", action, string.Format( "{0} added/updated credential connection profile: {1}", user.FullName(), entity.ProfileName ), user.Id, 0, entity.Id );
-					}
-
-					RemoveCredentialFromCache( credential.Id );
-				}
-
-
-				status = string.Join( ",", messages.ToArray() );
-
-			}
-			catch ( Exception ex )
-			{
-				LoggingHelper.LogError( ex, thisClassName + ".ConditionProfile_Save" );
-				valid = false;
-				status = ex.Message;
-			}
-			return valid;
-		}
-
-		/// <summary>
-		/// Delete a condition profile
-		/// First ensure user has edit access
-		/// </summary>
-		/// <param name="conditionProfileId"></param>
-		/// <param name="user"></param>
-		/// <param name="status"></param>
-		/// <returns></returns>
-		public bool ConditionProfile_Delete( int credentialId, int conditionProfileId, AppUser user, ref string status )
-		{
-			bool valid = true;
-			ConnectionProfileManager mgr = new ConnectionProfileManager();
-			try
-			{
-				//get profile and ensure user has access
-				ConditionProfile profile = ConditionProfile_GetBasic( conditionProfileId );
-				if ( profile == null || profile.Id == 0 )
-				{
-					status = "Error - the requested profile was not found.";
-					return false;
-				}
-				//ensure profile is part of provided credential
-				if ( profile.ParentId != credentialId )
-				{
-					status = "Error - you don't have delete access to this profile.";
-					return false;
-				}
-				MC.Credential entity = new MC.Credential();
-				if ( CanUserUpdateCredential( profile.ParentId, user, ref status, ref entity ) )
-				{
-					if ( mgr.ConditionProfile_Delete( conditionProfileId, ref status ) )
-					{
-						//if valid, log
-						activityMgr.AddActivity( "Condition Profile", "Delete", string.Format( "{0} deleted Condition Profile {1} ({2}) from Credential: {3}", user.FullName(), profile.ProfileName, conditionProfileId, profile.ParentId ), user.Id, 0, conditionProfileId );
-						status = "";
-						RemoveCredentialFromCache( credentialId );
-					}
-					else
-					{
-						status = "Error - delete failed: " + status;
-						return false;
-					}
-				}
-				else
-				{
-					//reject and log
-					status = "Error - you don't have access to update this credential.";
-					return false;
-				}
-			}
-			catch ( Exception ex )
-			{
-				LoggingHelper.LogError( ex, thisClassName + ".ConditionProfile_Delete" );
-				status = ex.Message;
-				valid = false;
-			}
-
-			return valid;
-		}
-
-		public int ConditionProfile_AddAsmt( int ConditionProfileId, int assessmentId, AppUser user, ref bool valid, ref string status )
-		{
-			int id = 0;
-			//ConditionProfile_PartsManager mgr = new ConditionProfile_PartsManager();
-			try
-			{
-				//id = mgr.Assessment_Add( ConditionProfileId, assessmentId, user.Id, ref messages );
-
-				id = new Entity_AssessmentManager().EntityAssessment_Add( ConditionProfileId, CodesManager.ENTITY_TYPE_CONNECTION_PROFILE, assessmentId, user.Id, ref messages );
-
-				if ( id > 0 )
-				{
-					//if valid, status contains the cred id, category, and codeId
-					activityMgr.AddActivity( "Condition Profile Assessment", "Add item", string.Format( "{0} added Assessment {1} from Condition Profile  {2}", user.FullName(), assessmentId, ConditionProfileId ), user.Id, 0, assessmentId );
-					status = "";
-				}
-				else
-				{
-					valid = false;
-					status += string.Join( ",", messages.ToArray() );
-				}
-			}
-			catch ( Exception ex )
-			{
-				LoggingHelper.LogError( ex, thisClassName + ".ConditionProfile_AddAsmt" );
-				status = ex.Message;
-				valid = false;
-			}
-
-			return id;
-		}
-
-		public bool ConditionProfile_DeleteAsmt( int conditionProfileId, int assessmentId, AppUser user, ref string status )
-		{
-			bool valid = true;
-
-			//ConditionProfile_PartsManager mgr = new ConditionProfile_PartsManager();
-			Entity_AssessmentManager mgr = new Entity_AssessmentManager();
-			try
-			{
-				valid = mgr.EntityAssessment_Delete( conditionProfileId, CodesManager.ENTITY_TYPE_CONNECTION_PROFILE, assessmentId, ref status );
-
-				if ( valid )
-				{
-					//if valid, status contains the cred id, category, and codeId
-					activityMgr.AddActivity( "Condition Profile Assessment", "Delete item", string.Format( "{0} deleted Assessment {1} from Condition Profile  {2}", user.FullName(), assessmentId, conditionProfileId ), user.Id, 0, assessmentId );
-					status = "";
-				}
-			}
-			catch ( Exception ex )
-			{
-				LoggingHelper.LogError( ex, thisClassName + ".ConditionProfile_DeleteAsmt" );
-				status = ex.Message;
-				valid = false;
-			}
-
-			return valid;
-		}
-
-
-		public int ConditionProfile_AddLearningOpportunity( int conditionProfileId, int recordId, AppUser user, ref bool valid, ref string status )
-		{
-			int id = 0;
-			Entity_LearningOpportunityManager mgr = new Entity_LearningOpportunityManager();
-			try
-			{
-				//id = mgr.ConditionLearningOpp_Add( connectionProfileId, recordId, user.Id, ref messages );
-
-				id = mgr.EntityLearningOpp_Add( conditionProfileId, CodesManager.ENTITY_TYPE_CONNECTION_PROFILE, recordId, user.Id, ref messages );
-
-				if ( id > 0 )
-				{
-					//if valid, status contains the cred id, category, and codeId
-					activityMgr.AddActivity( "Condition Profile", "Add Learning Opportunity", string.Format( "{0} added Learning Opportunity {1} to Condition Profile  {2}", user.FullName(), recordId, conditionProfileId ), user.Id, 0, recordId );
-					status = "";
-				}
-				else
-				{
-					valid = false;
-					status += string.Join( ",", messages.ToArray() );
-				}
-			}
-			catch ( Exception ex )
-			{
-				LoggingHelper.LogError( ex, thisClassName + ".ConditionProfile_AddLearningOpportunity" );
-				status = ex.Message;
-				valid = false;
-			}
-
-			return id;
-		}
-
-		public bool ConditionProfile_DeleteLearningOpportunity( int conditionProfileId, int recordId, AppUser user, ref string status )
-		{
-			bool valid = true;
-
-			Entity_LearningOpportunityManager mgr = new Entity_LearningOpportunityManager();
-			try
-			{
-				valid = mgr.EntityLearningOpp_Delete( conditionProfileId, CodesManager.ENTITY_TYPE_CONNECTION_PROFILE, recordId, ref status );
-
-				if ( valid )
-				{
-					//if valid, status contains the cred id, category, and codeId
-					activityMgr.AddActivity( "Condition Profile", "Delete Learning Opportunity", string.Format( "{0} deleted Learning Opportunity {1} from Condition Profile  {2}", user.FullName(), recordId, conditionProfileId ), user.Id, 0, recordId );
-					status = "";
-				}
-			}
-			catch ( Exception ex )
-			{
-				LoggingHelper.LogError( ex, thisClassName + ".ConditionProfile_DeleteLearningOpportunity" );
-				status = ex.Message;
-				valid = false;
-			}
-
-			return valid;
-		}
-
-
-		#region Task Profile
-		public static TaskProfile ConditionProfile_GetTask( int profileId )
-		{
-			TaskProfile profile = Entity_TaskProfileManager.TaskProfile_Get( profileId);
-
-			return profile;
-		}
-		public bool TaskProfile_Save( TaskProfile entity, Guid parentUid, string action, AppUser user, ref string status, bool isQuickCreate = false )
-		{
-			bool isValid = true;
-			List<String> messages = new List<string>();
-			if ( entity == null || !BaseFactory.IsGuidValid( parentUid ) )
-			{
-				messages.Add( "Error - missing an identifier for the Task Profile" );
-				return false;
-			}
-
-			try
-			{
-				MC.Entity e = EntityManager.GetEntity( parentUid );
-				//remove this if properly passed from client
-				//plus need to migrate to the use of EntityId
-				entity.ParentId = e.Id;
-				entity.CreatedById = entity.LastUpdatedById = user.Id;
-
-				if ( isQuickCreate )
-				{
-					//?may not be necessary
-				}
-				entity.IsNewVersion = true;
-
-				if ( new Entity_TaskProfileManager().Update( entity, parentUid, user.Id, ref messages ) )
-				{
-					if ( isQuickCreate )
-					{
-						status = "Created an initial Task Profile. Please provide a meaningful name, and fill out the remainder of the profile";
-						//test concept
-						return true; //false;
-					}
-					else
-					{
-						//if valid, status contains the cred id, category, and codeId
-						status = "Successfully Saved Credential - Task Profile";
-						activityMgr.AddActivity( "Task Profile", action, string.Format( "{0} added/updated credential connection task profile: {1}", user.FullName(), entity.ProfileName ), user.Id, 0, entity.Id );
-					}
-				}
-				else
-				{
-					status += string.Join( ",", messages.ToArray() );
-					return false;
-				}
-			}
-			catch ( Exception ex )
-			{
-				LoggingHelper.LogError( ex, thisClassName + ".TaskProfile_Save" );
-				status = ex.Message;
-				isValid = false;
-			}
-
-			return isValid;
-		}
-
-		public bool ConditionProfile_DeleteTask( int conditionProfileId, int profileId, AppUser user, ref string status )
-		{
-			bool valid = true;
-
-			Entity_TaskProfileManager mgr = new Entity_TaskProfileManager();
-			try
-			{
-				//get first to validate (soon)
-				TaskProfile entity = ConditionProfile_GetTask( profileId );
-				//to do match to the conditionProfileId
-
-				valid = mgr.TaskProfile_Delete( profileId, ref status );
-
-				if ( valid )
-				{
-					//if valid, status contains the cred id, category, and codeId
-					activityMgr.AddActivity( "Condition Profile", "Delete Task", string.Format( "{0} deleted Task Profile {1} from Condition Profile  {2}", user.FullName(), profileId, conditionProfileId ), user.Id, 0, profileId );
-					status = "";
-				}
-			}
-			catch ( Exception ex )
-			{
-				LoggingHelper.LogError( ex, thisClassName + ".ConditionProfile_DeleteTask" );
-				status = ex.Message;
-				valid = false;
-			}
-
-			return valid;
-		}
-
-		#endregion
-
-
-		#endregion
-
 		#region Credential Revocation Profile
 		public static RevocationProfile RevocationProfile_GetForEdit( int profileId,
 				bool forEditView = true )
@@ -1957,48 +1733,6 @@ namespace CTIServices
 
 			return profile;
 		}
-		//private bool RevocationProfile_Update( MC.Credential entity, string type, AppUser user, ref string status )
-		//{
-		//	bool valid = true;
-		//	status = "";
-		//	List<string> messages = new List<string>();
-		//	Entity_RevocationProfileManager mgr = new Entity_RevocationProfileManager();
-		//	try
-		//	{
-		//		int count = 0;
-		//		//if handling all from a list ==> prefer to NOT do this - one at a time?
-		//		//also assume delete will be immediate, and so only adds are done? Actually could change the role at any time!
-		//		if ( mgr.Update( entity.Revocation, entity.Id, user.Id, ref messages ) == false )
-		//		{
-		//			valid = false;
-		//		}
-		//		else if ( count > 0 )
-		//		{
-		//			status = "Successful";
-
-		//			activityMgr.AddActivity( "RevocationProfile", "Modify", string.Format( "{0} added/updated Revocation Profiles under credential: {1}, count:{2}", user.FullName(), entity.Name, count ), user.Id, 0, entity.Id );
-		//		}
-
-		//		status = string.Join( ",", messages.ToArray() );
-
-		//		//need to check for a count!!!!
-		//		if ( valid )
-		//		{
-		//			if ( count == 0 )
-		//			{
-		//				//nothing to update - this message is not display if called via ajax
-		//				//ConsoleMessageHelper.SetConsoleInfoMessage( "No Action - There were no role(s) to update" );
-		//			}
-		//		}
-		//	}
-		//	catch ( Exception ex )
-		//	{
-		//		LoggingHelper.LogError( ex, thisClassName + ".RevocationProfile_Update" );
-		//		valid = false;
-		//		status = ex.Message;
-		//	}
-		//	return valid;
-		//}
 
 		public bool RevocationProfile_Save( RevocationProfile entity, Guid credentialUid, string action, AppUser user, ref string status, bool isQuickCreate = false )
 		{
@@ -2008,14 +1742,14 @@ namespace CTIServices
 			Entity_RevocationProfileManager mgr = new Entity_RevocationProfileManager();
 			try
 			{
-				MC.Credential credential = GetBasicCredential( credentialUid );
+				MC.Credential credential = GetBasicCredentialAsLink( credentialUid );
 
 				int count = 0;
-				entity.IsNewVersion = true;
-				if ( mgr.Update( entity, credential, user.Id, ref messages ) == false )
+				//entity.IsNewVersion = true;
+				if ( mgr.Save( entity, credential, user.Id, ref messages ) == false )
 				{
 					valid = false;
-					status = string.Join( ",", messages.ToArray() );
+					status = string.Join( "<br/>", messages.ToArray() );
 				}
 				else 
 				{
@@ -2075,83 +1809,6 @@ namespace CTIServices
 
 		#endregion
 
-		#region Credential FrameworkItems OBSOLETE ==> CONVERTED TO ENTITY.FrameworkItems
-		//public MC.EnumeratedItem FrameworkItem_Add( int credentialId, int categoryId, int codeID, string searchType, ref bool valid, ref string status )
-		//{
-			
-		//	AppUser user = AccountServices.GetCurrentUser();
-		//	if ( user == null || user.Id == 0 )
-		//	{
-		//		valid = false;
-		//		status = "Error - you must be authenticated in order to update data";
-		//		return new MC.EnumeratedItem();
-		//	}
-		//	return FrameworkItem_Add( credentialId, categoryId, codeID, user, ref valid, ref status );
-		//}
-		//public MC.EnumeratedItem FrameworkItem_Add( int credentialId, int categoryId, int codeID, AppUser user, ref bool valid, ref string status )
-		//{
-		//	if ( credentialId == 0 || categoryId == 0 || codeID == 0 )
-		//	{
-		//		valid = false;
-		//		status = "Error - invalid request - missing code identifiers";
-		//		return new MC.EnumeratedItem();
-		//	}
-
-		//	CredentialFrameworkItemManager mgr = new CredentialFrameworkItemManager();
-		//	int credentialFrameworkItemId = 0;
-		//	MC.EnumeratedItem item = new MC.EnumeratedItem();
-		//	try
-		//	{
-		//		credentialFrameworkItemId = mgr.ItemAdd( credentialId, categoryId, codeID, user.Id, ref status );
-
-		//		if ( credentialFrameworkItemId > 0 )
-		//		{
-		//			//get full item, as a codeItem to return
-		//			item = CredentialFrameworkItemManager.ItemGet( credentialFrameworkItemId );
-		//			//if valid, status contains the cred id, category, and codeId
-		//			activityMgr.AddActivity( "Credential FrameworkItem", "Add item", string.Format( "{0} added credential FrameworkItem. CredentialId: {1}, categoryId: {2}, codeId: {3}, summary: {4}", user.FullName(), credentialId, categoryId, codeID, item.ItemSummary ), user.Id, 0, credentialFrameworkItemId );
-		//			status = "";
-		//		}
-		//		else
-		//		{
-		//			valid = false;
-		//		}
-		//	}
-		//	catch ( Exception ex )
-		//	{
-		//		LoggingHelper.LogError( ex, thisClassName + ".FrameworkItem_Add" );
-		//		status = ex.Message;
-		//		valid = false;
-		//	}
-
-		//	return item;
-		//}
-
-		//public bool FrameworkItem_Delete( int credentialFrameworkItemId, AppUser user, ref bool valid, ref string status )
-		//{
-		//	CredentialFrameworkItemManager mgr = new CredentialFrameworkItemManager();
-
-		//	try
-		//	{
-		//		valid = mgr.ItemDelete( credentialFrameworkItemId, ref status );
-				
-		//		if ( valid )
-		//		{
-		//			//if valid, status contains the cred id, category, and codeId
-		//			activityMgr.AddActivity( "Credential FrameworkItem", "Delete item", string.Format( "{0} deleted credential FrameworkItem {1}", user.FullName(), status ), user.Id, 0, credentialFrameworkItemId );
-		//			status = "";
-		//		}
-		//	}
-		//	catch ( Exception ex )
-		//	{
-		//		LoggingHelper.LogError( ex, thisClassName + ".FrameworkItem_Delete" );
-		//		status = ex.Message;
-		//		valid = false;
-		//	}
-
-		//	return valid;
-		//}
-		#endregion
 	}
 
 	public class CachedCredential

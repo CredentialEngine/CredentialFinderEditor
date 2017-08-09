@@ -22,13 +22,15 @@ namespace Data
         public string TargetDescription { get; set; }
         public string TargetUrl { get; set; }
         public string CodedNotation { get; set; }
-		public Nullable<System.DateTime> AlignmentDate { get; set; }
         public Nullable<System.DateTime> Created { get; set; }
         public Nullable<int> CreatedById { get; set; }
         public Nullable<System.DateTime> LastUpdated { get; set; }
         public Nullable<int> LastUpdatedById { get; set; }
         public System.Guid RowId { get; set; }
+        public Nullable<System.DateTime> AlignmentDate { get; set; }
     
         public virtual Entity_CompetencyFramework Entity_CompetencyFramework { get; set; }
+        public virtual Account Account_Creator { get; set; }
+        public virtual Account Account_Modifier { get; set; }
     }
 }

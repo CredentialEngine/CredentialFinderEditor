@@ -13,20 +13,32 @@ namespace Models.ProfileModels
 	{
 		public RevocationProfile()
 		{
-			RevocationCriteriaType = new Enumeration();
+			//RevocationCriteriaType = new Enumeration();
+			Region = new List<JurisdictionProfile>();
+			CredentialProfiled = new List<Credential>();
 			RemovalDateEffective = "";
 			//RenewalDateEffective = "";
 		}
-		public Enumeration RevocationCriteriaType { get; set; }
-		public string OtherRevocationCriteriaType { get; set; }
+		
 		public string RemovalDateEffective
 		{
 			get { return DateEffective; }
 			set { DateEffective = value; }
 		}
 		//public string RenewalDateEffective { get; set; }
-		public List<TextValueProfile> RevocationResourceUrl { get; set; }
+		
 		public string RevocationCriteriaUrl { get; set; }
+		public string RevocationCriteriaDescription { get; set; }
+
+		public List<Credential> CredentialProfiled { get; set; } //holds values of RequiredCredential
+
+		public List<JurisdictionProfile> Region { get; set; }
+
+		//obsolete
+		//public Enumeration RevocationCriteriaType { get; set; }
+		//public string OtherRevocationCriteriaType { get; set; }
+		//public List<TextValueProfile> RevocationResourceUrl { get; set; }
+		//public List<TextValueProfile> RevocationItems { get; set; }
 	}
 	//
 

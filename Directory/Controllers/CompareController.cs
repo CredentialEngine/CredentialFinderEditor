@@ -21,7 +21,7 @@ namespace CTI.Directory.Controllers
 		}
 		//
 
-		public ActionResult V2()
+		public ActionResult V2( string useNew = "" )
 		{
 			var vm = new CompareItemSummary();
 
@@ -31,18 +31,32 @@ namespace CTI.Directory.Controllers
 				switch ( item.Type )
 				{
 					case "credential":
-						vm.Credentials.Add( CredentialServices.GetCredential( item.Id, true ) );
+						vm.Credentials.Add( CredentialServices.GetCredentialForCompare( item.Id ) );
 						break;
 					case "organization":
 						vm.Organizations.Add( OrganizationServices.GetOrganizationDetail( item.Id ) );
+						break;
+					case "assessment":
+						vm.Assessments.Add( AssessmentServices.GetDetail( item.Id ) );
+						break;
+					case "learningopportunity":
+						vm.LearningOpportunities.Add( LearningOpportunityServices.GetForDetail( item.Id ) );
 						break;
 					default:
 						break;
 				}
 			}
 
-			return View( "~/Views/V2/Compare/Index.cshtml", vm );
+			if( Request.Params["v2"] == "true" )
+			{
+				return View( "~/Views/V2/Compare/Index.cshtml", vm );
+			}
+			else
+			{
+				return View( "~/Views/V2/Compare/CompareV3.cshtml", vm );
+			}
 		}
+		//
 
 		//Store a compare item
 		public JsonResult AddItem( CompareItem input )

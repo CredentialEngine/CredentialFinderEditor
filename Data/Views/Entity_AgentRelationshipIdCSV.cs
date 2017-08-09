@@ -16,20 +16,18 @@ namespace Data.Views
     {
         public int EntityId { get; set; }
         public System.Guid EntityUid { get; set; }
-        public int BaseId { get; set; }
-        public string Name { get; set; }
-        public int ParentTypeId { get; set; }
         public string EntityType { get; set; }
         public int AgentRelativeId { get; set; }
         public System.Guid AgentUid { get; set; }
         public string AgentName { get; set; }
         public Nullable<bool> IsInverseRole { get; set; }
         public string RoleIds { get; set; }
-        public System.Guid ParentUid { get; set; }
         public int EntityTypeId { get; set; }
         public string Roles { get; set; }
         public string AgentDescription { get; set; }
         public string AgentUrl { get; set; }
         public string AgentImageUrl { get; set; }
+        public Nullable<int> EntityBaseId { get; set; }
+        public string EntityBaseName { get; set; }
     }
 }

@@ -13,7 +13,7 @@ namespace Models.Json
 	{
 		public RevocationProfile()
 		{
-			type = "ctdl:RevocationProfile";
+			type = "ceterms:RevocationProfile";
 		}
 	}
 

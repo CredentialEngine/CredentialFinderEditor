@@ -1,18 +1,59 @@
 ﻿@using Microsoft.AspNet.Identity
+@using Utilities
 @{
-    var url = Request.Url.PathAndQuery.ToLower();
-    if ( !AccountServices.CanUserViewSite() && !url.Contains( "home/about" ) && !url.ToLower().Contains( "account/" ) && !url.ToLower().Contains( "manage/" ) )
-    {
-        Response.Redirect( "~/Home/About" );
-    }
+	
+	var url = Request.Url.PathAndQuery.ToLower();
+	if ( UtilityManager.GetAppKeyValue( "isSiteInBeta", true ) ) {
+		if ( !AccountServices.CanUserViewSite() && !url.Contains( "home/about" )
+			&& !url.ToLower().Contains( "/reports" )
+			&& !url.ToLower().Contains( "account/" )
+			&& !url.ToLower().Contains( "/demo/cersearch" )
+			&& !url.ToLower().Contains( "/page/competencies" )
+			&& !url.ToLower().Contains( "manage/" ) )
+		{
+			Response.Redirect( "~/Home/About" );
+		}
+	}
+	if ( Request.Url.Host.StartsWith( "www" ) )
+	{
+		//&& !url.ToLower().Contains( "credentialfinder.org" )
+		//LoggingHelper.DoTrace( 2, "Request.Url: " + Request.Url.ToString() );
+		string newURL = Request.Url.ToString().Replace( "//www.", "//" );
+		//LoggingHelper.DoTrace( 2, "newURL: " + newURL );
+		Response.Redirect( newURL, true );
+	}
+	else if ( Request.Url.Host.ToLower().Contains( "credentialfinder.net" )
+		|| Request.Url.Host.ToLower().Contains( "credentialfinder.com" )
+		|| Request.Url.Host.ToLower().Contains( "credentialfinder.info" ) )
+	{
 
-    var user = AccountServices.GetCurrentUser();
+		string newURL = Request.Url.ToString().Replace( "credentialfinder.net", "credentialfinder.org" );
+		newURL = newURL.Replace( "credentialfinder.com", "credentialfinder.org" );
+		newURL = newURL.Replace( "credentialfinder.info", "credentialfinder.org" );
+		LoggingHelper.DoTrace( 2, "Changing Request.Url from : " + Request.Url.ToString() + " to: " + newURL );
+		//may want to skip redirect for now, as causes issues - need more graceful approach
+		Response.Redirect( newURL, true );
+	}
+	var suffix = "";
+	var loginUrl = "~/Account/Login";
+	var registerUrl = "~/Account/Register";
+	if ( Request.Url.Host.ToLower().Contains( "credfinder.net" )
+	  || Request.Url.Host.ToLower().Contains( "ctitest.siuccwd.com" )
+		|| Request.Url.Host.ToLower().Contains( "localhost" )
+		)
+	{
+		loginUrl = "~/Account/LoginTest";
+		registerUrl = "~/Account/RegisterTest";
+		suffix = "Test";
+	}
+	var user = AccountServices.GetCurrentUser();
 }
 <div id="mainSiteHeader">
     <div id="mainSiteHeaderTrim" class="rainbow"></div>
     <div id="mainSiteHeaderLeft" class="inlineBlockBox">
-        <a class="column" id="mainSiteLogo" href="@Url.Content( "~" )" style="background-image: url('@Url.Content( "~/Images/Common/cti_logo_transparent.png" )');" title="Site Logo"></a>
-        <div class="column" id="mainSiteTagline">Discover Credential Connections</div>
+        <a class="column" id="mainSiteLogo" href="@Url.Content( "~" )" style="background-image: url('@Url.Content( "~/Images/Common/logo_stacked.png" )');" title="Site Logo"></a>
+        <div class="column" id="mainSiteTagline">Discover Credentials<br/>Powered by Credential Registry<br />Prototype Phase</div>
+        
     </div>
     <div id="mainSiteHeaderRight">
         <button id="btnMobileMenuOpen" class="whiteButton"><i class="fa fa-reorder"></i></button>
@@ -24,25 +65,59 @@
             <div class="headerMenu column" id="headerMenuSearch">
                 <button class="headerMenuTitle"><i class="fa fa-search"></i> Search <i class="fa fa-caret-down expandArrow"></i><i class="fa fa-caret-up collapseArrow"></i></button>
                 <div class="headerMenuList">
-                    <a href="@Url.Content( "~/search/V2?searchtype=credential" )">Credentials</a>
-                    <a href="@Url.Content( "~/search/V2?searchtype=organization" )">Organizations</a>
-                    <a href="@Url.Content( "~/search/V2?searchtype=assessment" )">Assessments</a>
-                    <a href="@Url.Content( "~/search/V2?searchtype=learningopportunity" )">Learning Opportunities</a>
-                </div>
-            </div>
-
-            <div class="headerMenu column" id="headerMenuAdd">
-                <button class="headerMenuTitle"><i class="fa fa-plus"></i> Add New <i class="fa fa-caret-down expandArrow"></i><i class="fa fa-caret-up collapseArrow"></i></button>
-                <div class="headerMenuList">
-                    <a href="@Url.Content( "~/editor/credential/" )">New Credential</a>
-                    <a href="@Url.Content( "~/editor/organization" )">New Organization</a>
-                    <a href="@Url.Content( "~/editor/assessment" )">New Assessment</a>
-                    <a href="@Url.Content( "~/editor/learningopportunity" )">New Learning Opportunities</a>
+                    <a href="@Url.Content( "~/search?searchtype=credential" )">Credentials</a>
+                    <a href="@Url.Content( "~/search?searchtype=organization" )">Organizations</a>
+                    <a href="@Url.Content( "~/search?searchtype=assessment" )">Assessments</a>
+                    <a href="@Url.Content( "~/search?searchtype=learningopportunity" )">Learning Opportunities</a>
                 </div>
             </div>
 
             @if ( Request.IsAuthenticated )
             {
+
+                if ( AccountServices.CanUserCreateContent() )
+                {
+                    <div class="headerMenu column" id="headerMenuAdd">
+                        <button class="headerMenuTitle"><i class="fa fa-plus"></i> Add New <i class="fa fa-caret-down expandArrow"></i><i class="fa fa-caret-up collapseArrow"></i></button>
+                        <div class="headerMenuList">
+                            <a href="@Url.Content( "~/editor/credential/" )">New Credential</a>
+                            <a href="@Url.Content( "~/editor/organization/" )">New Organization</a>
+                            <a href="@Url.Content( "~/editor/qaorganization/" )">New QA Organization</a>
+                            <a href="@Url.Content( "~/editor/assessment/" )">New Assessment</a>
+                            <a href="@Url.Content( "~/editor/learningopportunity/" )">New Learning Opportunity</a>
+                        </div>
+                    </div>
+                if ( AccountServices.IsUserSiteStaff() )
+                {
+                    @*<div class="headerMenu column offscreen" id="headerMenuAddNew">
+                        <button class="headerMenuTitle"><i class="fa fa-plus"></i> Add New (NEW EDITOR)<i class="fa fa-caret-down expandArrow"></i><i class="fa fa-caret-up collapseArrow"></i></button>
+                        <div class="headerMenuList">
+                            <a href="@Url.Content( "~/editor/credential/?V2=true" )">New Credential</a>
+                            <a href="@Url.Content( "~/editor/organization/?V2=true" )">New Organization</a>
+                            <a href="@Url.Content( "~/editor/qaorganization/?V2=true" )">New QA Organization</a>
+                            <a href="@Url.Content( "~/editor/assessment/?V2=true" )">New Assessment</a>
+                            <a href="@Url.Content( "~/editor/learningopportunity/?V2=true" )">New Learning Opportunity</a>
+                        </div>
+                    </div>*@
+                }
+ }
+
+                if ( AccountServices.IsUserSiteStaff() )
+                {
+                    <div class="headerMenu column" id="headerMenuAdmin">
+                        <button class="headerMenuTitle"><i class="fa fa-plus"></i> Admin <i class="fa fa-caret-down expandArrow"></i><i class="fa fa-caret-up collapseArrow"></i></button>
+                        <div class="headerMenuList">
+                            <a href="@Url.Content( "~/Admin/User/ResetPassword" )">Reset User Password</a>
+                            <a href="@Url.Content( "~/Admin/User/" )">Accounts</a>
+                            <a href="@Url.Content( "~/Admin/User/AddUser" )">Add Account</a>
+                            <a href="@Url.Content( "~/Admin/User/ImportUsers" )">Import Users</a>
+                            @*<a href="@Url.Content( "~/Admin/Activity/Today" )">Activity Today</a>*@
+                            <a href="@Url.Content( "~/Admin/Activity/Search" )">Activity Search</a>
+                            @*<a href="@Url.Content( "~/Reports/Index" )">Site Totals</a>*@
+                        </div>
+                    </div>
+                }
+                
                 <div class="headerMenu column" id="headerMenuAccount">
                     <button class="headerMenuTitle"><i class="fa fa-user"></i> <div id="userName" title="@user.FullName()">My Account</div> <i class="fa fa-caret-down expandArrow"></i><i class="fa fa-caret-up collapseArrow"></i></button>
                     <div class="headerMenuList">
@@ -61,8 +136,9 @@
                 <div class="headerMenu column" id="headerMenuAdd">
                     <button class="headerMenuTitle"><i class="fa fa-user"></i> Login/Register <i class="fa fa-caret-down expandArrow"></i><i class="fa fa-caret-up collapseArrow"></i></button>
                     <div class="headerMenuList">
-                        <a href="@Url.Content("~/Account/Login")">Login</a>
-                        <a href="@Url.Content("~/Account/Register")">Register</a>
+                        <a href="@Url.Content( @loginUrl )">Login</a>
+                        <a href="@Url.Content( @registerUrl )">Register</a>
+                    
                     </div>
                 </div>
             }

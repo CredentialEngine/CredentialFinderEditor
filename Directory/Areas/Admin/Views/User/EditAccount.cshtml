@@ -1,0 +1,80 @@
+﻿@model CTIDirectory.Models.AccountViewModel
+<div class="modal fade" tabindex="-1" data-keyboard="false" data-backdrop="static">
+    <div class="modal-dialog modal-lg" style="width: 900px">
+        @using (Html.BeginForm("EditAccount", "User", new { area = "Admin" }, FormMethod.Post, new { id = "EditAccount", @class = "modal-content", style = "height: 500px;" }))
+        {
+            @Html.AntiForgeryToken()
+            @Html.HiddenFor(x => x.UserId)
+            @Html.ValidationSummary("", new { @class = "text-danger" })
+            <div class="modal-header" style="padding: 5px 15px !important;">
+                <button type="button" class="close" data-dissmiss="modal">&times;</button>
+                <h4>Edit Account</h4>
+            </div>
+            <div class="modal-body" style="height: 350px;">
+                <div class="form-horizontal col-sm-12">
+
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <div class="form-group">
+                                <label for="FirstName">First Name</label>
+                                @Html.TextBoxFor(x => x.FirstName, new { @class = "form-control" })
+                                @Html.ValidationMessageFor(x => x.FirstName)
+                            </div>
+                            <div class="form-group">
+                                <label for="LastName">Last Name</label>
+                                @Html.TextBoxFor(x => x.LastName, new { @class = "form-control" })
+                                @Html.ValidationMessageFor(x => x.LastName)
+                            </div>
+                            <div class="form-group">
+                                <label for="email">Email</label>
+                                @Html.TextBoxFor(x => x.Email, new { @class = "form-control" })
+                                @Html.ValidationMessageFor(x => x.Email)
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="form-group">
+                                @Html.LabelFor(x => x.Roles)
+                                <div class="row">
+                                    <div class="col-sm-12">
+                                        @Html.ListBoxFor(x => x.SelectedRoles, Model.Roles, new { @class = "form-control multiselect", multiple = "multiple" })
+                                        <div class="row">
+                                            <div class="col-sm-12 text-right">
+                                                <i class="fa fa-info-circle" data-toggle="popover" data-trigger="hover" data-placement="left" data-html="true" data-content="<b>Administrator</b><ul><li>Full site access for read and update</li><li>Access to administrative functions</li></ul><b>Site Staff</b><ul><li>Full site access for read and update</li></ul><b>Site Partner</b><ul><li>Can access the site during the beta period</li><li>Can create content, without being part of an organization</li><li>Can view all assets</li></ul><b>Site Reader</b><ul><li>Can access the site during the beta period</li><li>Can view all assets</li></ul>"></i>
+                                            </div>
+                                        </div>                                
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                @Html.LabelFor(x => x.Organizations)
+                                <div class="row">
+                                    <div class="col-sm-12">
+                                        <input name="organization" type="text" class="form-control" />
+                                        <div class="organizations">
+                                            @foreach (var org in Model.Organizations)
+                                            {
+                                                var id = string.Format("org_{0}", org.Value);
+                                                <div class="checkbox">
+                                                    <input type="checkbox" id="@id" name="@Html.DisplayNameFor(x=> x.SelectedOrgs)" value="@org.Value" checked="checked" />
+                                                    <label for="@id">
+                                                        @org.Text
+                                                    </label>
+                                                </div>
+                                            }
+                                            @*@Html.ListBoxFor(x => x.SelectedOrgs, Model.Organizations, new { @class = "form-control organization", multiple = "multiple" })*@
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button name="Update" type="submit" class="btn btn-primary">Update</button>
+                @*<button name="Delete" type="button" class="btn btn-primary" data-target="@Url.Action("DeleteAccount", "User", new { area = "Admin", userId = Model.UserId })">Delete</button>*@
+                @Html.ActionLink("Delete", "DeleteAccount", "User", new { area = "Admin", id = Model.UserId }, new { @class = "btn btn-primary delete", role = "button" })
+            </div>
+        }
+    </div>
+</div>

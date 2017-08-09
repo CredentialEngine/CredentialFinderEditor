@@ -34,5 +34,7 @@ namespace Data
     
         public virtual Codes_PropertyValue Codes_PropertyValue { get; set; }
         public virtual Entity_CostProfile Entity_CostProfile { get; set; }
+        public virtual Account Account_Creator { get; set; }
+        public virtual Account Account_Modifier { get; set; }
     }
 }

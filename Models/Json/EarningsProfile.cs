@@ -12,7 +12,7 @@ namespace Models.Json
 	{
 		public EarningsProfile()
 		{
-			type = "ctdl:EarningsProfile";
+			type = "ceterms:EarningsProfile";
 		}
 	}
 

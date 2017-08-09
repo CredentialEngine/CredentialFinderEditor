@@ -1,0 +1,477 @@
+﻿
+@{ 
+	/* Notes:
+		- Encapsulate all functions in JS object to avoid conflicts
+		- This needs to work if there are 1-n instances of it on the page
+		- Ideally this should also work for non-CASS things (maybe in V2?)
+		- Find Frameworks
+		- Find Competencies
+		- Find Competencies within Framework
+		- Browse Competencies within framework
+		- Select Competency at any level
+		- Select whole Framework
+		- Remove selected item
+
+		- Find a framework
+		- Show everything in the framework, starting with a top node that represents the framework itself
+		- Enable selection on all of these nodes, including the top node
+		- Enable deselecting a framework to search on all competencies
+		- Indicate when a competency search is constrained to a framework
+
+		- Remember to IE-friendly-ize the flex displays
+	*/
+}
+
+<script type="text/javascript">
+	/* Initialization */
+	var cass = {
+		settings: {
+			competencyIndentAmount: 15
+		},
+		browserList: [],
+		browserID: 0
+	};
+
+	$(document).ready(function () {
+		cass.initialize();
+	});
+
+	//Initialize browsers
+	cass.initialize = function () {
+		var browsers = $(".cassBrowser");
+		browsers.each(function () {
+			var browser = $(this);
+
+			//Skip browsers that are already initialized
+			if (browser.hasClass("cassSearchInitialized")) {
+				return;
+			}
+			else {
+				browser.addClass("cassSearchInitialized");
+			}
+
+			//Setup
+			browser.parts = {
+				searchTimer: 0,
+				selectedFramework: ""
+			};
+			browser.frameworkSearchBox = cass.initializeSearchBox(browser, browser.find(".searchFrameworks"), cass.doFrameworkSearch);
+			browser.competencySearchBox = cass.initializeSearchBox(browser, browser.find(".searchCompetencies"), cass.filterCompetencies);
+			browser.existingItemsBox = cass.initializeSearchBox(browser, browser.find(".selectedItems"), null);
+
+			browser.competencySearchBox.find("[data-action='selectIncludedCompetencies']").on("click", function () {
+				cass.selectIncludedCompetencies(browser, browser.competencySearchBox);
+			});
+			browser.competencySearchBox.find("[data-action='includeAllCompetencies']").on("click", function() {
+				cass.toggleAllCompetencies(browser, browser.competencySearchBox);
+			});
+			browser.attr("data-browserID", cass.browserID);
+			browser.browserID = cass.browserID;
+			cass.browserID++;
+			cass.browserList.push(browser);
+		});
+	}
+	//
+
+	//Initialize a search box within the cass browser
+	cass.initializeSearchBox = function (browser, searchBox, searchFunction) {
+		//Setup
+		searchBox.parts = {
+			header: searchBox.find(".searchHeader"),
+			input: searchBox.find(".searchInput"),
+			status: searchBox.find(".searchStatus"),
+			resultsBox: searchBox.find(".searchResults"),
+			previousQuery: ""
+		};
+
+		//Do something when text is entered
+		if (searchBox.parts.input) {
+			searchBox.parts.input.on("keyup change", function () {
+				clearTimeout(browser.parts.searchTimer);
+				browser.parts.searchTimer = setTimeout(function () {
+					searchFunction(browser, searchBox);
+				}, 800);
+			});
+		}
+
+		return searchBox;
+	}
+	//
+
+</script>
+<script type="text/javascript">
+	/* Search Functions */
+
+	//Do a framework search
+	cass.doFrameworkSearch = function (browser, searchBox) {
+		var query = { keyword: searchBox.parts.input.val().trim(), type: "framework", inFramework: "" };
+		var stringQuery = JSON.stringify(query);
+		if (stringQuery != searchBox.parts.previousQuery) {
+			cass.setStatus(searchBox.parts.status, "Searching...");
+			cass.ajax("CassSearch", query, cass.success_doFrameworkSearch, { browser: browser, searchBox: searchBox });
+			searchBox.parts.previousQuery = stringQuery;
+		}
+	}
+	//
+
+	//Handle a framework search result set
+	cass.success_doFrameworkSearch = function (message, passThrough) {
+		if (message.valid) {
+			cass.renderFrameworkResults(message.data, passThrough.browser, passThrough.searchBox);
+			cass.setStatus(passThrough.searchBox.parts.status, "Search Complete");
+		}
+		else {
+			cass.setStatus(passThrough.searchBox.parts.status, message.status);
+		}
+	}
+	//
+
+	//Filter competencies within the selected framework
+	cass.filterCompetencies = function (browser, searchBox) {
+		var results = searchBox.parts.resultsBox.find(".competencyResult");
+		var value = searchBox.parts.input.val().trim().toLowerCase();
+		if(value.length > 0){
+			results.each(function () {
+				var result = $(this);
+				var text = result.text().toLowerCase();
+				if(text.indexOf(value) > -1){
+					result.removeClass("filteredOut");
+				}
+				else {
+					result.addClass("filteredOut");
+				}
+			});
+		}
+		else{
+			results.removeClass("filteredOut");
+		}
+	}
+	//
+
+	//Do a competency search, possibly with a framework constraint
+	cass.doCompetencySearch = function (browser, searchBox) {
+		var query = { keyword: searchBox.parts.input.val().trim(), type: "competency", inFramework: browser.parts.selectedFramework };
+		var stringQuery = JSON.stringify(query);
+		if (stringQuery != searchBox.parts.previousQuery) {
+			cass.ajax("CassSearch", query, cass.success_doCompetencySearch, { browser: browser, searchBox: searchBox });
+			searchBox.parts.previousQuery = stringQuery;
+		}
+	}
+	//
+
+	//Handle a competency search result set
+	cass.success_doCompetencySearch = function (message, passThrough) {
+		if (message.valid) {
+
+		}
+		else {
+			cass.setStatus(passThrough.searchBox.parts.status, message.status);
+		}
+	}
+	//
+
+	//Select a framework
+	cass.success_selectFramework = function (message, passThrough) {
+		if (message.valid) {
+			cass.renderCompetencyResults(message.data, passThrough.browser, true);
+			passThrough.browser.parts.selectedFramework = message.data;
+		}
+		else {
+			cass.setStatus(passThrough.searchBox.parts.status, message.status);
+		}
+	}
+	//
+
+	//AJAX
+	cass.ajax = function (method, data, success, passThrough) {
+		$.ajax({
+			url: "/Ajax/" + method,
+			headers: { "Accept": "application/json", "Content-type": "application/json; charset=utf-8" },
+			dataType: "json",
+			type: "POST",
+			data: JSON.stringify(data),
+			success: function (message) {
+				console.log("CASS Response: ", message);
+				if (typeof (success) == "function") {
+					success(message, passThrough);
+					cass.cache = message; //For testing
+				}
+			}
+		});
+	}
+	//
+
+</script>
+<script type="text/javascript">
+	/* Rendering Functions */
+
+	//General rendering
+	cass.renderTemplate = function (template, data, prefix) {
+		for (var i in data) {
+			try{
+				var regex = new RegExp("{" + prefix + i + "}", "g");
+				switch (typeof (data[i])) {
+					case "string":
+					case "number":
+						template = template.replace(regex, data[i]);
+						break;
+					case "object":
+						if (Array.isArray(data[i])) {
+							template = template.replace(regex, data[i].join(", "));
+						}
+						else {
+							template = cass.renderTemplate(template, data[i], i + ".");
+						}
+						break;
+					default: break;
+				}
+
+			}
+			catch (e) { }
+		}
+		return template;
+	}
+
+	//Render a framework
+	cass.renderFrameworkResults = function (items, browser, searchBox) {
+		var resultsBox = searchBox.parts.resultsBox;
+		var template = $("#cass_template_frameworkResult").html();
+		resultsBox.html("");
+		for (var i in items) {
+			(function (item) {
+				var result = $(cass.renderTemplate(template, item, "")).appendTo(resultsBox);
+				result.find("[data-action=select]").on("click", function () {
+					cass.setStatus(browser.competencySearchBox.parts.status, "Loading...");
+					browser.competencySearchBox.parts.resultsBox.html("");
+					cass.ajax("CassGetObject", { uri: result.attr("data-URI"), type: "framework" }, cass.success_selectFramework, { browser: browser, searchBox: searchBox, result: result });
+				});
+			})(items[i]);
+		}
+		browser.competencySearchBox.parts.input.val("").trigger("change");
+	}
+	//
+
+	//Render competencies (as a list)
+	cass.renderCompetencyResults = function (data, browser, isFramework) {
+		var resultsBox = browser.competencySearchBox.parts.resultsBox;
+		var template = $("#cass_template_competencyResult").html();
+		resultsBox.html("");
+		if (isFramework) {
+			for (var i in data.TopLevelCompetencyUris) {
+				cass.renderCompetencyResult(template, cass.findItem(data.TopLevelCompetencyUris[i], data.Competencies), resultsBox, true, 0, data);
+			}
+			cass.setStatus(browser.competencySearchBox.parts.status, "Load Complete");
+		}
+		else {
+			for (var i in data) {
+				cass.renderCompetencyResult(template, data[i], resultsBox, false, 0, null);
+			}
+		}
+	}
+
+	//Render a competency result
+	cass.renderCompetencyResult = function (template, item, resultsBox, isFramework, indentLevel, framework) {
+		var result = $(cass.renderTemplate(template, item, "")
+			.replace(/{indentLevel}/g, indentLevel)
+			.replace(/{hasChildren}/g, isFramework && item.ChildrenUris.length > 0 ? "true" : "false")
+			).appendTo(resultsBox);
+		result.css("margin-left", indentLevel * cass.settings.competencyIndentAmount);
+		result.find(".rawData").html(JSON.stringify(item));
+		result.find("[data-action='includeChildren']").on("click", function () {
+			cass.toggleTreeSelection(resultsBox, result);
+		});
+		result.find("[data-action='include'] input[type=checkbox]").on("change", function () {
+			result.attr("data-included", $(this).prop("checked") ? "true" : "false");
+		});
+		if (isFramework) {
+			for (var i in item.ChildrenUris) {
+				cass.renderCompetencyResult(template, cass.findItem(item.ChildrenUris[i], framework.Competencies), resultsBox, true, indentLevel + 1, framework);
+			}
+		}
+	}
+	//
+
+	//Render selected competencies
+	cass.renderSelectedCompetency = function (browser, searchBox, data) {
+		var template = $("#cass_template_selectedCompetency").html();
+		var resultsBox = searchBox.parts.resultsBox;
+		var result = $(cass.renderTemplate(template, data, "")).appendTo(resultsBox);
+		result.find(".rawData").html(JSON.stringify(data));
+		result.find("[data-action='unselect']").on("click", function () {
+			cass.unselectCompetency(browser, searchBox, data, result);
+		});
+		return result;
+	}
+	//
+
+</script>
+<script type="text/javascript">
+	/* Utility Functions */
+
+	//Set a status message
+	cass.setStatus = function (statusBox, text) {
+		statusBox.html(text);
+	}
+	//
+
+	//Get an item from a list
+	cass.findItem = function (uri, list) {
+		for (var i in list) {
+			if (list[i]._Id == uri) {
+				return list[i];
+			}
+		}
+	}
+	//
+
+	//Toggle the selection of a result and its children
+	cass.toggleTreeSelection = function (resultsBox, result, overrideCheck) {
+		var cbx = result.find("[data-action='include'] input");
+		overrideCheck = overrideCheck == null ? !cbx.prop("checked") : overrideCheck;
+		cbx.prop("checked", overrideCheck).trigger("change");
+		var children = JSON.parse(result.find(".rawData").html()).ChildrenUris;
+		for (var i in children) {
+			cass.toggleTreeSelection(resultsBox, resultsBox.find("[data-uri='" + children[i] + "']"), overrideCheck);
+		}
+	}
+	//
+
+	//Toggle the selection of all competencies
+	cass.toggleAllCompetencies = function (browser, searchBox) {
+		var results = searchBox.parts.resultsBox.find(".cassResult");
+		if (results.length > 0) {
+			var include = !results.first().find("[data-action='include'] input[type=checkbox]").prop("checked");
+			results.find("[data-action='include'] input[type=checkbox]").prop("checked", include).trigger("change");
+		}
+	}
+	//
+
+	//Select included competencies
+	cass.selectIncludedCompetencies = function (browser, searchBox) {
+		var selectedResults = searchBox.parts.resultsBox.find(".cassResult[data-included=true]");
+		var existingItems = browser.existingItemsBox.parts.resultsBox.find(".cassResult");
+		var selectedItems = [];
+		selectedResults.each(function () {
+			var result = $(this);
+			var alreadySelected = false;
+			var rawData = JSON.parse(result.find(".rawData").html());
+			existingItems.each(function () {
+				if ($(this).attr("data-uri") == rawData._Id) {
+					alreadySelected = true;
+				}
+			});
+			if (!alreadySelected) {
+				var addedResult = cass.selectCompetency(browser, browser.existingItemsBox, rawData);
+				selectedItems.push({ data: rawData, result: addedResult });
+			}
+		});
+		cass.callFunction(browser, "data-onSelectCompetencyList", { items: selectedItems });
+	}
+	//
+
+	//Select a competency - allow for hooking by external code
+	cass.selectCompetency = function (browser, searchBox, data) {
+		var result = cass.renderSelectedCompetency(browser, searchBox, data);
+		cass.callFunction(browser, "data-onSelectCompetency", { searchBox: searchBox, data: data, result: result });
+		return result;
+	}
+	//
+
+	//Remove a selected competency
+	cass.unselectCompetency = function (browser, searchBox, data, result) {
+		result.detach();
+		cass.callFunction(browser, "data-onSelectCompetencyList", { searchBox: searchBox, data: data, result: result });
+	}
+	//
+
+	//Call an externally-assigned function
+	cass.callFunction = function (browser, functionAttributeName, data) {
+		//If the function has been assigned to this particular instance of the browser, call it
+		if (browser.attr(functionAttributeName) != "") {
+			try {
+				window[browser.attr(functionAttributeName)](browser, data);
+			}
+			catch (e) { }
+		}
+	}
+	//
+
+	//Get a CASS browser object by ID
+	cass.getBrowser = function (browserID) {
+		for (var i in cass.browserList) {
+			if (cass.browserList[i].browserID == browserID) {
+				return cass.browserList[i];
+			}
+		}
+		return null;
+	}
+	//
+</script>
+<style type="text/css">
+	.cassBrowser .configuration { display: none; }
+	.cassBrowser .guidance { padding: 5px; }
+	.cassBrowser .searchColumns { display: flex; }
+	.cassBrowser .searchColumns .searchColumn { display: flex; flex-direction: column; max-height: 75vh; padding: 5px; }
+	.cassBrowser .searchFrameworks { flex: 0 0 33%; }
+	.cassBrowser .searchCompetencies { flex: 0 0 33%; }
+	.cassBrowser .selectedItems { flex: 0 0 34%; }
+	.cassBrowser .searchHeader { margin-bottom: 5px; }
+	.cassBrowser .searchHeader .headerText { font-weight: bold; }
+	.cassBrowser .searchHeader input[type=text] { display: block; width: 100%; margin-bottom: 5px; }
+	.cassBrowser .searchResults { background-color: rgba(0,0,0,0.01); padding: 5px; overflow: auto; }
+	.cassBrowser .buttons { text-align: right; padding: 5px; }
+
+	.cassResult { border: 1px solid #CCC; padding: 5px; margin-bottom: 5px; background-color: #FFF; }
+	.cassResult .name { font-size: 18px; font-weight: bold; }
+	.cassResult .description { font-size: 14px; }
+	.cassResult .details, .cassResult .details * { font-size: 12px; }
+	.cassResult .details { text-align: center; padding: 2px; font-style: italic; }
+
+	.cassResult.competencyResult { display: flex; }
+	.cassResult.competencyResult .content { flex: 1 1 auto; }
+	.cassResult.competencyResult .buttons { flex: 0 0 50px; width: 50px; padding: 5px; }
+	.cassResult.competencyResult .buttons .buttonItem { display: block; width: 100%; margin-bottom: 2px; }
+	.cassResult.competencyResult[data-haschildren='false'] [data-action=includeChildren] { display: none; }
+	.cassResult input[type=checkbox] { cursor: pointer; }
+	.cassResult[data-included=true] { border-right-width: 5px; padding-right: 5px; background-color: rgba(0,200,200,0.05); }
+	.cassResult[data-included=false] { border-right-width: 1px; padding-right: 9px; }
+	.cassResult.filteredOut { display: none; }
+</style>
+<div class="templates" style="display:none;">
+	<script type="text/template" id="cass_template_frameworkResult">
+		<div class="cassResult frameworkResult" data-URI="{_Id}">
+			<div class="rawData" style="display:none;"></div>
+			<div class="name">{Name}</div>
+			<div class="description">{Description}</div>
+			<div class="details"><b>{UtilityData.TotalCompetencies}</b> total competencies, with <b>{UtilityData.TotalRelations}</b> relationships between them</div>
+			<div class="buttons">
+				<button data-action="select">Browse this Framework <i class="fa fa-arrow-right"></i></button>
+			</div>
+		</div>
+	</script>
+	<script type="text/template" id="cass_template_competencyResult">
+		<div class="cassResult competencyResult" data-URI="{_Id}" data-indentLevel="{indentLevel}" data-haschildren="{hasChildren}" data-included="false">
+			<div class="rawData" style="display:none;"></div>
+			<div class="content">
+				<div class="name">{Name}</div>
+				<div class="description">{Description}</div>
+			</div>
+			<div class="buttons">
+				<label class="linkButton grayButton buttonItem" data-action="include"><input type="checkbox" /></label>
+				<button class="buttonItem" data-action="includeChildren">All</button>
+			</div>
+		</div>
+	</script>
+	<script type="text/template" id="cass_template_selectedCompetency">
+		<div class="cassResult selectedCompetency" data-URI="{_Id}">
+			<div class="rawData" style="display:none;"></div>
+			<div class="content">
+				<div class="name">{Name}</div>
+				<div class="description">{Description}</div>
+			</div>
+			<div class="buttons">
+				<button data-action="unselect">Remove <i class="fa fa-close"></i></button>
+			</div>
+		</div>
+	</script>
+</div>

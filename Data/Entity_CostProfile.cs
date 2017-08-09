@@ -20,8 +20,6 @@ namespace Data
         }
     
         public int Id { get; set; }
-        public System.Guid ParentUid { get; set; }
-        public int ParentTypeId { get; set; }
         public string ProfileName { get; set; }
         public string Description { get; set; }
         public Nullable<System.DateTime> DateEffective { get; set; }
@@ -39,5 +37,7 @@ namespace Data
         public virtual Codes_Currency Codes_Currency { get; set; }
         public virtual Entity Entity { get; set; }
         public virtual ICollection<Entity_CostProfileItem> Entity_CostProfileItem { get; set; }
+        public virtual Account Account_Creator { get; set; }
+        public virtual Account Account_Modifier { get; set; }
     }
 }

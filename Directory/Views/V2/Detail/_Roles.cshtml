@@ -16,7 +16,7 @@
         //Fix/prevent missing/null data
         foreach ( var role in receivedRoles )
         {
-            role.RoleType = new Enumeration() { Name = roleCodes.Items.FirstOrDefault( m => m.Id == role.RoleTypeId ).Name, Id = role.RoleTypeId };
+            role.AgentRole = new Enumeration() { Name = roleCodes.Items.FirstOrDefault( m => m.Id == role.RoleTypeId ).Name, Id = role.RoleTypeId };
             role.ActingAgent =
                 role.ActingAgent == null ||
                 role.ActingAgent.Id == 0 ||
@@ -46,7 +46,7 @@
         <ul>
             @foreach ( var role in receivedRoles.Where( m => m.ActingAgentId == org.Id ).ToList() )
             {
-                <li>@role.RoleType.Name</li>
+                <li>@role.AgentRole.Name</li>
             }
         </ul>
         <p>by this Organization.</p>

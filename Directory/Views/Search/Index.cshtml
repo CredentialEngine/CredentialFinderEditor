@@ -125,6 +125,7 @@
             searchType = $(this).find("option:selected").attr("value");
             showFilterType(searchType);
             showMapType(searchType);
+            showSortType(searchType);
         });
     }
     //
@@ -500,16 +501,16 @@
  
                 switch(type){
                     case "credential":
-                        doAjax("credentialmanagement", "Delete", { id: recordID }, success_deleteResult, result);
+                        doAjax("credentialmanagement", "Delete", { id: recordID }, success_deleteResult, null, result);
                         return;
                     case "organization":
-                        doAjax("organizationmanagement", "Delete", { id: recordID }, success_deleteResult, result);
+                        doAjax("organizationmanagement", "Delete", { id: recordID }, success_deleteResult, null, result);
                         return;
                     case "assessment":
-                        doAjax("profile", "DeleteAssessment", { id: recordID }, success_deleteResult, result);
+                        doAjax("profile", "DeleteAssessment", { id: recordID }, success_deleteResult, null, result);
                         return;
                     case "learningopportunity":
-                        doAjax("profile", "DeleteLearningOpportunity", { id: recordID }, success_deleteResult, result);
+                        doAjax("profile", "DeleteLearningOpportunity", { id: recordID }, success_deleteResult, null, result);
                         return;
                     default:
                         return;
@@ -550,6 +551,17 @@
         $(".gauge#viewMode input").removeClass("selected").filter("[data-viewmode=" + mode + "]").addClass("selected");
         $(window).trigger("viewModeChanged");
         wakeMaps();
+    }
+    //
+
+    //Set sort type
+    function showSortType(searchType) {
+        var box = $("#ddlSortOrder");
+        box.find("option").show().not("[data-searchType*='" + searchType + "']").hide();
+        if(!box.find("option:selected").is(":visible")){
+            box.find("option:visible").first().prop("selected", true);
+            box.trigger("change");
+        }
     }
     //
 </script>
@@ -617,6 +629,7 @@
         }
         else {
             consoleMessage.addErrorMessage(message.status, "", 5000);
+            result.removeClass("aboutToDelete");
         }
     }
     //
@@ -714,6 +727,7 @@
             var current = currentResults.Results[i];
             var text = template
                 .replace(/{Name}/g, current.Name)
+                .replace(/{FriendlyName}/g, current.FriendlyName)
                 .replace(/{Description}/g, current.Description)
                 .replace(/{RecordId}/g, current.RecordId);
 
@@ -1025,8 +1039,12 @@
             </div>
             <div class="gauge" id="sortOrder">
                 <select id="ddlSortOrder">
-                    <option value="relevance" @( sortOrder == "relevance" ? "selected=\"selected\"" : "" )>Sort by Relevance</option>
-                    <option value="alpha" @( sortOrder == "alpha" ? "selected=\"selected\"" : "")>Sort A-Z</option>
+                    <option value="relevance" @( sortOrder == "relevance" ? "selected=\"selected\"" : "" )  data-searchtype="credential,organization,assessment,learningopportunity">Sort by Relevance</option>
+                    <option value="alpha" @( sortOrder == "alpha" ? "selected=\"selected\"" : "")  data-searchtype="credential,organization,assessment,learningopportunity">Sort A-Z</option>
+                    <option value="cost_lowest" @( sortOrder == "cost_lowest" ? "selected=\"selected\"" : "")  data-searchtype="credential,assessment,learningopportunity">Lowest Estimated Cost</option>
+                    <option value="cost_highest" @( sortOrder == "cost_highest" ? "selected=\"selected\"" : "")  data-searchtype="credential,assessment,learningopportunity">Highest Estimated Cost</option>
+                    <option value="duration_shortest" @( sortOrder == "duration_shortest" ? "selected=\"selected\"" : "")  data-searchtype="credential,assessment,learningopportunity">Shortest Estimated Duration</option>
+                    <option value="duration_longest" @( sortOrder == "duration_longest" ? "selected=\"selected\"" : "")  data-searchtype="credential,assessment,learningopportunity">Longest Estimated Duration</option>
                 </select>
             </div>
             <div class="gauge" id="selectedFilters">
@@ -1048,7 +1066,7 @@
         <div id="filterButtons">
             @* Credential Filters *@
             <input type="button" data-filtername="credentialType" data-searchtype="credential" value="Credential Type" />
-            <input type="button" data-filtername="credentialLevel" data-searchtype="credential" value="Credential Level" />
+            <input type="button" data-filtername="credentialLevel" data-searchtype="credential" value="Audience Level" />
             <input type="button" data-filtername="credentialPurpose" data-searchtype="credential" value="Credential Purpose" />
             <input type="button" data-filtername="occupation" data-searchType="credential" value="Occupations" />
             <input type="button" data-filtername="industry" data-searchType="credential" value="Industry" />
@@ -1089,7 +1107,7 @@
                 PreselectedFilters = preselectedFilters
             } )
 
-            @{ var credentialLevel = enumServices.GetCredentialLevel( Models.Common.EnumerationType.MULTI_SELECT ); }
+            @{ var credentialLevel = enumServices.GetAudienceLevel( Models.Common.EnumerationType.MULTI_SELECT ); }
             @Html.Partial( "_EnumerationFilter", new HtmlEnumerationFilterSettings()
             {
                 SearchType = "credential",
@@ -1218,7 +1236,7 @@
         <div class="result credential" data-recordid="{RecordId}">
             <div class="leftBox">
                 <a target="credentialResult" href="@Url.Content("~/credentialmanagement/detail2/"){RecordId}" class="name">{Name}</a>
-                @*<div class="subtitle"><a target="organizationResult" href="@Url.Content("~/organizationmanagement/detail2/"){CreatorId}">{Creator}</a></div>*@
+           
                 <div class="subtitle"><a target="organizationResult" href="@Url.Content("~/organizationmanagement/detail2/"){OwnerId}">{Owner}</a></div>
                 <div class="data">
                     <div class="description">
@@ -1241,8 +1259,10 @@
                 <div class="type">{Type}</div>
             </div>
             <div class="editBox">
-                @if ( canEditDocument ) { <a class="editLink linkButton actionButton" target="_credentialEditWindow" title="Edit" href="@Url.Content( "~/CredentialManagement/Edit/" ){RecordId}"></a> }
-                @if ( canEditDocument ) { <a class="editLink linkButton actionButtonNew" target="_credentialEditWindow" title="NEW Editor" href="@Url.Content( "~/editor/Credential/" ){RecordId}"></a> }
+                
+                @if ( canEditDocument ) { <a class="editLink linkButton actionButtonNew" target="_credentialEditWindow" title="Editor" href="@Url.Content( "~/editor/Credential/" ){RecordId}"></a> }
+                @if ( canEditDocument )
+                { <a class="editLink linkButton actionButtonNew" target="_credentialEditWindow" title="NEW Editor" href="@Url.Content( "~/editor/Credential/" ){RecordId}?v2=True"></a> }
                 @if ( canEditDocument ) { <input type="button" class="deleteButton redButton" value="" title="Delete" onclick="deleteResult('{Name}', 'credential', {RecordId});" /> }
             </div>
         </div>

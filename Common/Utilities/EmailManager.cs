@@ -1,26 +1,20 @@
 using System;
-using System.Collections;
-using System.Configuration;
-using System.Data;
-using System.Data.SqlClient;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
-using System.Threading;
 using System.Web;
-using System.Web.UI;
-using System.Web.UI.WebControls;
 using System.Net.Mail;
 
 using Newtonsoft.Json;
+using System.Net;
 
 namespace Utilities
 {
 	/// <summary>
 	/// Helper class, provides email services
 	/// </summary>
-    public class EmailManager 
+	public class EmailManager 
 	{
 		//: BaseUtilityManager
 		/// <summary>
@@ -39,28 +33,41 @@ namespace Utilities
 
 		/// <summary>
 		/// Send a email created with the parameters
+		/// The destination is assumed to be the site contact, and from defaults to the system value
 		/// </summary>
 		/// <remarks>
 		/// Use the SMTP server configured in the web.config as smtpEmail
 		/// </remarks>
-		/// <param name="toEmail">Recipient address</param>
-		/// <param name="fromEmail">Sender address</param>
 		/// <param name="subject">Email subject</param>
 		/// <param name="message">Message Text</param>
 		/// <returns></returns>
+		public static bool SendSiteEmail( string subject, string message )
+		{
+			string toEmail = UtilityManager.GetAppKeyValue( "contactUsMailTo", "cwd.mparsons@ad.siu.edu" );
+			string fromEmail = UtilityManager.GetAppKeyValue( "contactUsMailFrom", "mparsons@siuccwd.com" );
+			return SendEmail( toEmail, fromEmail, subject, message, "", "" );
+
+		} //
+
+		public static bool SendEmail( string toEmail, string subject, string message )
+		{
+			string fromEmail = UtilityManager.GetAppKeyValue( "contactUsMailFrom", "mparsons@siuccwd.com" );
+			return SendEmail( toEmail, fromEmail, subject, message, "", "" );
+
+		} //
+
 		public static bool SendEmail( string toEmail, string fromEmail, string subject, string message )
 		{
 			return SendEmail( toEmail, fromEmail, subject, message, "", "" );
 
 		} //
-
-		/// <summary>
-		/// Send an e-mail using a formatted EmailNotice
-		/// - assumes the Message property contains the formatted e-mail - allows for not HTML variety
-		/// </summary>
-		/// <param name="toEmail"></param>
-		/// <param name="notice"></param>
-		/// <returns></returns>
+		  /// <summary>
+		  /// Send an e-mail using a formatted EmailNotice
+		  /// - assumes the Message property contains the formatted e-mail - allows for not HTML variety
+		  /// </summary>
+		  /// <param name="toEmail"></param>
+		  /// <param name="notice"></param>
+		  /// <returns></returns>
 		//public static bool SendEmail( string toEmail, EmailNotice notice )
 		//{
 
@@ -84,6 +91,11 @@ namespace Utilities
 			delim[ 0 ] = ',';
             MailMessage email = new MailMessage();
             string appEmail = UtilityManager.GetAppKeyValue( "contactUsMailFrom", "mparsons@siuccwd.com" );
+			string systemAdminEmail = UtilityManager.GetAppKeyValue( "systemAdminEmail", "mparsons@siuccwd.com" );
+			if ( string.IsNullOrWhiteSpace( BCC ) )
+				BCC = systemAdminEmail;
+			else
+				BCC += ", " + systemAdminEmail;
 
 			try
 			{
@@ -219,14 +231,17 @@ namespace Utilities
 				SendEmailViaApi( emailMsg );
 			else if ( emailService == "smtp" )
 			{
-				SmtpClient smtp = new SmtpClient( UtilityManager.GetAppKeyValue( "smtpEmail" ) );
+				SmtpClient smtp = new SmtpClient( UtilityManager.GetAppKeyValue( "SmtpHost" ) );
+				smtp.UseDefaultCredentials = false;
+				smtp.Credentials = new NetworkCredential( "mparsons", "Mctd19971" );
+
 				smtp.Send( emailMsg );
 				//SmtpMail.Send(email);
 			}
-			else if ( emailService == "sendGrid" )
-			{
-				EmailViaSendGrid( emailMsg );
-			}
+			//else if ( emailService == "sendGrid" )
+			//{
+			//	EmailViaSendGrid( emailMsg );
+			//}
 			else
 			{
 				//no service api
@@ -245,10 +260,16 @@ namespace Utilities
 				LoggingHelper.DoTrace( 2, "***** EmailManager.SendEmail - no email service has been configured" );
 				return;
 			}
-			else if ( emailServiceUri.ToLower().Equals( "sendgrid" ) )
-			{
-				EmailViaSendGrid( emailMsg );
-			}
+			//else if ( emailServiceUri.ToLower().Equals( "sendgrid" ) )
+			//{
+			//	EmailViaSendGrid( emailMsg );
+			//	return;
+			//} 
+			//else if ( emailServiceUri.ToLower().Equals( "smtp" ) )
+			//{
+			//	EmailViaSmtp( emailMsg );
+			//	return;
+			//}
 
 
 			var email = new Email()
@@ -293,6 +314,7 @@ namespace Utilities
 
 			}
 }
+
 		private static bool EmailViaSendGrid( MailMessage emailMsg )
 		{
 			bool isValid = true;

@@ -42,6 +42,7 @@ namespace Data.Views
         public virtual DbSet<Entity_LearningOpportunity_Summary> Entity_LearningOpportunity_Summary { get; set; }
         public virtual DbSet<Entity_PropertyOtherSummary> Entity_PropertyOtherSummary { get; set; }
         public virtual DbSet<Entity_ReferenceUrls_Summary> Entity_ReferenceUrls_Summary { get; set; }
+        public virtual DbSet<ListValidEntitiesAndAliases> ListValidEntitiesAndAliases { get; set; }
         public virtual DbSet<Naics_Select2DigitCodes> Naics_Select2DigitCodes { get; set; }
         public virtual DbSet<Naics_Select6DigitCodes> Naics_Select6DigitCodes { get; set; }
         public virtual DbSet<Organization_ServiceSummary> Organization_ServiceSummary { get; set; }
@@ -54,5 +55,20 @@ namespace Data.Views
         public virtual DbSet<Organization_PropertyOther_Summary> Organization_PropertyOther_Summary { get; set; }
         public virtual DbSet<OrganizationProperty_Summary> OrganizationProperty_Summary { get; set; }
         public virtual DbSet<Activity_MetadataRegistrySummary> Activity_MetadataRegistrySummary { get; set; }
+        public virtual DbSet<ConditionProfile_ParentSummary> ConditionProfile_ParentSummary { get; set; }
+        public virtual DbSet<Entity_Subjects> Entity_Subjects { get; set; }
+        public virtual DbSet<Activity_Summary> Activity_Summary { get; set; }
+        public virtual DbSet<Activity_Today_Summary> Activity_Today_Summary { get; set; }
+        public virtual DbSet<Credential_Assets> Credential_Assets { get; set; }
+        public virtual DbSet<CostProfile_SummaryForSearch> CostProfile_SummaryForSearch { get; set; }
+        public virtual DbSet<Entity_AgentRelationship_Totals> Entity_AgentRelationship_Totals { get; set; }
+        public virtual DbSet<Credential_Assets_AgentRelationship_Totals> Credential_Assets_AgentRelationship_Totals { get; set; }
+        public virtual DbSet<SiteTotalsSummary> SiteTotalsSummaries { get; set; }
+        public virtual DbSet<CodesProperty_Counts_ByEntity> CodesProperty_Counts_ByEntity { get; set; }
+        public virtual DbSet<Entity_FrameworkCIPGroupSummary> Entity_FrameworkCIPGroupSummary { get; set; }
+        public virtual DbSet<Entity_FrameworkIndustryGroupSummary> Entity_FrameworkIndustryGroupSummary { get; set; }
+        public virtual DbSet<Entity_FrameworkOccupationGroupSummary> Entity_FrameworkOccupationGroupSummary { get; set; }
+        public virtual DbSet<Entity_FrameworkCIPCodeSummary> Entity_FrameworkCIPCodeSummary { get; set; }
+        public virtual DbSet<Entity_FrameworkIndustryCodeSummary> Entity_FrameworkIndustryCodeSummary { get; set; }
     }
 }

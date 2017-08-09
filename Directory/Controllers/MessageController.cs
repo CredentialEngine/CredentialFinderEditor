@@ -18,12 +18,13 @@ namespace CTI.Directory.Controllers
 			if ( Session[ "siteMessage" ] != null )
 			{
 				pageMessage = Session[ "siteMessage" ].ToString();
-
-				Utilities.ConsoleMessageHelper.SetConsoleErrorMessage( pageMessage, "", true );
-				Session.Remove( "siteMessage" );
+				//setting console message doesn't work when switching to a different controller
+				//so will handle in home
+				//Utilities.ConsoleMessageHelper.SetConsoleErrorMessage( pageMessage, "", true );
+				//Session.Remove( "siteMessage" );
 			}
-
-			return View( "~/Views/V2/Home/Index.cshtml" );
+			return View();
+			//return View( "~/Views/V2/Home/Index.cshtml" );
         }
 
 		public ActionResult NotAuthorized()

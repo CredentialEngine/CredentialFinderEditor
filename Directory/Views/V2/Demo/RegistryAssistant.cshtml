@@ -1,0 +1,227 @@
+﻿
+@{
+	ViewBag.Title = "Registry Assistant Demo";
+	var envelopePrefixURL = ServiceHelper.GetAppKeyValue( "credentialRegistryGet" ).Replace( "{0}", "" );
+}
+
+<script type="text/javascript">
+	/* Global Variables */
+	var fetchedData = {};
+	var formattedData = {};
+	var detailPageData = {};
+	var publishedData = {};
+	var envelopePrefix = "@envelopePrefixURL";
+
+	/* Initialization */
+	$(document).ready(function () {
+
+	});
+
+	//Helpers
+	function getType() {
+		return $("[name=demoType]:checked").attr("value");
+	}
+	//
+
+	//Fetch initial data
+	function fetchData(button) {
+		var id = parseInt($("#id").val());
+		if (id == 0 || isNaN(id)) { return; }
+		reset(false);
+		doAjax("Demo", "FetchData", { id: id, type: getType() }, success_fetchData, null, button);
+	}
+	//
+
+	//Format fetched data
+	function formatData(button) {
+		if (JSON.stringify(fetchedData) == "{}") { return; }
+		doAjax("Demo", "FormatData", { data: JSON.stringify(fetchedData), type: getType() }, success_formatData, null, button);
+	}
+	//
+
+	//Get detail page raw metadata
+	function detailData(button) {
+		var id = parseInt($("#id").val());
+		if (JSON.stringify(formattedData) == "{}" || id == 0) { return; }
+		doAjax("Demo", "DetailData", { id: id, type: getType() }, success_detailData, null, button);
+	}
+	//
+
+	//Publish formatted data
+	function publishData(button, skipValidation) {
+		if (JSON.stringify(formattedData) == "{}") { return; }
+		doAjax("Demo", "PublishData", { data: JSON.stringify(formattedData), type: getType(), forceSkipValidation: skipValidation }, success_publishData, null, button);
+	}
+	//
+
+	//Reset
+	function reset(resetInitial) {
+		if (resetInitial) {
+			$("#id").val("");
+		}
+		$(".json").html("");
+		fetchedData = {};
+		formattedData = {};
+		publishedData = {};
+	}
+	//
+
+	//AJAX
+	function doAjax(controller, method, data, success, passThrough, button) {
+		setButton("Working...", button, true);
+		$.ajax({
+			url: "@Url.Content( "~/" )" + controller + "/" + method,
+			async: true,
+			headers: { "Accept": "application/json", "Content-type": "application/json; charset=utf-8" },
+			dataType: "json",
+			type: "POST",
+			data: JSON.stringify(data),
+			success: function (message) {
+				console.log("Response: ", message);
+				success(message, passThrough);
+			}
+		}).done(function() {
+			setButton("", button, false);
+		});
+	}
+	//
+
+	//Button handling
+	function setButton(text, rawButton, isBusy) {
+		var button = $(rawButton);
+		if (button.length == 0) { return; }
+		if (text == "") {
+			button.html(atob(button.attr("data-originalValue")));
+		}
+		else {
+			button.attr("data-originalValue", btoa(button.html()));
+			button.html(text);
+		}
+		button.prop("disabled", isBusy);
+	}
+	//
+
+	//Success methods
+	function success_fetchData(message, passThrough) {
+		var box = $("#simpleClassJSON");
+		if (message.valid) {
+			fetchedData = message.data;
+			renderJSON(fetchedData, box);
+		}
+		else {
+			box.html(message.status);
+		}
+	}
+	//
+	
+	function success_formatData(message, passThrough) {
+		var box = $("#formattedClassJSON");
+		if (message.valid) {
+			formattedData = JSON.parse(message.data);
+			renderJSON(formattedData, box);
+		}
+		else {
+			box.html(message.status);
+		}
+	}
+	//
+
+	function success_detailData(message, passThrough) {
+		var box = $("#detailPageJSON");
+		if (message.valid) {
+			detailPageData = message.data;
+			renderJSON(detailPageData, box);
+		}
+		else {
+			box.html(message.status);
+		}
+	}
+	//
+
+	function success_publishData(message, passThrough) {
+		var box = $("#publishedClassJSON");
+		if (message.valid) {
+			publishedData = JSON.parse(message.data);
+			renderJSON(publishedData, box);
+			$("#publishedLink").attr("href", envelopePrefix + message.extra);
+		}
+		else {
+			box.html(message.status);
+		}
+	}
+	//
+
+	//Rendering methods
+	function renderJSON(data, box) {
+		box.html(JSON.stringify(data, null, "\t"));
+	}
+	//
+</script>
+<style type="text/css">
+	#content { padding: 0 10px; }
+	#mainSiteFooter { display: none; }
+	#sections { display: flex; background-color: #FEFEFE; padding: 10px; overflow: auto; }
+	.section { flex: 0 0 auto; width: 50%; padding: 5px; }
+	.section h2 { font-size: 18px; }
+	#inputID { width: 200px; }
+	.rblBox label { display: block; }
+	.rblBox label:hover, .rblBox label:focus { cursor: pointer; background-color: #EEE; }
+	.idBox input { display: block; width: 100%; margin-bottom: 10px; }
+	.buttonBox { display: flex; text-align: right; margin: 5px -5px 0 0; }
+	.buttonBox button { margin-right: 5px; }
+	#inputID .buttonBox { display: block; }
+	.sectionButton { display: block; padding: 10px; margin: 5px 0 5px auto; width: 100%; }
+	.json { height: 85vh; overflow: auto; white-space: pre-wrap; font-family: Consolas, 'Courier New', monospace; background-color: #EEE; font-size: 12px; padding: 10px; }
+</style>
+
+<h1>Registry Assistant Demo</h1>
+
+<div id="sections">
+	<div class="section" id="inputID">
+		<h2>Step 1. Provide Type and ID:</h2>
+		<div class="idBox">
+			<input type="text" name="id" id="id" placeholder="ID" />
+		</div>
+		<div class="rblBox">
+			<label><input type="radio" name="demoType" value="credential" checked="checked" /> Credential</label>
+			<label><input type="radio" name="demoType" value="organization" /> Organization</label>
+			<label><input type="radio" name="demoType" value="assessment" /> Assessment</label>
+			<label><input type="radio" name="demoType" value="learningopportunity" /> Learning Opportunity</label>
+		</div>
+		<button class="sectionButton blueButton" onclick="fetchData(this);">Fetch Data</button>
+		<button class="sectionButton redButton" onclick="reset(true);">Reset</button>
+	</div>
+
+	<div class="section" id="simpleClass">
+		<h2>Step 2. Review the input class data:</h2>
+		<div class="json" id="simpleClassJSON"></div>
+		<div class="buttonBox">
+			<button class="sectionButton blueButton" onclick="formatData(this);">Format JSON (Uses Format API endpoint) <i class="fa fa-arrow-right"></i></button>
+		</div>
+	</div>
+
+	<div class="section" id="formattedClass">
+		<h2>Step 3. Review the formatted CTDL JSON-LD:</h2>
+		<div class="json" id="formattedClassJSON"></div>
+		<div class="buttonBox">
+			<button class="sectionButton blueButton" onclick="detailData(this);">Get Detail Page Raw Metadata <i class="fa fa-arrow-right"></i></button>
+		</div>
+	</div>
+
+	<div class="section" id="detailClass">
+		<h2>Step 4. Compare the Detail Page Raw Metadata:</h2>
+		<div class="json" id="detailPageJSON"></div>
+		<div class="buttonBox">
+			<button class="sectionButton blueButton" onclick="publishData(this, false);">Publish Simple API JSON-LD (Use Validation) <i class="fa fa-arrow-right"></i></button>
+			<button class="sectionButton blueButton" onclick="publishData(this, true);">Publish Simple API JSON-LD (Skip Validation) <i class="fa fa-arrow-right"></i></button>
+		</div>
+	</div>
+
+	<div class="section" id="publishedClass">
+		<h2>Step 5. Review the published record:</h2>
+		<div class="json" id="publishedClassJSON"></div>
+		<div class="buttonBox">
+			<a class="sectionButton linkButton greenButton" href="" id="publishedLink" target="_blank">View Published Data <i class="fa fa-external-link"></i></a>
+		</div>
+	</div>
+</div>

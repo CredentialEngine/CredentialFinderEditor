@@ -16,9 +16,7 @@ namespace Data
     {
         public Codes_EntityType()
         {
-            this.Entity_Property = new HashSet<Entity_Property>();
             this.Entity = new HashSet<Entity>();
-            this.JurisdictionProfile = new HashSet<JurisdictionProfile>();
         }
     
         public int Id { get; set; }
@@ -29,8 +27,6 @@ namespace Data
         public Nullable<System.DateTime> Created { get; set; }
         public Nullable<int> Totals { get; set; }
     
-        public virtual ICollection<Entity_Property> Entity_Property { get; set; }
         public virtual ICollection<Entity> Entity { get; set; }
-        public virtual ICollection<JurisdictionProfile> JurisdictionProfile { get; set; }
     }
 }

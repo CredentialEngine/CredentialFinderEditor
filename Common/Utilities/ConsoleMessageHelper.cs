@@ -72,6 +72,10 @@ namespace Utilities
 		public class ConsoleMessage
 		{
 			public int Id { get; set; } //Used client-side. Do not populate on the server.
+			/// <summary>
+			/// Optional title
+			/// </summary>
+			public string Title { get; set; }
 			public string FriendlyMessage { get; set; }
 			public string TechnicalMessage { get; set; }
 			public string MessageType { get; set; }

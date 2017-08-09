@@ -12,12 +12,13 @@ namespace Models.ProfileModels
 		public Credential IssuedCredential { get; set; } //QA credential (used by QA roles)
 
 		//QA actions only have one instance, so the Agent Role enumeration will only have one entry, so expose at the object level
-		public string QAAction { get; set; }
-		public string QAActionSchema { get; set; }
-		public string ReverseQAAction { get; set; }
-		public string ReverseQAActionSchema { get; set; }
+		public string QAAction { get; set; } //Accredited By
+		public string QAActionSchema { get; set; } //ceterms:accreditedBy
+		public string ReverseQAAction { get; set; } //Accredits
+		public string ReverseQAActionSchema { get; set; } //ceterms:accredits
 		///QA credential (used by QA roles)
 		public int IssuedCredentialId { get; set; }
+		public string QualityAssuranceType { get; set; } //ceterms:AccreditAction
 		public int QualityAssuranceTypeId { get; set; }
 		public string StartDate
 		{
@@ -25,8 +26,8 @@ namespace Models.ProfileModels
 			set { this.DateEffective = value; }
 		}
 		public string EndDate { get; set; }
-		//public string Description { get; set; }
-
+		public int ActionStatusTypeId { get; set; }
+		public string ActionStatusType { get; set; }
 	}
 	//
 }

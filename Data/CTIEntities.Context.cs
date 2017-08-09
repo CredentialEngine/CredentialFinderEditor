@@ -45,11 +45,9 @@ namespace Data
         public virtual DbSet<Codes_PropertyValue> Codes_PropertyValue { get; set; }
         public virtual DbSet<Codes_Status> Codes_Status { get; set; }
         public virtual DbSet<Credential> Credential { get; set; }
-        public virtual DbSet<Credential_ConnectionProfile> Credential_ConnectionProfile { get; set; }
         public virtual DbSet<Entity> Entity { get; set; }
         public virtual DbSet<Entity_AgentRelationship> Entity_AgentRelationship { get; set; }
         public virtual DbSet<Entity_Assessment> Entity_Assessment { get; set; }
-        public virtual DbSet<Entity_Competency> Entity_Competency { get; set; }
         public virtual DbSet<Entity_CostProfile> Entity_CostProfile { get; set; }
         public virtual DbSet<Entity_CostProfileItem> Entity_CostProfileItem { get; set; }
         public virtual DbSet<Entity_Credential> Entity_Credential { get; set; }
@@ -64,13 +62,11 @@ namespace Data
         public virtual DbSet<Entity_TaskProfile> Entity_TaskProfile { get; set; }
         public virtual DbSet<Entity_VerificationProfile> Entity_VerificationProfile { get; set; }
         public virtual DbSet<GeoCoordinate> GeoCoordinate { get; set; }
-        public virtual DbSet<JurisdictionProfile> JurisdictionProfile { get; set; }
         public virtual DbSet<LearningOpportunity> LearningOpportunity { get; set; }
         public virtual DbSet<NAICS> NAICS { get; set; }
         public virtual DbSet<ONET_SOC> ONET_SOC { get; set; }
         public virtual DbSet<ONET_SOC_JobFamily> ONET_SOC_JobFamily { get; set; }
         public virtual DbSet<Organization> Organization { get; set; }
-        public virtual DbSet<Organization_Address> Organization_Address { get; set; }
         public virtual DbSet<Organization_Member> Organization_Member { get; set; }
         public virtual DbSet<Organization_PropertyOther> Organization_PropertyOther { get; set; }
         public virtual DbSet<Organization_Service> Organization_Service { get; set; }
@@ -81,6 +77,33 @@ namespace Data
         public virtual DbSet<Entity_CompetencyFramework> Entity_CompetencyFramework { get; set; }
         public virtual DbSet<Entity_CompetencyFrameworkItem> Entity_CompetencyFrameworkItem { get; set; }
         public virtual DbSet<Entity_ConditionProfile> Entity_ConditionProfile { get; set; }
+        public virtual DbSet<Entity_Cache> Entity_Cache { get; set; }
+        public virtual DbSet<Entity_ReferenceConnection> Entity_ReferenceConnection { get; set; }
+        public virtual DbSet<Entity_Text> Entity_Text { get; set; }
+        public virtual DbSet<System_ProxyCodes> System_ProxyCodes { get; set; }
+        public virtual DbSet<Entity_FrameworkItemOther> Entity_FrameworkItemOther { get; set; }
+        public virtual DbSet<Codes_ConditionProfileType> Codes_ConditionProfileType { get; set; }
+        public virtual DbSet<Entity_ProcessProfile> Entity_ProcessProfile { get; set; }
+        public virtual DbSet<Entity_ContactPoint> Entity_ContactPoint { get; set; }
+        public virtual DbSet<Entity_VerificationStatus> Entity_VerificationStatus { get; set; }
+        public virtual DbSet<Organization_VerificationStatus> Organization_VerificationStatus { get; set; }
+        public virtual DbSet<Message> Message { get; set; }
+        public virtual DbSet<CIPCode2010_JobFamily> CIPCode2010_JobFamily { get; set; }
+        public virtual DbSet<ConditionManifest> ConditionManifest { get; set; }
+        public virtual DbSet<CostManifest> CostManifest { get; set; }
+        public virtual DbSet<NAICS_NaicsGroup> NAICS_NaicsGroup { get; set; }
+        public virtual DbSet<Entity_ConditionManifest> Entity_ConditionManifest { get; set; }
+        public virtual DbSet<Entity_CommonCondition> Entity_CommonCondition { get; set; }
+        public virtual DbSet<Counts_SiteTotals> Counts_SiteTotals { get; set; }
+        public virtual DbSet<Codes_Language> Codes_Language { get; set; }
+        public virtual DbSet<Entity_FinancialAlignmentProfile> Entity_FinancialAlignmentProfile { get; set; }
+        public virtual DbSet<Entity_CommonCost> Entity_CommonCost { get; set; }
+        public virtual DbSet<Entity_CostManifest> Entity_CostManifest { get; set; }
+        public virtual DbSet<EducationFramework> EducationFramework { get; set; }
+        public virtual DbSet<EducationFramework_Competency> EducationFramework_Competency { get; set; }
+        public virtual DbSet<Entity_Competency> Entity_Competency { get; set; }
+        public virtual DbSet<Entity_EducationFramework> Entity_EducationFramework { get; set; }
+        public virtual DbSet<Credential_SummaryCache> Credential_SummaryCache { get; set; }
     
         public virtual int OrganizationSearch(string filter, string sortOrder, Nullable<int> startPageIndex, Nullable<int> pageSize, Nullable<int> currentUserId, ObjectParameter totalRows)
         {

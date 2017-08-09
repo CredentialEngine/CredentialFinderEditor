@@ -1,0 +1,517 @@
+﻿
+@{
+    ViewBag.Title = "Framework Editor";
+}
+
+<h2>Framework Editor</h2>
+
+<!-- Include once -->
+<script type="text/javascript">
+	var sampleData = {
+		Framework: {},
+		Statements: [
+			{
+				//"LocalChildrenIds": [],
+				//"LocalStatementId": 0,
+				//"LocalParentId": -1,
+				"ParentGuid": null,
+				"ChildrenGuids": [],
+				"Name": "New Statement 0",
+				"Description": "this is the description for statement 0",
+				"NotationCode": "some code 1",
+				"SortOrder": 0,
+				"RowId": "b1d60d59-436c-4652-8149-fd1e97b5fb6d"
+			},
+			{
+				//"LocalChildrenIds": [
+				//	3,
+				//	4
+				//],
+				//"LocalStatementId": 1,
+				//"LocalParentId": -1,
+				"ParentGuid": null,
+				"ChildrenGuids": [
+					"bc97e593-9a7d-4dba-b7bc-4211e9cb1605",
+					"ef744c62-b8a6-47a6-8f72-e585b6e7923d"
+				],
+				"Name": "New Statement 1",
+				"Description": "A description for statement 1",
+				"NotationCode": "another code",
+				"SortOrder": 1,
+				"RowId": "4b70c1c5-8e7e-4e44-ae51-5b468523d23b"
+			},
+			{
+				//"LocalChildrenIds": [],
+				//"LocalStatementId": 2,
+				//"LocalParentId": -1,
+				"ParentGuid": null,
+				"ChildrenGuids": [],
+				"Name": "New Statement 2",
+				"Description": "s2 desc2",
+				"NotationCode": "2",
+				"SortOrder": 2,
+				"RowId": "f2786616-cead-4647-afc2-ea5ee749422a"
+			},
+			{
+				//"LocalChildrenIds": [],
+				//"LocalStatementId": 3,
+				//"LocalParentId": 1,
+				"ParentGuid": "4b70c1c5-8e7e-4e44-ae51-5b468523d23b",
+				"ChildrenGuids": [],
+				"Name": "New Statement 3",
+				"Description": "This is the description for this one",
+				"NotationCode": "code 3",
+				"SortOrder": 3,
+				"RowId": "bc97e593-9a7d-4dba-b7bc-4211e9cb1605"
+			},
+			{
+				//"LocalChildrenIds": [],
+				//"LocalStatementId": 4,
+				//"LocalParentId": 1,
+				"ParentGuid": "4b70c1c5-8e7e-4e44-ae51-5b468523d23b",
+				"ChildrenGuids": [],
+				"Name": "New Statement 4",
+				"Description": "new statement 4 description",
+				"NotationCode": "no code",
+				"SortOrder": 4,
+				"RowId": "ef744c62-b8a6-47a6-8f72-e585b6e7923d"
+			}
+		]
+	};
+</script>
+<script type="text/javascript">
+	var Frameworks = {
+		Editors: [],
+		FrameworkID: 0,
+		StatementID: 0,
+	};
+	$(document).ready(function () {
+		Frameworks.initializeFrameworks();
+	});
+
+	//Initialize
+	Frameworks.initializeFrameworks = function () {
+		$(".frameworkEditor").not(".frameworkEditorInitialized").each(function () {
+			//Parts
+			var editor = $(this);
+			editor.Parts = {};
+			editor.Parts.Tree = editor.find(".statementListBox");
+			editor.Parts.Tree.Toolbar = editor.find(".statementListButtons");
+			editor.Parts.Statements = [];
+			editor.Parts.TopLevel = {
+				StatementID: -1,
+				ChildrenIDs: []
+			};
+			editor.Parts.FrameworkID = Frameworks.FrameworkID;
+			Frameworks.FrameworkID++;
+			editor.Parts.Selection = {};
+			editor.Parts.HasSelection = false;
+
+			//Functions
+			var buttons = editor.Parts.Tree.find(".statementListButtons");
+			buttons.find("[data-action=saveChanges]").on("click", function () {
+				Frameworks.saveChanges(editor);
+			});
+			buttons.find("[data-action=newStatement]").on("click", function () {
+				Frameworks.newStatement(editor, editor.Parts.TopLevel);
+			});
+			buttons.find("[data-action=moveUp]").on("click", function () {
+				Frameworks.moveUp(editor);
+			});
+			buttons.find("[data-action=moveDown]").on("click", function () {
+				Frameworks.moveDown(editor);
+			});
+			buttons.find("[data-action=reparent]").on("click", function () {
+				Frameworks.reparent(editor);
+			});
+			buttons.find("[data-action=deleteStatement]").on("click", function () {
+				Frameworks.deleteSelection(editor);
+			});
+			buttons.find("[data-action=deselect]").on("click", function () {
+				Frameworks.selectStatement(editor, null);
+			});
+			buttons.find("[data-action=loadSampleData]").on("click", function () {
+				Frameworks.loadData(editor, sampleData);
+			});
+
+			//Tracking
+			editor.addClass("frameworkEditorInitialized");
+			Frameworks.Editors.push(editor);
+		});
+	}
+	//
+
+	//Load data
+	Frameworks.loadData = function(editor, data) {
+		editor.Parts.Statements = [];
+		editor.Parts.TopLevel.ChildrenIDs = [];
+		for (var i in data.Statements) {
+			var source = data.Statements[i];
+			if (source.ParentGuid == null || source.ParentGuid == "") {
+				var statement = Frameworks.newStatement(editor, editor.Parts.TopLevel, source);
+				for (var j in source.ChildrenGuids) {
+					Frameworks.loadRecursively(editor, data.Statements, source.ChildrenGuids[j], statement);
+				}
+			}
+		}
+		Frameworks.renderAllStatements(editor);
+	}
+	Frameworks.loadRecursively = function (editor, sourceStatementList, sourceGUID, parent) {
+		for (var i in sourceStatementList) {
+			var source = sourceStatementList[i];
+			if (source.RowId == sourceGUID) {
+				var statement = Frameworks.newStatement(editor, parent, sourceStatementList[i]);
+				for (var j in source.ChildrenGuids) {
+					Frameworks.loadRecursively(editor, sourceStatementList, source.ChildrenGuids[j], statement);
+				}
+			}
+		}
+	}
+	//
+
+	//Get a statement by ID
+	Frameworks.getStatement = function (editor, id) {
+		if (id == -1) {
+			return editor.Parts.TopLevel;
+		}
+		for (var i in editor.Parts.Statements) {
+			if (editor.Parts.Statements[i].StatementID == id) {
+				return editor.Parts.Statements[i];
+			}
+		}
+		return null;
+	}
+	//
+
+	//Create a new statement as a child of something
+	//Should modify this to create a new entity server-side and return that entity's GUID so this object can be tied to it from the get-go
+	//Then remove the localized ID mechanisms in favor of server GUID based ones
+	//This should eliminate the problem of translating IDs and relationships, and simplify this code
+	//Consider two-way interactions both with the database and the CASS system
+	//CASS documentation: http://docs.cassproject.org/index.html?doc=1-dqFFUHV0sec4GzD9noX4Qi09xNBUiFVveS4-dAsnPE 
+	//Other factors to consider:
+	//- search/view frameworks (detail page?)
+	//- how to get to the editor from a framework
+	//- permission management
+	//- Tree view to accommodate larger frameworks
+	//??
+	Frameworks.newStatement = function (editor, parent, data) {
+		var statement = {
+			Name: data ? data.Name : "New Statement " + Frameworks.StatementID,
+			Description: data ? data.Description : "",
+			NotationCode: data ? data.NotationCode : "",
+			SortOrder: data ? data.SortOrder : 0,
+			ChildrenIDs: [],
+			StatementID: Frameworks.StatementID,
+			Html: null,
+			ParentID: parent.StatementID,
+			UUID: data ? data.RowId : null,
+			ParentGuid: data ? data.ParentGuid : null,
+			ChildrenGuids: data ? data.ChildrenGuids : []
+		};
+		Frameworks.StatementID++;
+		editor.Parts.Statements.push(statement);
+		parent.ChildrenIDs.push(statement.StatementID);
+		Frameworks.renderAllStatements(editor);
+		return statement;
+		//Frameworks.doAjax("Ajax", "GetNewGuid", null, Frameworks.applyUUID, editor, { statement: statement });
+	}
+	Frameworks.applyUUID = function (editor, message, passThrough) {
+		var uuid = message.data;
+		passThrough.statement.UUID = uuid;
+	}
+	//
+
+	//Render the data
+	Frameworks.renderAllStatements = function(editor) {
+		var template = $("#frameworks_template_tree_statement").html();
+		var tree = editor.Parts.Tree.find(".statementList");
+		tree.html("");
+		for (var i in editor.Parts.TopLevel.ChildrenIDs) {
+			Frameworks.renderStatement(editor, tree, editor.Parts.TopLevel.ChildrenIDs[i], template);
+		}
+		if (editor.Parts.HasSelection) {
+			Frameworks.selectStatement(editor, editor.Parts.Selection);
+		}
+	}
+	//
+
+	//Render a statement
+	Frameworks.renderStatement = function (editor, container, dataID, template) {
+		//Parts
+		var data = Frameworks.getStatement(editor, dataID);
+		var statement = $(template).appendTo(container);
+		data.Html = statement;
+		var title = data.Name || data.NotationCode || data.Description;
+		statement.attr("data-StatementID", data.StatementID);
+
+		//Functions
+		var buttons = statement.find(".statementButtons");
+		buttons.find("[data-action=newStatement]").on("click", function () {
+			Frameworks.newStatement(editor, data);
+		});
+		buttons.find("[data-action=selectStatement]").on("click", function () {
+			Frameworks.selectStatement(editor, data);
+		});
+		statement.find("[data-property]").each(function () {
+			var propertyBox = $(this);
+			var property = propertyBox.attr("data-property");
+			propertyBox.val(data[property]);
+			propertyBox.on("keyup change", function () {
+				data[property] = propertyBox.val();
+			});
+		});
+
+		//Children
+		var children = statement.find(".children");
+		for (var i in data.ChildrenIDs) {
+			Frameworks.renderStatement(editor, children, data.ChildrenIDs[i], template);
+		}
+	}
+	//
+
+	//Select a statement
+	Frameworks.selectStatement = function (editor, data) {
+		if (data == null || data.Html.hasClass("selected")) {
+			editor.Parts.Tree.find(".statement").removeClass("selected");
+			editor.Parts.Tree.Toolbar.removeClass("selectionActive");
+			editor.Parts.Selection = {};
+			editor.Parts.HasSelection = false;
+		}
+		else {
+			editor.Parts.Tree.find(".statement").removeClass("selected").filter(data.Html).addClass("selected");
+			editor.Parts.Tree.Toolbar.addClass("selectionActive");
+			editor.Parts.Selection = data;
+			editor.Parts.HasSelection = true;
+		}
+		editor.find("[data-action=confirmReparent]").remove();
+	}
+	//
+
+	//Move a statement up
+	Frameworks.moveUp = function (editor) {
+		if (!editor.Parts.HasSelection) { return; }
+		var data = editor.Parts.Selection;
+		var parent = Frameworks.getStatement(editor, data.ParentID);
+		for (var i in parent.ChildrenIDs) {
+			try {
+				var j = parseInt(i) + 1;
+				var current = parent.ChildrenIDs[i];
+				var next = parent.ChildrenIDs[j];
+				if (next == data.StatementID) {
+					parent.ChildrenIDs[i] = next;
+					parent.ChildrenIDs[j] = current;
+					Frameworks.renderAllStatements(editor);
+					break;
+				}
+			}
+			catch (e) {}
+		}
+	}
+	//
+
+	//Move a statement down
+	Frameworks.moveDown = function (editor) {
+		if (!editor.Parts.HasSelection) { return; }
+		var data = editor.Parts.Selection;
+		var parent = Frameworks.getStatement(editor, data.ParentID);
+		for (var i in parent.ChildrenIDs) {
+			try {
+				var j = parseInt(i) + 1;
+				var current = parent.ChildrenIDs[i];
+				var next = parent.ChildrenIDs[j];
+				if (current == data.StatementID && j < parent.ChildrenIDs.length) {
+					parent.ChildrenIDs[i] = next;
+					parent.ChildrenIDs[j] = current;
+					Frameworks.renderAllStatements(editor);
+					break;
+				}
+			}
+			catch (e) { }
+		}
+	}
+	//
+
+	//Delete a statement
+	Frameworks.deleteSelection = function (editor) {
+		if (!editor.Parts.HasSelection) { return; }
+		var data = editor.Parts.Selection;
+		var parent = Frameworks.getStatement(editor, data.ParentID);
+		if (confirm("Are you sure you want to delete this statement and all of its children? This action cannot be undone!")) {
+			for (var i in parent.ChildrenIDs) {
+				if (parent.ChildrenIDs[i] == data.StatementID) {
+					parent.ChildrenIDs.splice(i, 1);
+				}
+			}
+			for (var i in data.ChildrenIDs) {
+				Frameworks.recursiveDeleteStatement(editor, data.ChildrenIDs[i]);
+			}
+		}
+		editor.Parts.Selection = {};
+		editor.Parts.HasSelection = false;
+		Frameworks.renderAllStatements(editor);
+	}
+	Frameworks.recursiveDeleteStatement = function (editor, id) {
+		var statement = Frameworks.getStatement(editor, id);
+		for (var i in statement.ChildrenIDs) {
+			Frameworks.recursiveDeleteStatement(editor, statement.ChildrenIDs[i]);
+		}
+		for (var i in editor.Parts.Statements) {
+			if (editor.Parts.Statements[i].StatementID == id) {
+				editor.Parts.Statements.splice(i, 1);
+			}
+		}
+	}
+	//
+
+	//Move a statement to a new parent
+	Frameworks.reparent = function (editor) {
+		if (!editor.Parts.HasSelection) { return; }
+		var data = editor.Parts.Selection;
+		var parent = Frameworks.getStatement(editor, data.ParentID);
+		var otherStatements = editor.Parts.Tree.find(".statement").not(".selected").not(".statement.selected .statement");
+		otherStatements.each(function () {
+			var thisStatement = Frameworks.getStatement(editor, $(this).attr("data-statementID"));
+			var buttons = thisStatement.Html.find("> .statementData .statementButtons");
+			var button = $("<button class=\"greenButton\" data-action=\"confirmReparent\">Make Child of This Statement</button>").appendTo(buttons);
+			button.on("click", function () {
+				Frameworks.confirmReparent(editor, thisStatement);
+			});
+		});
+		var toolbar = editor.Parts.Tree.find(".withSelection");
+		var button = $("<button class=\"greenButton\" data-action=\"confirmReparent\">Make Child of This Statement</button>").appendTo(toolbar);
+		button.on("click", function () {
+			Frameworks.confirmReparent(editor, editor.Parts.TopLevel);
+		});
+	}
+	//
+
+	//Confirm re-parenting
+	Frameworks.confirmReparent = function(editor, target) {
+		if (!editor.Parts.HasSelection) { return; }
+		var data = editor.Parts.Selection;
+		var parent = Frameworks.getStatement(editor, data.ParentID);
+		for (var i in parent.ChildrenIDs) {
+			if (parent.ChildrenIDs[i] == data.StatementID) {
+				parent.ChildrenIDs.splice(i, 1);
+			}
+		}
+		data.ParentID = target.StatementID;
+		target.ChildrenIDs.push(data.StatementID);
+		Frameworks.renderAllStatements(editor);
+	}
+	//
+
+	//Save changes
+	Frameworks.saveChanges = function (editor) {
+		console.log("Saving changes for framework", editor);
+		var output = [];
+		for (var i in editor.Parts.Statements) {
+			var item = editor.Parts.Statements[i];
+			output.push({
+				LocalChildrenIds: item.ChildrenIDs,
+				LocalStatementId: item.StatementID,
+				LocalParentId: item.ParentID,
+				Name: item.Name,
+				Description: item.Description,
+				NotationCode: item.NotationCode,
+				SortOrder: parseInt(i),
+				RowId: item.UUID,
+				ParentGuid: item.ParentGuid,
+				ChildrenGuids: item.ChildrenGuids
+			});
+		}
+		console.log("Data", output);
+	}
+	//
+
+	//AJAX calls
+	Frameworks.doAjax = function (controller, method, data, success, editor, passThrough) {
+		$.ajax({
+			url: "@Url.Content( "~/" )" + controller + "/" + method,
+			async: true,
+			headers: { "Accept": "application/json", "Content-type": "application/json; charset=utf-8" },
+			dataType: "json",
+			type: "POST",
+			data: JSON.stringify(data),
+			success: function (message) {
+				console.log("Response: ", message);
+				success(editor, message, passThrough);
+			}
+		})
+	}
+	//
+</script>
+<style type="text/css">
+	.frameworkEditor { }
+	.frameworkEditor .statementListBox { }
+	.frameworkEditor .statementListButtons { background-color: #F5F5F5; padding: 5px; }
+	.frameworkEditor .statementListButtons .toolbarSection { display: inline-block; margin-right: 10px; }
+	.frameworkEditor .statementListButtons .toolbarLabel { display: inline-block; }
+	.frameworkEditor .statementListButtons:not(.selectionActive) .withSelection { display: none; }
+	.frameworkEditor .statementListBox .statementList { padding: 5px; background-color: #DFDFDF; }
+	.frameworkEditor .statement { border: 1px solid rgba(0,0,0,0); margin-bottom: 4px; }
+	.frameworkEditor .statement .statementData { display: flex; }
+	.frameworkEditor .statement .statementData .statementContent { flex: 1 1 auto; padding: 5px; background-color: #FFF; }
+	.frameworkEditor .statement .statementData .statementButtons { flex: 0 0 175px; min-height: 100px; padding: 5px; background-color: #F5F5F5; }
+	.frameworkEditor .statement .statementButtons button { display: block; width: 100%; margin-bottom: 5px; }
+	.frameworkEditor .statement .selectedFlag { display: none; padding: 2px; text-align: center; }
+	.frameworkEditor .statement.selected { background-color: rgba(0,50,200,0.8); border-color: rgba(0,50,200,0.8); border-right-width: 10px; }
+	.frameworkEditor .statement.selected .selectedFlag { font-size: 12px; font-style: italic; display: block; }
+	.frameworkEditor .statement .children { padding: 5px 0 0 15px; }
+	.frameworkEditor .statement .children:empty { padding: 0; }
+	.frameworkEditor .statement .statementContent .formItem { display: flex; align-items: baseline;  margin-bottom: 5px; }
+	.frameworkEditor .statement .statementContent .formItem .label { flex: 0 0 150px; text-align: right; padding-right: 5px; }
+	.frameworkEditor .statement .statementContent input[type=text], .frameworkEditor .statement .statementContent textarea { width: 100%; }
+</style>
+<div id="framework_templates" style="display: none;">
+	<script type="text/template" id="frameworks_template_tree_statement">
+		<div class="statement">
+			<div class="statementData">
+				<div class="statementContent">
+					<div class="formItem">
+						<div class="label">Name</div>
+						<input type="text" data-property="Name" />
+					</div>
+					<div class="formItem">
+						<div class="label">Description</div>
+						<textarea data-property="Description"></textarea>
+					</div>
+					<div class="formItem">
+						<div class="label">Notation Code</div>
+						<input type="text" data-property="NotationCode" />
+					</div>
+				</div>
+				<div class="statementButtons">
+					<button data-action="newStatement">New Child</button>
+					<button data-action="selectStatement">Select</button>
+					<div class="selectedFlag">Selected</div>
+				</div>
+			</div>
+			<div class="children"></div>
+		</div>
+	</script>
+</div>
+
+<!-- Include multi -->
+
+<div class="frameworkEditor">
+	<div class="statementListBox">
+		<div class="statementListButtons">
+			<div class="toolbarSection">
+				<button data-action="loadSampleData">Load Sample Data</button>
+				<button data-action="saveChanges">Save Changes</button>
+				<button data-action="newStatement">New Statement</button>
+			</div>
+			<div class="toolbarSection withSelection">
+				<div class="toolbarLabel">Selection: </div>
+				<button data-action="moveUp">Move Up</button>
+				<button data-action="moveDown">Move Down</button>
+				<button data-action="reparent">Make Child Of...</button>
+				<button data-action="deleteStatement">Delete</button>
+				<button data-action="deselect">Deselect</button>
+			</div>
+		</div>
+		<div class="statementList"></div>
+	</div>
+</div>

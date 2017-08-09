@@ -14,7 +14,7 @@ namespace Models.Json
 	{
 		public QualityAssuranceAction()
 		{
-			type = "ctdl:QualityAssuranceAction";
+			type = "ceterms:QualityAssuranceAction";
 		}
 	}
 }

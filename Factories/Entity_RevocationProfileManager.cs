@@ -18,164 +18,6 @@ namespace Factories
 	{
 		static string thisClassName = "Entity_RevocationProfileManager";
 		#region Entity Persistance ===================
-	
-		/// <summary>
-		/// Persist Revocation Profiles
-		/// </summary>
-		/// <param name="profiles"></param>
-		/// <param name="parentUid"></param>
-		/// <param name="parentTypeId"></param>
-		/// <param name="userId"></param>
-		/// <param name="messages"></param>
-		/// <returns></returns>
-		//public bool Update( List<ThisEntity> profiles, int credentialId,  int userId, ref List<string> messages )
-		//{
-		//	bool isValid = true;
-		//	int intialCount = messages.Count;
-
-		//	if ( credentialId < 1 )
-		//	{
-		//		messages.Add( "Error: the credential identifier was not provided." );
-		//	}
-			
-		//	if ( messages.Count > intialCount )
-		//		return false;
-		//	Credential credential = CredentialManager.Credential_GetBasic( credentialId, false, false );
-		//	int count = 0;
-		//	bool hasData = false;
-		//	if ( profiles == null )
-		//		profiles = new List<ThisEntity>();
-
-		//	DBentity efEntity = new DBentity();
-
-		//	Views.Entity_Summary parent = EntityManager.GetDBEntity( credential.RowId );
-		//	if ( parent == null || parent.Id == 0 )
-		//	{
-		//		messages.Add( "Error - the parent entity was not found." );
-		//		return false;
-		//	}
-		//	using ( var context = new Data.CTIEntities() )
-		//	{
-		//		//check add/updates first
-		//		if ( profiles.Count() > 0 )
-		//		{
-		//			hasData = true;
-		//			bool isEmpty = false;
-		//			int profNbr = 0;
-
-		//			foreach ( ThisEntity entity in profiles )
-		//			{
-		//				profNbr++;
-		//				if ( ValidateProfile( entity, ref isEmpty, ref  messages ) == false )
-		//				{
-		//					messages.Add( string.Format("Revocation Profile ({0}) was invalid. ", profNbr) + SetEntitySummary( entity ) );
-		//					isValid = false;
-		//					continue;
-		//				}
-		//				if ( isEmpty ) //skip
-		//					continue;
-
-		//				if ( entity.Id == 0 )
-		//				{
-		//					//add
-		//					efEntity = new DBentity();
-		//					FromMap( entity, efEntity );
-		//					efEntity.EntityId = parent.Id;
-
-		//					efEntity.Created = efEntity.LastUpdated = DateTime.Now;
-		//					efEntity.CreatedById = efEntity.LastUpdatedById = userId;
-		//					efEntity.RowId = Guid.NewGuid();
-
-		//					context.Entity_RevocationProfile.Add( efEntity );
-		//					count = context.SaveChanges();
-		//					//update profile record so doesn't get deleted
-		//					entity.Id = efEntity.Id;
-		//					entity.ParentId = parent.Id;
-		//					entity.RowId = efEntity.RowId;
-		//					if ( count == 0 )
-		//					{
-		//						ConsoleMessageHelper.SetConsoleErrorMessage( string.Format( " Unable to add Profile: {0} <br\\> ", string.IsNullOrWhiteSpace( entity.ProfileName ) ? "no description" : entity.ProfileName ) );
-		//					}
-		//					else
-		//					{
-		//						UpdateParts( entity, userId, ref messages );
-		//					}
-		//				}
-		//				else
-		//				{
-		//					entity.ParentId = parent.Id;
-
-		//					efEntity = context.Entity_RevocationProfile.SingleOrDefault( s => s.Id == entity.Id );
-		//					if ( efEntity != null && efEntity.Id > 0 )
-		//					{
-		//						entity.RowId = efEntity.RowId;
-		//						//update
-		//						FromMap( entity, efEntity );
-		//						//has changed?
-		//						if ( HasStateChanged( context ) )
-		//						{
-		//							efEntity.LastUpdated = System.DateTime.Now;
-		//							efEntity.LastUpdatedById = userId;
-
-		//							count = context.SaveChanges();
-		//						}
-		//						//always check parts
-		//						UpdateParts( entity, userId, ref messages );
-		//					}
-
-		//				}
-
-		//			} //foreach
-
-		//		}
-
-		//		//check for deletes ====================================
-		//		//need to ensure ones just added don't get deleted
-
-		//		//get existing 
-		//		List<DBentity> results = context.Entity_RevocationProfile
-		//				.Where( s => s.EntityId == parent.Id )
-		//				.OrderBy( s => s.Id )
-		//				.ToList();
-
-		//		//if profiles is null, need to delete all!!
-		//		if ( results.Count() > 0 && profiles.Count() == 0 )
-		//		{
-		//			foreach ( var item in results )
-		//				context.Entity_RevocationProfile.Remove( item );
-
-		//			context.SaveChanges();
-		//		}
-		//		else
-		//		{
-		//			//deletes should be direct??
-		//			//should only have existing ids, where not in current list, so should be deletes
-		//			var deleteList = from existing in results
-		//							 join item in profiles
-		//									 on existing.Id equals item.Id
-		//									 into joinTable
-		//							 from result in joinTable.DefaultIfEmpty( new ThisEntity { Id = 0, ParentId = 0 } )
-		//							 select new { DeleteId = existing.Id, ParentId = ( result.ParentId ) };
-
-		//			foreach ( var v in deleteList )
-		//			{
-		//				if ( v.ParentId == 0 )
-		//				{
-		//					//delete item
-		//					DBentity p = context.Entity_RevocationProfile.FirstOrDefault( s => s.Id == v.DeleteId );
-		//					if ( p != null && p.Id > 0 )
-		//					{
-		//						context.Entity_RevocationProfile.Remove( p );
-		//						count = context.SaveChanges();
-		//					}
-		//				}
-		//			}
-		//		}
-
-		//	}
-
-		//	return isValid;
-		//}
 
 		/// <summary>
 		/// Persist Revocation Profiles
@@ -185,7 +27,7 @@ namespace Factories
 		/// <param name="userId"></param>
 		/// <param name="messages"></param>
 		/// <returns></returns>
-		public bool Update( ThisEntity entity, Credential credential, int userId, ref List<string> messages )
+		public bool Save( ThisEntity entity, Credential credential, int userId, ref List<string> messages )
 		{
 			bool isValid = true;
 			int intialCount = messages.Count;
@@ -203,7 +45,7 @@ namespace Factories
 			DBentity efEntity = new DBentity();
 
 			//????SHOULD NOT DO THIS HERE??
-			Views.Entity_Summary parent = EntityManager.GetDBEntity( credential.RowId );
+			Entity parent = EntityManager.GetEntity( credential.RowId );
 			if ( parent == null || parent.Id == 0 )
 			{
 				messages.Add( "Error - the parent entity was not found." );
@@ -219,7 +61,7 @@ namespace Factories
 				if ( ValidateProfile( entity, ref isEmpty, ref  messages ) == false )
 				{
 					if (messages.Count == 0)
-						messages.Add( string.Format( "Revocation Profile ({0}) was invalid. ", profNbr ) + SetEntitySummary( entity ) );
+						messages.Add( string.Format( "Revocation Profile ({0}) was invalid. ", profNbr ) );
 					return false;
 				}
 				if ( isEmpty ) //skip
@@ -288,24 +130,17 @@ namespace Factories
 		{
 			bool isAllValid = true;
 			//properties
-			if ( new EntityPropertyManager().UpdateProperties( entity.RevocationCriteriaType, entity.RowId, CodesManager.ENTITY_TYPE_REVOCATION_PROFILE, CodesManager.PROPERTY_CATEGORY_REVOCATION_CRITERIA_TYPE, userId, ref messages ) == false )
-				isAllValid = false;
+			//if ( new EntityPropertyManager().UpdateProperties( entity.RevocationCriteriaType, entity.RowId, CodesManager.ENTITY_TYPE_REVOCATION_PROFILE, CodesManager.PROPERTY_CATEGORY_REVOCATION_CRITERIA_TYPE, userId, ref messages ) == false )
+			//	isAllValid = false;
 
-			Entity_ReferenceManager erm = new Entity_ReferenceManager();
+			//Entity_ReferenceManager erm = new Entity_ReferenceManager();
 
-			if ( erm.EntityUpdate( entity.RevocationResourceUrl, entity.RowId, CodesManager.ENTITY_TYPE_REVOCATION_PROFILE, userId, ref messages, 25, false ) == false )
-				isAllValid = false;
+			//if ( erm.Entity_Reference_Update( entity.RevocationResourceUrl, entity.RowId, CodesManager.ENTITY_TYPE_REVOCATION_PROFILE, userId, ref messages, CodesManager.PROPERTY_CATEGORY_REFERENCE_URLS, false ) == false )
+			//	isAllValid = false;
 			
+			//if ( erm.Entity_Reference_Update( entity.RevocationItems, entity.RowId, CodesManager.ENTITY_TYPE_REVOCATION_PROFILE, userId, ref messages, CodesManager.PROPERTY_CATEGORY_CONDITION_ITEM, false ) == false )
+			//	isAllValid = false;
 
-			if ( !entity.IsNewVersion )
-			{
-				//if ( new RegionsManager().JurisdictionProfile_Update( entity.Jurisdiction, entity.RowId, CodesManager.ENTITY_TYPE_REVOCATION_PROFILE, userId, RegionsManager.JURISDICTION_PURPOSE_SCOPE, ref messages ) == false )
-				//	isAllValid = false;
-
-
-				//if ( new Entity_ReferenceManager().EntityUpdate( entity.RevocationResourceUrl, entity.RowId, CodesManager.ENTITY_TYPE_REVOCATION_PROFILE, userId, ref messages ) == false )
-				//	isAllValid = false;
-			}
 
 			return isAllValid;
 		}
@@ -334,13 +169,19 @@ namespace Factories
 		public bool ValidateProfile( ThisEntity profile, ref bool isEmpty, ref List<string> messages )
 		{
 			bool isValid = true;
-
+			int count = messages.Count;
 			isEmpty = false;
+			if ( profile.IsStarterProfile )
+				return true;
+			/*
+			&& ( profile.RevocationResourceUrl == null || profile.RevocationResourceUrl.Count == 0 )
+			&& ( ( profile.RevocationCriteriaType == null || profile.RevocationCriteriaType.Items.Count == 0 ) && string.IsNullOrWhiteSpace( profile.OtherRevocationCriteriaType ) )
+			*/
 			//check if empty
 			if ( string.IsNullOrWhiteSpace( profile.ProfileName) 
 				&& string.IsNullOrWhiteSpace( profile.Description )
-				&& ( (profile.RevocationCriteriaType == null || profile.RevocationCriteriaType.Items.Count == 0 ) && string.IsNullOrWhiteSpace(profile.OtherRevocationCriteriaType))
-				&& ( profile.RevocationResourceUrl == null || profile.RevocationResourceUrl.Count == 0 )
+				&& string.IsNullOrWhiteSpace( profile.RevocationCriteriaUrl )
+				&& string.IsNullOrWhiteSpace( profile.RevocationCriteriaDescription )
 				&& string.IsNullOrWhiteSpace( profile.DateEffective )
 				&& ( profile.Jurisdiction == null || profile.Jurisdiction.Count == 0 )
 				)
@@ -356,14 +197,19 @@ namespace Factories
 				messages.Add( "Please enter a valid effective date" );
 				isValid = false;
 			}
-
+			if ( !IsUrlValid( profile.RevocationCriteriaUrl, ref commonStatusMessage ) )
+			{
+				messages.Add( "The 'Revocation Criteria Url' format is invalid. " + commonStatusMessage );
+			}
 			//if ( ( profile.RevocationCriteriaType == null || profile.RevocationCriteriaType.Items.Count == 0 ) && string.IsNullOrWhiteSpace( profile.OtherRevocationCriteriaType ) 
 			//	)
 			//{
 			//	messages.Add( "Please select a criteria type, or enter Other Criteria" );
 			//	isValid = false;
 			//}
-
+			
+			if ( messages.Count > count )
+				isValid = false;
 			return isValid;
 		}
 
@@ -379,7 +225,7 @@ namespace Factories
 		{
 			ThisEntity entity = new ThisEntity();
 			List<ThisEntity> list = new List<ThisEntity>();
-			Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
+			Entity parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
 			{
 				return list;
@@ -451,7 +297,8 @@ namespace Factories
 			to.ProfileName = from.ProfileName;
 			to.Description = from.Description;
 			to.RevocationCriteriaUrl = from.RevocationCriteriaUrl;
-
+			to.RevocationCriteriaDescription = from.RevocationCriteriaDescription;
+			
 			if ( IsValidDate( from.DateEffective ) )
 				to.DateEffective = DateTime.Parse( from.DateEffective );
 			else
@@ -468,8 +315,11 @@ namespace Factories
 			to.Id = from.Id;
 			to.RowId = from.RowId;
 			to.ParentId = from.EntityId;
-			to.ProfileName = from.ProfileName;
+
 			to.Description = from.Description;
+
+			to.RevocationCriteriaDescription = from.RevocationCriteriaDescription;
+			to.RevocationCriteriaUrl = from.RevocationCriteriaUrl;
 
 			if ( IsValidDate( from.DateEffective ) )
 				to.DateEffective = ( ( DateTime ) from.DateEffective ).ToShortDateString();
@@ -481,8 +331,13 @@ namespace Factories
 			//	to.RenewalDateEffective = "";
 
 			to.RevocationCriteriaUrl = from.RevocationCriteriaUrl;
-
+			if ( ( from.Entity.EntityBaseName ?? "" ).Length > 3 )
+				to.ParentSummary = from.Entity.EntityBaseName;
+			//not used:
 			to.ProfileSummary = SetEntitySummary( to );
+			//no longer using name, but need for the editor list
+			to.ProfileName = to.ProfileSummary;
+			
 
 			if ( IsValidDate( from.Created ) )
 				to.Created = ( DateTime ) from.Created;
@@ -490,17 +345,20 @@ namespace Factories
 			if ( IsValidDate( from.LastUpdated ) )
 				to.LastUpdated = ( DateTime ) from.LastUpdated;
 			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
+			to.LastUpdatedBy = SetLastUpdatedBy( to.LastUpdatedById, from.Account_Modifier );
 
 			if ( includingItems )
 			{
-				to.RevocationCriteriaType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_REVOCATION_CRITERIA_TYPE );
+				to.CredentialProfiled = Entity_CredentialManager.GetAll( to.RowId );
 				//
-				to.Jurisdiction = RegionsManager.Jurisdiction_GetAll( to.RowId );
+				to.Jurisdiction = Entity_JurisdictionProfileManager.Jurisdiction_GetAll( to.RowId );
+				to.Region = Entity_JurisdictionProfileManager.Jurisdiction_GetAll( to.RowId, Entity_JurisdictionProfileManager.JURISDICTION_PURPOSE_RESIDENT );
 
-				if ( !to.IsNewVersion )
-				{
-					to.RevocationResourceUrl = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_REFERENCE_URLS );
-				}
+				//to.RevocationCriteriaType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_REVOCATION_CRITERIA_TYPE );
+				//to.RevocationResourceUrl = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_REFERENCE_URLS );
+
+				//to.RevocationItems = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_CONDITION_ITEM );
+
 			}
 		}
 		static string SetEntitySummary( ThisEntity to )
@@ -508,12 +366,16 @@ namespace Factories
 			string summary = "Revocation Profile ";
 			if ( !string.IsNullOrWhiteSpace( to.ProfileName ) )
 			{
-				return to.ProfileName;
+				//shouldn't use, as some old data may appear, and can't be updated
+				//return to.ProfileName;
 			}
-
+			if ( !string.IsNullOrWhiteSpace( to.ParentSummary ) )
+			{
+				summary += " for " + to.ParentSummary;
+			}
 			if ( to.Id > 1 )
 			{
-				summary += to.Id.ToString();
+				//summary += to.Id.ToString();
 			}
 			return summary;
 

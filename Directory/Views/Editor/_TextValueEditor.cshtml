@@ -1,5 +1,16 @@
 ﻿@model Models.Node.Interface.TextValueEditorSettings
 @{
+    var tooltipProperty = Model.Property;
+    if ( ( Model.PropertySchema ?? "" ) == "{none}" )
+    {
+        tooltipProperty = "";
+
+    }
+    else if ( ( Model.PropertySchema ?? "" ).Length > 2 )
+    {
+        tooltipProperty = Model.PropertySchema;
+    }
+    
     var textValueName = Model.ParentRepeaterId + "_" + Model.Property;
     var codeValues = new Dictionary<string, string>();
     foreach ( var item in Model.CodeItems )
@@ -12,26 +23,31 @@
     }
 
 }
-<div 
-     class="textValueBox tabItem @string.Join( " ", Model.ExtraClasses )" 
-     data-property="@Model.Property" 
-     data-parentRepeaterID="@Model.ParentRepeaterId" 
-     data-textValueName="@textValueName"
-     data-hasSelector="@(Model.HasSelector ? "true" : "false")"
-     data-hasOther="@(Model.HasOther ? "true" : "false")"
-     data-valueType="@Model.ValueType.ToString().ToLower()"
+<div class="propertyBox textValueBox tabItem @Html.Raw( Model.UseSmallLabel ? "smallLabel" : "" ) @string.Join( " ", Model.ExtraClasses )"
+     data-property="@Model.Property"
+     data-parentrepeaterid="@Model.ParentRepeaterId"
+     data-textvaluename="@textValueName"
+     data-hasselector="@(Model.HasSelector ? "true" : "false")"
+     data-hasother="@(Model.HasOther ? "true" : "false")"
+     data-valuetype="@Model.ValueType.ToString().ToLower()"
      data-valueplaceholder="@Model.ValuePlaceholder"
      data-otherplaceholder="@Model.OtherPlaceholder"
-     data-categoryID="@Model.CategoryId"
-     data-requireOther="@(Model.RequireOther ? "true" : "false")"
-     data-requireValue="@(Model.RequireValue ? "true" : "false")"
-     >
+     data-categoryid="@Model.CategoryId"
+     data-requireother="@(Model.RequireOther ? "true" : "false")"
+     data-requirevalue="@(Model.RequireValue ? "true" : "false")">
     <div style="display:none;" class="codeValues">
         @Html.Raw( new System.Web.Script.Serialization.JavaScriptSerializer().Serialize( codeValues ) )
     </div>
-    <h2 class="textValueLabel">@Model.Label</h2>
+    <h2 class="textValueLabel @(Model.RequireOther ? " isRequired" : "")">@Model.Label</h2>
     <div class="textValueData">
-        <div class="guidance">@Model.Guidance</div>
+        @if ( tooltipProperty == "" )
+        {
+            <div class="guidance">@Html.Raw( Model.Guidance )</div>
+        }
+        else
+        {
+            <div class="guidance">@Html.Raw( Model.Guidance )&nbsp;<a onclick="return false" href="" title="@tooltipProperty" class="hasToolTip"><img src="~/Images/Icons/icon_infobubble.gif" /></a></div>
+        }
         <div class="textValueList"></div>
         <div class="profileButtons">
             <input type="button" value="@Model.AddText" onclick="addTextValueProfile('@textValueName', this);" />

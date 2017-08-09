@@ -125,9 +125,7 @@ namespace CTIServices
 		#region Helpers and validaton
 		public static bool IsLocalHost()
 		{
-
-			string host = HttpContext.Current.Request.Url.Host.ToString();
-			return ( host.Contains( "localhost" ) || host.Contains( "209.175.164.200" ) );
+			return IsTestEnv();
 		}
 		public static bool IsTestEnv()
 		{
@@ -206,9 +204,19 @@ namespace CTIServices
 		} //end
 		public static bool IsValidGuid( Guid field )
 		{
-			if ( ( field == null || field.ToString() == DEFAULT_GUID ) )
+			if ( ( field == null || field == Guid.Empty ) )
 				return false;
 			else
+				return true;
+		}
+		public static bool IsValidGuid( string field )
+		{
+			Guid guidOutput;
+			if ( ( field == null || field.ToString() == DEFAULT_GUID ) )
+				return false;
+			else if ( !Guid.TryParse( field, out guidOutput ) )
+				return false;
+			else 
 				return true;
 		}
 		/// <summary>
@@ -231,25 +239,25 @@ namespace CTIServices
 		/// </summary>
 		/// <param name="wsDataset">DataSet for a web service method</param>
 		/// <returns>The contained message for the dataset</returns>
-		public static string GetWsMessage( DataSet wsDataset )
-		{
-			string wsMessage = "";
+		//public static string GetWsMessage( DataSet wsDataset )
+		//{
+		//	string wsMessage = "";
 
-			try
-			{
+		//	try
+		//	{
 
-				if ( wsDataset.DataSetName == "ErrorMessage" )
-				{
-					wsMessage = wsDataset.Tables[ 0 ].Rows[ 0 ][ "Message" ].ToString();
-				}
-			}
-			catch ( Exception ex )
-			{
-				//ignore?
+		//		if ( wsDataset.DataSetName == "ErrorMessage" )
+		//		{
+		//			wsMessage = wsDataset.Tables[ 0 ].Rows[ 0 ][ "Message" ].ToString();
+		//		}
+		//	}
+		//	catch ( Exception ex )
+		//	{
+		//		//ignore?
 
-			}
-			return wsMessage;
-		} //
+		//	}
+		//	return wsMessage;
+		//} //
 
 		/// <summary>
 		/// Convert a comma-separated list (as a string) to a list of integers
@@ -407,7 +415,7 @@ namespace CTIServices
 				{
 
 					string exType = ex.GetType().ToString();
-					LogError( exType + " Exception in GetRowColumn( DataRow row, string column, string defaultValue ) for column: " + column + ". \r\n" + ex.Message.ToString(), true );
+					LoggingHelper.LogError( exType + " Exception in GetRowColumn( DataRow row, string column, string defaultValue ) for column: " + column + ". \r\n" + ex.Message.ToString(), true );
 				}
 				colValue = defaultValue;
 			}
@@ -440,7 +448,7 @@ namespace CTIServices
 			{
 
 
-				LogError( "Exception in GetRowColumn( DataRow row, string column, int defaultValue ) for column: " + column + ". \r\n" + ex.Message.ToString(), true );
+				LoggingHelper.LogError( "Exception in GetRowColumn( DataRow row, string column, int defaultValue ) for column: " + column + ". \r\n" + ex.Message.ToString(), true );
 				colValue = defaultValue;
 				//throw ex;
 			}
@@ -473,7 +481,7 @@ namespace CTIServices
 			catch ( Exception ex )
 			{
 
-				LogError( "Exception in GetRowColumn( DataRow row, string column, bool defaultValue ) for column: " + column + ". \r\n" + ex.Message.ToString(), true );
+				LoggingHelper.LogError( "Exception in GetRowColumn( DataRow row, string column, bool defaultValue ) for column: " + column + ". \r\n" + ex.Message.ToString(), true );
 				colValue = defaultValue;
 				//throw ex;
 			}
@@ -505,7 +513,7 @@ namespace CTIServices
 			catch ( Exception ex )
 			{
 
-				LogError( "Exception in GetRowColumn( DataRow row, string column, System.DateTime defaultValue ) for column: " + column + ". \r\n" + ex.Message.ToString(), true );
+				LoggingHelper.LogError( "Exception in GetRowColumn( DataRow row, string column, System.DateTime defaultValue ) for column: " + column + ". \r\n" + ex.Message.ToString(), true );
 				colValue = defaultValue;
 			}
 			return colValue;
@@ -538,7 +546,7 @@ namespace CTIServices
 			catch ( Exception ex )
 			{
 
-				LogError( "Exception in GetRowColumn( DataRow row, string column, decimal defaultValue ) for column: " + column + ". \r\n" + ex.Message.ToString(), true );
+				LoggingHelper.LogError( "Exception in GetRowColumn( DataRow row, string column, decimal defaultValue ) for column: " + column + ". \r\n" + ex.Message.ToString(), true );
 				colValue = defaultValue;
 			}
 			return colValue;
@@ -576,7 +584,7 @@ namespace CTIServices
 			{
 
 				string exType = ex.GetType().ToString();
-				LogError( exType + " Exception in GetRowColumn( DataRowView row, string column, string defaultValue ) for column: " + column + ". \r\n" + ex.Message.ToString(), true );
+				LoggingHelper.LogError( exType + " Exception in GetRowColumn( DataRowView row, string column, string defaultValue ) for column: " + column + ". \r\n" + ex.Message.ToString(), true );
 				colValue = defaultValue;
 			}
 			return colValue;
@@ -608,7 +616,7 @@ namespace CTIServices
 			catch ( Exception ex )
 			{
 
-				LogError( "Exception in GetRowColumn( DataRowView row, string column, int defaultValue ) for column: " + column + ". \r\n" + ex.Message.ToString(), true );
+				LoggingHelper.LogError( "Exception in GetRowColumn( DataRowView row, string column, int defaultValue ) for column: " + column + ". \r\n" + ex.Message.ToString(), true );
 				colValue = defaultValue;
 				//throw ex;
 			}
@@ -641,7 +649,7 @@ namespace CTIServices
 			catch ( Exception ex )
 			{
 
-				LogError( "Exception in GetRowColumn( DataRowView row, string column, bool defaultValue ) for column: " + column + ". \r\n" + ex.Message.ToString(), true );
+				LoggingHelper.LogError( "Exception in GetRowColumn( DataRowView row, string column, bool defaultValue ) for column: " + column + ". \r\n" + ex.Message.ToString(), true );
 				colValue = defaultValue;
 				//throw ex;
 			}
@@ -674,7 +682,7 @@ namespace CTIServices
 			catch ( Exception ex )
 			{
 
-				LogError( "Exception in GetRowColumn( DataRowView row, string column, decimal defaultValue ) for column: " + column + ". \r\n" + ex.Message.ToString(), true );
+				LoggingHelper.LogError( "Exception in GetRowColumn( DataRowView row, string column, decimal defaultValue ) for column: " + column + ". \r\n" + ex.Message.ToString(), true );
 				colValue = defaultValue;
 			}
 			return colValue;
@@ -712,7 +720,7 @@ namespace CTIServices
 			catch
 			{
 				appValue = defaultValue;
-				LogError( string.Format( "@@@@ Error on appKey: {0},  using default of: {1}", keyName, defaultValue ) );
+				LoggingHelper.LogError( string.Format( "@@@@ Error on appKey: {0},  using default of: {1}", keyName, defaultValue ) );
 			}
 
 			return appValue;
@@ -730,7 +738,7 @@ namespace CTIServices
 			catch
 			{
 				appValue = defaultValue;
-				LogError( string.Format( "@@@@ Error on appKey: {0},  using default of: {1}", keyName, defaultValue ) );
+				LoggingHelper.LogError( string.Format( "@@@@ Error on appKey: {0},  using default of: {1}", keyName, defaultValue ) );
 			}
 
 			return appValue;
@@ -748,7 +756,7 @@ namespace CTIServices
 			catch
 			{
 				appValue = defaultValue;
-				LogError( string.Format( "@@@@ Error on appKey: {0},  using default of: {1}", keyName, defaultValue ) );
+				LoggingHelper.LogError( string.Format( "@@@@ Error on appKey: {0},  using default of: {1}", keyName, defaultValue ) );
 			}
 
 			return appValue;
@@ -761,11 +769,11 @@ namespace CTIServices
 		/// </summary>
 		/// <param name="ex">Exception</param>
 		/// <param name="message">Additional message regarding the exception</param>
-		public static void LogError( Exception ex, string message )
-		{
-			bool notifyAdmin = false;
-			LogError( ex, message, notifyAdmin );
-		}
+		//public static void LogError( Exception ex, string message )
+		//{
+		//	bool notifyAdmin = false;
+		//	LogError( ex, message, notifyAdmin );
+		//}
 
 		/// <summary>
 		/// Format an exception and message, and then log it
@@ -773,50 +781,50 @@ namespace CTIServices
 		/// <param name="ex">Exception</param>
 		/// <param name="message">Additional message regarding the exception</param>
 		/// <param name="notifyAdmin">If true, an email will be sent to admin</param>
-		public static void LogError( Exception ex, string message, bool notifyAdmin )
-		{
+		//public static void LogError( Exception ex, string message, bool notifyAdmin )
+		//{
 
-			string sessionId = "unknown";
-			string remoteIP = "unknown";
-			string path = "unknown";
-			//string queryString = "unknown";
-			string url = "unknown";
-			string parmsString = "";
+		//	string sessionId = "unknown";
+		//	string remoteIP = "unknown";
+		//	string path = "unknown";
+		//	//string queryString = "unknown";
+		//	string url = "unknown";
+		//	string parmsString = "";
 
-			try
-			{
-				if ( UtilityManager.GetAppKeyValue( "notifyOnException", "no" ).ToLower() == "yes" )
-					notifyAdmin = true;
+		//	try
+		//	{
+		//		if ( UtilityManager.GetAppKeyValue( "notifyOnException", "no" ).ToLower() == "yes" )
+		//			notifyAdmin = true;
 
-				string serverName = GetAppKeyValue( "serverName", "unknown" );
+		//		string serverName = GetAppKeyValue( "serverName", "unknown" );
 
-			}
-			catch
-			{
-				//eat any additional exception
-			}
+		//	}
+		//	catch
+		//	{
+		//		//eat any additional exception
+		//	}
 
-			try
-			{
-				string errMsg = message +
-					"\r\nType: " + ex.GetType().ToString() + ";" +
-					"\r\nSession Id - " + sessionId + "____IP - " + remoteIP +
-					"\r\nException: " + ex.Message.ToString() + ";" +
-					"\r\nStack Trace: " + ex.StackTrace.ToString() +
-					"\r\nServer\\Template: " + path +
-					"\r\nUrl: " + url;
+		//	try
+		//	{
+		//		string errMsg = message +
+		//			"\r\nType: " + ex.GetType().ToString() + ";" +
+		//			"\r\nSession Id - " + sessionId + "____IP - " + remoteIP +
+		//			"\r\nException: " + ex.Message.ToString() + ";" +
+		//			"\r\nStack Trace: " + ex.StackTrace.ToString() +
+		//			"\r\nServer\\Template: " + path +
+		//			"\r\nUrl: " + url;
 
-				if ( parmsString.Length > 0 )
-					errMsg += "\r\nParameters: " + parmsString;
+		//		if ( parmsString.Length > 0 )
+		//			errMsg += "\r\nParameters: " + parmsString;
 
-				LogError( errMsg, notifyAdmin );
-			}
-			catch
-			{
-				//eat any additional exception
-			}
+		//		LogError( errMsg, notifyAdmin );
+		//	}
+		//	catch
+		//	{
+		//		//eat any additional exception
+		//	}
 
-		} //
+		//} //
 
 
 		/// <summary>
@@ -827,19 +835,19 @@ namespace CTIServices
 		/// The log file is configured in the web.config, appSetting: "error.log.path"
 		/// </remarks>
 		/// <param name="message">Message to be logged.</param>
-		public static void LogError( string message )
-		{
+		//public static void LogError( string message )
+		//{
 
-			if ( GetAppKeyValue( "notifyOnException", "no" ).ToLower() == "yes" )
-			{
-				LogError( message, true );
-			}
-			else
-			{
-				LogError( message, false );
-			}
+		//	if ( GetAppKeyValue( "notifyOnException", "no" ).ToLower() == "yes" )
+		//	{
+		//		LogError( message, true );
+		//	}
+		//	else
+		//	{
+		//		LogError( message, false );
+		//	}
 
-		} //
+		//} //
 		/// <summary>
 		/// Write the message to the log file.
 		/// </summary>
@@ -849,36 +857,36 @@ namespace CTIServices
 		/// </remarks>
 		/// <param name="message">Message to be logged.</param>
 		/// <param name="notifyAdmin"></param>
-		public static void LogError( string message, bool notifyAdmin )
-		{
-			if ( GetAppKeyValue( "logErrors" ).ToString().Equals( "yes" ) )
-			{
-				try
-				{
-					string datePrefix = System.DateTime.Today.ToString( "u" ).Substring( 0, 10 );
-					string logFile = GetAppKeyValue( "path.error.log", "C:\\VOS_LOGS.txt" );
-					string outputFile = logFile.Replace( "[date]", datePrefix );
+		//public static void LogError( string message, bool notifyAdmin )
+		//{
+		//	if ( GetAppKeyValue( "logErrors" ).ToString().Equals( "yes" ) )
+		//	{
+		//		try
+		//		{
+		//			string datePrefix = System.DateTime.Today.ToString( "u" ).Substring( 0, 10 );
+		//			string logFile = GetAppKeyValue( "path.error.log", "C:\\VOS_LOGS.txt" );
+		//			string outputFile = logFile.Replace( "[date]", datePrefix );
 
-					StreamWriter file = File.AppendText( outputFile );
-					file.WriteLine( DateTime.Now + ": " + message );
-					file.WriteLine( "---------------------------------------------------------------------" );
-					file.Close();
+		//			StreamWriter file = File.AppendText( outputFile );
+		//			file.WriteLine( DateTime.Now + ": " + message );
+		//			file.WriteLine( "---------------------------------------------------------------------" );
+		//			file.Close();
 
-					if ( notifyAdmin )
-					{
-						if ( GetAppKeyValue( "notifyOnException", "no" ).ToLower() == "yes" )
-						{
-							EmailManager.NotifyAdmin( "IOER Exception encountered", message );
-						}
-					}
-				}
-				catch ( Exception ex )
-				{
-					//eat any additional exception
-					DoTrace( 5, thisClassName + ".LogError(string message, bool notifyAdmin). Exception: " + ex.Message );
-				}
-			}
-		} //
+		//			if ( notifyAdmin )
+		//			{
+		//				if ( GetAppKeyValue( "notifyOnException", "no" ).ToLower() == "yes" )
+		//				{
+		//					EmailManager.NotifyAdmin( "IOER Exception encountered", message );
+		//				}
+		//			}
+		//		}
+		//		catch ( Exception ex )
+		//		{
+		//			//eat any additional exception
+		//			DoTrace( 5, thisClassName + ".LogError(string message, bool notifyAdmin). Exception: " + ex.Message );
+		//		}
+		//	}
+		//} //
 
 		/// <summary>
 		/// Sends an email message to the system administrator
@@ -886,14 +894,14 @@ namespace CTIServices
 		/// <param name="subject">Email subject</param>
 		/// <param name="message">Email message</param>
 		/// <returns>True id message was sent successfully, otherwise false</returns>
-		public static bool NotifyAdmin( string subject, string message )
-		{
-			string emailTo = UtilityManager.GetAppKeyValue( "systemAdminEmail", "mparsons@siuccwd.com" );
-			//work on implementing some specific routing based on error type
+		//public static bool NotifyAdmin( string subject, string message )
+		//{
+		//	string emailTo = UtilityManager.GetAppKeyValue( "systemAdminEmail", "mparsons@siuccwd.com" );
+		//	//work on implementing some specific routing based on error type
 
 
-			return EmailManager.NotifyAdmin( emailTo, subject, message );
-		}
+		//	return EmailManager.NotifyAdmin( emailTo, subject, message );
+		//}
 
 
 		/// <summary>

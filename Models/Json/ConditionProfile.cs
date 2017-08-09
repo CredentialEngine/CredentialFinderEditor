@@ -12,34 +12,36 @@ namespace Models.Json
 	public class ConditionProfile : JsonLDObject
 	{
 		public ConditionProfile() {
-			type = "ctdl:ConditionProfile";
+			type = "ceterms:ConditionProfile";
 		}
 
-		[DataMember( Name="ctdl:assertedBy" )]
+		[DataMember( Name="ceterms:assertedBy" )]
 		public string assertedBy { get; set; }
-		[DataMember( Name = "schema:description" )]
+		[DataMember( Name = "ceterms:description" )]
 		public string description { get; set; }
-		[DataMember( Name = "ctdl:experience" )]
+		[DataMember( Name = "ceterms:experience" )]
 		public string experience { get; set; }
-		[DataMember( Name = "ctdl:minimumAge" )]
+		[DataMember( Name = "ceterms:minimumAge" )]
 		public int minimumAge { get; set; }
-		[DataMember( Name = "ctdl:applicableAudienceType" )]
+		[DataMember( Name = "ceterms:applicableAudienceType" )]
 		public List<string> applicableAudienceType { get; set; }
-		[DataMember( Name = "ctdl:credentialType" )]
-		public List<string> credentialType { get; set; }
-		[DataMember( Name = "ctdl:jurisdiction" )]
+
+		[DataMember( Name = "ceterms:educationLevel" )]
+		public List<string> educationLevel { get; set; }
+
+		[DataMember( Name = "ceterms:jurisdiction" )]
 		public List<JurisdictionProfile> jurisdiction { get; set; }
-		[DataMember( Name = "ctdl:residentOf" )]
+		[DataMember( Name = "ceterms:residentOf" )]
 		public List<JurisdictionProfile> residentOf { get; set; }
-		[DataMember( Name = "ctdl:targetTask" )]
+		[DataMember( Name = "ceterms:targetTask" )]
 		public List<TaskProfile> targetTask { get; set; }
-		[DataMember( Name = "ctdl:targetCompetency" )]
+		[DataMember( Name = "ceterms:targetCompetency" )]
 		public List<string> targetCompetency { get; set; } //URLs
-		[DataMember( Name = "ctdl:targetAssessment" )]
+		[DataMember( Name = "ceterms:targetAssessment" )]
 		public List<AssessmentProfile> targetAssessment { get; set; }
-		[DataMember( Name = "ctdl:targetLearningOpportunity" )]
+		[DataMember( Name = "ceterms:targetLearningOpportunity" )]
 		public List<string> targetLearningOpportunity { get; set; } //URLs
-		[DataMember( Name = "ctdl:targetCredential" )]
+		[DataMember( Name = "ceterms:targetCredential" )]
 		public List<string> targetCredential { get; set; } //URLs
 	}
 

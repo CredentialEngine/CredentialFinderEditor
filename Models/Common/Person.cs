@@ -20,7 +20,7 @@ namespace Models.Common
 		public string FirstName { get; set; }
 		public string LastName { get; set; }
 
-		public string Name
+		public new string Name
 		{
 			get
 			{

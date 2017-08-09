@@ -75,11 +75,13 @@
 			title, box.html(),
 			function () {
 				var data = [];
+				var dataDirect = {};
 				$("#modalContainer .modalFormInput").each(function () {
 					var item = $(this);
 					data.push({ item: item.attr("data-name"), value: item.val() });
+					dataDirect[item.attr("data-name")] = item.val();
 				});
-				confirm(data);
+				confirm(data, dataDirect);
 			},
 			function () {
 				cancel();

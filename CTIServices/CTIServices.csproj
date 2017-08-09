@@ -61,9 +61,20 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="BouncyCastle.Crypto, Version=1.8.1.0, Culture=neutral, PublicKeyToken=0e99375e54769942">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\packages\BouncyCastle.1.8.1\lib\BouncyCastle.Crypto.dll</HintPath>
+    </Reference>
     <Reference Include="Elasticsearch.Net, Version=2.0.0.0, Culture=neutral, PublicKeyToken=96c599bbe3e70f5d, processorArchitecture=MSIL">
       <HintPath>..\packages\Elasticsearch.Net.2.4.5\lib\net45\Elasticsearch.Net.dll</HintPath>
       <Private>True</Private>
+    </Reference>
+    <Reference Include="EntityFramework, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\packages\EntityFramework.6.1.3\lib\net45\EntityFramework.dll</HintPath>
+    </Reference>
+    <Reference Include="EntityFramework.SqlServer">
+      <HintPath>..\packages\EntityFramework.6.1.3\lib\net45\EntityFramework.SqlServer.dll</HintPath>
     </Reference>
     <Reference Include="Nest, Version=2.0.0.0, Culture=neutral, PublicKeyToken=96c599bbe3e70f5d, processorArchitecture=MSIL">
       <HintPath>..\packages\NEST.2.4.5\lib\net45\Nest.dll</HintPath>
@@ -90,36 +101,29 @@
     <Compile Include="AccountServices.cs" />
     <Compile Include="ActivityServices.cs" />
     <Compile Include="AssessmentServices.cs" />
+    <Compile Include="CassServices.cs" />
+    <Compile Include="CompetencyServices.cs" />
+    <Compile Include="ConditionManifestServices.cs" />
     <Compile Include="ConditionProfileServices.cs" />
+    <Compile Include="CostManifestServices.cs" />
     <Compile Include="CredentialServices.cs" />
     <Compile Include="EditorServices.cs" />
-    <Compile Include="elasticSearch\ElasticConfig.cs" />
-    <Compile Include="elasticSearch\ElasticIndexService.cs" />
-    <Compile Include="elasticSearch\ElasticSearchService.cs" />
-    <Compile Include="elasticSearch\Extensions.cs" />
-    <Compile Include="elasticSearch\ISearchService.cs" />
-    <Compile Include="elasticSearch\Post.cs" />
-    <Compile Include="elasticSearch\SearchResult.cs" />
-    <Compile Include="elasticSearch\SuggestField.cs" />
     <Compile Include="EnumerationServices.cs" />
     <Compile Include="JsonLDServices.cs" />
     <Compile Include="JurisdictionServices.cs" />
     <Compile Include="LearningOpportunityServices.cs" />
-    <Compile Include="MicroSearchServices.cs" />
+    <Compile Include="MessageServices.cs" />
     <Compile Include="MicroSearchServicesV2.cs" />
     <Compile Include="OrganizationServices.cs" />
     <Compile Include="ProfileServices.cs" />
     <Compile Include="RegistryServices.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="ReportServices.cs" />
     <Compile Include="SearchServices.cs" />
     <Compile Include="ServiceHelper.cs" />
     <Compile Include="ThirdPartyApiServices.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Common\LearningRegistry\LearningRegistry.csproj">
-      <Project>{3b55a41e-0ce7-419e-b1d9-04f300a5cc1c}</Project>
-      <Name>LearningRegistry</Name>
-    </ProjectReference>
     <ProjectReference Include="..\Common\MetadataRegistry\MetadataRegistry.csproj">
       <Project>{ec0eb03d-04ff-449a-971b-acc4bbeefb2a}</Project>
       <Name>MetadataRegistry</Name>
@@ -127,6 +131,10 @@
     <ProjectReference Include="..\Common\Utilities\Utilities.csproj">
       <Project>{5af99218-bbd8-48c4-bbde-eff5f35b4e05}</Project>
       <Name>Utilities</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Data\Data.csproj">
+      <Project>{f302c49f-9619-40fd-9ffe-385da58d2be3}</Project>
+      <Name>Data</Name>
     </ProjectReference>
     <ProjectReference Include="..\Factories\Factories.csproj">
       <Project>{30cf8748-1d26-4768-8caf-d69fb51e92b3}</Project>

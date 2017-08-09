@@ -24,5 +24,6 @@ namespace Data.Views
         public string Description { get; set; }
         public Nullable<System.DateTime> Created { get; set; }
         public Nullable<int> CreatedById { get; set; }
+        public Nullable<int> EntityBaseId { get; set; }
     }
 }

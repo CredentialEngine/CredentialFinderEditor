@@ -14,7 +14,7 @@ namespace Models.Json
 	{
 		public TaskProfile()
 		{
-			type = "ctdl:TaskProfile";
+			type = "ceterms:TaskProfile";
 		}
 
 	}

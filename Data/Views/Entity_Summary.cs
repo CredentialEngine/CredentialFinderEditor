@@ -31,5 +31,8 @@ namespace Data.Views
         public Nullable<int> ManagingOrgId { get; set; }
         public Nullable<System.DateTime> LastUpdated { get; set; }
         public Nullable<int> LastUpdatedById { get; set; }
+        public string Url { get; set; }
+        public string ImageUrl { get; set; }
+        public string CTID { get; set; }
     }
 }

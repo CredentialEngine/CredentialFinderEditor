@@ -26,13 +26,27 @@ namespace Models.Common
 		public string Name { get; set; }
 		public bool IsException { get; set; }
 		public Address Address { get; set; }
-
+		public List<Address> Auto_Address {  get
+			{
+				var result = new List<Address>();
+				if( Address != null )
+				{
+					result.Add( Address );
+				}
+				return result;
+			}
+			set
+			{
+				Address = value.FirstOrDefault();
+			}
+		}
 		public string ToponymName { get; set; }
 		public string Region { get; set; }
 		public string Country { get; set; }
 		public double Latitude { get; set; }
 		public double Longitude { get; set; }
 		public string Url { get; set; } //URL of a geonames place
+		public string GeoURI { get { return Url; } set { Url = value; } } //Alias used for publishing
 		public string TitleFormatted 
 		{
 			get

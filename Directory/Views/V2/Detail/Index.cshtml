@@ -10,6 +10,9 @@
     } else if ( Model.CanEditRecord ) {
         canEditDocument = true;
     }
+    var metadataRegistryUrl = ServiceHelper.GetAppKeyValue("credentialRegistryGet");//.Replace("{0}","");
+
+    var enumServices = new EnumerationServices();
     var googleMapsKey = new ThirdPartyApiServices().GetGoogleMapsApiKey();
     var data = ( dynamic ) Model;
     var typeCode = Model.GetType().Name.ToLower();
@@ -19,8 +22,13 @@
     var dataAssessment = new AssessmentProfile();
     var dataLearningOpportunity = new LearningOpportunityProfile();
     var roleCodes = new Enumeration();
+    var credentialRegistryId = "";
     var jsonData = new Dictionary<string, object>();
-    
+    var costTypeCodes = enumServices.GetEnumeration( "costType", EnumerationType.SINGLE_SELECT_ID_ONLY ).Items;
+    var currencyCodes = enumServices.GetCurrencies( EnumerationType.SINGLE_SELECT_ID_ONLY ).Items;
+    var ownerOrganization = new Organization();
+    var ownerOrganizationQARoles = new List<OrganizationRoleProfile>();
+
     var title = "Entity";
     switch ( typeCode )
     {
@@ -29,35 +37,9 @@
                 title = "Credential";
                 dataType = DataTypes.CREDENTIAL;
                 dataCredential = ( Credential ) data;
+                credentialRegistryId = dataCredential.CredentialRegistryId ?? "";
                 roleCodes = new EnumerationServices().GetCredentialAllAgentRoles( EnumerationType.CUSTOM );
                 jsonData = new JsonLDServices().GetProfileV2( dataCredential, new Models.JsonV2.Credential(), roleCodes.Items );
-                //Fix roles
-                //Have a list of roles with one actor and every role for that actor (desirable)
-                //There is insufficient data for each actor
-                //Roles are missing their names
-                //Roles are missing their "IsSpecialValue" flag
-                /*try
-                {
-                    foreach ( var roleProfile in dataCredential.OrganizationRole )
-                    {
-                        foreach ( var role in roleProfile.AgentRole.Items )
-                        {
-                            var matchedRole = roleCodes.Items.FirstOrDefault( m => m.Id == role.Id );
-                            role.Name = matchedRole.Name;
-                            role.IsSpecialValue = matchedRole.IsSpecialValue;
-                        }
-                        foreach ( var role in roleProfile.RoleType.Items )
-                        {
-                            var matchedRole = roleCodes.Items.FirstOrDefault( m => m.Id == role.Id );
-                            role.Name = matchedRole.Name;
-                            role.IsSpecialValue = matchedRole.IsSpecialValue;
-                        }
-
-                        roleProfile.ActingAgent = OrganizationServices.GetLightOrgByRowId( roleProfile.ActingAgentUid.ToString() );
-                    }
-
-                }
-                catch { }*/
                 //Fix embedded credentials
                 var replacements = new List<Credential>();
                 foreach ( var credential in dataCredential.EmbeddedCredentials )
@@ -68,11 +50,39 @@
                 }
                 dataCredential.EmbeddedCredentials = replacements;
                 //Fix tasks
-                FixTasks( dataCredential.Requires.SelectMany( m => m.TargetTask ).ToList() );
-                FixTasks( dataCredential.Recommends.SelectMany( m => m.TargetTask ).ToList() );
-                FixTasks( dataCredential.IsRequiredFor.SelectMany( m => m.TargetTask ).ToList() );
-                FixTasks( dataCredential.IsRecommendedFor.SelectMany( m => m.TargetTask ).ToList() );
-                FixTasks( dataCredential.Renewal.SelectMany( m => m.TargetTask ).ToList() );
+                //FixTasks( dataCredential.Requires.SelectMany( m => m.TargetTask ).ToList() );
+                //FixTasks( dataCredential.Recommends.SelectMany( m => m.TargetTask ).ToList() );
+                //FixTasks( dataCredential.IsRequiredFor.SelectMany( m => m.TargetTask ).ToList() );
+                //FixTasks( dataCredential.IsRecommendedFor.SelectMany( m => m.TargetTask ).ToList() );
+                //FixTasks( dataCredential.Renewal.SelectMany( m => m.TargetTask ).ToList() );
+                //Fix costs
+                FixCosts( dataCredential.EstimatedCosts, costTypeCodes, currencyCodes );
+                //FixCosts( dataCredential.Requires.SelectMany( m => m.TargetAssessment ).SelectMany( m => m.EstimatedCost ).ToList(), costTypeCodes, currencyCodes );
+                //FixCosts( dataCredential.Requires.SelectMany( m => m.TargetLearningOpportunity ).SelectMany( m => m.EstimatedCost ).ToList(), costTypeCodes, currencyCodes );
+                //FixCosts( dataCredential.Requires.SelectMany( m => m.TargetTask ).SelectMany( m => m.EstimatedCost ).ToList(), costTypeCodes, currencyCodes );
+                //FixCosts( dataCredential.Recommends.SelectMany( m => m.TargetAssessment ).SelectMany( m => m.EstimatedCost ).ToList(), costTypeCodes, currencyCodes );
+                //FixCosts( dataCredential.Recommends.SelectMany( m => m.TargetLearningOpportunity ).SelectMany( m => m.EstimatedCost ).ToList(), costTypeCodes, currencyCodes );
+                //FixCosts( dataCredential.Recommends.SelectMany( m => m.TargetTask ).SelectMany( m => m.EstimatedCost ).ToList(), costTypeCodes, currencyCodes );
+                //FixCosts( dataCredential.IsRequiredFor.SelectMany( m => m.TargetAssessment ).SelectMany( m => m.EstimatedCost ).ToList(), costTypeCodes, currencyCodes );
+                //FixCosts( dataCredential.IsRequiredFor.SelectMany( m => m.TargetLearningOpportunity ).SelectMany( m => m.EstimatedCost ).ToList(), costTypeCodes, currencyCodes );
+                //FixCosts( dataCredential.IsRequiredFor.SelectMany( m => m.TargetTask ).SelectMany( m => m.EstimatedCost ).ToList(), costTypeCodes, currencyCodes );
+                //FixCosts( dataCredential.IsRecommendedFor.SelectMany( m => m.TargetAssessment ).SelectMany( m => m.EstimatedCost ).ToList(), costTypeCodes, currencyCodes );
+                //FixCosts( dataCredential.IsRecommendedFor.SelectMany( m => m.TargetLearningOpportunity ).SelectMany( m => m.EstimatedCost ).ToList(), costTypeCodes, currencyCodes );
+                //FixCosts( dataCredential.IsRecommendedFor.SelectMany( m => m.TargetTask ).SelectMany( m => m.EstimatedCost ).ToList(), costTypeCodes, currencyCodes );
+                //FixCosts( dataCredential.Renewal.SelectMany( m => m.TargetAssessment ).SelectMany( m => m.EstimatedCost ).ToList(), costTypeCodes, currencyCodes );
+                //FixCosts( dataCredential.Renewal.SelectMany( m => m.TargetLearningOpportunity ).SelectMany( m => m.EstimatedCost ).ToList(), costTypeCodes, currencyCodes );
+                //FixCosts( dataCredential.Renewal.SelectMany( m => m.TargetTask ).SelectMany( m => m.EstimatedCost ).ToList(), costTypeCodes, currencyCodes );
+                //Try to get owner org
+                try
+                {
+                    ownerOrganization = dataCredential.OrganizationRole.FirstOrDefault( m => m.AgentRole.Items.FirstOrDefault( n => n.SchemaName.Contains( "owner" ) || n.SchemaName.Contains( "creat" ) ) != null ).ActingAgent;
+                    if ( ownerOrganization.OrganizationRole_Recipient.Count() == 0 )
+                    {
+                        ownerOrganization = OrganizationServices.GetOrganizationDetail( ownerOrganization.Id );
+                    }
+                }
+                catch { }
+
                 break;
             }
         case "organization":
@@ -80,34 +90,9 @@
                 title = "Organization";
                 dataType = DataTypes.ORGANIZATION;
                 dataOrganization = ( Organization ) data;
+                credentialRegistryId = dataOrganization.CredentialRegistryId ?? "";
                 roleCodes = new EnumerationServices().GetAllAgentReverseRoles( EnumerationType.CUSTOM );
-                jsonData = new JsonLDServices().GetProfileV2( dataOrganization, new Models.JsonV2.Organization(), roleCodes.Items );
-                //Fix roles
-                //Have a list of roles with one actor and every role for that actor (desirable)
-                //There is no data for the agents
-                //Roles are missing their names
-                //Some role codes are missing
-                /*try
-                {
-                    foreach ( var role in dataOrganization.OrganizationRole_Recipient )
-                    {
-                        role.ActingAgent = OrganizationServices.GetLightOrgByRowId( role.ActingAgentUid.ToString() );
-                        foreach ( var played in role.RoleType.Items )
-                        {
-                            try
-                            {
-                                var matchedRole = roleCodes.Items.FirstOrDefault( m => m.Id == played.Id );
-                                played.Name = matchedRole.Name;
-                                played.IsSpecialValue = matchedRole.IsSpecialValue;
-                            }
-                            catch
-                            {
-                                played.Name = "Role Name Unavailable";
-                            }
-                        }
-                    }
-                }
-                catch { }*/
+                jsonData = new JsonLDServices().GetProfileV2( dataOrganization, new Models.JsonV2.CredentialOrganization(), roleCodes.Items );
                 //Fix created credentials
                 var replacements = new List<Credential>();
                 foreach ( var credential in dataOrganization.CreatedCredentials )
@@ -119,7 +104,7 @@
                 dataOrganization.CreatedCredentials = replacements;
                 //Fix departments and subsidiaries
                 FixMissingOrgInfo( dataOrganization.OrganizationRole_Dept );
-                FixMissingOrgInfo( dataOrganization.OrganizationRole_Subsiduary );
+                FixMissingOrgInfo( dataOrganization.OrganizationRole_Subsidiary );
                 break;
             }
         case "assessmentprofile":
@@ -128,36 +113,23 @@
                 typeCode = "assessment";
                 dataType = DataTypes.ASSESSMENT;
                 dataAssessment = ( AssessmentProfile ) data;
+                credentialRegistryId = dataAssessment.CredentialRegistryId ?? "";
                 roleCodes = new EnumerationServices().GetAssessmentAgentRoles( EnumerationType.CUSTOM );
                 jsonData = new JsonLDServices().GetProfileV2( dataAssessment, new Models.JsonV2.AssessmentProfile(), roleCodes.Items );
-                //Fix Roles
-                //Have a list of roles with one actor and all roles for that actor (desirable)
-                //Insufficient data for agent
-                /*try
+                //Fix costs
+                //FixCosts( dataAssessment.EstimatedCost, costTypeCodes, currencyCodes );
+                //Try to get owner org
+                try
                 {
-                    foreach ( var role in dataAssessment.OrganizationRole )
-                    {
-                        role.ActingAgent = OrganizationServices.GetLightOrgByRowId( role.ActingAgentUid.ToString() );
-                        foreach ( var played in role.RoleType.Items )
-                        {
-                            try
-                            {
-                                var matchedRole = roleCodes.Items.FirstOrDefault( m => m.Id == played.Id );
-                                played.Name = matchedRole.Name;
-                                played.IsSpecialValue = matchedRole.IsSpecialValue;
-                            }
-                            catch
-                            {
-                                played.Name = "Role Name Unavailable";
-                            }
-                        }
-                        if ( role.RoleType.Items.Count() == 0 )
-                        {
-                            role.RoleType.Items.Add( new EnumeratedItem() { Id = 0, Name = "Roles unavailable" } );
-                        }
-                    }
+                    //ownerOrganization = dataAssessment.OrganizationRole.FirstOrDefault( m => m.AgentRole.Items.FirstOrDefault( n => n.SchemaName.Contains( "owner" ) || n.SchemaName.Contains( "creat" ) ) != null ).ActingAgent;
+                    
+                    //if ( ownerOrganization.OrganizationRole_Recipient.Count() == 0 )
+                    //{
+                    //    ownerOrganization = OrganizationServices.GetOrganizationDetail( ownerOrganization.Id );
+                    //}
                 }
-                catch { }*/
+                catch { }
+
                 break;
             }
         case "learningopportunityprofile":
@@ -166,46 +138,36 @@
                 typeCode = "learningopportunity";
                 dataType = DataTypes.LEARNINGOPPORTUNITY;
                 dataLearningOpportunity = ( LearningOpportunityProfile ) data;
+                credentialRegistryId = dataLearningOpportunity.CredentialRegistryId ?? "";
                 roleCodes = new EnumerationServices().GetLearningOppAgentRoles( EnumerationType.CUSTOM );
                 jsonData = new JsonLDServices().GetProfileV2( dataLearningOpportunity, new Models.JsonV2.LearningOpportunityProfile(), roleCodes.Items );
-                //Fix Roles
-                //Have a list of roles with one actor and every role for that actor (desirable)
-                //Insufficient data for agents
-                //Roles are missing their names
-                /*try
+                //Fix costs
+                //FixCosts( dataLearningOpportunity.EstimatedCost, costTypeCodes, currencyCodes );
+                //Try to get owner org
+                try
                 {
-                    foreach ( var role in dataLearningOpportunity.OrganizationRole )
-                    {
-                        role.ActingAgent = OrganizationServices.GetLightOrgByRowId( role.ActingAgentUid.ToString() );
-                        foreach ( var played in role.RoleType.Items )
-                        {
-                            try
-                            {
-                                var matchedRole = roleCodes.Items.FirstOrDefault( m => m.Id == played.Id );
-                                played.Name = matchedRole.Name;
-                                played.IsSpecialValue = matchedRole.IsSpecialValue;
-                            }
-                            catch
-                            {
-                                played.Name = "Role Name Unavailable";
-                            }
-                        }
-                        if ( role.RoleType.Items.Count() == 0 )
-                        {
-                            role.RoleType.Items.Add( new EnumeratedItem() { Id = 0, Name = "Roles unavailable" } );
-                        }
-                    }
+                    //ownerOrganization = dataLearningOpportunity.OrganizationRole.FirstOrDefault( m => m.AgentRole.Items.FirstOrDefault( n => n.SchemaName.Contains( "owner" ) || n.SchemaName.Contains("creat") ) != null ).ActingAgent;
                     
+                    //if ( ownerOrganization.OrganizationRole.Count() == 0 )
+                    //{
+                    //    ownerOrganization = OrganizationServices.GetOrganizationDetail( ownerOrganization.Id );
+                    //}
                 }
-                catch { }*/
+                catch { }
                 break;
             }
         default: break;
     }
+    try
+    {
+        ownerOrganizationQARoles = ownerOrganization.OrganizationRole.Where( m => m.AgentRole.Items.Where( n => n.IsSpecialValue ).Count() > 0 ).ToList();
+    }
+    catch { }
+
 }
 @functions {
     public enum DataTypes { ENTITY, CREDENTIAL, ORGANIZATION, ASSESSMENT, LEARNINGOPPORTUNITY }
-    public enum ConditionProfileTypes { REQUIRES, RECOMMENDS, ISREQUIREDFOR, ISRECOMMENDEDFOR, RENEWAL }
+    public enum ConditionProfileTypes { REQUIRES, RECOMMENDS, ADVANCEDSTANDINGFROM, PREPARATIONFROM, ISREQUIREDFOR, ISRECOMMENDEDFOR, ISADVANCEDSTANDINGFOR, ISPREPARATIONFOR, RENEWAL }
     
     public bool HasText( string text )
     {
@@ -235,7 +197,48 @@
             catch { }
         }
     }
+    public void FixCosts( List<CostProfile> profiles, List<EnumeratedItem> costTypeCodes, List<EnumeratedItem> currencyCodes )
+    {
+        foreach ( var profile in profiles )
+        {
+            try
+            {
+                profile.Currency = currencyCodes.FirstOrDefault( m => m.CodeId == profile.CurrencyTypeId ).Name;
+            }
+            catch { }
+
+            foreach ( var item in profile.Items )
+            {
+                try
+                {
+                    if ( item.CostType.Items.Count() == 0 )
+                    {
+                        item.CostType.Items.Add( new EnumeratedItem() { Id = item.CostTypeId, Name = costTypeCodes.FirstOrDefault( m => m.CodeId == item.CostTypeId ).Name } );
+                    }
+                }
+                catch { }
+            }
+        }
+    }
+
+    public void CountLearningOpportunityCompetencies( LearningOpportunityProfile learnOpp, ref int total )
+    {
+        total += learnOpp.RequiresCompetencies.Count() + learnOpp.TeachesCompetencies.Count() + learnOpp.RequiresCompetenciesFrameworks.SelectMany( m => m.Items ).Count() + learnOpp.TeachesCompetenciesFrameworks.SelectMany( m => m.Items ).Count();
+        foreach ( var item in learnOpp.HasPart )
+        {
+            CountLearningOpportunityCompetencies( item, ref total );
+        }
+    }
+
+    public void AddLinkToValues( List<TextValueProfile> values, string link, string title )
+    {
+        if ( !string.IsNullOrWhiteSpace( link ) )
+        {
+            values.Add( new TextValueProfile() { TextValue = link, ProfileName = title } );
+        }
+    }
 }
+
 @helper Enumerate( string title, string headerTag, Enumeration list, string typeCode ) { 
     try
     {
@@ -246,10 +249,34 @@
                 @ShowTag( title, headerTag )
                 @foreach ( var item in list.Items )
                 {
-                    if ( !usedIDs.Contains( item.Id ) )
+                    if ( !usedIDs.Contains( item.Id ) && !item.Name.Contains( "z???" ) )
                     {
-                        <a class="linkButton grayButton" target="searchWindow" href="@Url.Content( "~/search/v2?autosearch=true&searchType=" + typeCode + "&filters=" + list.Id + "-" + item.Id )">@item.Name</a>
+                        <a class="linkButton grayButton" target="searchWindow" href="@Url.Content( "~/search?autosearch=true&searchType=" + typeCode + "&filters=" + list.Id + "-" + item.Id )">@item.Name</a>
                         usedIDs.Add( item.Id ); //Prevent duplicates
+                    }
+                }
+            </div>
+        }
+    }
+    catch { }
+}
+@helper EnumerateGroup( string title, string headerTag, List<Enumeration> lists, string typeCode )
+{
+    try
+    {
+        if ( lists.Where( m => m.Items.Count() > 0 ) != null )
+        {
+            <div class="subsection enumeration">
+                @ShowTag( title, headerTag )
+                @foreach(var list in lists){
+                    var usedIDs = new List<int>();
+                    foreach ( var item in list.Items )
+                    {
+                        if ( !usedIDs.Contains( item.Id ) && !item.Name.Contains( "z???" ) )
+                        {
+                            <a class="linkButton grayButton" target="searchWindow" href="@Url.Content( "~/search?autosearch=true&searchType=" + typeCode + "&filters=" + list.Id + "-" + item.Id )">@item.Name</a>
+                            usedIDs.Add( item.Id ); //Prevent duplicates
+                        }
                     }
                 }
             </div>
@@ -283,6 +310,23 @@
     }
     catch { }
 }
+@helper RenderPreformattedText( string text, string tag, int maxLength = 0 )
+{
+    try
+    {
+        var finalText = text.Trim();
+        if ( maxLength > 0 && text.Length > maxLength )
+        {
+            finalText = text.Substring( 0, maxLength ) + "...";
+        }
+        var paragraphs = finalText.Split( new string[] { "\n" }, StringSplitOptions.RemoveEmptyEntries ).ToList();
+        foreach ( var item in paragraphs )
+        {
+            @ShowTag( item, tag )
+        }
+    }
+    catch { }
+}
 @helper ShowNamedText( string title, string headerTag, string content, string className, bool isPreformatted )
 {
     try
@@ -291,7 +335,15 @@
         {
             @ShowTag( title, headerTag )
             <div class="namedText @( isPreformatted ? "preformatted" : "" ) @className">
-                @Html.Raw( content )
+                @if ( isPreformatted )
+                {
+                    @RenderPreformattedText( content, "p" )
+                    @*@Html.Raw( content.Trim().Replace( "\n", "<br /><br />" ) );*@
+                }
+                else
+                {
+                    @Html.Raw( content.Trim() )
+                }
             </div>
         }
     }
@@ -319,7 +371,7 @@
                             {
                                 if ( showLinksViaName )
                                 {
-                                    <a class="linkButton greenButton" href="@itemContent" target="_blank">@( HasText( itemName ) ? itemName : itemContent ) <i class="fa fa-external-link"></i></a>
+                                    <a class="linkButton greenButton" href="@itemContent" target="_blank">@( HasText( itemName ) ? itemName : "Reference" ) <i class="fa fa-external-link"></i></a>
                                 }
                                 else
                                 {
@@ -361,15 +413,57 @@
                             {
                                 <div class="competencyDescription">@Html.Raw( itemDescription )</div>
                             }
-                            @if( HasText( item.TargetUrl ) )
+                            @*@if( HasText( item.TargetUrl ) )
                             {
                                 <a class="competencyUrl" target="_blank" href="@item.TargetUrl">@item.TargetUrl</a>
-                            }
+                            }*@
                         </li>
                     }
                 </ul>
             </div>
             
+        }
+    }
+    catch { }
+}
+@helper ShowCompetencyFrameworkValues( string title, string headerTag, List<CredentialAlignmentObjectFrameworkProfile> frameworks, string className )
+{
+    try
+    {
+        if ( frameworks.Count() > 0 )
+        {
+            <div class="competencyFrameworks @className">
+                @ShowTag( title, headerTag )
+                @foreach ( var framework in frameworks )
+                {
+                    <div class="competencyFramework">
+                        <div class="competencyFrameworkTitle">@framework.EducationalFrameworkName</div>
+                        <div class="competencyItems">
+                            <ul class="competencyList">
+                                @foreach ( var item in framework.Items )
+                                {
+                                    var itemName = HasText( item.Name ) ? item.Name : HasText( item.TargetName ) ? item.TargetName : HasText(item.TargetUrl) ? item.TargetUrl : "";
+                                    var itemDescription = HasText( item.Description ) ? item.Description : HasText( item.TargetDescription ) ? item.TargetDescription : "";
+                                    <li class="competencyItem @( HasText(itemName) ? "hasName" : "noName" ) @( HasText(itemDescription) ? "hasDescription" : "noDescription" ) @( HasText(item.TargetUrl) ? "hasURL" : "noURL" )">
+                                        @if ( HasText( itemName ) )
+                                        {
+                                            <div class="competencyName">@itemName</div>
+                                        }
+                                        @if( HasText( itemDescription ) )
+                                        {
+                                            <div class="competencyDescription">@Html.Raw( itemDescription )</div>
+                                        }
+                                        @*@if( HasText( item.TargetUrl ) )
+                                        {
+                                            <a class="competencyUrl" target="_blank" href="@item.TargetUrl">@item.TargetUrl</a>
+                                        }*@
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                }
+            </div>
         }
     }
     catch { }
@@ -385,10 +479,10 @@
                 {
                     <div class="subsection profile jurisdiction">
                         @Html.Raw( "<" + headerTag + ">Applicable To</" + headerTag + ">" )
-                        @if ( jurisdiction.IsOnlineJurisdiction )
+                        @*@if ( jurisdiction.IsOnlineJurisdiction )
                         {
                             <div><b>Online:</b> This jurisdiction applies to the internet.</div>
-                        }
+                        }*@
                         @if ( jurisdiction.IsGlobalJurisdiction )
                         {
                             <div><b>Globally:</b> This jurisdiction applies to the entire world.</div>
@@ -416,7 +510,7 @@
     }
     catch { }
 }
-@helper JurisdictionMerged( string title, string headerTag, List<JurisdictionProfile> jurisdictions ) { 
+@helper JurisdictionMerged( string title, string headerTag, string guidance, string onlinePhrase, string globalPhrase, string locationPhrase, string exceptionPhrase, List<JurisdictionProfile> jurisdictions, bool allowOnlineGlobal = true ) { 
     try
     {
         var mains = new List<GeoCoordinates>();
@@ -437,23 +531,28 @@
                 }
             }
             isGlobal = jurisdiction.IsGlobalJurisdiction ? true : isGlobal;
-            isOnline = jurisdiction.IsOnlineJurisdiction ? true : isOnline;
+            //isOnline = jurisdiction.IsOnlineJurisdiction ? true : isOnline;
         }
         
         if ( mains.Count() > 0 || exceptions.Count() > 0 || isOnline || isGlobal )
         {
             <div class="subsection jurisdiction mergedJurisdictionList">
                 @ShowTag( title, headerTag )
-                @if ( isOnline )
+                @if ( !string.IsNullOrWhiteSpace( guidance ) )
                 {
-                    <div><b>Online:</b> This jurisdiction applies to the internet.</div>
+                <p>@Html.Raw( guidance )</p>
                 }
-                @if ( isGlobal )
+                @if ( isOnline && allowOnlineGlobal )
                 {
-                    <div><b>Globally:</b> This jurisdiction applies to the entire world.</div>
+                    <div><b>Online:</b> @Html.Raw( onlinePhrase )</div>
+                }
+                @if ( isGlobal && allowOnlineGlobal )
+                {
+                    <div><b>Globally:</b> @Html.Raw( globalPhrase )</div>
                 }
                 @if ( mains.Count() > 0 )
                 {
+                    @*<div><b>Specific Places:</b> @Html.Raw( locationPhrase )</div>*@
                     <ul>
                         @foreach ( var main in mains )
                         {
@@ -464,13 +563,7 @@
                 }
                 @if ( exceptions.Count() > 0 )
                 {
-                    var subTag = headerTag;
-                    try
-                    {
-                        subTag = "h" + ( int.Parse( subTag.Replace( "h", "" ) ) + 1 ).ToString(); //Try to get one header level lower
-                    }
-                    catch {} 
-                    @ShowTag( "Exceptions", subTag )
+                    <div>@*<b>Exceptions:</b>*@@Html.Raw( exceptionPhrase )</div>
                     <ul>
                         @foreach ( var exclude in exceptions )
                         {
@@ -490,15 +583,15 @@
         try
         {
             //Prevent nulls
-            role.ActingAgent.Name = role.ActingAgent.Name ?? "Name unavailable";
-            role.ActingAgent.Description = role.ActingAgent.Description ?? "Description unavailable";
+            role.ActingAgent.Name = role.ActingAgent.Name ?? "";
+            role.ActingAgent.Description = role.ActingAgent.Description ?? "";
             var imageStyle = string.IsNullOrWhiteSpace( role.ActingAgent.ImageUrl ) ? "" : "style=\"background-image:url('" + role.ActingAgent.ImageUrl + "');\"";
             var imageSource = string.IsNullOrWhiteSpace( role.ActingAgent.ImageUrl ) ? "" : role.ActingAgent.ImageUrl;
             var hasLocation = role.ActingAgent.Address.Latitude != 0d && role.ActingAgent.Address.Longitude != 0d;
             
             //Temporary hack - hide QA roles/QA-only orgs
             var newRoles = new List<EnumeratedItem>();
-            foreach ( var item in role.RoleType.Items )
+            foreach ( var item in role.AgentRole.Items )
             {
                 if ( !item.IsSpecialValue ) 
                 {
@@ -513,14 +606,14 @@
             //Otherwise only show the non-QA roles
             else
             {
-                role.RoleType.Items = newRoles;
+                role.AgentRole.Items = newRoles;
             }
             //End hack
             
             <div class="subsection organization roles @( hasLocation ? "hasLocation" : "" )" data-organizationID="@role.ActingAgent.Id" data-latitude="@role.ActingAgent.Address.Latitude" data-longitude="@role.ActingAgent.Address.Longitude">
-                <div class="roleList">@string.Join( ", ", role.RoleType.Items.Select( m => m.Name ).ToList() )</div>
+                <div class="roleList">@string.Join( ", ", role.AgentRole.Items.Select( m => m.Name ).ToList() )</div>
                 <h3><a href="@Url.Content( "~/detail/organization/" + role.ActingAgent.Id )" target="_blank">@role.ActingAgent.Name</a></h3>
-                <div class="description">@( role.ActingAgent.Description.Length < 150 ? role.ActingAgent.Description : role.ActingAgent.Description.Substring( 0, 150 ) + "...")</div>
+                <div class="description">@RenderPreformattedText( role.ActingAgent.Description, "p", 200 )</div>
                 <div class="dataBox">
                     @if ( hasLocation )
                     {
@@ -544,7 +637,7 @@
                 </div>
                 @*<h4>This @typeTitle is:</h4>
                 <ul>
-                    @foreach ( var played in role.RoleType.Items )
+                    @foreach ( var played in role.AgentRole.Items )
                     {
                         <li>@played.Name</li>
                     }
@@ -555,7 +648,7 @@
         catch { }
     }
 }
-@helper ListQualityAssuranceRoles( string headerTag, List<OrganizationRoleProfile> roles, Enumeration roleCodes ) {
+@helper ListQualityAssuranceRoles( string headerTag, string prefix, List<OrganizationRoleProfile> roles, Enumeration roleCodes ) {
     foreach ( var code in roleCodes.Items.Where( m => m.IsSpecialValue ) ) //For each QA role...
     {
         try
@@ -564,7 +657,7 @@
             foreach ( var role in roles )
             {
                 //If the role profile contains a matching role and the matched players list does not already contain the org for that role, add that org to the list
-                if ( role.RoleType.Items.FirstOrDefault( m => m.CodeId == code.Id ) != null && matchedPlayers.FirstOrDefault( m => m.Id == role.ActingAgent.Id ) == null )
+                if ( role.AgentRole.Items.FirstOrDefault( m => m.CodeId == code.Id ) != null && matchedPlayers.FirstOrDefault( m => m.Id == role.ActingAgent.Id ) == null )
                 {
                     matchedPlayers.Add( role.ActingAgent );
                 }
@@ -573,7 +666,7 @@
             if ( matchedPlayers.Count() > 0 )
             //if ( matches.Count() > 0 )
             {
-                @ShowTag( code.Name, headerTag )
+                @ShowTag( prefix + " " + code.Name, headerTag )
                 <ul class="qaRolePlayerList">
                     @foreach ( var player in matchedPlayers )
                     {
@@ -598,24 +691,33 @@
     {
         foreach ( var credential in credentials )
         {
+            if ( credential == null || credential.Id == 0 )
+            {
+                continue;
+            }
             try
             {
                 try
                 {
-                    credential.CredentialType.SchemaName = credential.CredentialType.SchemaName ?? credential.CredentialType.Items.FirstOrDefault().SchemaName ?? "credential";
+                    credential.CredentialType.SchemaName = credential.CredentialType.Items.FirstOrDefault().SchemaName ?? "credential";
                 }
                 catch 
                 {
+                    try
+                    {
+                        credential.CredentialType.SchemaName = credential.CredentialType.SchemaName ?? "credential";
+                    }
+                    catch { }
                     credential.CredentialType.SchemaName = "credential";
                 }
                 
-                credential.Name = credential.Name ?? "Name unavailable";
-                credential.Description = credential.Description ?? "Description unavailable";
+                credential.Name = credential.Name ?? "";
+                credential.Description = credential.Description ?? "";
         
-                <div class="subprofile credential" data-type="@credential.CredentialType.SchemaName.ToLower()" data-withImage="@( showImage ? "true" : "false" )">
+                <div class="subprofile credential" data-type="@credential.CredentialType.SchemaName.ToLower()" data-withIcon="@( showImage ? "true" : "false" )">
                     <div class="typeIcon"></div>
                     @Html.Raw( "<" + headerTag + ">" )<a href="@Url.Content( "~/detail/credential/" + credential.Id )" target="_blank">@credential.Name</a>@Html.Raw( "</" + headerTag + ">" )
-                    <p>@( credential.Description.Length < 300 ? credential.Description : credential.Description.Substring( 0, 300 ) + "..." )</p>
+                    <div class="description">@RenderPreformattedText( credential.Description, "p", 400 )</div>
                 </div>
             }
             catch { }
@@ -627,15 +729,19 @@
     {
         foreach ( var organization in organizations )
         {
+            if ( organization == null || organization.Id == 0 )
+            {
+                continue;
+            }
             try
             {
-                organization.Name = organization.Name ?? "Name unavailable";
-                organization.Description = organization.Description ?? "Description unavailable";
+                organization.Name = organization.Name ?? "";
+                organization.Description = organization.Description ?? "";
                 organization.ImageUrl = string.IsNullOrWhiteSpace( organization.ImageUrl ) ? "" : organization.ImageUrl;
-        
-                <div class="subprofile organization" data-withImage="@( showImage ? "true" : "false" )">
+
+                <div class="subprofile organization" data-withIcon="@( showImage ? "true" : "false" )">
                     @Html.Raw( "<" + headerTag + ">" )<a href="@Url.Content( "~/detail/organization/" + organization.Id )" target="_blank">@organization.Name</a>@Html.Raw( "</" + headerTag + ">" )
-                    <p>@( organization.Description.Length < 300 ? organization.Description : organization.Description.Substring( 0, 300 ) + "...")</p>
+                    <div class="description">@RenderPreformattedText( organization.Description, "p", 400 )</div>
                     <div class="logo">
                         @*<div class="logoImage" style="background-image:url('@organization.ImageUrl');"></div>*@
                         @if ( !string.IsNullOrWhiteSpace( organization.ImageUrl ) )
@@ -655,14 +761,20 @@
     {
         foreach ( var assessment in assessments )
         {
+            if ( assessment == null || assessment.Id == 0 )
+            {
+                continue;
+            }
             try
             {
-                assessment.Name = string.IsNullOrWhiteSpace( assessment.Name ) ? "Name unavailable" : assessment.Name;
-                assessment.Description = string.IsNullOrWhiteSpace( assessment.Description ) ? "Description unavailable" : assessment.Description;
+                assessment.Name = string.IsNullOrWhiteSpace( assessment.Name ) ? "" : assessment.Name;
+                assessment.Description = string.IsNullOrWhiteSpace( assessment.Description ) ? "" : assessment.Description;
                 
                 <div class="subprofile assessment">
                     @Html.Raw( "<" + headerTag + ">" )<a href="@Url.Content( "~/detail/assessment/" + assessment.Id )" target="_blank">@assessment.Name</a>@Html.Raw( "</" + headerTag + ">" )
-                    <p>@( assessment.Description.Length < 300 ? assessment.Description : assessment.Description.Substring( 0, 300 ) + "...")</p>
+                    <div class="description">@RenderPreformattedText( assessment.Description, "p", 400 )</div>
+                    @EnumerateGroup( "", "", new List<Enumeration>() { assessment.AssessmentMethodType, assessment.AssessmentUseType, assessment.DeliveryType }, "assessment" )
+                    @*@ListCostsCompact( assessment.EstimatedCost, "Costs", "h6", "" )*@
                 </div>
             }
             catch { }
@@ -675,16 +787,22 @@
     {
         foreach ( var learningOpportunity in learningOpportunities )
         {
+            if ( learningOpportunity == null || learningOpportunity.Id == 0 )
+            {
+                continue;
+            }
             try
             {
-                learningOpportunity.Name = string.IsNullOrWhiteSpace( learningOpportunity.Name ) ? "Name unavailable" : learningOpportunity.Name;
-                learningOpportunity.Description = string.IsNullOrWhiteSpace( learningOpportunity.Description ) ? "Description unavailable" : learningOpportunity.Description;
+                learningOpportunity.Name = string.IsNullOrWhiteSpace( learningOpportunity.Name ) ? "" : learningOpportunity.Name;
+                learningOpportunity.Description = string.IsNullOrWhiteSpace( learningOpportunity.Description ) ? "" : learningOpportunity.Description;
                 
                 <div class="subprofile learningopportunity">
                     @Html.Raw( "<" + headerTag + ">" )<a href="@Url.Content( "~/detail/learningopportunity/" + learningOpportunity.Id )" target="_blank">@learningOpportunity.Name</a>@Html.Raw( "</" + headerTag + ">" )
-                    <p>@( learningOpportunity.Description.Length < 300 ? learningOpportunity.Description : learningOpportunity.Description.Substring( 0, 300 ) + "...")</p>
-                    @ShowCompetencyValues( "Teaches Competencies", "h4", learningOpportunity.TeachesCompetencies, "" )
-                    @ShowCompetencyValues( "Requires Competencies", "h4", learningOpportunity.RequiresCompetencies, "" )
+                    <div class="description">@RenderPreformattedText( learningOpportunity.Description, "p", 400 )</div>
+                    @ShowCompetencyValues( "Teaches Competencies", "h6", learningOpportunity.TeachesCompetencies, "" )
+                    @ShowCompetencyValues( "Requires Competencies", "h6", learningOpportunity.RequiresCompetencies, "" )
+                    @Enumerate( "", "", learningOpportunity.DeliveryType, "learningopportunity" )
+                    @*@ListCostsCompact( learningOpportunity.EstimatedCost, "Costs", "h6", "" )*@
                 </div>
             }
             catch { }
@@ -702,7 +820,10 @@
                 {
                     <dl class="subsection profile estimatedTimeToEarn">
                         <dt>@( item.IsRange ? item.MinimumDuration.Print() + " - " + item.MaximumDuration.Print() : item.ExactDuration.Print() )</dt>
-                        <dd>Conditions: @( HasText( item.Conditions ) ? item.Conditions : "No special conditions")</dd>
+                        @if( !string.IsNullOrWhiteSpace( item.Conditions ) )
+                        {
+                            <dd>Conditions: @item.Conditions</dd>
+                        }
                     </dl>
                 }
             </div>
@@ -718,20 +839,44 @@
         condition.Description = string.IsNullOrWhiteSpace( condition.Description ) ? "" : condition.Description;
         
         var headerPrefix = "";
+        var headerPrefixNoun = "";
         switch( typeCode )
         {
             case ConditionProfileTypes.REQUIRES:
                 headerPrefix = "Required";
+                headerPrefixNoun = "Requirements";
                 break;
             case ConditionProfileTypes.RECOMMENDS:
                 headerPrefix = "Recommended";
+                headerPrefixNoun = "Recommendation";
+                break;
+            case ConditionProfileTypes.ADVANCEDSTANDINGFROM:
+                headerPrefix = "Advanced Standing From";
+                headerPrefixNoun = "Advanced Standing";
+                break;
+            case ConditionProfileTypes.PREPARATIONFROM:
+                headerPrefix = "Preparation From";
+                headerPrefixNoun = "Preparation";
                 break;
             case ConditionProfileTypes.ISREQUIREDFOR:
+                headerPrefix = "Is Required For";
+                headerPrefixNoun = "Requirement For";
+                break;
             case ConditionProfileTypes.ISRECOMMENDEDFOR:
-                headerPrefix = "Advances Towards";
+                headerPrefix = "Is Recommended For";
+                headerPrefixNoun = "Recommendation For";
+                break;
+            case ConditionProfileTypes.ISADVANCEDSTANDINGFOR:
+                headerPrefix = "Advanced Standing For";
+                headerPrefixNoun = "Advanced Standing For";
+                break;
+            case ConditionProfileTypes.ISPREPARATIONFOR:
+                headerPrefixNoun = "Preparation For";
+                headerPrefixNoun = "Preparation For";
                 break;
             case ConditionProfileTypes.RENEWAL:
                 headerPrefix = "Related";
+                headerPrefixNoun = "Additional";
                 break;
             default: break;
         }
@@ -759,74 +904,65 @@
                     }
                 </div>
                 <div class="autoColumnItem">
-                    @if ( condition.TargetCredential.Count() > 0 )
+                    @if ( condition.RequiredCredential.Count() > 0 )
                     {
                         <h5>@headerPrefix Specific Credentials</h5>
-                        @ListCredentials( "h6", condition.TargetCredential, false )
+                        @ListCredentials( "h6", condition.RequiredCredential, false )
                     }
                 </div>
                 <div class="autoColumnItem">
-                    @Enumerate( headerPrefix + " Credential Types", "h4", condition.CredentialType, "credential" )
+                    @Enumerate( headerPrefix + " Audience Level", "h4", condition.AudienceLevel, "credential" )
                 </div>
                 @if ( !string.IsNullOrWhiteSpace( condition.Description ) || !string.IsNullOrWhiteSpace( condition.Experience ) || condition.ConditionItem.Count() > 0 )
                 {
                     <div class="autoColumnItem">
-                        <h5>@headerPrefix Details</h5>
+                        <h5>@headerPrefixNoun Details</h5>
                         @ShowNamedText( "Description", "", condition.Description, "", true )
                         @ShowNamedText( "Experience", "", condition.Experience, "", true )
                         @ShowTextValues( "Experience", "", condition.ConditionItem, "", false, false )
+                        @if ( condition.YearsOfExperience > 0 )
+                        {
+                            <p><b>Years of Experience:</b> @condition.YearsOfExperience</p>
+                        }
+                        @if( condition.MinimumAge > 0 )
+                        {
+                            <p><b>Minimum Age:</b> @condition.MinimumAge</p>
+                        }
                     </div>
                 }
-                <div class="autoColumnItem">
+                @*<div class="autoColumnItem">
                     @Enumerate( "Applicable Audience", "h5", condition.ApplicableAudienceType, "credential" )
-                </div>
-                <div class="autoColumnItem">
+                </div>*@
+                @*<div class="autoColumnItem">
                     @ShowTextValues( headerPrefix + " Competencies", "h5", condition.TargetMiniCompetency, "", true, true )
-                </div>
-                <div class="autoColumnItem">
+                </div>*@
+                @*<div class="autoColumnItem">
                     @ShowTextValues( "References", "h5", condition.ReferenceUrl, "", true, true )
-                </div>
+                </div>*@
                 <div class="autoColumnItem">
-                    @JurisdictionMerged( "Applicable to Residents Of", "h5", condition.ResidentOf )
+                    @JurisdictionMerged( "Applicable to Residents Of", "h5", "These conditions have residency restrictions:", "", "", "These conditions apply to residents of:", "These conditions do <i>not</i> apply to residents of:", condition.ResidentOf )
                 </div>
+                @*<div class="autoColumnItem">
+                    @JurisdictionMerged( "Applicable Area(s)", "h5", "These conditions are valid in the following places:", "", "", "", "These conditions do <i>not</i> apply within these places:", condition.Jurisdiction )
+                </div>*@
                 <div class="autoColumnItem">
-                    @JurisdictionMerged( "Applicable Area(s)", "h5", condition.Jurisdiction )
+                    @Enumerate( "Applicable Audience", "h5", condition.ApplicableAudienceType, typeCode.ToString().ToLower() )
                 </div>
+                @if ( condition.AssertedByAgentUid != null && condition.AssertedByAgentUid != Guid.Empty )
+                {
+                    try
+                    {
+                        condition.AssertedBy = OrganizationServices.GetLightOrgByRowId( condition.AssertedByAgentUid.ToString() );
+                        <div class="autoColumnItem">
+                            <h5>Conditions Asserted By</h5>
+                            @ListOrganizations( "h5", new List<Organization>() { condition.AssertedBy }, true )
+                        </div>
+                    }
+                    catch { }
+                }
             </div>
 
-            @if ( condition.TargetTask.Count() > 0 )
-            {
-                <h4>@headerPrefix Tasks for these conditions</h4>
-                foreach ( var task in condition.TargetTask )
-                {
-                    <div class="profile taskProfile">
-                        <h5 class="properName">@task.ProfileName</h5>
-                        @*@if ( HasText( task.DateEffective ) )
-                        {
-                            <div class="date">As of @task.DateEffective</div>
-                        }*@
-                        <div class="autoColumns">
-                            <div class="autoColumnItem">
-                                @ShowNamedText( "Description", "", task.Description, "", true )
-                            </div>
-                            <div class="autoColumnItem">
-                                @Durations( task.EstimatedDuration, "Estimated Time to Complete", "h6" )
-                            </div>
-                            <div class="autoColumnItem">
-                                @JurisdictionMerged( "Task Jurisdiction", "h6", task.Jurisdiction )
-                            </div>
-                            <div class="autoColumnItem">
-                                @if ( task.AffiliatedAgent != null && task.AffiliatedAgent.Id != 0 )
-                                {
-                                    <h6>Task Provided By</h6>
-                                    @ListOrganizations( "h6", new List<Organization>() { task.AffiliatedAgent }, false )
-                                }
-                            </div>
-                        </div>
-                        @ListCosts( task.EstimatedCost, "Estimated Costs for this Task", "h4" )
-                    </div>
-                }
-            }
+          
 
             @try {
                 OrganizationLink( new Organization() { Name = condition.AssertedByOrgProfileLink.Name, Id = condition.AssertedByOrgProfileLink.Id }, "Conditions Provided By", "h4" );
@@ -837,304 +973,90 @@
         indexer++;
     }
 }
-@helper ListConditionsTabbed( List<ConditionProfile> conditions, string title, ConditionProfileTypes typeCode )
-{ 
-    if(conditions.Count() > 0)
-    {
-        var indexer = 1;
-        var headerPrefix = "";
-        <div class="profileTabBox inlineBlockBox">
-            <div class="profileTabBoxNavigation column">
-                @foreach( var condition in conditions )
-                {
-                    condition.ProfileName = string.IsNullOrWhiteSpace( condition.ProfileName ) ? title + " #" + indexer : condition.ProfileName;
-                    condition.Description = string.IsNullOrWhiteSpace( condition.Description ) ? "Description unavailable" : condition.Description;
-                    
-                    switch ( typeCode )
-                    {
-                        case ConditionProfileTypes.REQUIRES:
-                            headerPrefix = "Required";
-                            break;
-                        case ConditionProfileTypes.RECOMMENDS:
-                            headerPrefix = "Recommended";
-                            break;
-                        case ConditionProfileTypes.ISREQUIREDFOR:
-                        case ConditionProfileTypes.ISRECOMMENDEDFOR:
-                            headerPrefix = "Advances Towards";
-                            break;
-                        case ConditionProfileTypes.RENEWAL:
-                            headerPrefix = "Related";
-                            break;
-                        default: break;
-                    }
-                    
-                    <button data-profileTabName="conditions_@condition.Id">@condition.ProfileName</button>
-                }
-            </div>
-            <div class="profileTabBoxContent column">
-                @foreach(var condition in conditions){
-                    <div class="profileTab profile conditions" data-profileTabName="conditions_@condition.Id">
-                        <h3 class="detailProfileHeader">@condition.ProfileName</h3>
-                        @if ( HasText( condition.DateEffective ) )
-                        {
-                            <div class="date">As of @condition.DateEffective</div>
-                        }
-                
-                        <div class="profileTabBox profileTabBoxInline inlineBlockBox">
-                            <div class="profileTabBoxNavigation column">
-                                <button data-profileTabName="basic">Basic Information</button>
-                                @if ( condition.TargetCredential.Count() > 0 || condition.TargetAssessment.Count() > 0 || condition.TargetLearningOpportunity.Count() > 0 )
-                                {
-                                    <button data-profiletabname="entities">@headerPrefix Entities</button>
-                                }
-                                @if ( condition.ResidentOf.Count() > 0 || condition.Jurisdiction.Count() > 0 )
-                                {
-                                    <button data-profiletabname="region">Region Information</button>
-                                }
-                                @if ( condition.TargetTask.Count() > 0 )
-                                {
-                                    <button data-profiletabname="tasks">@headerPrefix Tasks</button>
-                                }
-                            </div>
-                            <div class="profileTabBoxContent column">
-                                <div class="profileTab" data-profileTabName="basic">
-                                    <h4>Basic Information</h4>
-                                    @ShowNamedText( "Description", "", condition.Description, "", true )
-                                    @ShowNamedText( "Experience", "", condition.Experience, "", true )
-                                    @ShowTextValues( "Experience", "", condition.ConditionItem, "", false, false )
-                                    @Enumerate( "Applicable Audience", "h5", condition.ApplicableAudienceType, "credential" )
-                                    @Enumerate( headerPrefix + " Credential Types", "h5", condition.CredentialType, "credential" )
-                                    @ShowTextValues( headerPrefix + "Competencies", "h5", condition.TargetMiniCompetency, "", true, true )
-                                    @ShowTextValues( "References", "h5", condition.ReferenceUrl, "", true, true )
-                                </div>
-                                <div class="profileTab" data-profileTabName="entities">
-                                    <h4>@headerPrefix Entities</h4>
-                                    @if ( condition.TargetCredential.Count() > 0 )
-                                    {
-                                        <h5>@headerPrefix Specific Credentials</h5>
-                                        @ListCredentials( "h6", condition.TargetCredential, false )
-                                    }
-                                    @if ( condition.TargetAssessment.Count() > 0 )
-                                    {
-                                        <h5>@headerPrefix Assessments</h5>
-                                        @ListAssessments( "h6", condition.TargetAssessment )
-                                    }
-                                    @if ( condition.TargetLearningOpportunity.Count() > 0 )
-                                    {
-                                        <h5>@headerPrefix Learning Opportunities</h5>
-                                        @ListLearningOpportunities( "h6", condition.TargetLearningOpportunity )
-                                    }
-                                </div>
-                                <div class="profileTab" data-profileTabName="region">
-                                    <h4>Region Information</h4>
-                                    @JurisdictionMerged( "Applicable to Residents Of", "h5", condition.ResidentOf )
-                                    @JurisdictionMerged( "Applicable Area(s)", "h5", condition.Jurisdiction )
-                                </div>
-                                <div class="profileTab profileTabBox profileTabBoxInline inlineBlockBox" data-profileTabName="tasks">
-                                    <h4>@headerPrefix Tasks</h4>
-                                    <div class="profileTabBoxNavigation column">
-                                        @{ var taskIterator = 1; }
-                                        @foreach( var task in condition.TargetTask )
-                                        {
-                                            <button data-profileTabName="task_@taskIterator">@task.ProfileName</button>
-                                            taskIterator++;
-                                        }
-                                    </div>
-                                    <div class="profileTabBoxContent column">
-                                        @{ taskIterator = 1; }
-                                        @foreach(var task in condition.TargetTask)
-                                        {
-                                            <div class="profileTab" data-profileTabName="task_@taskIterator">
-                                                <h5 class="properName">@task.ProfileName</h5>
-                                                @ShowNamedText( "Description", "", task.Description, "", true )
-                                                @Durations( task.EstimatedDuration, "Estimated Time to Complete", "h6" )
-                                                @JurisdictionMerged( "Task Jurisdiction", "h6", task.Jurisdiction )
-                                                @if ( task.AffiliatedAgent != null && task.AffiliatedAgent.Id != 0 )
-                                                {
-                                                    <h6>Task Provided By</h6>
-                                                    @ListOrganizations( "h6", new List<Organization>() { task.AffiliatedAgent }, false )
-                                                }
-                                                @ListCostsTabbed( task.EstimatedCost, "Estimated Costs for this Task", "h4" )
-                                            </div>
-                                            taskIterator++;
-                                        }
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                }
-            </div>
-        </div>
-    }
-}
-@helper ListCosts( List<CostProfile> costs, string title, string headerTag )
+@helper ListCostsCompact( List<CostProfile> costs, string title, string headerTag, string className )
 {
     try
     {
-        if ( costs != null && costs.Count() > 0 )
+        if ( costs != null && costs.Count() > 0 && costs.SelectMany(m => m.Items).Count() > 0 )
         {
-            var indexer = 1;
-            
-            @ShowTag( title, headerTag )
-            foreach ( var cost in costs )
-            {
-                cost.ProfileName = string.IsNullOrWhiteSpace( cost.ProfileName ) ? "Cost Description #" + indexer : cost.ProfileName;
-                <div class="profile costProfile">
-                    <h5 class="properName">@cost.ProfileName</h5>
-                    <div class="autoColumns">
-                        <div class="autoColumnItem">
-                            @{ 
-                                var dateText = ""; 
-                                if ( HasText( cost.DateEffective ) && HasText( cost.ExpirationDate ) )
-                                {
-                                    dateText = "Valid " + cost.DateEffective + " - " + cost.ExpirationDate;
-                                }
-                                else if( HasText( cost.DateEffective ) )
-                                {
-                                    dateText = "As of " + cost.DateEffective;
-                                }
-                                else if ( HasText( cost.ExpirationDate ) )
-                                {
-                                    dateText = "Expires " + cost.ExpirationDate;
-                                }
-                            }
-                            @ShowNamedText( "Date", "", dateText, "", false )
-                            @ShowNamedText( "Description", "", cost.Description, "", true )
-                        </div>
-                        <div class="autoColumnItem">
-                            @JurisdictionMerged( "Applies To", "h5", cost.Jurisdiction )
-                        </div>
-                        <div class="autoColumnItem">
-                            @ShowTextValues( "References", "h5", cost.ReferenceUrl, "", true, false )
-                        </div>
-                    </div>
-
-                    @if ( cost.Items.Count() > 0 )
+            var usedCostIDs = new List<int>();
+            <div class="costProfileCompact @className">
+                @ShowTag( title, headerTag )
+                <div class="costList">
+                    @foreach(var cost in costs)
                     {
-                        var itemIndexer = 1;
-                        <h5>Details for this Cost:</h5>
-                        foreach ( var costItem in cost.Items )
+                        if ( usedCostIDs.Contains( cost.Id ) )
                         {
-                            costItem.ProfileName = string.IsNullOrWhiteSpace( costItem.ProfileName ) ? "Cost Description #" + itemIndexer : costItem.ProfileName;
-                            <div class="costItem grayBox autoColumns">
-                                <h6 class="properName">@costItem.ProfileName</h6>
-                                <div class="price autoColumnItem">
-                                    @ShowNamedText( "Price", "h6", costItem.Price + " " + cost.Currency, "price", false )
-                                    @ShowNamedText( "Payment Pattern", "", costItem.PaymentPattern, "", true )
-                                    @if ( costItem.Payee != null && costItem.Payee.Id != 0 )
-                                    {
-                                        @ListOrganizations( "h6", new List<Organization>() { costItem.Payee }, false )
-                                    }
-                                </div>
-                                <div class="autoColumnItem">
-                                    @Enumerate( "Cost Type", "h6", costItem.CostType, "credential" )
-                                </div>
-                                <div class="autoColumnItem">
-                                    @Enumerate( "Applicable Residency", "h6", costItem.ResidencyType, "credential" )
-                                </div>
-                                <div class="autoColumnItem">
-                                    @Enumerate( "Applicable Enrollment Type", "h6", costItem.EnrollmentType, "credential" )
-                                </div>
-                                <div class="autoColumnItem">
-                                    @Enumerate( "Applicable Audiences", "h6", costItem.ApplicableAudienceType, "credential" )
-                                </div>
-                            </div>
-                            itemIndexer++;
+                            continue;
                         }
-                    }
-                </div>
-                indexer++;
-            }
-
-        }
-    }
-    catch { }
-}
-@helper ListCostsTabbed( List<CostProfile> costs, string title, string headerTag )
-{
-    if ( costs.Count() > 0 )
-    {
-        var indexer = 1;
-        @ShowTag( title, headerTag )
-        <div class="profile costProfile">
-            <div class="profileTabBox profileTabBoxInline inlineBlockBox">
-                <div class="profileTabBoxNavigation column">
-                    @foreach ( var cost in costs )
+                        usedCostIDs.Add( cost.Id );
+                        if ( cost.Items.Count() > 0 )
                         {
-                            cost.ProfileName = string.IsNullOrWhiteSpace( cost.ProfileName ) ? "Cost Description #" + indexer : cost.ProfileName;
-                            <button data-profiletabname="cost_@cost.Id">@cost.ProfileName</button>
-                        }
-
-                </div>
-                <div class="profileTabBoxContent column">
-                    @foreach ( var cost in costs )
-                    {
-                        try
-                        {
-                            <div class="profileTab" data-profiletabname="cost_@cost.Id">
-                                <h5 class="properName">@cost.ProfileName</h5>
-                                @{
-                                    var dateText = "";
-                                    if ( HasText( cost.DateEffective ) && HasText( cost.ExpirationDate ) )
-                                    {
-                                        dateText = "Valid " + cost.DateEffective + " - " + cost.ExpirationDate;
-                                    }
-                                    else if( HasText( cost.DateEffective ) )
-                                    {
-                                        dateText = "As of " + cost.DateEffective;
-                                    }
-                                    else if ( HasText( cost.ExpirationDate ) )
-                                    {
-                                        dateText = "Expires " + cost.ExpirationDate;
-                                    }
-                                }
-                                @ShowNamedText( "Date", "", dateText, "", false )
-                                @ShowNamedText( "Description", "", cost.Description, "", true )
-                                @JurisdictionMerged( "Applies To", "h5", cost.Jurisdiction )
-                                @ShowTextValues( "References", "h5", cost.ReferenceUrl, "", true, false )
-
-                                @if ( cost.Items.Count() > 0 )
-                                {
-                                    var itemIndexer = 1;
-                                    <div class="profileTabBox profileTabBoxInline inlineBlockBox">
-                                        <h5>Items for this Cost:</h5>
-                                        <div class="profileTabBoxNavigation column">
-                                            @foreach ( var costItem in cost.Items )
-                                            {
-                                                costItem.ProfileName = string.IsNullOrWhiteSpace( costItem.ProfileName ) ? "Cost Description #" + itemIndexer : costItem.ProfileName;
-                                                <button data-profiletabname="costItem_@costItem.Id">@costItem.ProfileName</button>
-                                            }
-                                        </div>
-                                        <div class="profileTabBoxContent column">
-                                            @foreach ( var costItem in cost.Items )
-                                            {
-                                                <div class="profileTab costItem" data-profiletabname="costItem_@costItem.Id">
-                                                    <h6 class="properName">@costItem.ProfileName</h6>
-                                                    @ShowNamedText( "Price", "h6", costItem.Price + " " + cost.Currency, "price", false )
-                                                    @ShowNamedText( "Payment Pattern", "", costItem.PaymentPattern, "", true )
-                                                    @if ( costItem.Payee != null && costItem.Payee.Id != 0 )
-                                                                {
-                                                        @ListOrganizations( "h6", new List<Organization>() { costItem.Payee }, false )
-                                                                }
-                                                    @Enumerate( "Cost Type", "h6", costItem.CostType, "credential" )
-                                                    @Enumerate( "Applicable Residency", "h6", costItem.ResidencyType, "credential" )
-                                                    @Enumerate( "Applicable Enrollment Type", "h6", costItem.EnrollmentType, "credential" )
-                                                    @Enumerate( "Applicable Audiences", "h6", costItem.ApplicableAudienceType, "credential" )
-                                                </div>
-                                            }
-                                        </div>
-
+                            <div class="cost">
+                                <button class="costName actionButton" data-costID="@cost.Id" onclick="toggleCost(@cost.Id);">@cost.ProfileName <i class="fa fa-caret-right"></i><i class="fa fa-caret-down"></i></button>
+                                <div class="costItems" data-costID="@cost.Id">
+                                    <div class="description">
+                                        @RenderPreformattedText( cost.Description, "p" )
+                                        @if ( HasText( cost.DateEffective ) && HasText( cost.ExpirationDate ) )
+                                        {
+                                            <p class="date">Valid @cost.DateEffective - @cost.ExpirationDate</p>
+                                        }
+                                        else if ( HasText( cost.DateEffective ) && !HasText( cost.ExpirationDate ) )
+                                        {
+                                            <p class="date">As of @cost.DateEffective</p>
+                                        }
+                                        else if ( !HasText( cost.DateEffective ) && HasText( cost.ExpirationDate ) )
+                                        {
+                                            <p class="date">Expires @cost.ExpirationDate</p>
+                                        }
+                                        @if ( !string.IsNullOrWhiteSpace( cost.DetailsUrl ) )
+                                        {
+                                            cost.ReferenceUrl.Insert( 0, new TextValueProfile() { TextValue = cost.DetailsUrl, ProfileName = "Cost Details" } );
+                                        }
+                                        @ShowTextValues( "References", "b", cost.ReferenceUrl, "", true, true )
                                     </div>
-                                }
+                                    @foreach ( var costItem in cost.Items )
+                                    {
+                                        var type = costItem.CostType.Items.FirstOrDefault();
+                                        var audiences = string.Join( ", ", costItem.ApplicableAudienceType.Items.Where( m => m.Name != "Any/All" ).Select( m => m.Name ) );
+                                        var residency = string.Join( ", ", costItem.ResidencyType.Items.Where( m => m.Name != "Any/All" ).Select( m => m.Name ) );
+                                        var enrollment = "";
+                                        var itemName = costItem.ProfileName == cost.ProfileName ? "" : costItem.ProfileName;
+                                        if ( type != null )
+                                        {
+                                            <div class="costItem">
+                                                @if ( !string.IsNullOrWhiteSpace( itemName ) )
+                                                {
+                                                    <div class="costItemName">@itemName</div>
+                                                }
+                                                <div class="costItemSummary">@type.Name: @cost.CurrencySymbol + @costItem.Price </div>
+                                                <div class="costItemConditions">
+                                                    <div>@costItem.PaymentPattern</div>
+                                                    @if ( !string.IsNullOrWhiteSpace( audiences ) )
+                                                    {
+                                                        <div>Audiences: @audiences</div>
+                                                    }
+                                                    @if ( !string.IsNullOrWhiteSpace( residency ) )
+                                                    {
+                                                        <div>Residency: @residency</div>
+                                                    }
+                                                    @if ( !string.IsNullOrWhiteSpace( enrollment ) )
+                                                    {
+                                                        <div>Enrollment: @enrollment</div>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    }
+                                </div>
                             </div>
                         }
-                        catch { }
                     }
                 </div>
             </div>
-        </div>
         }
+    }
+    catch { }
 }
 @helper OrganizationLink( Organization organization, string title, string headerTag ) { 
     if ( organization != null && organization.Id > 0 )
@@ -1160,7 +1082,7 @@
             try
             {
                 <div class="profile qualityAssuranceAction">
-                    <h3><a href="@Url.Content( "~/detail/credential/" + quality.IssuedCredential.Id )" target="_blank">@quality.IssuedCredential.Name</a></h3>
+                    <h5><a href="@Url.Content( "~/detail/credential/" + quality.IssuedCredential.Id )" target="_blank">@quality.IssuedCredential.Name</a></h5>
                     <div class="description">
                         @ShowNamedText( "QA Credential Description", "", quality.IssuedCredential.Description, "", true )
                         @ShowNamedText( "QA Description", "", quality.Description, "", true )
@@ -1228,9 +1150,170 @@
         <button class="competencyTitle" data-competencyGroupID="@item.Id">@item.Name <i class="fa fa-caret-right"></i><i class="fa fa-caret-down"></i></button>
         <div class="competencyData" data-competencyGroupID="@item.Id">
             <a href="@Url.Content( "~/detail/learningopportunity/" + item.Id )" target="_blank">More Information</a>
-            @ShowCompetencyValues( "Teaches", headerTag, item.TeachesCompetencies, "" )
-            @ShowCompetencyValues( "Requires", headerTag, item.RequiresCompetencies, "" )
+            @*@ShowCompetencyValues( "Teaches", headerTag, item.TeachesCompetencies, "" )
+            @ShowCompetencyValues( "Requires", headerTag, item.RequiresCompetencies, "" )*@
+            @ShowCompetencyFrameworkValues( "Teaches", headerTag, item.TeachesCompetenciesFrameworks, "" )
+            @ShowCompetencyFrameworkValues( "Requires", headerTag, item.RequiresCompetenciesFrameworks, "" )
         </div>
+    }
+    catch { }
+}
+@helper AssessmentCompetencyGroup( AssessmentProfile item, string headerTag ) 
+{ 
+    try
+    {
+        <button class="competencyTitle" data-competencyGroupID="@item.Id">@item.Name <i class="fa fa-caret-right"></i><i class="fa fa-caret-down"></i></button>
+        <div class="competencyData" data-competencyGroupID="@item.Id">
+            <a href="@Url.Content( "~/detail/assessment/" + item.Id )" target="_blank">More Information</a>
+            @*@ShowCompetencyValues( "Assesses", headerTag, item.AssessesCompetencies, "" )
+            @ShowCompetencyValues( "Requires", headerTag, item.RequiresCompetencies, "" )*@
+            @ShowCompetencyFrameworkValues( "Assesses", headerTag, item.AssessesCompetenciesFrameworks, "" )
+            @ShowCompetencyFrameworkValues( "Requires", headerTag, item.RequiresCompetenciesFrameworks, "" )
+        </div>
+    }
+    catch { }
+}
+@helper ConditionsCompetencyGroup( ConditionProfile item, string title, string headerTag ) { 
+    try
+    {
+        <button class="competencyTitle" data-competencyGroupID="@item.Id">@title <i class="fa fa-caret-right"></i><i class="fa fa-caret-down"></i></button>
+        <div class="competencyData" data-competencyGroupID="@item.Id">
+            @*@ShowCompetencyValues( "Requires", headerTag, item.RequiresCompetencies, "" )*@
+            @ShowCompetencyFrameworkValues( "Requires", headerTag, item.RequiresCompetenciesFrameworks, "" )
+        </div>
+    }
+    catch { }
+}
+@helper ListCredentialsModal( string title, string buttonTitle, string headerTag, string modalID, List<Credential> data, string guidance )
+{
+    try
+    {
+        if ( data.Count() > 0 && data.Where( n => n.Id != 0 ).Count() > 0 )
+        {
+            <button class="actionButton credentialModalButton" onclick="showModal('@modalID');">@buttonTitle @data.Where( n => n.Id != 0 ).Count() Credentials<i class="fa fa-arrows-alt"></i></button>
+            <div class="modal credentialModal dataModal" data-modalID="@modalID">
+                <div class="dataModalHeader">
+                    <h2 class="header">@title</h2>
+                <button class="closeButton" onclick="hideModal('@modalID');"><i class="fa fa-close"></i></button>
+                </div>
+                <div class="dataModalContent">
+                <p class="guidance">@guidance</p>
+                @ListCredentials( "h3", data, true )
+            </div>
+            </div>
+        }
+    }
+    catch { }
+}
+@helper LearningOpportunityCompetencyHierarchy( LearningOpportunityProfile learnOpp, string headerTag )
+{
+    try
+    {
+        if ( learnOpp.TeachesCompetencies.Count() > 0 || learnOpp.RequiresCompetencies.Count() > 0 || learnOpp.TeachesCompetenciesFrameworks.Select(m => m.Items).Count() > 0 || learnOpp.RequiresCompetenciesFrameworks.SelectMany( m => m.Items).Count() > 0 )
+        {
+            @LearningOpportunityCompetencyGroup( learnOpp, headerTag )
+        }
+        foreach ( var item in learnOpp.HasPart )
+        {
+            @LearningOpportunityCompetencyHierarchy( item, headerTag )
+        }
+    }
+    catch {}
+}
+@helper ListCredentialsById( string headerTag, List<int> credentialIDs, bool showImage )
+{
+    try
+    {
+        var credentials = new List<Credential>();
+        foreach ( var item in credentialIDs )
+        {
+            credentials.Add( CredentialServices.GetBasicCredential( item ) );
+        }
+        
+        @ListCredentials( headerTag, credentials, showImage );
+    }
+    catch { }
+}
+@helper EnumerateTextValues( string title, string headerTag, List<TextValueProfile> items, string typeCode ) 
+{ 
+    try
+    {
+        if ( items.Count() > 0 )
+        {
+            <div class="subsection enumeration">
+                @ShowTag( title, headerTag )
+                @foreach ( var item in items )
+                {
+                    <a class="linkButton grayButton" target="searchWindow" href="@Url.Content("~/search?autosearch=true&searchType=" + typeCode + "&keywords=" + item.TextValue )">@item.TextValue</a>
+                }
+            </div>
+        }
+    }
+    catch { }
+}
+@helper ListInheritedSubjects( string title, string headerTag, List<ConditionProfile> conditions, string typeCode )
+{
+    try
+    {
+        if ( conditions.SelectMany( m => m.TargetAssessment ).SelectMany( m => m.Subject ).Count() > 0 || conditions.SelectMany( m => m.TargetLearningOpportunity ).SelectMany( m => m.Subject ).Count() > 0 )
+        {
+            <div class="subsection">
+                @ShowTag( title, headerTag )
+                @foreach ( var condition in conditions )
+                {
+                    var assessedSubjects = condition.TargetAssessment.SelectMany( m => m.Subject ).ToList();
+                    var taughtSubjects = condition.TargetLearningOpportunity.SelectMany( m => m.Subject ).ToList();
+                    if ( assessedSubjects.Count() > 0 || taughtSubjects.Count() > 0 )
+                    {
+                        <div class="subsection">
+                            @ShowTag( condition.ProfileName, "h3" )
+                            @EnumerateTextValues( "Assesses", "h4", assessedSubjects, typeCode )
+                            @EnumerateTextValues( "Teaches", "h4", taughtSubjects, typeCode )
+                        </div>
+                    }
+                }
+            </div>
+        }
+    }
+    catch { }
+}
+@helper ListProcesses( List<ProcessProfile> data, string typeCode )
+{
+    try
+    {
+        if ( data.Count() > 0 )
+        {
+            foreach ( var process in data )
+            {
+                <div class="process">
+                    @ShowTag( process.ProfileName, "h3" )
+                    @ShowNamedText("Description", "h4", process.Description, "", true )
+                    @Enumerate( "External Input Type", "h4", process.ExternalInput, typeCode )
+                    @*@Enumerate( "Process Method", "h4", process.ProcessMethod, typeCode )
+                    @Enumerate( "Staff Evaluation Method", "h4", process.StaffEvaluationMethod, typeCode )*@
+                    @{ 
+                        var links = new List<TextValueProfile>();
+                        AddLinkToValues( links, process.TargetCompetencyFramework, "Competency Framework" );
+                        //AddLinkToValues( links, process.DecisionInformationUrl, "Decision Information" );
+                        //AddLinkToValues( links, process.OfferedByDirectoryUrl, "Offered Credentials Directory" );
+                        //AddLinkToValues( links, process.PublicInformationUrl, "Public Information" );
+                        //AddLinkToValues( links, process.StaffEvaluationUrl, "Staff Evaluation Information" );
+                        //AddLinkToValues( links, process.OutcomeReviewUrl, "Outcome Review Information" );
+                        //AddLinkToValues( links, process.PoliciesAndProceduresUrl, "Policies and Procedures" );
+                        //AddLinkToValues( links, process.ProcessCriteriaUrl, "Process Criteria Information" );
+                        //AddLinkToValues( links, process.ProcessCriteriaValidationUrl, "Process Criteria Validation Information" );
+                        //AddLinkToValues( links, process.StaffSelectionCriteriaUrl, "Staff Selection Criteria Information" );
+                    }
+                    @ShowTextValues( "", "", links, "", true, true )
+                    @if ( process.ProcessingAgent != null && process.ProcessingAgent.Id > 0 )
+                    {
+                        <h4>Process data provided by:</h4>
+                        @ListOrganizations( "h5", new List<Organization>() { process.ProcessingAgent }, false )
+                    }
+                    
+                </div>
+            }
+        }
     }
     catch { }
 }
@@ -1245,22 +1328,24 @@
         setupProfileTabs();
         setupRawMetadata();
         setupCompetencyAccordions();
+        setupStickyHeader();
+        setupTruncation();
     });
 
     //Remove blank/empty boxes
     function removeBlanks() {
-        $("#dataColumn .block, #mapColumn .block").each(function () {
+        $("#dataColumn .block, #mapColumn .block, #details .autoColumns .autoColumnItem").each(function () {
             var block = $(this);
 
             var subsections = block.find(".subsection");
             subsections.each(function () {
                 var subsection = $(this);
-                if (subsection.text().trim().length == 0 || subsection.find("*").not("h2").length == 0) {
-                    block.remove();
+                if (subsection.text().trim().length == 0 || subsection.find("*").not("h2, h3").length == 0) {
+                    subsection.remove();
                 }
             })
 
-            if (block.text().trim().length == 0) {
+            if (block.text().trim().length == 0 || block.find("*").not("h2, h3").length == 0) {
                 block.remove();
             }
         });
@@ -1285,14 +1370,12 @@
                 else {
                     tab.removeClass("selected").slideUp();
                 }
-                //buttons.removeClass("selected");
-                //button.addClass("selected");
-                //$("#details .detailTab").removeClass("selected").filter("[data-detailName=" + button.attr("data-detailName") + "]").addClass("selected");
+            
             });
         });
-        buttons.first().addClass("selected");
-        tabs.filter("[data-detailName=" + buttons.first().attr("data-detailName") + "]").addClass("selected").show();
-        //buttons.first().trigger("click");
+        //buttons.first().addClass("selected");
+        //tabs.filter("[data-detailName=" + buttons.first().attr("data-detailName") + "]").addClass("selected").show();
+        ////buttons.first().trigger("click");
     }
     //
 
@@ -1323,7 +1406,8 @@
 
     //Setup Competency Accordions
     function setupCompetencyAccordions() {
-        $("#competencyList .competencyTitle").on("click", function() {
+        var competencyGroups = $("#competencyList .competencyTitle");
+        competencyGroups.on("click", function() {
             var button = $(this);
             button.toggleClass("selected");
             var data = $("#competencyList .competencyData[data-competencygroupid=" + button.attr("data-competencygroupid") + "]");
@@ -1334,6 +1418,9 @@
                 data.removeClass("selected");
             }
         });
+        if(competencyGroups.length == 1){
+            competencyGroups.first().trigger("click");
+        }
         $("#competencyList .toggleAllButton").on("click", function() {
             var button = $(this);
             if(button.hasClass("selected")){
@@ -1346,17 +1433,42 @@
             }
         });
     }
+    //
+
+    //Setup sticky header
+    function setupStickyHeader(){
+        var mainSiteHeaderHeight = $("#mainSiteHeader").height();
+        $(window).on("scroll", function(){
+            var top = document.documentElement.scrollTop || document.body.scrollTop;
+            if(top > mainSiteHeaderHeight){
+                $("#content").addClass("stickyHeader");
+            }
+            else {
+                $("#content").removeClass("stickyHeader");
+            }
+        }).trigger("scroll");
+    }
+    //
+
+    //Truncate tall blocks
+    function setupTruncation() {
+        var boxes = $(".truncated");
+        boxes.each(function() {
+            var box = $(this);
+            if(box.outerHeight() >= 300){
+                var button = $("<button class=\"whiteButton truncateButton\"><span class=\"showAll\">Show All</span><span class=\"collapse\">Collapse</span></button>").insertAfter(box);
+                button.on("click", function() { 
+                    box.toggleClass("expanded");
+                })
+            }
+            else {
+                box.removeClass("truncated");
+            }
+        });
+    }
+    //
 </script>
 <script type="text/javascript">
-	$(document).ready(function(){
-		$(document).ajaxStart(function(){
-			$("#wait").css("display", "block");
-		});
-		$(document).ajaxComplete(function(){
-			$("#wait").css("display", "none");
-		});
-	});
-
     /* Page Functions */
 
     //Delete the data
@@ -1370,14 +1482,12 @@
                     Profile: { Id: @Model.Id, RowId: "@Model.RowId", TypeName: "@Model.GetType().Name" }
                 };
 
-                doAjax("Editor", "DeleteProfile", context, success_deleteData, null);
+                doAjax("Editor", "DeleteProfile", context, success_deleteData, null, true);
             },
             function() {}
         );
     }
     //
-
-
 
     //
     function registerEntity() {
@@ -1389,8 +1499,7 @@
                     IsTopLevel: true,
                     Profile: { Id: @Model.Id, RowId: "@Model.RowId", TypeName: "@Model.GetType().Name" }
                 };
-            	$("#wait").css("display", "block");
-                doAjax("Editor", "Register", context, success_Publish, null);
+                doAjax("Editor", "Register", context, success_Publish, null, true);
             },
             function() {}
         );
@@ -1401,7 +1510,7 @@
             consoleMessage.addSuccessMessage("Register was successful", "", 2000);
         }
         else {
-            consoleMessage.addErrorMessage(message.status, "", 5000);
+            consoleMessage.addErrorMessage(message.status, "", 10000);
         }
     }
     //
@@ -1415,7 +1524,7 @@
                     Profile: { Id: @Model.Id, RowId: "@Model.RowId", TypeName: "@Model.GetType().Name" }
                 };
 
-                doAjax("Editor", "Unregister", context, success_unRegister, null);
+                doAjax("Editor", "Unregister", context, success_unRegister, null, true);
             },
             function() {}
         );
@@ -1440,12 +1549,50 @@
         $("#competencyList").fadeOut();
     }
 
+    //Show Modal
+    function showModal(modalID) {
+        $(".dataModal[data-modalID=" + modalID + "]").fadeIn();
+    }
+
+    //Hide Modal
+    function hideModal(modalID) {
+        $(".dataModal[data-modalID=" + modalID + "]").fadeOut();
+    }
+
+    //Show/Hide costs
+    function toggleCost(costID){
+        var button = $(".costName[data-costID='" + costID + "']");
+        var box = $(".costItems[data-costID='" + costID + "']")
+        button.toggleClass("selected");
+        if(button.hasClass("selected")){
+            box.addClass("selected");
+        }
+        else {
+            box.removeClass("selected");
+        }
+    }
+    //
 </script>
 <script type="text/javascript">
     /* AJAX Functions */
 
+    function showSpinner(){
+        $("#waitWrapper").stop().fadeIn(250);
+    }
+    //
+
+    function hideSpinner() {
+        $("#waitWrapper").stop().fadeOut(250);
+    }
+    //
+
     //AJAX caller
-    function doAjax(controller, method, data, success, passThrough) {
+    function doAjax(controller, method, data, success, passThrough, useSpinner) {
+        //Show spinner if appropriate
+        if(useSpinner){
+            showSpinner();
+        }
+
         $.ajax({
             url: "@Url.Content( "~/" )" + controller + "/" + method,
             async: true,
@@ -1459,13 +1606,15 @@
                     success(message, passThrough);
                 }
             }
+        }).always(function() {
+            hideSpinner();
         });
     }
     //
 
     function success_deleteData(message, passThrough){
         if (message.valid) {
-            modal.alert("Data Deleted", "The data has been deleted. You will now be taken back to the search page.", function() { window.location.href = "@Url.Content("~/Search/V2")"; });
+            modal.alert("Data Deleted", "The data has been deleted. You will now be taken back to the search page.", function() { window.location.href = "@Url.Content("~/Search")"; });
         }
     }
     //
@@ -1567,13 +1716,26 @@
     .section { margin: 0 -5vw; padding: 25px 5vw; }
     .subsection { margin-bottom: 25px; }
     .enumeration .linkButton { margin: 2px; padding: 5px 10px; }
+    #waitWrapper { position: fixed; top: 0; bottom: 0; left: 0; right: 0; background-color: rgba(0,0,0,0.5); z-index: 999999; transition: none; display: none; }
+    #wait { width: 200px; margin: calc(50vh - 200px) auto; text-align: center; color: #FFF; }
+    #waitSpinner { width: 100%; display: block; font-size: 100px; line-height: 100px; }
+    #waitTitle { font-size: 26px; padding: 20px 5px 20px 20px; }
 
     /* Title Box */
-    #titleBox { background-color: #0F3E63; color: #FFF; position: relative; padding: 20px calc(5vw + 400px) 20px 5vw; }
-    #titleBox h1 { font-size: 36px; }
+    #titleBox { background-color: #0F3E63; color: #FFF; position: relative; }
+    #titleBoxPlaceholder { opacity: 0; }
+    #titleBox, #titleBoxPlaceholder { padding: 20px calc(5vw + 450px) 20px 5vw; }
+    #titleBox, #titleBoxPlaceholder h1 { font-size: 36px; }
+    #titleBox h1, #titleBoxPlaceholder h1 { margin: 0; padding: 0; }
     #titleBox * { color: inherit; }
     #titleBox #tools { position: absolute; top: 40px; right: 5vw; }
-    #titleBox #tools .actionButton { padding: 10px; font-size: 16px; margin: 0 5px; }
+    #titleBox #tools .actionButton { padding: 10px; font-size: 16px; margin: 0 5px; white-space: nowrap; }
+    #content.stickyHeader #titleBox { position: fixed; top: 0; left: 0; width: 100%; margin: 0; z-index: 100; }
+    #content.stickyHeader #titleBox, #content.stickyHeader #titleBoxPlaceholder { min-height: 100px; }
+    #content.stickyHeader #titleBox h1, #content.stickyHeader #titleBoxPlaceholder h1 { font-size: 28px; }
+    #content.stickyHeader #titleBox #tools { top: 25px; }
+    #content:not(.stickyHeader) #titleBoxPlaceholder { display: none; }
+    #titleBox h2, #titleBoxPlaceholder h2 { font-size: 18px; font-weight: normal; padding: 5px; margin: 0; }
 
     /* Call to Action */
     #callToAction { background-color: #BADCA3; padding: 10px; font-size: 24px; font-weight: bold; text-align: center; }
@@ -1587,10 +1749,11 @@
 
     /* Data Column */
     #dataColumn { padding-right: 1vw; }
-    #dataColumn .block { padding: 25px 15px; border-top: 1px solid #CAD9DB; }
+    #dataColumn .block { padding: 25px 15px; border-top: 1px solid #CAD9DB; position: relative; }
     #dataColumn .block:first-child { border-top: none; }
     #dataColumn .block:empty { display: none; }
     #dataColumn .block.withIcon { padding-left: 100px; background-position: left top; background-repeat: no-repeat; background-size: 95px; }
+    #dataColumn .block.withLogo .logoImage { position: absolute; top: 25px; left: 0; width: 90px; }
 
     /* Map Column */
     #mapColumn { padding-left: 1vw; }
@@ -1608,7 +1771,7 @@
     .address .addressName { font-weight: bold; }
      
     /* Details */
-    #details { background-color: #F2F4F4; }
+    #details { background-color: #F2F4F4; overflow: hidden; min-height: 300px; }
     #detailNavigation { width: 300px; }
     #detailContent { width: calc(100% - 300px); padding-left: 3vw; }
     #detailNavigation button { display: block; width: 100%; padding: 15px; font-weight: bold; font-size: 20px; }
@@ -1620,6 +1783,7 @@
     #detailNavigation button:not(:hover):not(:focus):first-of-type { border-top: none; margin-top: 1px; }
     #detailNavigation button:not(.selected) { background-color: transparent; }
     #detailContent .detailTab:not(.selected) { display: none; }
+    #details .detailTab { padding-bottom: 25px; }
     #details .detailTab .detailTabHeader { margin: 0 0 10px 0; }
     #details .autoColumns { column-count: 2; -moz-column-count: 2; }
     #details .autoColumns .autoColumnItem  { display: inline-block; width: 100%; vertical-align: top; }
@@ -1641,13 +1805,14 @@
     .estimatedTimeToEarn dt { font-weight: normal; }
     .jurisdiction { }
     .jurisdiction div, .jurisdiction a { padding: 5px 10px; line-height: 1.5em; }
+    .jurisdiction ul { padding-left: 30px; }
 
     /* Organization boxes */
     .organization { position: relative; min-height: 185px; border-top: 1px solid #CAD9DB; padding: 25px 160px 10px 55px; }
     .organization:first-of-type { border-top: none; }
     .organization .logo { position: absolute; top: 25px; right: 0; width: 150px; height: 150px; }
     /*.organization .logo .logoImage { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background-position: center center; background-size: 95%; background-repeat: no-repeat; }*/
-    .organization .logo .logoImage { max-width: 100%; max-height: 100%; border: 1px solid #CAD9DB; background-image: linear-gradient(#AAA, #EEE); }
+    .organization .logo .logoImage, .block.withLogo .logoImage { max-width: 100%; max-height: 100%; border: 1px solid #CAD9DB; background-image: linear-gradient(#AAA, #EEE); }
     .organization.roles { }
     .organization .roleList { padding: 5px 0; text-transform: uppercase; font-size: 14px; letter-spacing: 0.08em; }
     .organization .description { line-height: 1.5em; }
@@ -1661,8 +1826,8 @@
     .credential { padding: 25px 10px 5px 160px; border-top: 1px solid #CAD9DB; position: relative; min-height: 160px; margin-bottom: 25px; }
     .credential:first-of-type { border-top: none; }
     .credential .typeIcon { position: absolute; top: 10px; left: 0; width: 150px; height: 150px; background-position: center center; background-size: cover; background-repeat: no-repeat; }
-    .credential[data-withImage=false], .organization[data-withImage=false] { padding: 25px 10px 5px 10px; }
-    .credential[data-withImage=false] .typeIcon, .organization[data-withImage=false] .logo { display: none; }
+    .credential[data-withIcon=false], .organization[data-withIcon=false] { padding: 25px 10px 5px 10px; }
+    .credential[data-withIcon=false] .typeIcon, .organization[data-withIcon=false] .logo { display: none; }
 
     /* Details */
     #details .profile { padding: 10px; }
@@ -1674,7 +1839,7 @@
     #details .grayBox { padding: 10px; border: 1px solid #CAD9DB; margin-bottom: 10px; }
 
     /* Details (accordion) */
-    #details button[data-detailName] { margin: 0 -5vw 15px -5vw; width: 100vw; padding: 10px 5vw; font-size: 36px; display: block; text-align: left; font-weight: bold; border-radius: 0; }
+    #details button[data-detailName] { margin: 0 -5vw 15px -5vw; width: 100vw; padding: 10px 5vw; font-size: 32px; display: block; text-align: left; font-weight: bold; border-radius: 0; }
     #details .detailTabHeader { display: none; }
 
     /* Conditions */
@@ -1693,14 +1858,36 @@
     #socialMedia a { display: inline-block; vertical-align: top; margin: 2px; width: 50px; height: 50px; background-position: center center; background-size: contain; background-repeat: no-repeat; opacity: 0.7; }
     #socialMedia a:hover, #socialMedia a:focus { opacity: 1; }
     #orgAddress { font-size: 18px; color: #45A085; background-color: transparent; box-shadow: none; border: none; }
-    .preformatted { white-space: pre-wrap; }
+    /*.preformatted { white-space: pre-wrap; }*/
     .textValueList li { padding: 2px 0; }
-    .availableOnlineAt { font-size: 20px; width: 100%; padding: 5px; }
+    .availabilityListing, .availableOnlineAt, .mainLink { font-size: 20px; width: 100%; margin-bottom: 25px; font-size: 20px; padding: 10px; }
+    .upperCaseEnumeration { }
+    .truncated { max-height: 300px; overflow: hidden; position: relative; }
+    .truncated.expanded { max-height: none; }
+    .truncateButton { display: block; margin: 10px auto; padding: 10px; width: 100%; }
+    .truncated:not(.expanded) + .truncateButton .collapse { display: none; }
+    .truncated.expanded + .truncateButton .showAll { display: none; }
+    .truncated:not(.expanded)::after { display: block; content: " "; position: absolute; bottom: 0; left: 0; height: 100px; width: 100%; background-image: linear-gradient(rgba(255,255,255,0),rgba(255,255,255,1)); }
+    .cost { margin-bottom: 15px; display: inline-block; width: 100%; }
+    .costList { margin: 5px 0; }
+    .twoColumns .costList { column-count: 2; -moz-column-count: 2; }
+    .costItem { padding: 5px; margin-bottom: 5px; }
+    .costItemConditions div { opacity: 0.8; font-style: italic; padding: 5px 15px; }
+    .enumeration .grayButton { text-align: left;}
+    .credentialModalButton { display: block; width: 100%; max-width: 700px; margin: 10px auto; font-size: 20px; padding: 10px; }
+    .costName { display: block; width: 100%; padding: 5px; }
+    .costName.selected .fa-caret-right { display: none; }
+    .costName:not(.selected) .fa-caret-down { display: none; }
+    .costItems:not(.selected) { display: none; }
+
 
     /* Competency List */
-    #competencyList { display: none; position: fixed; top: 5vh; bottom: 10vh; left: 5vw; right: 5vw; z-index: 10000; background-color: #F2F4F4; border-radius: 4px; box-shadow: 0 0 25px -2px rgba(0,0,0,0.5); overflow: auto; padding: 50px 15px; transition: none; }
-    #competencyList .competencyListHeader { position: absolute; top: 0; left: 0; width: 100%; height: 40px; background-color: #3D4443; color: #FFF; padding: 5px 15px; }
-    #competencyList .closeButton { position: absolute; top: 5px; right: 10px; width: 25px; height: 25px; }
+    .dataModal { display: none; position: fixed; top: 5vh; bottom: 10vh; left: 5vw; right: 5vw; z-index: 10000; background-color: #F2F4F4; border-radius: 4px; box-shadow: 0 0 25px -2px rgba(0,0,0,0.5); padding: 40px 0 5px 0; transition: none; }
+    #content .dataModal .dataModalHeader { position: absolute; top: 0; left: 0; width: 100%; height: 40px; background-color: #3D4443; border-radius: 5px 5px 0 0; } 
+    #content .dataModal .dataModalContent { height: 100%; overflow: auto; padding: 15px; }
+    #content .dataModal .header { color: #FFF; padding: 5px 15px; font-size: 26px; margin: 0; }
+    #content .dataModal .closeButton { position: absolute; top: 5px; right: 10px; width: 25px; height: 25px; }
+    #content .dataModal .closeButton .fa { margin: 0; }
     #competencyList .competencyTitle { background-color: #607171; padding: 5px 15px; margin: 25px -15px 5px -15px; color: #FFF; display: block; width: calc(100% + 30px); border-radius: 0; text-align: left; }
     #competencyList .competencyTitle:first-of-type { margin-top: 0; }
     #competencyList .competencyTitle.selected .fa-caret-right { display: none; }
@@ -1708,18 +1895,20 @@
     #competencyList .competencyTitle .fa { margin: 0 5px; }
     #competencyList .competencyData { display: none; }
     #competencyList .competencyData.selected { display: block; }
-    .competencyButton { padding: 10px; display: block; margin: 5px auto; }
+    .competencyButton { padding: 10px; display: block; margin: 5px auto; width: 100%; }
 
     .competencyList li { margin-bottom: 10px; }
-    .competencyList li.hasName.hasDescription .competencyName { font-weight: bold; text-transform: capitalize; }
-    .competencyList li.hasName.hasDescription .competencyDescription { padding: 5px; }
+    .competencyList li .competencyName { text-transform: capitalize; }
+    .competencyList li.hasName.hasDescription .competencyDescription { padding: 5px; font-style: italic; }
     .competencyList li.hasName .competencyUrl, .competencyList li.hasDescription .competencyUrl { padding: 0 5px; }
+    .competencyFrameworkTitle { font-weight: bold; font-size: 18px; padding: 5px; }
 
     /* Responsive */
-    @@media (max-width: 1200px) {
-        .section { padding: 20px 3vw; }
+    @@media (max-width: 1200px) { .section; { padding: 20px 3vw; }
 
-        #titleBox { min-height: 120px; padding: 15px calc(3vw + 120px) 15px 3vw; text-align: center; }
+        #titleBox { text-align: center; }
+        #titleBox, #titleBoxPlaceholder { min-height: 120px; padding: 15px calc(3vw + 120px) 15px 3vw; }
+        #titleBox h1, #titleBoxPlaceholder h1 { font-size: 28px; }
         #titleBox #tools { top: 10px; right: 3vw; width: 100px; }
         #titleBox #tools .actionButton { padding: 5px; display: block; width: 100%; text-align: left; font-size: 14px; }
 
@@ -1731,92 +1920,107 @@
         .profileTabBoxNavigation, .profileTabBoxContent { display: block; width: 100%; }
         .profileTabBoxNavigation button { display: inline-block; vertical-align: top; width: auto; margin: 2px 0; }
     }
-    @@media (max-width: 800px){
+    @@media (max-width: 800px) {
         #details .autoColumns { column-count: 1; -moz-column-count: 1; }
+        .twoColumns .costList { column-count: 1; -moz-column-count: 1; }
     }
     @@media (max-width: 600px) {
         .section { padding: 15px 1vw; }
 
-        #titleBox { padding: 15px 1vw; }
+        #titleBox, #titleBoxPlaceholder { padding: 15px 1vw; min-height: 50px; }
+        #titleBox h1, #titleBoxPlaceholder h1 { font-size: 20px; }
+        #titleBox h2, #titleBoxPlaceholder h2 { font-size: 16px; font-weight: lighter; }
+        #titleBoxPlaceholder #toolsPlaceholder { height: 32px; }
         #titleBox #tools { position: static; width: 100%; display: block; white-space: nowrap; }
         #titleBox #tools .actionButton { display: inline-block; width: calc((100% / 3) - 5px); margin: 2px 2.5px; text-align: center; }
 
-        .organization { padding-right: 130px; }
-        .organization .logo { width: 75px; height: 75px; }
-        .organization .dataBox { right: 75px; }
+        .organization { padding-right: 60px; }
+        .organization .logo { width: 50px; height: 50px; }
 
         .credential { padding: 15px 10px 5px 80px; }
         .credential .typeIcon { width: 75px; height: 75px; }
     }
+    @@media (max-width: 450px) {
+        #dataColumn .block.withIcon, #mapColumn .block.withIcon { padding-left: 30px; background-size: 30px; }
+        #dataColumn .block.withLogo .logoImage { width: 25px; }
+        #titleBox #tools .actionButton { font-size: 10px; }
+        #titleBoxPlaceholder #toolsPlaceholder { height: 27px; }
+    }
 
 </style>
 <style type="text/css">
-    .credential[data-type*=badge] .typeIcon, .withIcon[data-type*=badge] { background-image: url('@Url.Content("~/images/V2/icons/flat_badge.png")'); }
-    .credential[data-type*=certificate] .typeIcon, .withIcon[data-type*=certificate] { background-image: url('@Url.Content("~/images/V2/icons/flat_certificate.png")'); }
-    .credential[data-type*=certification] .typeIcon, .withIcon[data-type*=certification] { background-image: url('@Url.Content("~/images/V2/icons/flat_certification.png")'); }
-    .credential[data-type*=degree] .typeIcon, .withIcon[data-type*=degree] { background-image: url('@Url.Content("~/images/V2/icons/flat_degree.png")'); }
-    .credential[data-type*=degree] .typeIcon, .withIcon[data-type*=master] { background-image: url('@Url.Content("~/images/V2/icons/flat_degree.png")'); }
-    .credential[data-type*=degree] .typeIcon, .withIcon[data-type*=associate] { background-image: url('@Url.Content("~/images/V2/icons/flat_degree.png")'); }
-    .credential[data-type*=diploma] .typeIcon, .withIcon[data-type*=diploma] { background-image: url('@Url.Content("~/images/V2/icons/flat_diploma.png")'); }
-    .credential[data-type*=license] .typeIcon, .withIcon[data-type*=license] { background-image: url('@Url.Content("~/images/V2/icons/flat_license.png")'); }
-    .credential[data-type*=apprentice] .typeIcon, .withIcon[data-type*=apprentice] { background-image: url('@Url.Content("~/images/V2/icons/flat_apprenticeship.png")'); }
-    .credential[data-type*=military] .typeIcon, .withIcon[data-type*=military] { background-image: url('@Url.Content("~/images/V2/icons/flat_military.png")'); }
-    .credential[data-type*=micro] .typeIcon, .withIcon[data-type*=micro] { background-image: url('@Url.Content("~/images/V2/icons/flat_micro.png")'); }
-    .credential[data-type*=quality] .typeIcon, .withIcon[data-type*=quality] { background-image: url('@Url.Content("~/images/V2/icons/flat_quality.png")'); }
+    .credential[data-type*=adge] .typeIcon, .withIcon[data-type*=adge] { background-image: url('@Url.Content("~/images/V2/icons/flat_badge.png")'); }
+    .credential[data-type*=ertificate] .typeIcon, .withIcon[data-type*=ertificate] { background-image: url('@Url.Content("~/images/V2/icons/flat_certificate.png")'); }
+    .credential[data-type*=ertification] .typeIcon, .withIcon[data-type*=ertification] { background-image: url('@Url.Content("~/images/V2/icons/flat_certification.png")'); }
+    .credential[data-type*=egree] .typeIcon, .withIcon[data-type*=egree] { background-image: url('@Url.Content("~/images/V2/icons/flat_degree.png")'); }
+    .credential[data-type*=aster] .typeIcon, .withIcon[data-type*=aster] { background-image: url('@Url.Content("~/images/V2/icons/flat_degree.png")'); }
+    .credential[data-type*=ssociate] .typeIcon, .withIcon[data-type*=ssociate] { background-image: url('@Url.Content("~/images/V2/icons/flat_degree.png")'); }
+    .credential[data-type*=achelor] .typeIcon, .withIcon[data-type*=achelor] { background-image: url('@Url.Content("~/images/V2/icons/flat_degree.png")'); }
+    .credential[data-type*=iploma] .typeIcon, .withIcon[data-type*=iploma] { background-image: url('@Url.Content("~/images/V2/icons/flat_diploma.png")'); }
+    .credential[data-type*=icense] .typeIcon, .withIcon[data-type*=icense] { background-image: url('@Url.Content("~/images/V2/icons/flat_license.png")'); }
+    .credential[data-type*=pprentice] .typeIcon, .withIcon[data-type*=pprentice] { background-image: url('@Url.Content("~/images/V2/icons/flat_apprenticeship.png")'); }
+    .credential[data-type*=ilitary] .typeIcon, .withIcon[data-type*=ilitary] { background-image: url('@Url.Content("~/images/V2/icons/flat_military.png")'); }
+    .credential[data-type*=icro] .typeIcon, .withIcon[data-type*=icro] { background-image: url('@Url.Content("~/images/V2/icons/flat_micro.png")'); }
+    .credential[data-type*=uality] .typeIcon, .withIcon[data-type*=uality] { background-image: url('@Url.Content("~/images/V2/icons/flat_quality.png")'); }
 </style>
 <style type="text/css">
     #socialMedia a { background-image: url('@Url.Content( "~/Images/Social/other.png" )'); }
-    #socialMedia a[href*=twitter] { background-image: url('@Url.Content( "~/Images/Social/twitter.png" )'); }
-    #socialMedia a[href*=facebook] { background-image: url('@Url.Content( "~/Images/Social/facebook.png" )'); }
-    #socialMedia a[href*=google] { background-image: url('@Url.Content( "~/Images/Social/googleplus.png" )'); }
-    #socialMedia a[href*=pinterest] { background-image: url('@Url.Content( "~/Images/Social/pinterest.png" )'); }
-    #socialMedia a[href*=youtube] { background-image: url('@Url.Content( "~/Images/Social/youtube.png" )'); }
-    #socialMedia a[href*=linkedin] { background-image: url('@Url.Content( "~/Images/Social/linkedin.png" )'); }
-    #socialMedia a[href*=apple] { background-image: url('@Url.Content( "~/Images/Social/apple.png" )'); }
-    #socialMedia a[href*=yahoo] { background-image: url('@Url.Content( "~/Images/Social/yahoo.png" )'); }
-    #socialMedia a[href*=flickr] { background-image: url('@Url.Content( "~/Images/Social/flickr.png" )'); }
-    #socialMedia a[href*=instagram] { background-image: url('@Url.Content( "~/Images/Social/instagram.png" )'); }
+    #socialMedia a[href*='twitter.com'] { background-image: url('@Url.Content( "~/Images/Social/twitter.png" )'); }
+    #socialMedia a[href*='facebook.com'] { background-image: url('@Url.Content( "~/Images/Social/facebook.png" )'); }
+    #socialMedia a[href*='google.com'] { background-image: url('@Url.Content( "~/Images/Social/googleplus.png" )'); }
+    #socialMedia a[href*='pinterest.com'] { background-image: url('@Url.Content( "~/Images/Social/pinterest.png" )'); }
+    #socialMedia a[href*='youtube.com'] { background-image: url('@Url.Content( "~/Images/Social/youtube.png" )'); }
+    #socialMedia a[href*='linkedin.com'] { background-image: url('@Url.Content( "~/Images/Social/linkedin.png" )'); }
+    #socialMedia a[href*='apple.com'] { background-image: url('@Url.Content( "~/Images/Social/apple.png" )'); }
+    #socialMedia a[href*='yahoo.com'] { background-image: url('@Url.Content( "~/Images/Social/yahoo.png" )'); }
+    #socialMedia a[href*='flickr.com'] { background-image: url('@Url.Content( "~/Images/Social/flickr.png" )'); }
+    #socialMedia a[href*='instagram.com'] { background-image: url('@Url.Content( "~/Images/Social/instagram.png" )'); }
 </style>
 
 
 <!-- Title -->
 <div class="section" id="titleBox">
     <h1>@data.Name</h1>
+    @{ Organization owner = new Organization(); }
+    @if ( dataType != DataTypes.ORGANIZATION )
+    {
+        try
+        {
+            owner = ( data.OrganizationRole as List<OrganizationRoleProfile> )
+                .FirstOrDefault( m => m.AgentRole.Items
+                    .FirstOrDefault( o => o.SchemaName == "ceterms:ownedBy" ) != null ).ActingAgent;
+            <h2><a href="@Url.Content( "~/detail/organization/" + owner.Id )" target="window_orgRole">@owner.Name</a></h2>
+        }
+        catch { }
+    }
     <div id="tools" class="inlineBlockBox">
         <button class="actionButton column" onclick="compare.addItem(@Model.Id, '@typeCode', '@data.Name');"><i class="fa fa-fw fa-copy"></i> Compare</button>
         @if ( canEditDocument )
         {
             <a class="linkButton actionButton column" href="@Url.Content( "~/editor/" + typeCode + "/" + Model.Id )" target="_blank"><i class="fa fa-fw fa-pencil"></i> Edit</a>
-           
+
             if ( data.StatusId == 0 )
             {
-                
-            }
-            <button class="actionButton column" onclick="registerEntity('@data.Name', '@typeCode' , @Model.Id);"><i class="fa fa-cloud-upload"></i> Register</button>
 
-            <button class="actionButton column" onclick="unRegisterEntity('@data.Name', '@typeCode', @Model.Id);" ><i class="fa fa-fw fa-trash"></i> Un-Register</button>
+            }
+            if ( typeCode == "credential" || typeCode == "organization" || typeCode == "assessment"  || typeCode == "learningopportunity"  )
+            {
+            <button class="actionButton column" onclick="registerEntity('@data.Name', '@typeCode' , @Model.Id);"><i class="fa fa-cloud-upload"></i> Register</button>
+                if ( credentialRegistryId.Length == 36 && AccountServices.IsUserSiteStaff()) {
+                <button class="actionButton column" onclick="unRegisterEntity('@data.Name', '@typeCode', @Model.Id);" ><i class="fa fa-fw fa-trash"></i> Un-Register</button>
+                }
+            }
+<button class="actionButton column" onclick="deleteData('@data.Name', '@typeCode', @Model.Id);" style="display:none;"><i class="fa fa-fw fa-trash"></i> Delete</button>
         }
     </div>
 </div>
-
-<!-- Call to Action -->
-<div class="section" id="callToAction">
-    @switch ( dataType )
+<div class="section" id="titleBoxPlaceholder">
+    <h1>@data.Name</h1>
+    @if ( owner.Id > 0 )
     {
-        case DataTypes.CREDENTIAL:
-            <a href="@data.Url" target="_blank">Connect to this Credential</a>
-            break;
-        case DataTypes.ORGANIZATION:
-            <a href="@data.Url" target="_blank">Visit this Organization</a>
-            break;
-        case DataTypes.ASSESSMENT:
-            <a href="@data.Url" target="_blank">Connect to this Assessment</a>
-            break;
-        case DataTypes.LEARNINGOPPORTUNITY:
-            <a href="@data.Url" target="_blank">Connect to this Opportunity</a>
-            break;
-        default: break;
+        <h2><a>@owner.Name</a></h2>
     }
+    <div id="toolsPlaceholder"></div>
 </div>
 
 <!-- Columns -->
@@ -1837,113 +2041,147 @@
                 var totalCompetencies = 0;
                 try
                 {
-                    <div id="competencyList">
-                        <h2 class="competencyListHeader">Competencies</h2>
+                    <div id="competencyList" class="dataModal">
+                        <div class="dataModalHeader">
+                        <h2 class="competencyListHeader header">Competencies</h2>
                         <button class="closeButton" onclick="hideCompetencyList()"><i class="fa fa-close"></i></button>
+                        </div>
+                        <div class="dataModalContent">
                         <button class="actionButton toggleAllButton">Show/Hide All</button>
                         @foreach ( var route in dataCredential.Requires )
                         {
                             <div class="route">
                                 <h2>@route.ProfileName</h2>
+                                @* Learning Opportunities *@
                                 @foreach ( var learnOpp in route.TargetLearningOpportunity )
                                 {
-                                    //Display competencies for this learning opportunity
-                                    if ( learnOpp.TeachesCompetencies.Count() > 0 || learnOpp.RequiresCompetencies.Count() > 0 )
+                                    @*try
                                     {
-                                        @LearningOpportunityCompetencyGroup( learnOpp, "h2" );
-                                        totalCompetencies += learnOpp.RequiresCompetencies.Count() + learnOpp.TeachesCompetencies.Count();
+                                        learnOpp.TeachesCompetencies = learnOpp.TeachesCompetencies.Concat( CredentialAlignmentObjectFrameworkProfile.FlattenAlignmentObjects( learnOpp.TeachesCompetenciesFrameworks ) ).ToList();
+                                        learnOpp.RequiresCompetencies = learnOpp.RequiresCompetencies.Concat( CredentialAlignmentObjectFrameworkProfile.FlattenAlignmentObjects( learnOpp.RequiresCompetenciesFrameworks ) ).ToList();
                                     }
-                                    
-                                    //Display competencies for the immediate children of this learning opportunity
-                                    foreach ( var child in learnOpp.HasPart )
+                                    catch { }*@
+                                    @LearningOpportunityCompetencyHierarchy( learnOpp, "h2" )
+                                    CountLearningOpportunityCompetencies( learnOpp, ref totalCompetencies );
+                                }
+                                @* Assessments *@
+                                @foreach ( var asmt in route.TargetAssessment )
+                                {
+                                    @*try
                                     {
-                                        if ( child.TeachesCompetencies.Count() > 0 || child.RequiresCompetencies.Count() > 0 )
-                                        {
-                                            @LearningOpportunityCompetencyGroup( child, "h2" );
-                                            totalCompetencies += child.RequiresCompetencies.Count() + child.TeachesCompetencies.Count();
-                                        }
+                                        asmt.AssessesCompetencies = asmt.AssessesCompetencies.Concat( CredentialAlignmentObjectFrameworkProfile.FlattenAlignmentObjects( asmt.AssessesCompetenciesFrameworks ) ).ToList();
+                                        asmt.RequiresCompetencies = asmt.RequiresCompetencies.Concat( CredentialAlignmentObjectFrameworkProfile.FlattenAlignmentObjects( asmt.RequiresCompetenciesFrameworks ) ).ToList();
                                     }
+                                    catch { }*@
+                                    if ( asmt.AssessesCompetencies.Count() > 0 || asmt.RequiresCompetencies.Count() > 0 || asmt.RequiresCompetenciesFrameworks.Count() > 0 || asmt.AssessesCompetenciesFrameworks.Count() > 0 ) 
+                                    {
+                                        @AssessmentCompetencyGroup( asmt, "h2" )
+                                        totalCompetencies += asmt.RequiresCompetencies.Count() + asmt.AssessesCompetencies.Count() + asmt.RequiresCompetenciesFrameworks.SelectMany( m => m.Items ).Count() + asmt.AssessesCompetenciesFrameworks.SelectMany( m => m.Items ).Count();
+                                    }
+                                }
+                                @* Direct Requirements *@
+                                @if ( route.RequiresCompetencies.Count() > 0 || route.RequiresCompetenciesFrameworks.Count() > 0 )
+                                {
+                                    @ConditionsCompetencyGroup( route, "Directly Required Competencies", "h2" )
+                                    totalCompetencies += route.RequiresCompetencies.Count() + route.RequiresCompetenciesFrameworks.SelectMany( m => m.Items ).Count();
                                 }
                             </div>
                         }
                     </div>
+                    </div>
                 }
                 catch { }
+                if ( !string.IsNullOrWhiteSpace( dataCredential.SubjectWebpage ) )
+                {
+                    <a href="@data.SubjectWebpage" class="linkButton greenButton mainLink" target="_blank">Connect to this Credential <i class="fa fa-external-link"></i></a>
+                }
                 <div class="block withIcon" data-type="@credentialType">
                     @ShowNamedText( "About this " + title, "h2", data.Description, "description", true )
                     @Enumerate( "Credential Type", "h2", dataCredential.CredentialType, typeCode )
-                    @Enumerate( "What it's for", "h2", dataCredential.Purpose, typeCode )
+                    @*@Enumerate( "What it's for", "h2", dataCredential.IntendedPurpose, typeCode )*@
                 </div>
                 <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_quality.png" )');">
-                    @ListQualityAssuranceActions( "Quality Assurance Received", "h2", dataCredential.QualityAssuranceAction )
-                    @ListQualityAssuranceRoles( "h2", dataCredential.OrganizationRole, roleCodes )
+                    <h2>Quality Assurance</h2>
+                    @if ( ownerOrganizationQARoles.Count() > 0 )
+                    {
+                        <div class="subsection">
+                            @ListQualityAssuranceRoles( "h3", "Organization", ownerOrganization.OrganizationRole_Recipient, roleCodes )
+                        </div>
+                    }
+                    <div class="subsection">
+                        @ListQualityAssuranceActions( "Quality Assurance Received", "h3", dataCredential.QualityAssuranceAction )
+                        @ListQualityAssuranceRoles( "h3", "Credential", dataCredential.OrganizationRole, roleCodes )
+                    </div>
                 </div>
                 <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_information-badge.png" )');">
                     @if ( totalCompetencies > 0 )
                     {
                         <h2>Competencies</h2>
-                        <button class="actionButton competencyButton" onclick="showCompetencyList();">View <b>@totalCompetencies</b> competencies for this Credential</button>
+                        <button class="actionButton competencyButton" onclick="showCompetencyList();">View <b>@totalCompetencies</b> competencies for this Credential <i class="fa fa-arrows-alt"></i></button>
                     }
                 </div>
                 <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_duration.png" )');">
-                    @Durations( dataCredential.EstimatedTimeToEarn, "Estimated Time to Earn", "h2" )
+                    @Durations( dataCredential.EstimatedDuration, "Estimated Time to Earn", "h2" )
                 </div>
                 <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_interests.png" )');">
-                    @*@Enumerate( "Industries", "h2", dataCredential.Industry, typeCode )
+                    @Enumerate( "Industries", "h2", dataCredential.Industry, typeCode )
                     @Enumerate( "Occupations", "h2", dataCredential.Occupation, typeCode )
-                    @{ 
-                        var interests = new Enumeration() { };
-                        try
-                        {
-                            interests.Items = dataCredential.Industry.Items.Concat( dataCredential.Occupation.Items ).ToList();
-                        }
-                        catch { }
-                    }
-                    @Enumerate( "Interests", "h2", interests, typeCode )*@
-                    @if(dataCredential.Industry.Items.Count() > 0 || dataCredential.Occupation.Items.Count() > 0)
-                    {
-                        <h2>Interests</h2>
-                        <div class="subsection enumeration">
-                            @foreach ( var item in dataCredential.Industry.Items )
-                            {
-                                <a class="linkButton grayButton" target="searchWindow" href="@Url.Content( "~/search/v2?autosearch=true&searchType=" + typeCode + "&filters=" + dataCredential.Industry.Id + "-" + item.Id )">@item.Name</a>
-                            }
-                            @foreach ( var item in dataCredential.Occupation.Items )
-                            {
-                                <a class="linkButton grayButton" target="searchWindow" href="@Url.Content( "~/search/v2?autosearch=true&searchType=" + typeCode + "&filters=" + dataCredential.Occupation.Id + "-" + item.Id )">@item.Name</a>
-                            }
-                        </div>
-                    }
                 </div>
                 <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_levels.png" )');">
-                    @Enumerate( "Preferred Education Level", "h2", dataCredential.CredentialLevel, typeCode )
+                    @Enumerate( "Audience Level", "h2", dataCredential.AudienceLevelType, typeCode )
+                </div>
+                if ( dataCredential.EstimatedCosts.Count() > 0 )
+                {
+                    <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_cost.png" )');">
+                        @ListCostsCompact( dataCredential.EstimatedCosts, "Estimated Costs", "h2", "" )
+                    </div>
+                }
+                <div class="block truncated">
+                    @EnumerateTextValues( "Subjects", "h2", dataCredential.Subject, typeCode )
+                    @ListInheritedSubjects( "", "", dataCredential.Requires, typeCode )
+                </div>
+                <div class="block truncated">
+                    @EnumerateTextValues( "Keyword", "h2", dataCredential.Keyword, typeCode )
                 </div>
             } 
             break;
             
             case DataTypes.ORGANIZATION:
             {
-                <div class="block">
+                if ( !string.IsNullOrWhiteSpace( dataOrganization.SubjectWebpage ) )
+                {
+                    <a href="@data.SubjectWebpage" class="linkButton greenButton mainLink" target="_blank">Visit this Organization <i class="fa fa-external-link"></i></a>
+                }
+                <div class="block withIcon withLogo">
                     @ShowNamedText( "About this " + title, "h2", data.Description, "description", true )
                     @ShowNamedText( "Our Mission", "h2", dataOrganization.Purpose, "description", true )
-                    @ShowTextValues( "Identification Codes", "h2", dataOrganization.IdentificationCodes, "", false, false )
+                    @*@ShowTextValues( "Identification Codes", "h2", dataOrganization.IdentificationCodes, "", false, false )*@
+                    @if ( HasText( dataOrganization.FoundingYear ) )
+                    {
+                        <div>This organization was founded in @Html.Raw( HasText( dataOrganization.FoundingMonth ) && dataOrganization.FoundingMonth != "00" ? dataOrganization.FoundingMonth + "/" + dataOrganization.FoundingYear : dataOrganization.FoundingYear )<span>.</span></div>
+                    }
+                    <img class="logoImage" src="@dataOrganization.ImageUrl" alt="Organization Logo" />
                 </div>
                 <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_quality.png" )');">
-                    @ListQualityAssuranceActions( "Quality Assurance Received", "h2", dataOrganization.QualityAssuranceAction )
-                    @ListQualityAssuranceRoles( "h2", dataOrganization.OrganizationRole, roleCodes )
+                    <h2>Quality Assurance</h2>
+                    @ListQualityAssuranceActions( "Quality Assurance Received", "h3", dataOrganization.QualityAssuranceAction )
+                    @ListQualityAssuranceRoles( "h3", "Organization", dataOrganization.OrganizationRole, roleCodes )
                 </div>
                 <div class="block">
-                    @*@Enumerate( "Organization Type", "h2", dataOrganization.OrganizationType, typeCode )
-                    @Enumerate( "Sector", "h2", dataOrganization.OrganizationSectorType, "organization" )*@
-                    @{
-                        var orgTypeMerged = new Enumeration();
-                        try
-                        {
-                            orgTypeMerged.Items = dataOrganization.OrganizationSectorType.Items.Concat( dataOrganization.OrganizationType.Items ).ToList();
-                        }
-                        catch { }
+                    @if ( dataOrganization.OrganizationSectorType.Items.Count() > 0 || dataOrganization.OrganizationType.Items.Count() > 0 )
+                    {
+                        <h2>Organization Type</h2>
+                        <div class="subsection enumeration">
+                            @foreach ( var item in dataOrganization.OrganizationSectorType.Items )
+                            {
+                                <a class="linkButton grayButton" target="searchWindow" href="@Url.Content( "~/search?autosearch=true&searchType=" + typeCode + "&filters=" + dataOrganization.OrganizationSectorType.Id + "-" + item.Id )">@item.Name</a>
+                            }
+                            @foreach ( var item in dataOrganization.OrganizationType.Items )
+                            {
+                                <a class="linkButton grayButton" target="searchWindow" href="@Url.Content( "~/search?autosearch=true&searchType=" + typeCode + "&filters=" + dataOrganization.OrganizationType.Id + "-" + item.Id )">@item.Name</a>
+                            }
+                        </div>
                     }
-                    @Enumerate( "Organization Type", "h2", orgTypeMerged, typeCode )
                 </div>
                 <div class="block">
                     @Enumerate( "Services", "h2", dataOrganization.ServiceType, typeCode )
@@ -1953,67 +2191,127 @@
             
             case DataTypes.ASSESSMENT:
             {
+                var totalCompetencies = dataAssessment.AssessesCompetenciesFrameworks.SelectMany( m => m.Items ).Count() + dataAssessment.RequiresCompetenciesFrameworks.SelectMany( m => m.Items ).Count();
+                try
+                {
+                    <div id="competencyList" class="dataModal">
+                        <div class="dataModalHeader">
+                        <h2 class="competencyListHeader header">Competencies</h2>
+                        <button class="closeButton" onclick="hideCompetencyList()"><i class="fa fa-close"></i></button>
+                        </div>
+                        <div class="dataModalContent">
+                            <button class="actionButton toggleAllButton">Show/Hide All</button>
+                            @ShowCompetencyFrameworkValues( "Competencies Assessed", "h2", dataAssessment.AssessesCompetenciesFrameworks, "" )
+                            @ShowCompetencyFrameworkValues( "Competencies Required", "h2", dataAssessment.RequiresCompetenciesFrameworks, "" )
+                        </div>
+                    </div>
+                }
+                catch { }
+                if ( !string.IsNullOrWhiteSpace( dataAssessment.SubjectWebpage ) )
+                {
+                    <a href="@data.SubjectWebpage" class="linkButton greenButton mainLink" target="_blank">Connect to this Assessment <i class="fa fa-external-link"></i></a>
+                }
                 <div class="block">
                     @ShowNamedText( "About this " + title, "h2", data.Description, "description", true )
-                    @ShowNamedText( "Identification Code", "h2", dataAssessment.IdentificationCode, "", true )
+                    @ShowNamedText( "Identification Code", "h2", dataAssessment.CodedNotation, "", true )
+                    @*@if( HasText( dataAssessment.AssessmentInformationUrl ) )
+                    {
+                        <a class="linkButton greenButton" href="@dataAssessment.AssessmentInformationUrl" target="_blank">Assessment Information <i class="fa fa-external-link"></i></a>
+                    }*@
+                </div>
+                <div class="block upperCaseEnumeration">
+                    @Enumerate( "Instructional Program Classification", "h2", dataAssessment.InstructionalProgramCategory, typeCode )
                 </div>
                 <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_duration.png" )');">
                     @Durations( dataAssessment.EstimatedDuration, "Estimated Time to Complete", "h2" )
                 </div>
-                <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_quality.png" )');">
-                    @ListQualityAssuranceActions( "Quality Assurance Received", "h2", dataAssessment.QualityAssuranceAction )
-                    @ListQualityAssuranceRoles( "h2", dataAssessment.OrganizationRole, roleCodes )
-                </div>
-                <div class="block">
-                    @ShowTextValues( "Examples", "h2", dataAssessment.AssessmentExampleUrl, "", true, true )
-                </div>
-                <div class="block">
-                    @*@Enumerate( "Assessment Method", "h2", dataAssessment.AssessmentType, typeCode )
-                    @Enumerate( "Assessment Modality", "h2", dataAssessment.Modality, typeCode )*@
-                    @{
-                        var asmtTypeMerged = new Enumeration();
-                        try
-                        {
-                            asmtTypeMerged.Items = dataAssessment.Modality.Items.Concat( dataAssessment.AssessmentType.Items ).ToList();
-                        }
-                        catch { } 
+                <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_information-badge.png" )');">
+                    @if ( totalCompetencies > 0 )
+                    {
+                        <h2>Competencies</h2>
+                        <button class="actionButton competencyButton" onclick="showCompetencyList();">View <b>@totalCompetencies</b> included competencies for this Assessment</button>
                     }
-                    @Enumerate( "Assessment Type", "h2", asmtTypeMerged, typeCode )
+                </div>
+                @*<div class="block">
+                    @try
+                    {
+                        dataAssessment.AssessesCompetencies = dataAssessment.AssessesCompetencies.Concat( CredentialAlignmentObjectFrameworkProfile.FlattenAlignmentObjects( dataAssessment.AssessesCompetenciesFrameworks ) ).ToList();
+                        dataAssessment.RequiresCompetencies = dataAssessment.RequiresCompetencies.Concat( CredentialAlignmentObjectFrameworkProfile.FlattenAlignmentObjects( dataAssessment.RequiresCompetenciesFrameworks ) ).ToList();
+                    }
+                    catch { }
+                    @ShowCompetencyValues( "Competencies Assessed", "h2", dataAssessment.AssessesCompetencies, "" )
+                    @ShowCompetencyValues( "Competencies Required", "h2", dataAssessment.RequiresCompetencies, "" )
+                    @ShowCompetencyFrameworkValues( "Competencies Assessed", "h2", dataAssessment.AssessesCompetenciesFrameworks, "" )
+                    @ShowCompetencyFrameworkValues( "Competencies Required", "h2", dataAssessment.RequiresCompetenciesFrameworks, "" )
+                </div>*@
+                <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_quality.png" )');">
+                    <h2>Quality Assurance</h2>
+                    @if ( ownerOrganizationQARoles.Count() > 0 )
+                    {
+                        <div class="subsection">
+                            @ListQualityAssuranceRoles( "h3", "Organization", ownerOrganization.OrganizationRole_Recipient, roleCodes )
+                        </div>
+                    }
+                    @*<div class="subsection">
+                        @ListQualityAssuranceActions( "Quality Assurance Received", "h3", dataAssessment.QualityAssuranceAction )
+                        @ListQualityAssuranceRoles( "h3", "Assessment", dataAssessment.OrganizationRole, roleCodes )
+                    </div>*@
+                </div>
+                <div class="block">
+                    @ShowTextValues( "Examples", "h2", dataAssessment.ResourceUrl, "", true, true )
+                </div>
+                <div class="block">
+                    @Enumerate( "Assessment Method", "h2", dataAssessment.AssessmentMethodType, typeCode )
+                    @Enumerate( "Assessment Use Type", "h2", dataAssessment.AssessmentUseType, typeCode )
+                    @Enumerate( "Assessment Delivery Type", "h2", dataAssessment.DeliveryType, typeCode )
+                </div>
+                @*<div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_cost.png" )');">
+                    @ListCostsCompact( dataAssessment.EstimatedCost, "Estimated Costs", "h2", "" )
+                </div>*@
+                <div class="block truncated">
+                    @EnumerateTextValues( "Subjects", "h2", dataAssessment.Subject, typeCode )
+                </div>
+                <div class="block truncated">
+                    @EnumerateTextValues( "Keyword", "h2", dataAssessment.Keyword, typeCode )
                 </div>
             } 
             break;
             
             case DataTypes.LEARNINGOPPORTUNITY:
             {
-                
+                @*try
+                {
+                    dataLearningOpportunity.TeachesCompetencies = dataLearningOpportunity.TeachesCompetencies.Concat( CredentialAlignmentObjectFrameworkProfile.FlattenAlignmentObjects( dataLearningOpportunity.TeachesCompetenciesFrameworks ) ).ToList();
+                    dataLearningOpportunity.RequiresCompetencies = dataLearningOpportunity.RequiresCompetencies.Concat( CredentialAlignmentObjectFrameworkProfile.FlattenAlignmentObjects( dataLearningOpportunity.RequiresCompetenciesFrameworks ) ).ToList();
+                }
+                catch { }*@
                 var totalCompetencies = 0;
                 try
                 {
-                    <div id="competencyList">
-                        <h2 class="competencyListHeader">Competencies</h2>
+                    <div id="competencyList" class="dataModal">
+                        <div class="dataModalHeader">
+                        <h2 class="competencyListHeader header">Competencies</h2>
                         <button class="closeButton" onclick="hideCompetencyList()"><i class="fa fa-close"></i></button>
-                        <button class="actionButton toggleAllButton">Show/Hide All</button>
-                            @foreach ( var child in dataLearningOpportunity.HasPart )
-                            {
-                                if ( child.TeachesCompetencies.Count() > 0 || child.RequiresCompetencies.Count() > 0 )
-                                {
-                                    <button class="competencyTitle" data-competencyGroupID="@child.Id">@child.Name <i class="fa fa-caret-right"></i><i class="fa fa-caret-down"></i></button>
-                                    <div class="competencyData" data-competencyGroupID="@child.Id">
-                                        <a href="@Url.Content( "~/detail/learningopportunity/" + child.Id )" target="_blank">More Information</a>
-                                        @ShowCompetencyValues( "Teaches", "h2", child.TeachesCompetencies, "" )
-                                        @ShowCompetencyValues( "Requires", "h2", child.RequiresCompetencies, "" )
-                                    </div>
-                                }
-                            }
+                        </div>
+                        <div class="dataModalContent">
+                            <button class="actionButton toggleAllButton">Show/Hide All</button>
+                            @LearningOpportunityCompetencyHierarchy( dataLearningOpportunity, "h2" )
+                            @{ CountLearningOpportunityCompetencies( dataLearningOpportunity, ref totalCompetencies ); }
+                        </div>
                     </div>
                 }
                 catch { }
+                if ( !string.IsNullOrWhiteSpace( dataLearningOpportunity.SubjectWebpage ) )
+                {
+                    <a href="@data.SubjectWebpage" class="linkButton greenButton mainLink" target="_blank">Connect to this Opportunity <i class="fa fa-external-link"></i></a>
+                }
                 <div class="block">
                     @ShowNamedText( "About this " + title, "h2", data.Description, "description", true )
-                    @ShowNamedText( "Identification Code", "h2", dataLearningOpportunity.IdentificationCode, "", false )
+                    @ShowNamedText( "Identification Code", "h2", dataLearningOpportunity.CodedNotation, "", false )
+                    @*@ShowTextValues( "Learning Resources", "h2", dataLearningOpportunity.LearningResourceUrls, "", true, true )*@
                 </div>
-                <div class="block">
-                    @Enumerate( "Subjects", "h2", dataLearningOpportunity.InstructionalProgramCategory, typeCode )
+                <div class="block upperCaseEnumeration">
+                    @Enumerate( "Instructional Program Classification", "h2", dataLearningOpportunity.InstructionalProgramCategory, typeCode )
                 </div>
                 <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_duration.png" )');">
                     @Durations( dataLearningOpportunity.EstimatedDuration, "Estimated Time to Complete", "h2" )
@@ -2022,22 +2320,42 @@
                     @if ( totalCompetencies > 0 )
                     {
                         <h2>Competencies</h2>
-                        <button class="actionButton competencyButton" onclick="showCompetencyList();">View <b>@totalCompetencies</b> embedded competencies for this Learning Opportunity</button>
+                        <button class="actionButton competencyButton" onclick="showCompetencyList();">View <b>@totalCompetencies</b> included competencies for this Learning Opportunity</button>
                     }
                 </div>
-                <div class="block">
+                @*<div class="block">
                     @ShowCompetencyValues( "Competencies Taught", "h2", dataLearningOpportunity.TeachesCompetencies, "" )
                     @ShowCompetencyValues( "Competencies Required", "h2", dataLearningOpportunity.RequiresCompetencies, "" )
-                </div>
+                    @ShowCompetencyFrameworkValues( "Competencies Taught", "h2", dataLearningOpportunity.TeachesCompetenciesFrameworks, "" )
+                    @ShowCompetencyFrameworkValues( "Competencies Required", "h2", dataLearningOpportunity.RequiresCompetenciesFrameworks, "" )
+                </div>*@
                 <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_quality.png" )');">
-                    @ListQualityAssuranceActions( "Quality Assurance Received", "h2", dataLearningOpportunity.QualityAssuranceAction )
-                    @ListQualityAssuranceRoles( "h2", dataLearningOpportunity.OrganizationRole, roleCodes )
+                    <h2>Quality Assurance</h2>
+                    @if ( ownerOrganizationQARoles.Count() > 0 )
+                    {
+                        <div class="subsection">
+                            @ListQualityAssuranceRoles( "h3", "Organization", ownerOrganization.OrganizationRole_Recipient, roleCodes )
+                        </div>
+                    }
+                    @*<div class="subsection">
+                        @ListQualityAssuranceActions( "Quality Assurance Received", "h3", dataLearningOpportunity.QualityAssuranceAction )
+                        @ListQualityAssuranceRoles( "h3", "Learning Opportunity", dataLearningOpportunity.OrganizationRole, roleCodes )
+                    </div>*@
                 </div>
+                @*<div class="block">
+                    @ShowTextValues( "References", "h2", dataLearningOpportunity.ResourceUrls, "", true, true )
+                </div>*@
                 <div class="block">
-                    @ShowTextValues( "References", "h2", dataLearningOpportunity.LearningResourceUrl, "", true, true )
+                    @Enumerate( "Learning Opportunity Delivery Type", "h2", dataLearningOpportunity.DeliveryType, typeCode )
                 </div>
-                <div class="block">
-                    @Enumerate( "Learning Opportunity Delivery Type", "h2", dataLearningOpportunity.LearningOpportunityDeliveryType, typeCode )
+                @*<div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_cost.png" )');">
+                    @ListCostsCompact( dataLearningOpportunity.EstimatedCost, "Estimated Costs", "h2", "" )
+                </div>*@
+                <div class="block truncated">
+                    @EnumerateTextValues( "Subjects", "h2", dataLearningOpportunity.Subject, typeCode )
+                </div>
+                <div class="block truncated">
+                    @EnumerateTextValues( "Keyword", "h2", dataLearningOpportunity.Keyword, typeCode )
                 </div>
             } 
             break;
@@ -2056,16 +2374,19 @@
             {
                 if ( dataCredential.Addresses.Count() > 0 ) {
                     <div id="mainMapBox"></div>
-                    @ListAddresses( dataCredential.Addresses, "Available At", "h2" )
+                    <div class="block truncated">
+                        @ListAddresses( dataCredential.Addresses, "Available At", "h2" )
+                    </div>
                 }
-                if ( !string.IsNullOrWhiteSpace( dataCredential.AvailableOnlineAt ) )
+                if ( !string.IsNullOrWhiteSpace( dataCredential.AvailableOnlineAt ) || !string.IsNullOrWhiteSpace( dataCredential.AvailabilityListing ) )
                 {
                     <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_connect.png" )');">
                         <h2>Available Online</h2>
-                        <a class="linkButton greenButton availableOnlineAt" href="@dataCredential.AvailableOnlineAt" target="_blank">@dataCredential.AvailableOnlineAt</a>
+                        <a class="linkButton greenButton availableOnlineAt" href="@dataCredential.AvailableOnlineAt" target="_blank">More Information <i class="fa fa-external-link"></i></a>
+                        <a class="linkButton greenButton availabilityListing" href="@dataCredential.AvailabilityListing" target="_blank">View Locations <i class="fa fa-external-link"></i></a>
                     </div>
                 }
-                if ( dataCredential.OrganizationRole.Where(m => m.RoleType.Items.Where( n => !n.IsSpecialValue ).Count() > 0).Count() > 0 )
+                if ( dataCredential.OrganizationRole.Where(m => m.AgentRole.Items.Where( n => !n.IsSpecialValue ).Count() > 0).Count() > 0 )
                 {
                     <div class="block">
                         <h2>Organization Roles</h2>
@@ -2073,58 +2394,9 @@
                     </div>
                 }
                 <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_map.png" )');">
-                    @JurisdictionMerged( "Applicable Jurisdictions", "h2", dataCredential.Jurisdiction )
+                    @JurisdictionMerged( "Applicable Jurisdictions", "h2", "This credential can be used in the following places:", "This credential can be used online.", "This credential can be used anywhere in the world.", "This credential can be used in these places:", "This credential cannot be used in these places:", dataCredential.Jurisdiction, false )
                 </div>
-                @*<div class="block">
-                    <h2>Access this Credential</h2>
-                    <p>For more information, see the Details section below.</p>
-                    @foreach ( var condition in dataCredential.Requires )
-                    {
-                        try
-                        {
-                            if ( condition.TargetCredential.Count() > 0 || condition.TargetAssessment.Count() > 0 || condition.TargetLearningOpportunity.Count() > 0 )
-                            {
-                                <div class="accessRequirements">
-                                    <h3 class="properName">@condition.ProfileName</h3>
-                                    @if ( condition.TargetCredential.Count() > 0 )
-                                    {
-                                        <h4>Credentials</h4>
-                                        <ul class="accessRequirement">
-                                            @foreach ( var item in condition.TargetCredential )
-                                            {
-                                                <li><a href="@Url.Content( "~/detail/credential/" + item.Id )" target="_blank">@item.Name</a></li>
-                                            }
-                                        </ul>
-                                    }
-                                    @if ( condition.TargetAssessment.Count() > 0 )
-                                    {
-                                        <h4>Assessments</h4>
-                                        foreach ( var item in condition.TargetAssessment )
-                                        {
-                                            <div class="accessRequirement">
-                                                <a href="@Url.Content( "~/detail/assessment/" + item.Id )" target="_blank">@item.Name</a>
-                                                @Enumerate( "", "", item.Modality, "assessment" )
-                                            </div>
-                                        }
-                                    }
-                                    @if ( condition.TargetLearningOpportunity.Count() > 0 )
-                                    {
-                                        <h4>Learning Opportunities</h4>
-                                        foreach ( var item in condition.TargetLearningOpportunity )
-                                        {
-                                            <div class="accessRequirement">
-                                                <a href="@Url.Content( "~/detail/learningopportunity/" + item.Id )" target="_blank">@item.Name</a>
-                                                @Enumerate( "", "", item.LearningOpportunityDeliveryType, "assessment" )
-                                            </div>
-                                        }
-                                    }
-                                </div>
                             }
-                        }
-                        catch { }
-                    }
-                </div>*@
-            }
             break;
                 
             case DataTypes.ORGANIZATION:
@@ -2132,14 +2404,8 @@
                 if ( dataOrganization.Addresses.Count() > 0 )
                 {
                     <div id="mainMapBox"></div>
-                    @ListAddresses( dataOrganization.Addresses, "Available At", "h2" )
-                }
-                    
-                if ( dataOrganization.OrganizationRole.Where(m => m.RoleType.Items.Where( n => !n.IsSpecialValue ).Count() > 0).Count() > 0 )
-                {
-                    <div class="block">
-                        <h2>Organization Roles</h2>
-                        @ListReceivedRoles( title, dataOrganization.OrganizationRole_Recipient, roleCodes )
+                    <div class="block truncated">
+                        @ListAddresses( dataOrganization.Addresses, "Available At", "h2" )
                     </div>
                 }
                     
@@ -2155,8 +2421,25 @@
                         </div>
                     </div>
                 }
+
+                if ( !string.IsNullOrWhiteSpace( dataOrganization.AvailabilityListing ) )
+                {
+                    <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_connect.png" )');">
+                        <h2>Available Online</h2>
+                        <a class="linkButton greenButton availabilityListing" href="@dataOrganization.AvailabilityListing" target="_blank">View Locations <i class="fa fa-external-link"></i></a>
+                    </div>
+                }
+                
+                if ( dataOrganization.OrganizationRole.Where(m => m.AgentRole.Items.Where( n => !n.IsSpecialValue ).Count() > 0).Count() > 0 )
+                {
+                    <div class="block truncated">
+                        <h2>Organization Roles</h2>
+                        @ListReceivedRoles( title, dataOrganization.OrganizationRole_Recipient, roleCodes )
+                    </div>
+                }
+                    
                 <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_map.png" )');">
-                    @JurisdictionMerged( "Applicable Jurisdictions", "h2", dataOrganization.Jurisdiction )
+                    @JurisdictionMerged( "Applicable Jurisdictions", "h2", "This organization has a notable presence in these places:", "This organization has a significant online presence.", "This organization operates worldwide.", "This organization has a notable presence in these places:", "This organization does <i>not</i> serve these places:", dataOrganization.Jurisdiction )
                 </div>
             }
             break;
@@ -2166,24 +2449,27 @@
                 if ( dataAssessment.Addresses.Count() > 0 )
                 {
                     <div id="mainMapBox"></div>
-                    @ListAddresses( dataAssessment.Addresses, "Available At", "h2" )
+                    <div class="block truncated">
+                        @ListAddresses( dataAssessment.Addresses, "Available At", "h2" )
+                    </div>
                 }
-                if ( !string.IsNullOrWhiteSpace( dataAssessment.AvailableOnlineAt ) )
+                if ( !string.IsNullOrWhiteSpace( dataAssessment.AvailableOnlineAt ) || !string.IsNullOrWhiteSpace( dataAssessment.AvailabilityListing ) )
                 {
                     <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_connect.png" )');">
                         <h2>Available Online</h2>
-                        <a class="linkButton greenButton availableOnlineAt" href="@dataAssessment.AvailableOnlineAt" target="_blank">@dataAssessment.AvailableOnlineAt</a>
+                        <a class="linkButton greenButton availableOnlineAt" href="@dataAssessment.AvailableOnlineAt" target="_blank">More Information <i class="fa fa-external-link"></i></a>
+                        <a class="linkButton greenButton availabilityListing" href="@dataAssessment.AvailabilityListing" target="_blank">View Locations <i class="fa fa-external-link"></i></a>
                     </div>
                 }
-                <div class="block">
-                @if ( dataAssessment.OrganizationRole.Where( m => m.RoleType.Items.Where( n => !n.IsSpecialValue ).Count() > 0 ).Count() > 0 )
-                    {
+                @*if ( dataAssessment.OrganizationRole.Where( m => m.AgentRole.Items.Where( n => !n.IsSpecialValue ).Count() > 0 ).Count() > 0 )
+                {
+                    <div class="block">
                         <h2>Organization Roles</h2>
                         @ListReceivedRoles( title, dataAssessment.OrganizationRole, roleCodes )
-                    }
-                </div>
+                    </div>
+                }*@
                 <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_map.png" )');">
-                    @JurisdictionMerged( "Applicable Jurisdictions", "h2", dataAssessment.Jurisdiction )
+                    @JurisdictionMerged( "Applicable Jurisdictions", "h2", "This assessment is acknowledged in the following places:", "This assessment is acknowledged online.", "This assessment is acknowledged across the entire world.", "This assessment is acknowledged in these places:", "This assessment is not acknowledged in these places:", dataAssessment.Jurisdiction )
                 </div>
             }
             break;
@@ -2193,24 +2479,27 @@
                 if ( dataLearningOpportunity.Addresses.Count() > 0 )
                 {
                     <div id="mainMapBox"></div>
-                    @ListAddresses( dataLearningOpportunity.Addresses, "Available At", "h2" )
+                    <div class="block truncated">
+                        @ListAddresses( dataLearningOpportunity.Addresses, "Available At", "h2" )
+                    </div>
                 }
-                if ( !string.IsNullOrWhiteSpace( dataLearningOpportunity.AvailableOnlineAt ) )
+                if ( !string.IsNullOrWhiteSpace( dataLearningOpportunity.AvailableOnlineAt ) || !string.IsNullOrWhiteSpace( dataLearningOpportunity.AvailabilityListing ) )
                 {
                     <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_connect.png" )');">
                         <h2>Available Online</h2>
-                        <a class="linkButton greenButton availableOnlineAt" href="@dataLearningOpportunity.AvailableOnlineAt" target="_blank">@dataLearningOpportunity.AvailableOnlineAt</a>
+                        <a class="linkButton greenButton availableOnlineAt" href="@dataLearningOpportunity.AvailableOnlineAt" target="_blank">More Information <i class="fa fa-external-link"></i></a>
+                        <a class="linkButton greenButton availabilityListing" href="@dataLearningOpportunity.AvailabilityListing" target="_blank">View Locations <i class="fa fa-external-link"></i></a>
                     </div>
                 }
-                <div class="block">
-                @if ( dataLearningOpportunity.OrganizationRole.Where( m => m.RoleType.Items.Where( n => !n.IsSpecialValue ).Count() > 0 ).Count() > 0 )
-                                    {
+                @*if ( dataLearningOpportunity.OrganizationRole.Where( m => m.AgentRole.Items.Where( n => !n.IsSpecialValue ).Count() > 0 ).Count() > 0 )
+                {
+                    <div class="block">
                         <h2>Organization Roles</h2>
                         @ListReceivedRoles( title, dataLearningOpportunity.OrganizationRole, roleCodes )
-                    }
-                </div>
+                    </div>
+                }*@
                 <div class="block withIcon" style="background-image: url('@Url.Content( "~/images/v2/icons/flat_map.png" )');">
-                    @JurisdictionMerged( "Applicable Jurisdictions", "h2", dataLearningOpportunity.Jurisdiction )
+                    @JurisdictionMerged( "Applicable Jurisdictions", "h2", "This learning opportunity is acknowledged in the following places:", "This learning opportunity is acknowledged online.", "This learning opportunity is acknowledged across the entire world.", "This learning opportunity is acknowledged in these places:", "This learning opportunity is not acknowledged in these places:", dataLearningOpportunity.Jurisdiction )
                 </div>
             }
             break;
@@ -2226,12 +2515,45 @@
         @switch ( dataType )
         {
             case DataTypes.CREDENTIAL:
-            {
-                @DetailsButton( "Embedded Credentials", "embeddedCredentials", dataCredential.EmbeddedCredentials.Count() )
+                {
+                    var partOfCredentials = dataCredential.IsPartOf.Where( m => m.Id != 0 ).ToList();
+                    var embeddedCredentials = dataCredential.EmbeddedCredentials.Where( m => m.Id != 0 ).ToList();
+                    var requiresCredentials = dataCredential.Requires.SelectMany( m => m.RequiredCredential ).Where( m => m.Id != 0 ).ToList();
+                    var recommendsCredentials = dataCredential.Recommends.SelectMany( m => m.RequiredCredential ).Where( m => m.Id != 0 ).ToList();
+
+                    //var isRequiredForCredentials = dataCredential.IsRequiredFor.SelectMany( m => m.RequiredCredential ).Where( m => m.Id != 0 ).ToList();
+                    //var isRecommendedForCredentials = dataCredential.IsRecommendedFor.SelectMany( m => m.RequiredCredential ).Where( m => m.Id != 0 ).ToList();
+                    //var isAdvancedStandingForCredentials = dataCredential.AdvancedStandingFor.SelectMany( m => m.RequiredCredential ).Where( m => m.Id != 0 ).ToList();
+                    //var advancedStandingFromCredentials = dataCredential.AdvancedStandingFrom.SelectMany( m => m.RequiredCredential ).Where( m => m.Id != 0 ).ToList();
+                    //var isPreparationForCredentials = dataCredential.IsPreparationFor.SelectMany( m => m.RequiredCredential ).Where( m => m.Id != 0 ).ToList();
+                    //var preparationFromCredentials = dataCredential.PreparationFrom.SelectMany( m => m.RequiredCredential ).Where( m => m.Id != 0 ).ToList();
+
+                    var totalConnections = partOfCredentials.Count() + embeddedCredentials.Count() + requiresCredentials.Count() + recommendsCredentials.Count() ;
+                    //+isRequiredForCredentials.Count() + isRecommendedForCredentials.Count() + isAdvancedStandingForCredentials.Count() + advancedStandingFromCredentials.Count() + isPreparationForCredentials.Count() + preparationFromCredentials.Count()
+
+
+                    @DetailsButton( "Credential Connections", "credentialConnections", totalConnections )
+                <div class="detailTab" data-detailName="credentialConnections">
+                    <h2 class="detailTabHeader">Credential Connections</h2>
+                    <p class="guidance">This credential has connections to the following credentials:</p>
+                    @ListCredentialsModal( "Requires Credentials", "Requires", "h2", "connections_requires", requiresCredentials, "This credential requires the following credential(s). Check the Requirements section for additional requirements." )
+                    @ListCredentialsModal( "Recommends Credentials", "Recommends", "h2", "connections_recommends", recommendsCredentials, "This credential recommends attaining the following credential(s) first:" )
+                    @ListCredentialsModal( "Included With Credentials", "Included With", "h2", "connections_partOf", partOfCredentials, "This credential is a part of the following credential(s):" )
+                    @ListCredentialsModal( "Included Credentials", "Includes", "h2", "connections_embedded", embeddedCredentials, "This credential includes the following credential(s) when it is attained:" )
+                    @*@ListCredentialsModal( "Required For Credentials", "Required For", "h2", "connections_requiredFor", isRequiredForCredentials, "This credential is a requirement for the following credential(s):" )
+                    @ListCredentialsModal( "Recommended For Credentials", "Prepares For", "h2", "connections_recommendedFor", isRecommendedForCredentials, "This credential helps prepare you to attain the following credential(s):" )
+                    @ListCredentialsModal( "Advanced Standing For Credentials", "Advanced Standing For", "h2", "connections_isAdvancedStandingFor", isAdvancedStandingForCredentials, "This credential grants advanced standing in attaining the following credential(s):" )
+                    @ListCredentialsModal( "Advanced Standing From Credentials", "Advanced Standing From", "h2", "connections_advancedStandingFrom", advancedStandingFromCredentials, "This credential receives advanced standing from the following credential(s):" )
+                    @ListCredentialsModal( "Prepares For Credentials", "Prepares For", "h2", "connections_isPreparationFor", isPreparationForCredentials, "This credential prepares for the following credential(s):" )
+                    @ListCredentialsModal( "Preparation From Credentials", "Preparation From", "h2", "connections_preparationFrom", preparationFromCredentials, "This credential receives preparation from the following credential(s):" )*@
+                </div>
+            
+                @*@DetailsButton( "Included Credentials", "embeddedCredentials", dataCredential.EmbeddedCredentials.Count() )
                 <div class="detailTab" data-detailName="embeddedCredentials">
-                    <h2 class="detailTabHeader">Embedded Credentials</h2>
+                    <h2 class="detailTabHeader">Included Credentials</h2>
                     @ListCredentials( "h3", dataCredential.EmbeddedCredentials, true )
                 </div>
+                *@
             
                 @DetailsButton( "Requirements", "requirements", dataCredential.Requires.Count() )
                 <div class="detailTab" data-detailName="requirements">
@@ -2245,19 +2567,41 @@
                     @ListConditions( dataCredential.Recommends, "Recommendations", ConditionProfileTypes.RECOMMENDS )
                 </div>
             
-                @DetailsButton( "Connections", "postAwardConnections", dataCredential.IsRequiredFor.Count() + dataCredential.IsRecommendedFor.Count() )
-                <div class="detailTab" data-detailName="postAwardConnections">
-                    @if ( dataCredential.IsRequiredFor.Count() > 0 )
-                    {
-                        <h2 class="detailTabHeader">Connections: What this Credential is Required For</h2>
-                        @ListConditions( dataCredential.IsRequiredFor, "Required For", ConditionProfileTypes.ISREQUIREDFOR )
-                    }
-                    @if ( dataCredential.IsRecommendedFor.Count() > 0 )
-                    {
-                        <h2 class="detailTabHeader">Connections: What this Credential is Recommended For</h2>
-                        @ListConditions( dataCredential.IsRecommendedFor, "Recommended For", ConditionProfileTypes.ISRECOMMENDEDFOR )
-                    }
+                @*@DetailsButton("Advanced Standing From", "advancedStandingFrom", dataCredential.AdvancedStandingFrom.Count() )
+                <div class="detailTab" data-detailName="advancedStandingFrom">
+                    <h2 class="detailTabHeader">Advanced Standing From</h2>
+                    @ListConditions( dataCredential.AdvancedStandingFrom, "Advanced Standing From", ConditionProfileTypes.ADVANCEDSTANDINGFROM )
                 </div>
+            
+                @DetailsButton("Preparation From", "preparationFrom", dataCredential.PreparationFrom.Count() )
+                <div class="detailTab" data-detailName="preparationFrom">
+                    <h2 class="detailTabHeader">Preparation From</h2>
+                    @ListConditions( dataCredential.PreparationFrom, "Preparation From", ConditionProfileTypes.PREPARATIONFROM )
+                </div>*@
+            
+                @*@DetailsButton( "Required For", "requiredFor", dataCredential.IsRequiredFor.Count() )
+                <div class="detailTab" data-detailName="requiredFor">
+                    <h2 class="detailTabHeader">Required For</h2>
+                    @ListConditions( dataCredential.IsRequiredFor, "Required For", ConditionProfileTypes.ISREQUIREDFOR )
+                </div>
+            
+                @DetailsButton( "Recommended For", "recommendedFor", dataCredential.IsRecommendedFor.Count() )
+                <div class="detailTab" data-detailName="recommendedFor">
+                    <h2 class="detailTabHeader">Recommended For</h2>
+                    @ListConditions( dataCredential.IsRecommendedFor, "Recommended For", ConditionProfileTypes.ISRECOMMENDEDFOR )
+                </div>*@
+            
+                @*@DetailsButton( "Advanced Standing For", "advancedStandingFor", dataCredential.AdvancedStandingFor.Count() )
+                <div class="detailTab" data-detailName="advancedStandingFor">
+                    <h2 class="detailTabHeader">Advanced Standing For</h2>
+                    @ListConditions( dataCredential.AdvancedStandingFor, "Advanced Standing For", ConditionProfileTypes.ISADVANCEDSTANDINGFOR)
+                </div>
+            
+                @DetailsButton( "Preparation For", "preparationFor", dataCredential.IsPreparationFor.Count() )
+                <div class="detailTab" data-detailName="preparationFor">
+                    <h2 class="detailTabHeader">Preparation For</h2>
+                    @ListConditions( dataCredential.IsPreparationFor, "Preparation For", ConditionProfileTypes.ISPREPARATIONFOR )
+                </div>*@
             
                 @DetailsButton( "Renewal Terms", "renewal", dataCredential.Renewal.Count() )
                 <div class="detailTab" data-detailName="renewal">
@@ -2281,29 +2625,49 @@
                             <div class="autoColumns">
                                 <div class="autoColumnItem">
                                     @ShowNamedText( "Description", "", terms.Description, "", true )
+                                    @*@ShowTextValues( "", "", terms.RevocationItems, "", false, false )*@
+                                    @if( !string.IsNullOrWhiteSpace(terms.RevocationCriteriaUrl ) )
+                                    {
+                                        <a class="linkButton greenButton" href="@terms.RevocationCriteriaUrl" target="_blank">Revocation Criteria  <i class="fa fa-external-link"></i></a>
+                                    }
                                 </div>
-                                <div class="autoColumnItem">
+                                @*<div class="autoColumnItem">
                                     @Enumerate( "Revocation Criteria", "h4", terms.RevocationCriteriaType, "credential" )
-                                </div>
-                                <div class="autoColumnItem">
+                                </div>*@
+                                @*<div class="autoColumnItem">
                                     @ShowTextValues("References", "h4", terms.RevocationResourceUrl, "", true, true )
-                                </div>
+                                </div>*@
                                 <div class="autoColumnItem">
-                                    @JurisdictionMerged( "Applicable Jurisdiction", "h4", terms.Jurisdiction )
+                                    @JurisdictionMerged( "Applicable Jurisdiction", "h4", "These terms of revocation apply in the following places:", "", "", "", "", terms.Jurisdiction )
                                 </div>
                             </div>
 
                         </div>
                     }
                 </div>
-            
-                @DetailsButton( "Registry Information", "registryInformation", 1 )
-                <div class="detailTab" data-detailName="registryInformation">
-                    <h2 class="detailTabHeader">Credential Registry Information</h2>
-                    <p>Coming Soon</p>
 
-                </div>
             
+                @*@DetailsButton( "Processes", "processProfile", dataCredential.CredentialProcess.Count() )
+                <div class="detailTab" data-detailName="processProfile">
+                    <h2 class="detailTabHeader">Credential Processes</h2>
+                    @ListProcesses( dataCredential.CredentialProcess, typeCode )
+                </div>*@
+            
+                if ( canEditDocument && dataCredential.CredentialRegistryId != null)
+                {
+                    @DetailsButton( "Registry Information", "registryInformation", 1 )
+                    <div class="detailTab" data-detailname="registryInformation">
+                        <h2 class="detailTabHeader">Credential Registry Information</h2>
+                        @if ( dataCredential.CredentialRegistryId != null) {
+                            var link = string.Format(metadataRegistryUrl, @dataCredential.CredentialRegistryId);
+
+                            <p><a class="linkButton grayButton" target="crLink" href="@Url.Content( string.Format(metadataRegistryUrl, dataCredential.CredentialRegistryId) )">View in Registry</a></p>
+                        }
+
+                    </div>
+                }
+
+
                 @DetailsButton( "Raw Metadata", "rawMetadata", 1 )
                 <div class="detailTab" data-detailName="rawMetadata">
                     <h2 class="detailTabHeader">Raw Metadata</h2>
@@ -2311,7 +2675,7 @@
                 </div>
             }
             break;
-                
+
             case DataTypes.ORGANIZATION:
             {
                 @DetailsButton( "Credentials", "createdCredentials", dataOrganization.CreatedCredentials.Count() )
@@ -2319,44 +2683,94 @@
                     <h2 class="detailTabHeader">Credentials</h2>
                     @ListCredentials( "h3", dataOrganization.CreatedCredentials, true )
                 </div>
+
+                @DetailsButton( "Quality Assurance Recipients", "qualityAssuranceRecipients", dataOrganization.QualityAssuranceActor.Count() )
+                <div class="detailTab" data-detailName="qualityAssuranceRecipients">
+                    <h2 class="detailTabHeader">Quality Assurance Recipients</h2>
+                    @try
+                    {
+                        foreach ( var item in dataOrganization.QualityAssuranceActor )
+                        {
+                            <h3>This item is @roleCodes.Items.FirstOrDefault(m => m.CodeId == item.RoleTypeId).Name.ToLower() by this organization with the <a href="@Url.Content( "~/detail/credential/" + item.IssuedCredential.Id )" target="_blank">@item.IssuedCredential.Name</a> credential.</h3>
+                            @ListCredentials( "h4", new List<Credential>() { item.TargetCredential ?? new Credential() }, false )
+                            @ListOrganizations( "h4", new List<Organization>() { item.TargetOrganization ?? new Organization() }, false )
+                            @ListAssessments( "h4", new List<AssessmentProfile>() { item.TargetAssessment ?? new AssessmentProfile() } )
+                            @ListLearningOpportunities( "h4", new List<LearningOpportunityProfile>() { item.TargetLearningOpportunity ?? new LearningOpportunityProfile() } )
+                        }
+                        @*
+                        foreach ( var qaType in roleCodes.Items )
+                        {
+                            var items = dataOrganization.QualityAssuranceActor.Where( m => m.RoleTypeId == qaType.CodeId ).ToList();
+                            if ( items.Count() > 0 )
+                            {
+                                <h3>These items are @qaType.Name.ToLower() this organization:</h3>
+                                @ListCredentials( "h4", items.Where( m => m.TargetCredential != null ).Select( m => m.TargetCredential ).ToList(), false )
+                                @ListOrganizations( "h4", items.Where( m => m.TargetOrganization != null ).Select( m => m.TargetOrganization ).ToList(), false )
+                                @ListAssessments( "h4", items.Where( m => m.TargetAssessment != null ).Select( m => m.TargetAssessment ).ToList() )
+                                @ListLearningOpportunities( "h4", items.Where( m => m.TargetLearningOpportunity != null ).Select( m => m.TargetLearningOpportunity ).ToList() )
+                            }
+                        }
+                        *@
+                    }
+                    catch { } 
+                </div>
             
-                @DetailsButton( "Verification Services", "verification", dataOrganization.Authentication.Count() )
+                @DetailsButton( "Verification Services", "verification", dataOrganization.VerificationServiceProfiles.Count() )
                 <div class="detailTab" data-detailName="verification">
                     <h2 class="detailTabHeader">Verification Services</h2>
-                    @foreach ( var service in dataOrganization.Authentication )
+                    @foreach ( var service in dataOrganization.VerificationServiceProfiles )
                     {
                         <div class="profile verificationServiceProfile">
                             <h3>@service.ProfileName</h3>
                             <div class="autoColumns">
                                 <div class="autoColumnItem">
                                     @ShowNamedText( "Description", "", service.Description, "", true )
-                                    @ShowNamedText( "Holder Must Authorize", "", "The holder of the credential " + ( service.HolderMustAuthorize ? "must" : "does not need to" ) + " authorize this service", "", false )
+                                    @ShowNamedText( "Holder Must Authorize", "", "The holder of the credential " + ( service.HolderMustAuthorize ? "must" : "does not need to" ) + " authorize this service.", "", false )
+                                    @if( HasText( service.VerificationServiceUrl ) )
+                                    {
+                                        <a class="linkButton greenButton" href="@service.VerificationServiceUrl">Verification Service <i class="fa fa-external-link"></i></a>
+                                    }
+                                    @Enumerate( "Claim Type(s)", "h4", service.ClaimType, typeCode )
                                 </div>
                                 <div class="autoColumnItem">
-                                    @JurisdictionMerged( "Applicable Jurisdiction(s)", "h4", service.Jurisdiction )
+                                    @JurisdictionMerged( "Applicable Jurisdiction(s)", "h4", "These services are available in the following places:", "This service is available online.", "This service is available globally.", "This service is available in these places:", "This service is <i>not</i> available in these places:", service.Jurisdiction )
                                 </div>
                                 <div class="autoColumnItem">
-                                    @ListCredentials( "Applicable Credential", new List<Credential>() { CredentialServices.GetBasicCredential( service.TargetCredentialId ) }, false )
+                                    @ListCredentials( "Applicable Credential", new List<Credential>() { CredentialServices.GetBasicCredential( service.TargetCredentialId ) }, true )
+                                </div>
+                                <div class="autoColumnItem">
+                                    @ListCostsCompact( service.EstimatedCost, "Service Costs", "h4", "" )
                                 </div>
                             </div>
                         </div>
                     }
                 </div>
             
-                @DetailsButton( "Departments & Subsidiaries", "departmentSubsidiary", dataOrganization.OrganizationRole_Dept.Count() + dataOrganization.OrganizationRole_Subsiduary.Count() )
+                @DetailsButton( "Departments & Subsidiaries", "departmentSubsidiary", dataOrganization.OrganizationRole_Dept.Count() + dataOrganization.OrganizationRole_Subsidiary.Count() )
                 <div class="detailTab" data-detailName="departmentSubsidiary">
                     @if ( dataOrganization.OrganizationRole_Dept.Count() > 0 )
                     {
                         <h2>Departments</h2>
                         @ListOrganizations( "h3", dataOrganization.OrganizationRole_Dept.Select( m => m.ActingAgent ).ToList(), true )
                     }
-                    @if ( dataOrganization.OrganizationRole_Subsiduary.Count() > 0 )
+                    @if ( dataOrganization.OrganizationRole_Subsidiary.Count() > 0 )
                     {
                         <h2>Subsidiaries</h2>
-                        @ListOrganizations( "h3", dataOrganization.OrganizationRole_Subsiduary.Select( m => m.ActingAgent ).ToList(), true )
+                        @ListOrganizations( "h3", dataOrganization.OrganizationRole_Subsidiary.Select( m => m.ActingAgent ).ToList(), true )
                     }
                 </div>
-            
+
+                if ( canEditDocument && dataOrganization.CredentialRegistryId != null)
+                {
+                    @DetailsButton( "Registry Information", "registryInformation", 1 )
+                    <div class="detailTab" data-detailname="registryInformation">
+                        <h2 class="detailTabHeader">Credential Registry Information</h2>
+                        @if ( dataOrganization.CredentialRegistryId != null){
+                        <p><a class="linkButton grayButton" target="crLink" href="@Url.Content( string.Format(metadataRegistryUrl, @dataOrganization.CredentialRegistryId) )">View in Registry</a></p>
+                        }
+
+                    </div>
+                }
                 @DetailsButton( "Raw Metadata", "rawMetadata", 1 )
                 <div class="detailTab" data-detailName="rawMetadata">
                     <h2 class="detailTabHeader">Raw Metadata</h2>
@@ -2368,11 +2782,45 @@
                 
             case DataTypes.ASSESSMENT:
             {
-                @DetailsButton( "Estimated Costs", "costs", dataAssessment.EstimatedCost.Count() )
-                <div class="detailTab" data-detailName="costs">
-                    @ListCosts( dataAssessment.EstimatedCost, "Estimated Costs", "h2" )
+                @*@DetailsButton( "Requirements", "requirements", dataAssessment.Requires.Count() )
+                <div class="detailTab" data-detailName="requirements">
+                    <h2 class="detailTabHeader">Requirements</h2>
+                    @ListConditions( dataAssessment.Requires, "Requirements", ConditionProfileTypes.REQUIRES )
                 </div>
             
+                @DetailsButton( "Recommendations", "recommendations", dataAssessment.Recommends.Count() )
+                <div class="detailTab" data-detailName="recommendations">
+                    <h2 class="detailTabHeader">Recommendations</h2>
+                    @ListConditions( dataAssessment.Recommends, "Recommendations", ConditionProfileTypes.RECOMMENDS )
+                </div>*@
+            
+                @DetailsButton( "Credentials", "credentials", dataAssessment.IsPartOfConditionProfile.Count() )
+                <div class="detailTab" data-detailName="credentials">
+                    <h2 class="detailTabHeader">Credentials</h2>
+                    <p class="guidance">This assessment is known to be a requirement for the following item(s):</p>
+                    @*@ListCredentialsById( "h3", dataAssessment.IsPartOfConditionProfile.Select(m => m.ParentId ).ToList(), false )*@
+                    @ListCredentials( "h3", dataAssessment.IsPartOfConditionProfile.Select( m => m.ParentCredential ).ToList(), true )
+                    @ListAssessments( "h3", dataAssessment.IsPartOfConditionProfile.Select( m => m.ParentAssessment ).ToList() )
+                    @ListLearningOpportunities( "h3", dataAssessment.IsPartOfConditionProfile.Select( m => m.ParentLearningOpportunity ).ToList() )
+                </div>
+
+                @*@DetailsButton( "Processes", "processProfile", dataAssessment.AssessmentProcess.Count() )
+                <div class="detailTab" data-detailname="processProfile">
+                    <h2 class="detailTabHeader">Assessment Processes</h2>
+                    @ListProcesses( dataAssessment.AssessmentProcess, typeCode )
+                </div>*@
+
+            if ( canEditDocument && dataAssessment.CredentialRegistryId != null)
+                {
+                    @DetailsButton( "Registry Information", "registryInformation", 1 )
+                    <div class="detailTab" data-detailname="registryInformation">
+                        <h2 class="detailTabHeader">Credential Registry Information</h2>
+                        @if ( dataAssessment.CredentialRegistryId != null){
+                            <p><a class="linkButton grayButton" target="crLink" href="@Url.Content(string.Format(metadataRegistryUrl, dataAssessment.CredentialRegistryId) )">View in Registry</a> </p>
+                         }
+                    </div>
+                }
+                
                 @DetailsButton( "Raw Metadata", "rawMetadata", 1 )
                 <div class="detailTab" data-detailName="rawMetadata">
                     <h2 class="detailTabHeader">Raw Metadata</h2>
@@ -2383,17 +2831,52 @@
                 
             case DataTypes.LEARNINGOPPORTUNITY:
             {
-                @DetailsButton( "Estimated Costs", "costs", dataLearningOpportunity.EstimatedCost.Count() )
-                <div class="detailTab" data-detailName="costs">
-                    @ListCosts( dataLearningOpportunity.EstimatedCost, "Estimated Costs", "h2" )
-                </div>
-            
-                @DetailsButton( "Embedded Learning Opportunities", "embeddedLearning", dataLearningOpportunity.HasPart.Count() )
+                @DetailsButton( "Included Learning Opportunities", "embeddedLearning", dataLearningOpportunity.HasPart.Count() )
                 <div class="detailTab" data-detailName="embeddedLearning">
-                    <h2>Embedded Learning Opportunities</h2>
+                    <h2>Included Learning Opportunities</h2>
                     @ListLearningOpportunities( "h3", dataLearningOpportunity.HasPart )
                 </div>
             
+                @*@DetailsButton( "Requirements", "requirements", dataLearningOpportunity.Requires.Count() )
+                <div class="detailTab" data-detailName="requirements">
+                    <h2 class="detailTabHeader">Requirements</h2>
+                    @ListConditions( dataLearningOpportunity.Requires, "Requirements", ConditionProfileTypes.REQUIRES )
+                </div>*@
+            
+                @*@DetailsButton( "Recommendations", "recommendations", dataLearningOpportunity.Recommends.Count() )
+                <div class="detailTab" data-detailName="recommendations">
+                    <h2 class="detailTabHeader">Recommendations</h2>
+                    @ListConditions( dataLearningOpportunity.Recommends, "Recommendations", ConditionProfileTypes.RECOMMENDS )
+                </div>*@
+            
+                @DetailsButton( "Credentials", "credentials", dataLearningOpportunity.IsPartOfConditionProfile.Count() )
+                <div class="detailTab" data-detailName="credentials">
+                    <h2 class="detailTabHeader">Credentials</h2>
+                    <p class="guidance">This learning opportunity is known to be a requirement for the following item(s):</p>
+                    @*@ListCredentialsById( "h3", dataLearningOpportunity.IsPartOfConditionProfile.Select( m => m.ParentId ).ToList(), false )*@
+                    @ListCredentials( "h3", dataLearningOpportunity.IsPartOfConditionProfile.Select( m => m.ParentCredential ).ToList(), true )
+                    @ListAssessments( "h3", dataLearningOpportunity.IsPartOfConditionProfile.Select( m => m.ParentAssessment ).ToList() )
+                    @ListLearningOpportunities( "h3", dataLearningOpportunity.IsPartOfConditionProfile.Select( m => m.ParentLearningOpportunity ).ToList() )
+                </div>
+            
+                @*@DetailsButton( "Processes", "processProfile", dataLearningOpportunity.LearningOpportunityProcess.Count() )
+                <div class="detailTab" data-detailName="processProfile">
+                    <h2 class="detailTabHeader">Learning Opportunity Processes</h2>
+                    @ListProcesses( dataLearningOpportunity.LearningOpportunityProcess, typeCode )
+                </div>*@
+
+
+                if ( canEditDocument && dataLearningOpportunity.CredentialRegistryId != null)
+                {
+                    @DetailsButton( "Registry Information", "registryInformation", 1 )
+                    <div class="detailTab" data-detailname="registryInformation">
+                        <h2 class="detailTabHeader">Credential Registry Information</h2>
+                        @if ( dataLearningOpportunity.CredentialRegistryId != null){
+                            <p><a class="linkButton grayButton" target="crLink" href="@Url.Content(string.Format(metadataRegistryUrl, dataLearningOpportunity.CredentialRegistryId) )">View in Registry</a> </p>
+                         }
+                    </div>
+                }
+
                 @DetailsButton( "Raw Metadata", "rawMetadata", 1 )
                 <div class="detailTab" data-detailName="rawMetadata">
                     <h2 class="detailTabHeader">Raw Metadata</h2>
@@ -2406,7 +2889,8 @@
         }
 </div>
 
-<div id="wait" style="display:none;width:150px;height:180px;position:absolute;top:20%;left:40%;padding-top:50px;border: #f5f5f5 2px ridge; border-radius: 30px;
-   box-shadow: 10px 10px 5px #888888; text-align:center"><img src="~/Images/Common/ajax-loader.gif" width="64" height="64" /><br/>Processing<br />Request ...</div>
+<div id="waitWrapper">
+    <div id="wait"><i id="waitSpinner" class="fa fa-spin fa-spinner"></i><div id="waitTitle">Working...</div></div>
+</div>
 
 <script src="https://maps.googleapis.com/maps/api/js?key=@googleMapsKey&callback=setupMaps"></script>

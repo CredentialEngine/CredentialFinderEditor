@@ -13,19 +13,19 @@ namespace Models.Json
 	{
 		public JurisdictionProfile()
 		{
-			type = "ctdl:JurisdictionProfile";
+			type = "ceterms:JurisdictionProfile";
 		}
 
-		[DataMember( Name = "ctdl:isOnlineJurisdiction" )]
-		public bool isOnlineJurisdiction { get; set; }
+		//[DataMember( Name = "ceterms:isOnlineJurisdiction" )]
+		//public bool isOnlineJurisdiction { get; set; }
 
-		[DataMember( Name = "ctdl:isGlobalJurisdiction" )]
+		[DataMember( Name = "ceterms:isGlobalJurisdiction" )]
 		public bool isGlobalJurisdiction { get; set; }
 
-		[DataMember( Name = "ctdl:mainJurisdiction" )]
+		[DataMember( Name = "ceterms:mainJurisdiction" )]
 		public GeoCoordinates mainJurisdiction { get; set; }
 
-		[DataMember( Name = "ctdl:jurisdictionException" )]
+		[DataMember( Name = "ceterms:jurisdictionException" )]
 		public GeoCoordinates jurisdictionException { get; set; }
 
 	}

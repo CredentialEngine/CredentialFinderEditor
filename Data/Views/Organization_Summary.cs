@@ -39,5 +39,8 @@ namespace Data.Views
         public Nullable<int> LastUpdatedById { get; set; }
         public Nullable<int> StatusId { get; set; }
         public string CredentialRegistryId { get; set; }
+        public int OrgMbrsCount { get; set; }
+        public string CTID { get; set; }
+        public int EntityId { get; set; }
     }
 }

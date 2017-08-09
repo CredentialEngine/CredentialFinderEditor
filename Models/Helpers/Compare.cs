@@ -33,14 +33,19 @@ namespace Models.Helpers
 		public List<AssessmentProfile> Assessments { get; set; }
 
 		//Get the value of a property for each object in a list - useful for ensuring data goes with the appropriate object even when one object in the list has no data for that property
-		public static List<object> GetData<T>( string propertyName, List<T> sources )
+		public static List<CellData> GetData<T>( string propertyName, List<T> sources )
 		{
-			var result = new List<object>();
+			var result = new List<CellData>();
 			try
 			{
 				foreach ( var item in sources )
 				{
-					result.Add( item.GetType().GetProperties().FirstOrDefault( m => m.Name == propertyName ).GetValue( item ) );
+					var props = item.GetType().GetProperties();
+					result.Add( new CellData()
+					{
+						Data = props.FirstOrDefault( m => m.Name == propertyName ).GetValue( item ),
+						Id = ( int ) props.FirstOrDefault( m => m.Name == "Id" ).GetValue( item )
+					} );
 				}
 			}
 			catch
@@ -68,5 +73,11 @@ namespace Models.Helpers
 	}
 	//
 
+	public class CellData
+	{
+		public object Data { get; set; }
+		public int Id { get; set; }
+	}
+	//
 
 }

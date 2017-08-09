@@ -1,0 +1,265 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+using Models.Common;
+using Models.ProfileModels;
+using EM = Data;
+using Utilities;
+using DBentity = Data.Entity_VerificationStatus;
+using ThisEntity = Models.ProfileModels.VerificationStatus;
+//
+
+namespace Factories
+{
+	public class Entity_VerificationStatusManager : BaseFactory
+	{
+
+		#region persistance ==================
+
+		public bool Save( ThisEntity entity, int parentId, int userId, ref List<string> messages )
+		{
+			bool isValid = true;
+			int intialCount = messages.Count;
+			if ( parentId == 0 )
+			{
+				messages.Add( "Error: the parent Verification Profile id was not provided." );
+			}
+			if ( messages.Count > intialCount )
+				return false;
+
+			int count = 0;
+
+			DBentity efEntity = new DBentity();
+
+			using ( var context = new Data.CTIEntities() )
+			{
+				bool isEmpty = false;
+				if ( ValidateProfile( entity, ref isEmpty, ref  messages ) == false )
+				{
+					return false;
+				}
+				if ( isEmpty )
+				{
+					messages.Add( "Error - profile item was empty. " );
+					return false;
+				}
+				try
+				{
+					//just in case
+					entity.ParentId = parentId;
+
+					if ( entity.Id == 0 )
+					{
+						//add
+						efEntity = new DBentity();
+						FromMap( entity, efEntity );
+
+						efEntity.RowId = Guid.NewGuid();
+						efEntity.Created = efEntity.LastUpdated = DateTime.Now;
+						efEntity.CreatedById = efEntity.LastUpdatedById = userId;
+
+
+						context.Entity_VerificationStatus.Add( efEntity );
+						count = context.SaveChanges();
+						entity.Id = efEntity.Id;
+						entity.RowId = efEntity.RowId;
+						if ( count == 0 )
+						{
+							ConsoleMessageHelper.SetConsoleErrorMessage( string.Format( " Unable to add Verification Status: {0} <br\\> ", string.IsNullOrWhiteSpace( entity.ProfileName ) ? "no description" : entity.ProfileName ) );
+						}
+						
+					}
+					else
+					{
+						context.Configuration.LazyLoadingEnabled = false;
+
+						efEntity = context.Entity_VerificationStatus.SingleOrDefault( s => s.Id == entity.Id );
+						if ( efEntity != null && efEntity.Id > 0 )
+						{
+							//update
+							FromMap( entity, efEntity );
+							//has changed?
+							if ( HasStateChanged( context ) )
+							{
+								efEntity.LastUpdated = System.DateTime.Now;
+								efEntity.LastUpdatedById = userId;
+
+								count = context.SaveChanges();
+							}
+							entity.RowId = efEntity.RowId;
+						}
+					}
+				}
+				catch ( System.Data.Entity.Validation.DbEntityValidationException dbex )
+				{
+					string message = HandleDBValidationError( dbex, "Entity_VerificationStatusManager.Save()", entity.ProfileName );
+					messages.Add( message );
+					isValid = false;
+				}
+				catch ( Exception ex )
+				{
+					LoggingHelper.LogError( ex, string.Format( "Entity_VerificationStatusManager.Save(), Name: {0}", entity.ProfileName ) );
+					isValid = false;
+				}
+			}
+
+			return isValid;
+		}
+		public bool Delete( int recordId, ref string statusMessage )
+		{
+			bool isOK = true;
+			using ( var context = new Data.CTIEntities() )
+			{
+				DBentity p = context.Entity_VerificationStatus.FirstOrDefault( s => s.Id == recordId );
+				if ( p != null && p.Id > 0 )
+				{
+					context.Entity_VerificationStatus.Remove( p );
+					int count = context.SaveChanges();
+				}
+				else
+				{
+					statusMessage = string.Format( "Verification Status Profile record was not found: {0}", recordId );
+					isOK = false;
+				}
+			}
+			return isOK;
+
+		}
+
+		#endregion
+
+		#region  retrieval ==================
+
+		/// <summary>
+		/// Retrieve and fill Verification Profile items for parent entity
+		/// </summary>
+		/// <param name="parentUid"></param>
+		public static List<ThisEntity> GetAll( int parentId )
+		{
+			ThisEntity row = new ThisEntity();
+			List<ThisEntity> profiles = new List<ThisEntity>();
+
+			using ( var context = new Data.CTIEntities() )
+			{
+				List<DBentity> results = context.Entity_VerificationStatus
+						.Where( s => s.VerificationProfileId == parentId )
+						.OrderBy( s => s.Id )
+						.ToList();
+
+				if ( results != null && results.Count > 0 )
+				{
+					foreach ( DBentity item in results )
+					{
+						row = new ThisEntity();
+						ToMap( item, row, true );
+						profiles.Add( row );
+					}
+				}
+				return profiles;
+			}
+
+		}//
+		public static ThisEntity Get( int profileId, bool includingProperties = true )
+		{
+			ThisEntity entity = new ThisEntity();
+
+			using ( var context = new Data.CTIEntities() )
+			{
+				DBentity item = context.Entity_VerificationStatus
+							.SingleOrDefault( s => s.Id == profileId );
+
+				if ( item != null && item.Id > 0 )
+				{
+					ToMap( item, entity, includingProperties );
+				}
+				return entity;
+			}
+
+		}//
+		public bool ValidateProfile( ThisEntity profile, ref bool isEmpty, ref List<string> messages )
+		{
+			bool isValid = true;
+			int count = messages.Count;
+
+			isEmpty = false;
+
+
+			//check if empty
+			if ( string.IsNullOrWhiteSpace( profile.Name )
+				&& string.IsNullOrWhiteSpace( profile.Description )
+				&& string.IsNullOrWhiteSpace( profile.VerifiedClaim )
+				&& string.IsNullOrWhiteSpace( profile.DecisionInformation )
+				)
+			{
+				isEmpty = true;
+				return isValid;
+			}
+
+			if ( !IsUrlWellFormed( profile.VerifiedClaim ) )
+			{
+				messages.Add( "The value for Verified Claim Url is invalid" );
+			}
+
+
+			if ( messages.Count > count )
+				isValid = false;
+
+			return isValid;
+		}
+
+		public static void ToMap( DBentity from, ThisEntity to, bool includingProperties = false )
+		{
+			to.Id = from.Id;
+			to.ParentId = from.VerificationProfileId;
+			to.RowId = from.RowId;
+			to.Name = from.Name	;
+			to.Description = from.Description;
+			to.VerifiedClaim = from.VerifiedClaim;
+			to.DecisionInformation = from.DecisionInformation;
+
+			if ( IsValidDate( from.Created ) )
+				to.Created = ( DateTime ) from.Created;
+			to.CreatedById = from.CreatedById == null ? 0 : ( int ) from.CreatedById;
+			if ( IsValidDate( from.LastUpdated ) )
+				to.LastUpdated = ( DateTime ) from.LastUpdated;
+			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
+			to.LastUpdatedBy = SetLastUpdatedBy( to.LastUpdatedById, from.Account_Modifier );
+
+
+		}
+		public static void FromMap( ThisEntity from, DBentity to )
+		{
+			to.Id = from.Id;
+			//should not be necessary?
+			to.VerificationProfileId = from.ParentId;
+
+			to.Name = from.Name;
+			to.Description = from.Description;
+			to.VerifiedClaim = from.VerifiedClaim;
+			to.DecisionInformation = from.DecisionInformation;
+
+		}
+		
+		static string SetProfileSummary( ThisEntity to )
+		{
+			string summary = "Verification Status Item ";
+			if ( !string.IsNullOrWhiteSpace( to.ProfileName ) )
+			{
+				summary = to.ProfileName;
+				return summary;
+			}
+
+			if ( to.Id > 1 )
+			{
+				summary += to.Id.ToString();
+				return summary;
+			}
+			return summary;
+
+		}
+		#endregion
+	}
+}

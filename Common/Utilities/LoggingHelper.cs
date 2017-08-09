@@ -18,28 +18,11 @@ namespace Utilities
         /// </summary>
         /// <param name="ex">Exception</param>
         /// <param name="message">Additional message regarding the exception</param>
-        public static void LogError( Exception ex, string message )
+        public static void LogError( Exception ex, string message, string subject = "WorkIT Application Exception encountered" )
         {
             bool notifyAdmin = false;
-            LogError( ex, message, notifyAdmin );
+            LogError( ex, message, notifyAdmin, subject );
         }
-
-		//public static void LogError( System.Data.Entity.Validation.DbEntityValidationException ex, string message )
-		//{
-		//	bool notifyAdmin = false;
-		//	string message = thisClassName + string.Format( ".ContentAdd() DbEntityValidationException, Type:{0}", entity.TypeId );
-		//	foreach ( var eve in dbex.EntityValidationErrors )
-		//	{
-		//		message += string.Format( "\rEntity of type \"{0}\" in state \"{1}\" has the following validation errors:",
-		//			eve.Entry.Entity.GetType().Name, eve.Entry.State );
-		//		foreach ( var ve in eve.ValidationErrors )
-		//		{
-		//			message += string.Format( "- Property: \"{0}\", Error: \"{1}\"",
-		//				ve.PropertyName, ve.ErrorMessage );
-		//		}
-		//	}
-		//				LogError( message, true );
-		//}
 
         /// <summary>
         /// Format an exception and message, and then log it
@@ -47,7 +30,7 @@ namespace Utilities
         /// <param name="ex">Exception</param>
         /// <param name="message">Additional message regarding the exception</param>
         /// <param name="notifyAdmin">If true, an email will be sent to admin</param>
-        public static void LogError( Exception ex, string message, bool notifyAdmin )
+        public static void LogError( Exception ex, string message, bool notifyAdmin, string subject = "WorkIT Application Exception encountered" )
         {
 
             //string userId = "";
@@ -120,7 +103,7 @@ namespace Utilities
                 if ( parmsString.Length > 0 )
                     errMsg += "\r\nParameters: " + parmsString;
 
-                LoggingHelper.LogError( errMsg, notifyAdmin );
+                LoggingHelper.LogError( errMsg, notifyAdmin, subject );
             }
             catch
             {
@@ -129,25 +112,45 @@ namespace Utilities
 
         } //
 
+		/// <summary>
+		/// Format an exception handling inner exceptions as well
+		/// </summary>
+		/// <param name="ex"></param>
+		/// <returns></returns>
+		public static string FormatExceptions( Exception ex )
+		{
+			string message = ex.Message;
 
-        /// <summary>
-        /// Write the message to the log file.
-        /// </summary>
-        /// <remarks>
-        /// The message will be appended to the log file only if the flag "logErrors" (AppSetting) equals yes.
-        /// The log file is configured in the web.config, appSetting: "error.log.path"
-        /// </remarks>
-        /// <param name="message">Message to be logged.</param>
-        public static void LogError( string message )
+			if ( ex.InnerException != null )
+			{
+				message += "; \r\nInnerException: " + ex.InnerException.Message;
+				if ( ex.InnerException.InnerException != null )
+				{
+					message += "; \r\nInnerException2: " + ex.InnerException.InnerException.Message;
+				}
+			}
+
+			return message;
+		}
+
+		/// <summary>
+		/// Write the message to the log file.
+		/// </summary>
+		/// <remarks>
+		/// The message will be appended to the log file only if the flag "logErrors" (AppSetting) equals yes.
+		/// The log file is configured in the web.config, appSetting: "error.log.path"
+		/// </remarks>
+		/// <param name="message">Message to be logged.</param>
+		public static void LogError( string message, string subject = "WorkIT Application Exception encountered" )
         {
 
             if ( UtilityManager.GetAppKeyValue( "notifyOnException", "no" ).ToLower() == "yes" )
             {
-                LogError( message, true );
+                LogError( message, true, subject );
             }
             else
             {
-                LogError( message, false );
+                LogError( message, false, subject );
             }
 
         } //
@@ -160,7 +163,7 @@ namespace Utilities
         /// </remarks>
         /// <param name="message">Message to be logged.</param>
         /// <param name="notifyAdmin"></param>
-        public static void LogError( string message, bool notifyAdmin )
+        public static void LogError( string message, bool notifyAdmin, string subject = "WorkIT Application Exception encountered" )
         {
             if ( UtilityManager.GetAppKeyValue( "logErrors" ).ToString().Equals( "yes" ) )
             {
@@ -177,11 +180,9 @@ namespace Utilities
 
                     if ( notifyAdmin )
                     {
-                        if ( UtilityManager.GetAppKeyValue( "notifyOnException", "no" ).ToLower() == "yes" )
-                        {
-                            EmailManager.NotifyAdmin( "Application Exception encountered", message );
-                        }
-                    }
+						if ( ShouldMessagesBeSkipped( message ) == false )
+							EmailManager.NotifyAdmin( subject, message );
+					}
                 }
                 catch ( Exception ex )
                 {
@@ -190,8 +191,15 @@ namespace Utilities
                 }
             }
         } //
+		private static bool ShouldMessagesBeSkipped(string message)
+		{
 
-		public static void LogIssue( string message, bool notifyAdmin )
+			if ( message.IndexOf( "Server cannot set status after HTTP headers have been sent" ) > 0 )
+				return true;
+
+			return false;
+		}
+		public static void LogIssue( string message, bool notifyAdmin, string subject = "WorkIT Application Issue Encountered" )
 		{
 			if ( UtilityManager.GetAppKeyValue( "logErrors" ).ToString().Equals( "yes" ) )
 			{
@@ -210,7 +218,7 @@ namespace Utilities
 					{
 						if ( UtilityManager.GetAppKeyValue( "notifyOnException", "no" ).ToLower() == "yes" )
 						{
-							EmailManager.NotifyAdmin( "Application Issue Encountered", message );
+							EmailManager.NotifyAdmin( subject, message );
 						}
 					}
 				}
@@ -331,6 +339,47 @@ namespace Utilities
             }
 
         }
+		public static void WriteLogFile( int level, string filename, string message, string datePrefixOverride = "", bool appendingText = true )
+		{
+			int appTraceLevel = 0;
+
+			try
+			{
+				appTraceLevel = UtilityManager.GetAppKeyValue( "appTraceLevel", 6 );
+
+				//Allow if the requested level is <= the application thresh hold
+				if ( level <= appTraceLevel )
+				{					
+					string datePrefix = System.DateTime.Today.ToString( "u" ).Substring( 0, 10 );
+					if ( !string.IsNullOrWhiteSpace( datePrefixOverride ) )
+						datePrefix = datePrefixOverride;
+
+					string logFile = UtilityManager.GetAppKeyValue( "path.log.file", "C:\\LOGS.txt" );
+					string outputFile = logFile.Replace( "[date]", datePrefix ).Replace( "[filename]", filename );
+
+					if ( appendingText )
+					{
+						StreamWriter file = File.AppendText( outputFile );
+
+						file.WriteLine( message );
+						file.Close();
+					}
+					else
+					{
+						//FileStream file = File.Create( outputFile );
+
+						//file.( message );
+						//file.Close();
+						File.WriteAllText( outputFile, message );
+					}
+				}
+			}
+			catch
+			{
+				//ignore errors
+			}
+
+		}
 		public static void DoBotTrace( int level, string message )
 		{
 			string msg = "";

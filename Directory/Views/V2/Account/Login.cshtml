@@ -1,5 +1,19 @@
 ﻿@using CTIDirectory.Models
 @model LoginViewModel
+@{
+    var url = Request.Url.PathAndQuery.ToLower();
+    var forgotpassword = "~/Account/ForgotYourPassword";
+
+    if ( url.ToLower().Contains( "credentialfinder.net" ) && !Request.Url.IsLoopback )
+    {
+        forgotpassword = "http://credentialfinder.net/Account/ForgotYourPassword";
+    } else  if ( Request.Url.IsLoopback )
+    {
+        forgotpassword = "https://localhost:44315/Account/ForgotYourPassword";
+    }
+    var user = AccountServices.GetCurrentUser();
+}
+
 
 @{
     ViewBag.Title = "Login";
@@ -33,7 +47,7 @@
         }
         <div id="helpLinks">
             <a href="@Url.Content( "~/Account/Register" )">Register a new account</a>
-            <a href="@Url.Content( "~/Account/ForgotPassword" )">Forgot your password?</a>
+            <a href="@Url.Content( @forgotpassword )">Forgot your password?</a>
         </div>
     </div>
     <div id="thirdPartyBox" class="column">

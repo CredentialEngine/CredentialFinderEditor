@@ -18,7 +18,7 @@ using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
 namespace Factories
 {
-	public class Entity_LearningOpportunityManager
+	public class Entity_LearningOpportunityManager : BaseFactory
 	{
 		static string thisClassName = "Entity_LearningOpportunityManager";
 
@@ -28,9 +28,12 @@ namespace Factories
 		/// </summary>
 		/// <param name="parentUid"></param>
 		/// <param name="forEditView"></param>
-		/// <param name="newVersion"></param>
+		/// <param name="forProfilesList"></param>
 		/// <returns></returns>
-		public static List<ThisEntity> LearningOpps_GetAll( Guid parentUid, bool forEditView )
+		public static List<ThisEntity> LearningOpps_GetAll( Guid parentUid, 
+					bool forEditView, 
+					bool forProfilesList,
+					bool isForCredentialDetails  = false)
 		{
 			List<ThisEntity> list  = new List<ThisEntity>();
 			ThisEntity entity = new ThisEntity();
@@ -41,14 +44,14 @@ namespace Factories
 				return list;
 			}
 
-			bool includingProperties = false;
+			bool includingProperties = isForCredentialDetails;
 			bool includingProfiles = false;
 			if ( !forEditView )
 			{
 				includingProperties = true;
 				includingProfiles = true;
 			}
-
+			LoggingHelper.DoTrace( 5, string.Format( "Entity_LearningOpps_GetAll: parentUid:{0} entityId:{1}, e.EntityTypeId:{2}", parentUid, parent.Id, parent.EntityTypeId ) );
 			try
 			{
 				using ( var context = new Data.CTIEntities() )
@@ -63,25 +66,48 @@ namespace Factories
 						foreach ( DBentity item in results )
 						{
 							entity = new ThisEntity();
-
-							if ( !forEditView
-							  && CacheManager.IsLearningOpportunityAvailableFromCache( item.Id, ref entity ) )
+							if ( forProfilesList || isForCredentialDetails )
 							{
+								entity.Id = item.LearningOpportunityId;
+								entity.RowId = item.LearningOpportunity.RowId;
+								entity.StatusId = item.LearningOpportunity.StatusId ?? 1;
+								entity.ManagingOrgId = item.LearningOpportunity.ManagingOrgId ?? 0;
+
+								entity.Name = item.LearningOpportunity.Name;
+								entity.Description = item.LearningOpportunity.Description == null ? "" : item.LearningOpportunity.Description;
+
+								entity.SubjectWebpage = item.LearningOpportunity.Url;
+								entity.ctid = item.LearningOpportunity.CTID;
+								//also get costs - really only need the profile list view 
+								entity.EstimatedCost = CostProfileManager.GetAllForList( entity.RowId, forEditView );
+								//get durations - need this for search and compare
+								entity.EstimatedDuration = DurationProfileManager.GetAll( entity.RowId );
+								if ( isForCredentialDetails )
+									LearningOpportunityManager.ToMap_Competencies( entity );
 								list.Add( entity );
+
 							}
 							else
 							{
-								LearningOpportunityManager.ToMap( item.LearningOpportunity, entity,
-									includingProperties,
-									includingProfiles,
-									forEditView, //forEditView
-									false //includeWhereUsed
-									);
-
-								list.Add( entity );
-								if ( !forEditView && entity.HasPart.Count > 0 )
+								if ( !forEditView
+								  && CacheManager.IsLearningOpportunityAvailableFromCache( item.LearningOpportunityId, ref entity ) )
 								{
-									CacheManager.AddLearningOpportunityToCache( entity );
+									list.Add( entity );
+								}
+								else
+								{
+									//to determine minimum needed for a or detail page
+									LearningOpportunityManager.ToMap( item.LearningOpportunity, entity,
+										includingProperties,
+										includingProfiles,
+										forEditView, //forEditView
+										false //includeWhereUsed
+										);
+
+									if ( !forEditView && entity.HasPart.Count > 0 )
+									{
+										CacheManager.AddLearningOpportunityToCache( entity );
+									}
 								}
 							}
 						}
@@ -142,29 +168,36 @@ namespace Factories
 		}
 	
 		#region Entity LearningOpp Persistance ===================
-		public int EntityLearningOpp_Add( int parentId, int entityTypeId,
+		/// <summary>
+		/// Add a learning opp to a parent (typically a stub was created, so can be associated before completing the full profile)
+		/// </summary>
+		/// <param name="parentUid"></param>
+		/// <param name="learningOppId">The just create lopp</param>
+		/// <param name="userId"></param>
+		/// <param name="messages"></param>
+		/// <returns></returns>
+		public int Add( Guid parentUid, 
 					int learningOppId, 
-					int userId, 
-					ref List<string> messages )
+					int userId,
+					bool allowMultiples,
+					ref List<string> messages,
+					bool warnOnDuplicate = true
+			)
 		{
 			int id = 0;
 			int count = messages.Count();
-			if ( parentId == 0 || entityTypeId == 0 )
-			{
-				messages.Add( string.Format( "A valid profile identifier was not provided to the {0}.EntityLearningOpp_Add method.", thisClassName ) );
-			}
 			if ( learningOppId == 0 )
 			{
-				messages.Add( string.Format( "A valid Learning Opportunity identifier was not provided to the {0}.EntityLearningOpp_Add method.", thisClassName ) );
+				messages.Add( string.Format( "A valid Learning Opportunity identifier was not provided to the {0}.Add method.", thisClassName ) );
 			}
 			if ( messages.Count > count )
 				return 0;
-			if ( parentId == learningOppId )
-			{
-				messages.Add("You cannot add the main learning opportunity as a part to itself." );
-				return 0;
-			}
-			Views.Entity_Summary parent = EntityManager.GetDBEntityByBaseId( parentId, entityTypeId );
+			//if ( parentId == learningOppId )
+			//{
+			//	messages.Add("You cannot add the main learning opportunity as a part to itself." );
+			//	return 0;
+			//}
+			Entity parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
 			{
 				messages.Add( "Error - the parent entity was not found.");
@@ -182,10 +215,27 @@ namespace Factories
 
 					if ( efEntity != null && efEntity.Id > 0 )
 					{
-						messages.Add( string.Format( "Error - this LearningOpp has already been added to this profile.", thisClassName ) );
+						if ( warnOnDuplicate )
+						{
+							messages.Add( string.Format( "Error - this Learning Opportunity has already been added to this profile.", thisClassName ) );
+						}
 						return 0;
 					}
 
+					if ( allowMultiples == false )
+					{
+						//check if one exists, and replace if found
+						efEntity = context.Entity_LearningOpportunity
+							.FirstOrDefault( s => s.EntityId == parent.Id );
+						if ( efEntity != null && efEntity.Id > 0 )
+						{
+							efEntity.LearningOpportunityId = learningOppId;
+
+							count = context.SaveChanges();
+
+							return efEntity.Id;
+						}
+					}
 					efEntity = new DBentity();
 					efEntity.EntityId = parent.Id;
 					efEntity.LearningOpportunityId = learningOppId;
@@ -207,37 +257,29 @@ namespace Factories
 					{
 						//?no info on error
 						messages.Add( "Error - the add was not successful." );
-						string message = thisClassName + string.Format( ".EntityLearningOpp_Add Failed", "Attempted to add a LearningOpp for a connection profile. The process appeared to not work, but there was no exception, so we have no message, or no clue. Parent Profile: {0}, learningOppId: {1}, createdById: {2}", parentId, learningOppId, userId );
-						EmailManager.NotifyAdmin( thisClassName + ".EntityLearningOpp_Add Failed", message );
+						string message = thisClassName + string.Format( ".Add Failed", "Attempted to add a LearningOpp for a connection profile. The process appeared to not work, but there was no exception, so we have no message, or no clue. Parent Profile: {0}, learningOppId: {1}, createdById: {2}", parent.Id, learningOppId, userId );
+						EmailManager.NotifyAdmin( thisClassName + ".Add Failed", message );
 					}
 				}
 				catch ( System.Data.Entity.Validation.DbEntityValidationException dbex )
 				{
-					string message = thisClassName + string.Format( ".EntityLearningOpp_Add() DbEntityValidationException, Parent Profile: {0}, learningOppId: {1}, createdById: {2}", parentId, learningOppId, userId );
-					messages.Add( "Error - missing fields." );
-					foreach ( var eve in dbex.EntityValidationErrors )
-					{
-						message += string.Format( "\rEntity of type \"{0}\" in state \"{1}\" has the following validation errors:",
-							eve.Entry.Entity.GetType().Name, eve.Entry.State );
-						foreach ( var ve in eve.ValidationErrors )
-						{
-							message += string.Format( "- Property: \"{0}\", Error: \"{1}\"",
-								ve.PropertyName, ve.ErrorMessage );
-						}
+					string message = HandleDBValidationError( dbex, thisClassName + ".Add() ", "Entity_LearningOpp" );
+					messages.Add( "Error - the save was not successful. " + message );
+					LoggingHelper.LogError( dbex, thisClassName + string.Format( ".Save(), Parent: {0} ({1})", parent.EntityBaseName, parent.EntityBaseId ) );
 
-						LoggingHelper.LogError( message, true );
-					}
 				}
 				catch ( Exception ex )
 				{
-					LoggingHelper.LogError( ex, thisClassName + string.Format( ".EntityLearningOpp_Add(), Parent Profile: {0}, Type: {1}, learningOppId: {2}, createdById: {3}", parentId, parent.EntityType, learningOppId, userId ) );
+					string message = FormatExceptions( ex );
+					messages.Add( "Error - the save was not successful. " + message );
+					LoggingHelper.LogError( ex, thisClassName + string.Format( ".Save(), Parent: {0} ({1})", parent.EntityBaseName, parent.EntityBaseId ) );
 				}
 
 
 			}
 			return id;
 		}
-
+		
 		/// <summary>
 		/// Delete a learning opportunity from a parent entity
 		/// </summary>
@@ -246,21 +288,16 @@ namespace Factories
 		/// <param name="learningOppId"></param>
 		/// <param name="statusMessage"></param>
 		/// <returns></returns>
-		public bool EntityLearningOpp_Delete( int parentId, int entityTypeId, int learningOppId, ref string statusMessage )
+		public bool Delete( Guid parentUid, int learningOppId, ref string statusMessage )
 		{
 			bool isValid = false;
-			if ( parentId == 0 || entityTypeId == 0 )
-			{
-				statusMessage = "Error - missing an identifier for the connection profile to remove the LearningOpp.";
-				return false;
-			}
 			if ( learningOppId == 0 )
 			{
 				statusMessage = "Error - missing an identifier for the LearningOpp to remove";
 				return false;
 			}
 			//need to get Entity.Id 
-			Views.Entity_Summary parent = EntityManager.GetDBEntityByBaseId( parentId, entityTypeId );
+			Entity parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
 			{
 				statusMessage = "Error - the parent entity was not found.";
@@ -282,43 +319,44 @@ namespace Factories
 				}
 				else
 				{
-					statusMessage = "Error - delete failed, as record was not found.";
+					statusMessage = "Warning - the record was not found - probably because the target had been previously deleted";
+					isValid = true;
 				}
 			}
 
 			return isValid;
 		}
+		
+		//public bool EntityLearningOpp_Delete( int Id, ref string statusMessage )
+		//{
+		//	bool isValid = false;
+		//	if ( Id == 0 )
+		//	{
+		//		statusMessage = "Error - missing an identifier for the Learning Opportunity to remove";
+		//		return false;
+		//	}
+		//	using ( var context = new Data.CTIEntities() )
+		//	{
+		//		DBentity efEntity = context.Entity_LearningOpportunity
+		//					.SingleOrDefault( s => s.Id == Id );
 
-		public bool EntityLearningOpp_Delete( int Id, ref string statusMessage )
-		{
-			bool isValid = false;
-			if ( Id == 0 )
-			{
-				statusMessage = "Error - missing an identifier for the Learning Opportunity to remove";
-				return false;
-			}
-			using ( var context = new Data.CTIEntities() )
-			{
-				DBentity efEntity = context.Entity_LearningOpportunity
-							.SingleOrDefault( s => s.Id == Id );
+		//		if ( efEntity != null && efEntity.Id > 0 )
+		//		{
+		//			context.Entity_LearningOpportunity.Remove( efEntity );
+		//			int count = context.SaveChanges();
+		//			if ( count > 0 )
+		//			{
+		//				isValid = true;
+		//			}
+		//		}
+		//		else
+		//		{
+		//			statusMessage = "Error - delete failed, as record was not found.";
+		//		}
+		//	}
 
-				if ( efEntity != null && efEntity.Id > 0 )
-				{
-					context.Entity_LearningOpportunity.Remove( efEntity );
-					int count = context.SaveChanges();
-					if ( count > 0 )
-					{
-						isValid = true;
-					}
-				}
-				else
-				{
-					statusMessage = "Error - delete failed, as record was not found.";
-				}
-			}
-
-			return isValid;
-		}
+		//	return isValid;
+		//}
 
 		#endregion
 	}
