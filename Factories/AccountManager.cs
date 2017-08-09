@@ -27,9 +27,9 @@ namespace Factories
 		static int SiteStaff = 3;
 		static int SitePartner = 4;
 		static int SiteReader = 5;
-
+		static string SessionLoginProxy = "Session Login Proxy";
 		#region persistance 
-		public int Account_Add( AppUser entity, ref string statusMessage )
+		public int Add( AppUser entity, ref string statusMessage )
 		{
 			EM.Account efEntity = new EM.Account();
 			using ( var context = new Data.CTIEntities() )
@@ -149,7 +149,7 @@ namespace Factories
 			return efEntity.Id;
 		}
 
-		public bool Account_Update( AppUser entity, ref string statusMessage )
+		public bool Update( AppUser entity, ref string statusMessage )
 		{
 			using ( var context = new EM.CTIEntities() )
 			{
@@ -161,24 +161,29 @@ namespace Factories
 					if ( efEntity != null && efEntity.Id > 0 )
 					{
 						AppUser_FromMap( entity, efEntity );
-						efEntity.LastUpdated = System.DateTime.Now;
+						context.Entry( efEntity ).State = System.Data.Entity.EntityState.Modified;
 
-						// submit the change to database
-						int count = context.SaveChanges();
-						if ( count > 0 )
+						if ( HasStateChanged( context ) )
 						{
-							statusMessage = "successful";
-							//arbitrarily update AspNetUsers???
-							AspNetUsers_Update( entity, ref statusMessage );
+							efEntity.LastUpdated = System.DateTime.Now;
 
-							return true;
-						}
-						else
-						{
-							//?no info on error
-							statusMessage = "Error - the update was not successful. ";
-							string message = string.Format( thisClassName + ".Account_Update Failed", "Attempted to uddate a Account. The process appeared to not work, but was not an exception, so we have no message, or no clue.Email: {0}", entity.Email );
-							EmailManager.NotifyAdmin( thisClassName +  ". Account_Update Failed", message );
+							// submit the change to database
+							int count = context.SaveChanges();
+							if ( count > 0 )
+							{
+								statusMessage = "successful";
+								//arbitrarily update AspNetUsers???
+								AspNetUsers_Update( entity, ref statusMessage );
+
+								return true;
+							}
+							else
+							{
+								//?no info on error
+								statusMessage = "Error - the update was not successful. ";
+								string message = string.Format( thisClassName + ".Account_Update Failed", "Attempted to uddate a Account. The process appeared to not work, but was not an exception, so we have no message, or no clue.Email: {0}", entity.Email );
+								EmailManager.NotifyAdmin( thisClassName + ". Account_Update Failed", message );
+							}
 						}
 					}
 
@@ -192,7 +197,41 @@ namespace Factories
 			return false;
 		}
 
-		public bool AspNetUsers_Update( AppUser entity, ref string statusMessage )
+		public bool Delete( int userId, ref string statusMessage )
+		{
+			using ( var context = new EM.CTIEntities() )
+			{
+				try
+				{
+					EM.Account efEntity = context.Account
+							.SingleOrDefault( s => s.Id == userId );
+					if ( efEntity != null && efEntity.Id > 0 )
+					{
+						efEntity.IsActive = false;
+						efEntity.LastUpdated = System.DateTime.Now;
+						int count = context.SaveChanges();
+						//add activity log (usually in caller method)
+
+						//need to handle AspNetUsers
+						AspNetUsers_LockOut( efEntity.AspNetId, ref statusMessage );
+					}
+
+
+				}
+				catch ( Exception ex )
+				{
+					//LoggingHelper.LogError( ex, thisClassName + string.Format( ".Delete(), Email: {0}", entity.Email ) );
+				}
+			}
+
+			return false;
+		}
+
+		#endregion
+
+		#region ====== AspNetUsers ======
+
+		public static bool AspNetUsers_Update( AppUser entity, ref string statusMessage )
 		{
 			using ( var context = new EM.CTIEntities() )
 			{
@@ -206,6 +245,7 @@ namespace Factories
 						efEntity.FirstName = entity.FirstName;
 						efEntity.LastName = entity.LastName;
 						efEntity.Email = entity.Email;
+						efEntity.EmailConfirmed = true;
 						//could be dangerous, as hidden??
 						//efEntity.UserName = entity.UserName;
 
@@ -226,7 +266,7 @@ namespace Factories
 								EmailManager.NotifyAdmin( thisClassName + "AspNetUsers_Update Failed", message );
 							}
 						}
-						
+
 					}
 
 				}
@@ -238,16 +278,180 @@ namespace Factories
 
 			return false;
 		}
+		public static bool AspNetUsers_LockOut( string aspNetUserId, ref string statusMessage )
+		{
+			using ( var context = new EM.CTIEntities() )
+			{
+				try
+				{
+					EM.AspNetUsers efEntity = context.AspNetUsers
+							.SingleOrDefault( s => s.Id == aspNetUserId );
 
-		#endregion 
+					if ( efEntity != null && efEntity.UserId > 0 )
+					{
+						efEntity.LockoutEnabled = true;
+
+						if ( HasStateChanged( context ) )
+						{
+							// submit the change to database
+							int count = context.SaveChanges();
+							if ( count > 0 )
+							{
+								statusMessage = "successful";
+								return true;
+							}
+							else
+							{
+								//?no info on error
+								statusMessage = "Error - the lockout was not successful. ";
+								string message = string.Format( thisClassName + ".AspNetUsers_LockOut Failed", "Attempted to update AspNetUsers for lockout. The process appeared to not work, but was not an exception, so we have no message, or no clue.Email: {0}", efEntity.Email );
+								EmailManager.NotifyAdmin( thisClassName + "AspNetUsers_LockOut Failed", message );
+							}
+						}
+
+					}
+
+				}
+				catch ( Exception ex )
+				{
+					LoggingHelper.LogError( ex, thisClassName + string.Format( ".AspNetUsers_LockOut(), aspNetUserId: {0}", aspNetUserId ) );
+				}
+			}
+
+			return false;
+		}
+
+		public bool AspNetUsers_UpdateEmailConfirmed( string id, ref string statusMessage )
+		{
+			using ( var context = new EM.CTIEntities() )
+			{
+				EM.AspNetUsers efEntity = context.AspNetUsers
+							.SingleOrDefault( s => s.Id == id );
+				try
+				{
+					if ( efEntity != null && efEntity.UserId > 0 )
+					{
+						efEntity.EmailConfirmed = true;
+
+						if ( HasStateChanged( context ) )
+						{
+							// submit the change to database
+							int count = context.SaveChanges();
+							if ( count > 0 )
+							{
+								statusMessage = "successful";
+								return true;
+							}
+							else
+							{
+								//?no info on error
+								statusMessage = "Error - the update of EmailConfirmed was not successful. ";
+								string message = string.Format( thisClassName + ".AspNetUsers_Update Failed", "Attempted to update AspNetUsers.EmailConfirmed. The process appeared to not work, but was not an exception, so we have no message, or no clue.Email: {0}", efEntity.Email );
+								EmailManager.NotifyAdmin( thisClassName + "AspNetUsers_UpdateEmailConfirmed Failed", message );
+							}
+						}
+						return true;
+					}
+
+				}
+				catch ( Exception ex )
+				{
+					LoggingHelper.LogError( ex, thisClassName + string.Format( ".AspNetUsers_UpdateEmailConfirmed(), Email: {0}", efEntity.Email ) );
+				}
+			}
+
+			return false;
+		}
+		public bool AspNetUsers_UpdateEmailConfirmedByEmail( string email, ref string statusMessage )
+		{
+			using ( var context = new EM.CTIEntities() )
+			{
+				EM.AspNetUsers efEntity = context.AspNetUsers
+							.SingleOrDefault( s => s.Email == email );
+				try
+				{
+					if ( efEntity != null && efEntity.UserId > 0 )
+					{
+						efEntity.EmailConfirmed = true;
+
+						if ( HasStateChanged( context ) )
+						{
+							// submit the change to database
+							int count = context.SaveChanges();
+							if ( count > 0 )
+							{
+								statusMessage = "successful";
+								return true;
+							}
+							else
+							{
+								//?no info on error
+								statusMessage = "Error - the update of EmailConfirmed was not successful. ";
+								string message = string.Format( thisClassName + ".AspNetUsers_UpdateEmailConfirmedByEmail Failed", "Attempted to update AspNetUsers.EmailConfirmed. The process appeared to not work, but was not an exception, so we have no message, or no clue.Email: {0}", efEntity.Email );
+								EmailManager.NotifyAdmin( thisClassName + "AspNetUsers_UpdateEmailConfirmedByEmail Failed", message );
+							}
+						}
+						return true;
+					}
+
+				}
+				catch ( Exception ex )
+				{
+					LoggingHelper.LogError( ex, thisClassName + string.Format( ".AspNetUsers_UpdateEmailConfirmedByEmail(), Email: {0}", efEntity.Email ) );
+				}
+			}
+
+			return false;
+		}
+
+
+		public static EM.AspNetUsers AspNetUser_Get( string email )
+		{
+			EM.AspNetUsers entity = new EM.AspNetUsers();
+			using ( var context = new Data.CTIEntities() )
+			{
+				entity = context.AspNetUsers
+							.SingleOrDefault( s => s.Email.ToLower() == email.ToLower() );
+
+				if ( entity != null && entity.Email != null && entity.Email.Length > 5 )
+				{
+
+				}
+			}
+
+			return entity;
+		}
+
+		#endregion
 
 		#region retrieval
+		/// <summary>
+		/// Get user using View: Account_Summary
+		/// </summary>
+		/// <param name="Id"></param>
+		/// <returns></returns>
 		public static AppUser AppUser_Get( int Id )
 		{
 			AppUser entity = new AppUser();
 			using ( var context = new ViewContext() )
 			{
-				Views.Account_Summary item = context.Account_Summary
+				Views.Account_Summary item = context.Account_Summary.SingleOrDefault( s => s.Id == Id );
+
+				if ( item != null && item.Id > 0 )
+				{
+					ToMap( item, entity );
+				}
+			}
+
+			return entity;
+		}
+		public static AppUser Get( int Id )
+		{
+			AppUser entity = new AppUser();
+			using ( var context = new Data.CTIEntities() )
+			{
+				//this method may be bringing back to much info - evaluate
+				EM.Account item = context.Account
 							.SingleOrDefault( s => s.Id == Id );
 
 				if ( item != null && item.Id > 0 )
@@ -264,7 +468,7 @@ namespace Factories
 			using ( var context = new ViewContext() )
 			{
 				Views.Account_Summary efEntity = context.Account_Summary
-							.SingleOrDefault( s => s.Email.ToLower() == email.ToLower() );
+							.FirstOrDefault( s => s.Email.ToLower() == email.ToLower() );
 
 				if ( efEntity != null && efEntity.Id > 0 )
 				{
@@ -289,6 +493,14 @@ namespace Factories
 			}
 
 			return entity;
+		}
+
+		public static List<Views.AspNetUserRoles_Summary> GetUserRoles( int userId )
+		{
+			using ( var context = new ViewContext() )
+			{
+				return context.AspNetUserRoles_Summary.Where( x => x.Id == userId ).ToList();
+			}
 		}
 
 		public static AppUser AppUser_GetByKey( string aspNetId )
@@ -324,23 +536,6 @@ namespace Factories
 			return entity;
 		}
 
-		public static EM.AspNetUsers AspNetUser_Get( string email )
-		{
-			EM.AspNetUsers entity = new EM.AspNetUsers();
-			using ( var context = new Data.CTIEntities() )
-			{
-				entity = context.AspNetUsers
-							.SingleOrDefault( s => s.Email.ToLower() == email.ToLower() );
-
-				if ( entity != null && entity.Email != null && entity.Email.Length > 5 )
-				{
-					
-				}
-			}
-
-			return entity;
-		}
-
 		public static List<AppUser> Search( string pFilter, string pOrderBy, int pageNumber, int pageSize, ref int pTotalRows, int userId = 0 )
 		{
 			string connectionString = DBConnectionRO();
@@ -362,7 +557,7 @@ namespace Factories
 					command.Parameters.Add( new SqlParameter( "@Filter", pFilter ) );
 					command.Parameters.Add( new SqlParameter( "@SortOrder", pOrderBy ) );
 					command.Parameters.Add( new SqlParameter( "@StartPageIndex", pageNumber ) );
-					command.Parameters.Add( new SqlParameter( "@PageSize", pageSize ) );
+					command.Parameters.Add( new SqlParameter( "@PageSize", pageSize == -1 ? 0 : pageSize ) );
 					command.Parameters.Add( new SqlParameter( "@CurrentUserId", userId ) );
 
 					SqlParameter totalRows = new SqlParameter( "@TotalRows", pTotalRows );
@@ -395,6 +590,11 @@ namespace Factories
 					item.RowId = new Guid( rowId );
 
 					item.Email = GetRowColumn( dr, "Email", "" );
+					item.Roles = GetRowColumn( dr, "Roles", "" );
+					item.OrgMbrs = GetRowColumn( dr, "OrgMbrs", "" );
+                    item.lastLogon = GetRowColumn( dr, "lastLogon", "" );
+					if ( IsValidDate( item.lastLogon ) )
+						item.lastLogon = item.lastLogon.Substring( 0, 10 );
 
 					list.Add( item );
 				}
@@ -406,7 +606,7 @@ namespace Factories
 		public static List<AppUser> ImportUsers_GetAll( int maxRecords = 0 )
 		{
 			if ( maxRecords == 0 )
-				maxRecords = 60;
+				maxRecords = 100;
 			int pTotalRows = 0;
 			AppUser item = new AppUser();
 			List<AppUser> list = new List<AppUser>();
@@ -415,7 +615,7 @@ namespace Factories
 			{
 				var Query = from Results in context.AspNetUser_Import
 						.Where( s => s.IsImported == false )
-						.OrderBy( s => s.Id	 )
+						.OrderBy( s => s.Id )
 							select Results;
 
 				pTotalRows = Query.Count();
@@ -431,9 +631,10 @@ namespace Factories
 						item.FirstName = row.FirstName;
 						item.LastName = row.LastName;
 						item.Email = row.Email;
+						item.Password = row.InitialPassword ?? "";
 						item.PrimaryOrgId = ( int ) ( row.OrgId ?? 0 );
 						item.DefaultRoleId = ( int ) ( row.DefaultRoleId ?? 0 );
-						
+
 						list.Add( item );
 
 					}
@@ -524,14 +725,20 @@ namespace Factories
 			to.Created = fromEntity.Created;
 			to.LastUpdated = fromEntity.LastUpdated;
 			to.LastUpdatedById = fromEntity.LastUpdatedById == null ? 0 : ( int ) fromEntity.LastUpdatedById;
+			if ( IsValidDate( fromEntity.lastLogon ) )
+			{
+				to.lastLogon = ( ( DateTime ) fromEntity.lastLogon ).ToString( "yyyy-MM-dd" );
+			}
+			else
+				to.lastLogon = "None";
 
-			to.Roles = new List<string>();
+			to.UserRoles = new List<string>();
 			if ( string.IsNullOrWhiteSpace( fromEntity.Roles ) == false )
 			{
 				var roles = fromEntity.Roles.Split( ',' );
 				foreach ( string role in roles )
 				{
-					to.Roles.Add( role );
+					to.UserRoles.Add( role );
 				}
 			}
 
@@ -553,30 +760,43 @@ namespace Factories
 			to.LastUpdated = fromEntity.LastUpdated;
 			to.LastUpdatedById = fromEntity.LastUpdatedById == null ? 0 : ( int ) fromEntity.LastUpdatedById;
 
-			to.Roles = new List<string>();
+			to.UserRoles = new List<string>();
 			if ( fromEntity.AspNetUsers != null )
 			{
 				foreach ( EM.AspNetUserRoles role in fromEntity.AspNetUsers.AspNetUserRoles )
 				{
-					to.Roles.Add( role.AspNetRoles.Name );
+					to.UserRoles.Add( role.AspNetRoles.Name );
+				}
+			}
+
+			if ( fromEntity.Organization_Member != null && fromEntity.Organization_Member.Count > 0 )
+			{
+				foreach ( EM.Organization_Member mbrs in fromEntity.Organization_Member )
+				{
+					//just a light version for now
+					to.Organizations.Add( new CodeItem()
+					{
+						Id = mbrs.Organization.Id,
+						Name = mbrs.Organization.Name
+					} );
 				}
 			}
 
 		} //
-		//NOTE: AspNetRoles is to be a guid, so not likely to use this version
-		//public void GetAllUsersInRole( int roleId )
-		//{
-		//	using ( var context = new Data.CTIEntities() )
-		//	{
-		//		var customers = context.AspNetUsers
-		//			  .Where( u => u.AspNetRoles.Any( r => r.Id == roleId ) )
-		//			  .ToList();
-		//	}
-		//}
+		  //NOTE: AspNetRoles is to be a guid, so not likely to use this version
+		  //public void GetAllUsersInRole( int roleId )
+		  //{
+		  //	using ( var context = new Data.CTIEntities() )
+		  //	{
+		  //		var customers = context.AspNetUsers
+		  //			  .Where( u => u.AspNetRoles.Any( r => r.Id == roleId ) )
+		  //			  .ToList();
+		  //	}
+		  //}
 		private static void AppUser_FromMap( AppUser fromEntity, EM.Account to )
 		{
 			to.Id = fromEntity.Id;
-			to.RowId = fromEntity.RowId;
+			//to.RowId = fromEntity.RowId;
 			to.UserName = fromEntity.UserName;
 			to.AspNetId = fromEntity.AspNetUserId;
 			to.Password = fromEntity.Password;
@@ -592,10 +812,152 @@ namespace Factories
 
 		}
 
-		#endregion 
+		#endregion
+
+		#region Proxies
+
+		public bool Store_ProxyCode( string proxyCode, int userId, string proxyType, int expiryDays, ref string statusMessage )
+		{
+			bool isValid = true;
+			EM.System_ProxyCodes efEntity = new EM.System_ProxyCodes();
+			//string proxyId = "";
+			try
+			{
+				using ( var context = new EM.CTIEntities() )
+				{
+					efEntity.UserId = userId;
+					efEntity.ProxyCode = proxyCode;
+					//assuming if storing existing, likely for identity
+					efEntity.IsIdentityProxy = true;
+					efEntity.Created = System.DateTime.Now;
+					efEntity.ExpiryDate = System.DateTime.Now.AddDays( expiryDays );
+
+					efEntity.IsActive = true;
+					efEntity.ProxyType = proxyType;
+
+					context.System_ProxyCodes.Add( efEntity );
+
+					int count = context.SaveChanges();
+					if ( count > 0 )
+					{
+						statusMessage = "Successful";
+						int id = efEntity.Id;
+
+					}
+					else
+					{
+						//?no info on error
+						return false;
+					}
+				}
+			}
+			catch ( Exception ex )
+			{
+				LoggingHelper.LogError( ex, thisClassName + ".Store_ProxyCode()" );
+				statusMessage = ex.Message;
+				return false;
+			}
+			return isValid;
+		}
+
+		/// <summary>
+		/// Create a proxy guid for requested purpose
+		/// </summary>
+		/// <param name="userId"></param>
+		/// <param name="proxyType"></param>
+		/// <param name="statusMessage"></param>
+		/// <returns></returns>
+		public string Create_ProxyLoginId( int userId, string proxyType, int expiryDays, ref string statusMessage )
+		{
+			EM.System_ProxyCodes efEntity = new EM.System_ProxyCodes();
+			string proxyId = "";
+			try
+			{
+				using ( var context = new EM.CTIEntities() )
+				{
+					efEntity.UserId = userId;
+					efEntity.ProxyCode = Guid.NewGuid().ToString();
+					//assuming if generated, not for identity
+					efEntity.IsIdentityProxy = false;
+					efEntity.Created = System.DateTime.Now;
+					if ( proxyType == SessionLoginProxy )
+					{
+						//expire at midnight - not really good for night owls
+						//efEntity.ExpiryDate = new System.DateTime( DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 23, 59, 59 );
+						efEntity.ExpiryDate = System.DateTime.Now.AddDays( expiryDays );
+					}
+					else
+						efEntity.ExpiryDate = System.DateTime.Now.AddDays( expiryDays );
+
+					efEntity.IsActive = true;
+					efEntity.ProxyType = proxyType;
+
+					context.System_ProxyCodes.Add( efEntity );
+
+					// submit the change to database
+					int count = context.SaveChanges();
+					if ( count > 0 )
+					{
+						statusMessage = "Successful";
+						int id = efEntity.Id;
+						return efEntity.ProxyCode;
+					}
+					else
+					{
+						//?no info on error
+						return proxyId;
+					}
+				}
+			}
+			catch ( Exception ex )
+			{
+				LoggingHelper.LogError( ex, thisClassName + ".Create_Proxy()" );
+				statusMessage = ex.Message;
+				return proxyId;
+			}
+		}
+
+		public bool Proxy_IsCodeActive( string proxyCode )
+		{
+			bool isValid = false;
+			using ( var context = new EM.CTIEntities() )
+			{
+
+				EM.System_ProxyCodes proxy = context.System_ProxyCodes.FirstOrDefault( s => s.ProxyCode == proxyCode );
+				if ( proxy != null && proxy.Id > 0 )
+				{
+					if ( proxy.IsActive
+						&& proxy.ExpiryDate > DateTime.Now )
+						isValid = true;
+				}
+			}
+
+			return isValid;
+
+		}
+		public bool InactivateProxy( string proxyCode, ref string statusMessage )
+		{
+			bool isValid = true;
+			using ( var context = new EM.CTIEntities() )
+			{
+
+				EM.System_ProxyCodes proxy = context.System_ProxyCodes.FirstOrDefault( s => s.ProxyCode == proxyCode );
+				if ( proxy != null && proxy.Id > 0 )
+				{
+					proxy.IsActive = false;
+					proxy.AccessDate = System.DateTime.Now;
+
+					context.SaveChanges();
+				}
+			}
+
+			return isValid;
+
+		}
+		#endregion
 
 		#region Roles
-		public bool Account_AddRole( int userId, int roleId, int createdByUserId, ref string statusMessage )
+		public bool AddRole( int userId, int roleId, int createdByUserId, ref string statusMessage )
 		{
 			bool isValid = true;
 			string aspNetUserId = "";
@@ -619,7 +981,7 @@ namespace Factories
 				statusMessage = "Error - please provide a valid user identifier";
 				return false;
 			}
-		
+
 			EM.AspNetUserRoles efEntity = new EM.AspNetUserRoles();
 			using ( var context = new Data.CTIEntities() )
 			{
@@ -657,7 +1019,8 @@ namespace Factories
 			return isValid;
 		}
 
-		public bool Account_DeleteRole( AppUser entity, int roleId, int createdByUserId, ref string statusMessage )
+
+		public bool DeleteRole( AppUser entity, int roleId, int updatedByUserId, ref string statusMessage )
 		{
 			bool isValid = true;
 
@@ -686,6 +1049,7 @@ namespace Factories
 						if ( count > 0 )
 						{
 							isValid = true;
+							//TODO - add logging here or in the services
 						}
 					}
 					else
@@ -704,6 +1068,51 @@ namespace Factories
 			return isValid;
 		}
 
-		#endregion 
+		public void UpdateRoles( string aspNetUserId, string[] roles )
+		{
+			using ( var db = new Data.CTIEntities() )
+			{
+				try
+				{
+					var existRoles = db.AspNetUserRoles.Where( x => x.UserId == aspNetUserId.ToString() );
+					var oldRoles = existRoles.Select( x => x.RoleId ).ToArray();
+
+					if ( roles == null )
+						roles = new string[] { };
+
+					//Add New Roles Selected
+					roles.Except( oldRoles ).ToList().ForEach( x =>
+					{
+						var userRole = new EM.AspNetUserRoles { UserId = aspNetUserId, RoleId = x, Created = DateTime.Now };
+						db.Entry( userRole ).State = System.Data.Entity.EntityState.Added;
+					} );
+
+					//Delete existing Roles unselected
+					existRoles.Where( x => !roles.Contains( x.RoleId ) ).ToList().ForEach( x =>
+					{
+						db.Entry( x ).State = System.Data.Entity.EntityState.Deleted;
+					} );
+
+					db.SaveChanges();
+				}
+				catch ( Exception ex )
+				{
+					LoggingHelper.LogError( ex, thisClassName + string.Format( ".UpdateRoles(), aspNetUserId: {0}", aspNetUserId ) );
+					//statusMessage = ex.Message;
+
+				}
+			}
+		}
+
+		public static List<EM.AspNetRoles> GetRoles()
+		{
+			using ( var context = new Data.CTIEntities() )
+			{
+				return context.AspNetRoles.Where(s => s.IsActive == true).ToList();
+			}
+		}
+
+
+		#endregion
 	}
 }

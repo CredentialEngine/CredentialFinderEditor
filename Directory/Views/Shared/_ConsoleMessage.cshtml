@@ -1,5 +1,6 @@
 ﻿@using Message = Utilities.ConsoleMessageHelper.ConsoleMessage;
 @using System.Web.Script.Serialization;
+@using Models;
 @{
 	var serializer = new JavaScriptSerializer();
 	var items = HttpContext.Current.Items[ "ConsoleMessage" ] as List<Message> ?? new List<Message>();
@@ -9,6 +10,20 @@
 		item.Id = counter;
 		counter++;
 	}
+    if ( items.Count == 0 )
+    {
+        //check for a session message
+        if ( Session[ "popupMessage" ] != null )
+        {
+            SiteMessage sm = ( SiteMessage ) Session[ "popupMessage" ];
+
+            Message msg = new Message() { Title = sm.Title, FriendlyMessage = sm.Message, MessageType = sm.MessageType };
+            msg.Id = 1;
+            counter++;
+            items.Add( msg );
+            Session.Remove( "popupMessage" );
+        }
+    }
 }
 
 <div id="consoleMessageBox">

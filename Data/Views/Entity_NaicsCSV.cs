@@ -16,5 +16,6 @@ namespace Data.Views
     {
         public int EntityId { get; set; }
         public string Naics { get; set; }
+        public string Others { get; set; }
     }
 }

@@ -26,7 +26,6 @@ namespace Data
         public Nullable<System.DateTime> DateEffective { get; set; }
         public string AssessmentExampleUrl { get; set; }
         public Nullable<int> OrgId { get; set; }
-        public Nullable<System.Guid> AgentUid { get; set; }
         public string Url { get; set; }
         public Nullable<System.DateTime> Created { get; set; }
         public Nullable<int> CreatedById { get; set; }
@@ -37,8 +36,36 @@ namespace Data
         public Nullable<int> StatusId { get; set; }
         public Nullable<int> ManagingOrgId { get; set; }
         public string AvailableOnlineAt { get; set; }
+        public string AvailabilityListing { get; set; }
+        public string AssessmentInformationUrl { get; set; }
+        public string CTID { get; set; }
+        public string CredentialRegistryId { get; set; }
+        public Nullable<System.Guid> OwningAgentUid { get; set; }
+        public string CreditHourType { get; set; }
+        public Nullable<decimal> CreditHourValue { get; set; }
+        public Nullable<int> CreditUnitTypeId { get; set; }
+        public string CreditUnitTypeDescription { get; set; }
+        public Nullable<decimal> CreditUnitValue { get; set; }
+        public string DeliveryTypeDescription { get; set; }
+        public string VerificationMethodDescription { get; set; }
+        public string AssessmentExampleDescription { get; set; }
+        public string AssessmentOutput { get; set; }
+        public string ExternalResearch { get; set; }
+        public Nullable<bool> HasGroupEvaluation { get; set; }
+        public Nullable<bool> HasGroupParticipation { get; set; }
+        public Nullable<bool> IsProctored { get; set; }
+        public string ProcessStandards { get; set; }
+        public string ProcessStandardsDescription { get; set; }
+        public string ScoringMethodDescription { get; set; }
+        public string ScoringMethodExample { get; set; }
+        public string ScoringMethodExampleDescription { get; set; }
+        public Nullable<int> InLanguageId { get; set; }
+        public string VersionIdentifier { get; set; }
     
         public virtual Organization Organization { get; set; }
         public virtual ICollection<Entity_Assessment> Entity_Assessment { get; set; }
+        public virtual Account Account_Creator { get; set; }
+        public virtual Account Account_Modifier { get; set; }
+        public virtual Codes_Language Codes_Language { get; set; }
     }
 }

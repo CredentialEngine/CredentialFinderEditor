@@ -126,6 +126,7 @@ form .email { width: 400px; display: block; }
 .actionButtonNew, input.actionButtonNew { background-color: #9f269b; border-color: #179E97; color: #FFF; }
 .actionButtonNew:hover, .actionButtonNew:focus, input.actionButtonNew:hover, input.actionButtonNew:focus { background-color: #e983e1; color: #FFF; }
 /* Validation */
+
 .field-validation-error { color: #b94a48; }
 .field-validation-valid { display: none; }
 input.input-validation-error { border: 1px solid #b94a48; }

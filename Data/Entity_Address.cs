@@ -32,8 +32,11 @@ namespace Data
         public System.DateTime LastUpdated { get; set; }
         public Nullable<int> LastUpdatedById { get; set; }
         public string Country { get; set; }
+        public string PostOfficeBoxNumber { get; set; }
     
         public virtual Entity Entity { get; set; }
         public virtual Codes_Countries Codes_Countries { get; set; }
+        public virtual Account Account_Creator { get; set; }
+        public virtual Account Account_Modifier { get; set; }
     }
 }

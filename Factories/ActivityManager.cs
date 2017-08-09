@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.SqlClient;
 using System.Data.Entity;
 using System.Linq;
 using System.Text;
@@ -7,6 +9,8 @@ using System.Threading.Tasks;
 using System.Web;
 
 using Models;
+using Models.Search;
+using Models.Helpers.Reports;
 using Data;
 using Utilities;
 using Views = Data.Views;
@@ -14,7 +18,7 @@ using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
 namespace Factories
 {
-	public class ActivityManager
+	public class ActivityManager : BaseFactory
 	{
 		private static string thisClassName = "ActivityManager";
 
@@ -220,7 +224,7 @@ namespace Factories
 				{
 					List<ActivityLog> results = context.ActivityLog
 							.Where( s => s.ActivityType == entityType
-									&& s.Activity == "Metadata Registry"
+									&& s.Activity == "Credential Registry"
 									&& s.ActivityObjectId == entityId)
 							.OrderByDescending( s => s.Id )
 							.ToList();
@@ -383,5 +387,301 @@ namespace Factories
 		} //
 
 		#endregion
-	}
+
+		//
+
+		public static List<SiteActivity> SearchToday( BaseSearchModel parms )
+		{
+			string connectionString = DBConnectionRO();
+			SiteActivity entity = new SiteActivity();
+			List<SiteActivity> list = new List<SiteActivity>();
+			if ( parms.PageSize == 0 )
+				parms.PageSize = 25;
+			int skip = 0;
+			if ( parms.PageNumber > 1 )
+				skip = ( parms.PageNumber - 1 ) * parms.PageSize;
+			if ( string.IsNullOrWhiteSpace( parms.OrderBy ) )
+			{
+				parms.OrderBy = "CreatedDate";
+				parms.IsDescending = true;
+			}
+
+			using ( var context = new ViewContext() )
+			{
+				// will only return today
+				//var query = from Results in context.Activity_Today_Summary
+				//		.Where( s => ( s.Activity.Contains( keyword )
+				//		|| ( s.Event.Contains( keyword ) )
+				//		|| ( s.Comment.Contains( keyword ) )
+				//		) )
+				//		.OrderBy( s => s.Name )
+				//			select Results;
+				var query = from Results in context.Activity_Today_Summary
+							select Results;
+				if ( !string.IsNullOrWhiteSpace( parms.Keyword ) )
+				{
+					query = from Results in query
+							.Where( s => ( s.Activity.Contains( parms.Keyword )
+							|| ( s.Event.Contains( parms.Keyword ) )
+							|| ( s.Comment.Contains( parms.Keyword ) )
+							) )
+							select Results;
+				}
+				parms.TotalRows = query.Count();
+				if ( parms.IsDescending )
+				{
+					query = query.OrderByDescending( p => parms.OrderBy );
+				}
+				else
+				{
+					query = query.OrderBy( p => parms.OrderBy );
+				}
+
+				var results = query.Skip( skip ).Take( parms.PageSize )
+					.ToList();
+
+				//List<Views.Activity_Today_Summary> results = context.Activity_Today_Summary
+				//	.Where( s =>  ( s.Activity.Contains( keyword )
+				//		|| ( s.Event.Contains( keyword ) )
+				//		|| ( s.Comment.Contains( keyword ) )
+				//		))
+				//	.Take( pageSize )
+				//	.OrderBy( x => x.CreatedDate )
+				//	.ToList();
+
+				if ( results != null && results.Count > 0 )
+				{
+					foreach ( Views.Activity_Today_Summary item in results )
+					{
+						entity = new SiteActivity();
+						entity.Id = item.Id;
+						entity.Activity = item.Activity;
+						entity.Event = item.Event;
+						entity.Comment = item.Comment;
+						entity.Created = (DateTime)item.CreatedDate;
+						entity.ActionByUser = item.ActionByUser;
+						entity.Referrer = entity.Referrer;
+
+						list.Add( entity );
+					}
+
+				}
+			}
+
+			return list;
+
+		}
+
+
+		//	using ( var context = new Data.CTIEntities() )
+		//	{
+		//		var Query = from Results in context.Credential
+		//				.Where( s => s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED )
+		//				.OrderBy( s => s.Name )
+		//					select Results;
+
+		//		pTotalRows = Query.Count();
+		//		var results = Query.Skip( skip ).Take( pageSize )
+		//			.ToList();
+
+		//		//List<EM.Organization> results2 = context.Organization
+		//		//	.Where( s => keyword == "" || s.Name.Contains( keyword ) )
+		//		//	.Take( pageSize )
+		//		//	.OrderBy( s => s.Name )
+		//		//	.ToList();
+
+		//		if ( results != null && results.Count > 0 )
+		//		{
+		//			foreach ( EM.Credential item in results )
+		//			{
+		//				entity = new ME.Credential();
+		//				ToMap( item, entity );
+		//				list.Add( entity );
+		//			}
+		//		}
+		//	}
+		public static List<SiteActivity> SearchAll( BaseSearchModel parms )
+		{
+			string connectionString = DBConnectionRO();
+			SiteActivity entity = new SiteActivity();
+			List<SiteActivity> list = new List<SiteActivity>();
+			if ( parms.PageSize == 0 )
+				parms.PageSize = 25;
+			int skip = 0;
+			if ( parms.PageNumber > 1 )
+				skip = ( parms.PageNumber - 1 ) * parms.PageSize;
+			if ( string.IsNullOrWhiteSpace( parms.OrderBy ) )
+			{
+				parms.OrderBy = "CreatedDate";
+				parms.IsDescending = true;
+			}
+			if ( parms.StartDate == null || parms.StartDate < new DateTime( 2015, 1, 1 ) )
+				parms.StartDate = new DateTime( 2015, 1, 1 );
+			if ( parms.EndDate == null || parms.EndDate < new DateTime( 2015, 1, 1 ) )
+				parms.EndDate = DateTime.Now;
+
+			using ( var context = new ViewContext() )
+			{
+				var query = from Results in context.Activity_Summary
+							.Where( s => s.Activity != "Session" )
+							select Results;
+				if ( !string.IsNullOrWhiteSpace( parms.Keyword ) )
+				{
+					query = from Results in query
+							.Where( s => ( s.Activity.Contains( parms.Keyword )
+							|| ( s.Event.Contains( parms.Keyword ) )
+							|| ( s.Comment.Contains( parms.Keyword ) )
+							) )
+							select Results;
+				}
+				parms.TotalRows = query.Count();
+				if ( parms.IsDescending )
+				{
+					if ( parms.OrderBy =="CreatedDate")
+						query = query.OrderByDescending( p => p.CreatedDate );
+					else if ( parms.OrderBy == "Activity" )
+						query = query.OrderByDescending( p => p.Activity );
+					else if ( parms.OrderBy == "Event" )
+						query = query.OrderByDescending( p => p.Event );
+					else if ( parms.OrderBy == "ActionByUser" )
+						query = query.OrderByDescending( p => p.ActionByUser );
+					else
+						query = query.OrderByDescending( p => p.CreatedDate );
+				}
+				else
+				{
+					if ( parms.OrderBy == "CreatedDate" )
+						query = query.OrderBy( p => p.CreatedDate );
+					else if ( parms.OrderBy == "Activity" )
+						query = query.OrderBy( p => p.Activity );
+					else if ( parms.OrderBy == "Event" )
+						query = query.OrderBy( p => p.Event );
+					else if ( parms.OrderBy == "ActionByUser" )
+						query = query.OrderBy( p => p.ActionByUser );
+
+					else
+						query = query.OrderBy( p => p.CreatedDate );
+				}
+
+				var results = query.Skip( skip ).Take( parms.PageSize )
+					.ToList();
+				if ( results != null && results.Count > 0 )
+				{
+					foreach ( Views.Activity_Summary item in results )
+					{
+						entity = new SiteActivity();
+						entity.Id = item.Id;
+						entity.Activity = item.Activity;
+						entity.Event = item.Event;
+						entity.Comment = item.Comment;
+						entity.Created = ( DateTime ) item.CreatedDate;
+						entity.ActionByUser = item.ActionByUser;
+						entity.Referrer = entity.Referrer;
+						list.Add( entity );
+					}
+				}
+			}
+
+
+
+			return list;
+
+		} //
+
+		public static List<SiteActivity> Search( string pFilter, string pOrderBy, int pageNumber, int pageSize, ref int pTotalRows, int userId = 0 )
+		{
+			string connectionString = DBConnectionRO();
+			SiteActivity item = new SiteActivity();
+			List<SiteActivity> list = new List<SiteActivity>();
+			var result = new DataTable();
+			using ( SqlConnection c = new SqlConnection( connectionString ) )
+			{
+				c.Open();
+
+				if ( string.IsNullOrEmpty( pFilter ) )
+				{
+					pFilter = "";
+				}
+
+				using ( SqlCommand command = new SqlCommand( "Activity_Search", c ) )
+				{
+					command.CommandType = CommandType.StoredProcedure;
+					command.Parameters.Add( new SqlParameter( "@Filter", pFilter ) );
+					command.Parameters.Add( new SqlParameter( "@SortOrder", pOrderBy ) );
+					command.Parameters.Add( new SqlParameter( "@StartPageIndex", pageNumber ) );
+					command.Parameters.Add( new SqlParameter( "@PageSize", pageSize ) );
+
+					SqlParameter totalRows = new SqlParameter( "@TotalRows", pTotalRows );
+					totalRows.Direction = ParameterDirection.Output;
+					command.Parameters.Add( totalRows );
+
+					using ( SqlDataAdapter adapter = new SqlDataAdapter() )
+					{
+						adapter.SelectCommand = command;
+						adapter.Fill( result );
+					}
+					string rows = command.Parameters[ 4 ].Value.ToString();
+					try
+					{
+						pTotalRows = Int32.Parse( rows );
+					}
+					catch
+					{
+						pTotalRows = 0;
+					}
+				}
+
+				foreach ( DataRow dr in result.Rows )
+				{
+					item = new SiteActivity();
+					item.Id = GetRowColumn( dr, "Id", 0 );
+					item.CreatedDate = GetRowColumn( dr, "CreatedDate", DateTime.Now );
+					item.ActivityType = GetRowColumn( dr, "ActivityType", "ActivityType" );
+					item.Activity = GetRowColumn( dr, "Activity", "" );
+					item.Event = GetRowColumn( dr, "Event", "" );
+					item.Comment = GetRowColumn( dr, "Comment", "" );
+					item.ActionByUser = GetRowColumn( dr, "ActionByUser", "" );
+					item.Referrer = GetRowColumn( dr, "Referrer", "" );
+					item.ActivityObjectId = GetRowColumn( dr, "ActivityObjectId", 0 );
+					item.IPAddress = GetRowColumn( dr, "IPAddress", "" );
+
+					list.Add( item );
+				}
+
+				return list;
+
+			}
+		}
+
+		public static CommonTotals SiteTotals_Get()
+		{
+			CommonTotals entity = new CommonTotals();
+			using ( var context = new ViewContext() )
+			{
+				Views.SiteTotalsSummary item = context.SiteTotalsSummaries
+						.SingleOrDefault( s => s.Id == 1 );
+
+				if ( item != null && item.Id > 0 )
+				{
+					entity.TotalOrganizations = GetField(item.TotalOrgs);
+					entity.TotalPartnerOrganizations = GetField( item.TotalDirectOrgs );
+					entity.TotalOtherOrganizations = entity.TotalOrganizations - entity.TotalPartnerOrganizations;
+					entity.TotalQAOrganizations = GetField(item.TotalQAOrgs);
+
+					entity.TotalEnteredCredentials = GetField( item.TotalEnteredCredentials );
+					entity.TotalPartnerCredentials = GetField( item.TotalPartnerCredentials );
+					entity.TotalPendingCredentials = GetField( item.TotalPendingCredentials );
+					entity.TotalDirectCredentials = GetField( item.TotalDirectCredentials );
+					entity.TotalOtherOrganizations = entity.TotalPartnerCredentials - entity.TotalDirectCredentials;
+
+
+					entity.TotalCredentialsAtCurrentCtdl = GetField( item.TotalCredentialsAtCurrentCtdl );
+					entity.TotalCredentialsToBeUpdatedToCurrentCtdl = GetField( item.TotalCredentialsToBeUpdatedToCurrentCtdl );
+				}
+			}
+
+			return entity;
+		}
+	} 
+
 }

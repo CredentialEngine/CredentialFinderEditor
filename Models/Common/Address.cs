@@ -32,24 +32,30 @@ namespace Models.Common
 		public Address()
 		{
 			GeoCoordinates = new GeoCoordinates();
+			ContactPoint = new List<ContactPoint>();
 		}
 		public string Name { get; set; }
 		public string Address1 { get; set; }
 		public string Address2 { get; set; }
+		public string PostOfficeBoxNumber { get; set; }
+
 		public string City { get; set; }
+		public string AddressLocality { get { return City; } set { City = value; } } //Alias used for publishing
 		public string AddressRegion { get; set; }
 		public string State 
 		{
 			get { return AddressRegion; }
 			set { AddressRegion = value; }
 		}
-		public string StreetAddress { get { return Address1 + ( string.IsNullOrWhiteSpace( Address2 ) ? "" : " " + Address2 ); } }
+		public string StreetAddress { get { return Address1 + ( string.IsNullOrWhiteSpace( Address2 ) ? "" : " " + Address2 ); } set { Address1 = value; } } //Can't determine address1 vs address2
 		public string Country { get; set; }
+		public string AddressCountry { get { return Country; } set { Country = value; } } //Alias used for publishing
 		public int CountryId { get; set; }
 		public string PostalCode { get; set; }
 		public double Latitude { get; set; }
 		public double Longitude { get; set; }
 		public bool IsMainAddress { get; set; }
+		public Guid ParentRowId { get; set; }
 		public string DisplayAddress(string separator = ", ")
 		{
 			string address = "";
@@ -88,6 +94,10 @@ namespace Models.Common
 		/// This may lead to the addition of concrete rowIds as needed to a parent with an address.
 		/// </summary>
 		public GeoCoordinates GeoCoordinates { get; set; }
+
+
+		public List<ContactPoint> ContactPoint { get; set; }
+		public List<ContactPoint> Auto_TargetContactPoint {  get { return ContactPoint; } } //Alias used for publishing
 	}
 	//
 

@@ -28,5 +28,7 @@ namespace Data.Views
         public string AspNetId { get; set; }
         public string Roles { get; set; }
         public System.Guid RowId { get; set; }
+        public string OrgMbrs { get; set; }
+        public Nullable<System.DateTime> lastLogon { get; set; }
     }
 }

@@ -13,14 +13,14 @@ namespace Models.Json
 	{
 		public AssessmentProfile()
 		{
-			type = "ctdl:AssessmentProfile";
+			type = "ceterms:AssessmentProfile";
 		}
 
-		[DataMember( Name = "schema:name" )]
+		[DataMember( Name = "ceterms:name" )]
 		public string name { get; set; }
-		[DataMember( Name = "schema:description" )]
+		[DataMember( Name = "ceterms:description" )]
 		public string description { get; set; }
-		[DataMember( Name = "schema:url" )]
+		[DataMember( Name = "ceterms:url" )]
 		public string url { get; set; }
 
 	}

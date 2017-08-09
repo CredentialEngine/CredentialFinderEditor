@@ -13,10 +13,10 @@ namespace Models.Json
 	{
 		public AuthenticationProfile()
 		{
-			type = "ctdl:AuthenticationProfile";
+			type = "ceterms:AuthenticationProfile";
 		}
 
-		[DataMember( Name = "schema:description" )]
+		[DataMember( Name = "ceterms:description" )]
 		public string description { get; set; }
 
 	}

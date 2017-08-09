@@ -19,8 +19,8 @@ namespace Data
             this.Entity_CostProfileItem = new HashSet<Entity_CostProfileItem>();
             this.Entity_Property = new HashSet<Entity_Property>();
             this.Entity_Reference = new HashSet<Entity_Reference>();
-            this.Credential_ConnectionProfile = new HashSet<Credential_ConnectionProfile>();
             this.Entity_ConditionProfile = new HashSet<Entity_ConditionProfile>();
+            this.Entity_FinancialAlignmentProfile = new HashSet<Entity_FinancialAlignmentProfile>();
         }
     
         public int Id { get; set; }
@@ -34,12 +34,13 @@ namespace Data
         public Nullable<System.DateTime> Created { get; set; }
         public Nullable<int> Totals { get; set; }
         public Nullable<bool> IsSubType1 { get; set; }
+        public string ParentSchemaName { get; set; }
     
         public virtual Codes_PropertyCategory Codes_PropertyCategory { get; set; }
         public virtual ICollection<Entity_CostProfileItem> Entity_CostProfileItem { get; set; }
         public virtual ICollection<Entity_Property> Entity_Property { get; set; }
         public virtual ICollection<Entity_Reference> Entity_Reference { get; set; }
-        public virtual ICollection<Credential_ConnectionProfile> Credential_ConnectionProfile { get; set; }
         public virtual ICollection<Entity_ConditionProfile> Entity_ConditionProfile { get; set; }
+        public virtual ICollection<Entity_FinancialAlignmentProfile> Entity_FinancialAlignmentProfile { get; set; }
     }
 }

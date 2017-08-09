@@ -26,10 +26,12 @@
                 <label>Last Name</label>@Html.TextBoxFor( m => m.LastName )
             </div>
             <div class="input">
-                <label>Password</label>@Html.PasswordFor( m => m.Password, new { title = "Password: Enter at least one upper case letter, one lower case letter and one non-digit/non-letter character." } )
+                <label>Password</label>@Html.PasswordFor( m => m.Password, new { title = "Password: Enter at least one upper case letter, one lower case letter and at least one character that is neither a letter or digit. (E.g. '- $ % _ etc.')" } )
+                <div style="margin-left:150px;">Password: Enter at least one upper case letter, one lower case letter and at least one character that is neither a letter or digit. (E.g. '- $ % _ etc.').</div>
             </div>
             <div class="input">
                 <label>Confirm Password</label>@Html.PasswordFor( m => m.ConfirmPassword, new { title = "Confirm Password - re-enter your password." } )
+                <div style="margin-left:150px;">Confirm Password:Re-enter password.</div>
             </div>
             <div class="buttons">
                 <button type="submit" class="actionButton">Register</button>

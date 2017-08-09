@@ -19,10 +19,12 @@ namespace Data
             this.Assessment = new HashSet<Assessment>();
             this.Credential = new HashSet<Credential>();
             this.LearningOpportunity = new HashSet<LearningOpportunity>();
-            this.Organization_Address = new HashSet<Organization_Address>();
             this.Organization_Member = new HashSet<Organization_Member>();
             this.Organization_PropertyOther = new HashSet<Organization_PropertyOther>();
             this.Organization_Service = new HashSet<Organization_Service>();
+            this.Organization_VerificationStatus = new HashSet<Organization_VerificationStatus>();
+            this.ConditionManifest = new HashSet<ConditionManifest>();
+            this.CostManifest = new HashSet<CostManifest>();
         }
     
         public int Id { get; set; }
@@ -36,23 +38,31 @@ namespace Data
         public Nullable<int> CreatedById { get; set; }
         public Nullable<System.DateTime> LastUpdated { get; set; }
         public Nullable<int> LastUpdatedById { get; set; }
-        public string MainPhoneNumber { get; set; }
-        public string Email { get; set; }
         public Nullable<int> StatusId { get; set; }
         public string Purpose { get; set; }
         public string FoundingDate { get; set; }
         public string CredentialRegistryId { get; set; }
         public string ServiceTypeOther { get; set; }
-        public string FaxNumber { get; set; }
         public string CTID { get; set; }
+        public string AvailabilityListing { get; set; }
+        public string Versioning { get; set; }
+        public string AgentPurposeUrl { get; set; }
+        public string MissionAndGoalsStatement { get; set; }
+        public string MissionAndGoalsStatementDescription { get; set; }
+        public Nullable<bool> ISQAOrganization { get; set; }
+        public string AlternativeIdentifier { get; set; }
     
         public virtual ICollection<Assessment> Assessment { get; set; }
         public virtual Codes_Status Codes_Status { get; set; }
         public virtual ICollection<Credential> Credential { get; set; }
         public virtual ICollection<LearningOpportunity> LearningOpportunity { get; set; }
-        public virtual ICollection<Organization_Address> Organization_Address { get; set; }
         public virtual ICollection<Organization_Member> Organization_Member { get; set; }
         public virtual ICollection<Organization_PropertyOther> Organization_PropertyOther { get; set; }
         public virtual ICollection<Organization_Service> Organization_Service { get; set; }
+        public virtual Account Account_Creator { get; set; }
+        public virtual Account Account_Modifier { get; set; }
+        public virtual ICollection<Organization_VerificationStatus> Organization_VerificationStatus { get; set; }
+        public virtual ICollection<ConditionManifest> ConditionManifest { get; set; }
+        public virtual ICollection<CostManifest> CostManifest { get; set; }
     }
 }

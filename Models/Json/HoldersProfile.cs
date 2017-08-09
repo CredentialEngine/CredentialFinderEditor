@@ -13,7 +13,7 @@ namespace Models.Json
 	{
 		public HoldersProfile()
 		{
-			type = "ctdl:HoldersProfile";
+			type = "ceterms:HoldersProfile";
 		}
 	}
 

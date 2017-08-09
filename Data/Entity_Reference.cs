@@ -14,6 +14,11 @@ namespace Data
     
     public partial class Entity_Reference
     {
+        public Entity_Reference()
+        {
+            this.Entity_ReferenceConnection = new HashSet<Entity_ReferenceConnection>();
+        }
+    
         public int Id { get; set; }
         public int EntityId { get; set; }
         public int CategoryId { get; set; }
@@ -28,5 +33,6 @@ namespace Data
         public virtual Codes_PropertyCategory Codes_PropertyCategory { get; set; }
         public virtual Codes_PropertyValue Codes_PropertyValue { get; set; }
         public virtual Entity Entity { get; set; }
+        public virtual ICollection<Entity_ReferenceConnection> Entity_ReferenceConnection { get; set; }
     }
 }

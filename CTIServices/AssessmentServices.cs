@@ -81,15 +81,20 @@ namespace CTIServices
 
 			SetKeywordFilter( data.Keywords, false, ref where );
 
-			SearchServices.SetSubjectsFilter( data, "Assessment", ref where );
+			SearchServices.SetSubjectsFilter( data, CF.CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE, ref where );
 			SetAuthorizationFilter( user, ref where );
+
+			SearchServices.HandleCustomFilters( data, 60, ref where );
 
 			SetPropertiesFilter( data, ref where );
 			SearchServices.SetRolesFilter( data, ref where );
 			SearchServices.SetBoundariesFilter( data, ref where );
+			//CIP
+			SetFrameworksFilter( data, ref where );
 			//Competencies
 			SetCompetenciesFilter( data, ref where, ref competencies );
 
+			LoggingHelper.DoTrace( 5, "AssessmentServices.Search(). Filter: " + where );
 			return Mgr.Search( where, data.SortOrder, data.StartPage, data.PageSize, userId, ref totalRows );
 		}
 		
@@ -97,18 +102,42 @@ namespace CTIServices
 		{
 			if ( string.IsNullOrWhiteSpace( keywords ) )
 				return;
-			string text = " (base.name like '{0}' OR base.Description like '{0}'  OR base.Organization like '{0}' OR base.owingOrganization like '{0}' ) ";
+			string text = " (base.name like '{0}' OR base.Description like '{0}'  OR base.Organization like '{0}'  ) ";
+
+			bool isCustomSearch = false;
+			//for ctid, needs a valid ctid or guid
+			if ( keywords.IndexOf( "ce-" ) > -1 && keywords.Length == 45 )
+			{
+				text = " ( CTID = '{0}' ) ";
+				isCustomSearch = true;
+			}
+			else if ( ServiceHelper.IsValidGuid( keywords ) )
+			{
+				text = " ( CTID = 'ce-{0}' ) ";
+				isCustomSearch = true;
+			}
+			else if ( keywords.ToLower() == "[hascredentialregistryid]" )
+			{
+				text = " ( len(Isnull(CredentialRegistryId,'') ) = 36 ) ";
+				isCustomSearch = true;
+			}
 			string subjectsEtc = " OR (base.Id in (SELECT c.id FROM [dbo].[Entity.Reference] a inner join Entity b on a.EntityId = b.Id inner join Assessment c on b.EntityUid = c.RowId where [CategoryId] in (34 ,35) and a.TextValue like '{0}' )) ";
 			string AND = "";
 			if ( where.Length > 0 )
 				AND = " AND ";
 
 			keywords = ServiceHelper.HandleApostrophes( keywords );
-			if ( keywords.IndexOf( "%" ) == -1 )
-				keywords = "%" + keywords.Trim() + "%";
+			if ( keywords.IndexOf( "%" ) == -1 && !isCustomSearch )
+			{
+				keywords = SearchServices.SearchifyWord( keywords );
+				//keywords = "%" + keywords.Trim() + "%";
+				//keywords = keywords.Replace( "&", "%" ).Replace( " and ", "%" ).Replace( " in ", "%" ).Replace( " of ", "%" );
+				//keywords = keywords.Replace( " - ", "%" );
+				//keywords = keywords.Replace( " % ", "%" );
+			}
 
 			//skip url  OR base.Url like '{0}' 
-			if ( isBasic )
+			if ( isBasic || isCustomSearch )
 				where = where + AND + string.Format( " ( " + text + " ) ", keywords );
 			else 
 				where = where + AND + string.Format( " ( " + text + subjectsEtc + " ) ", keywords );
@@ -156,6 +185,36 @@ namespace CTIServices
 			string template = " ( base.Id in (SELECT distinct  AssessmentId FROM [dbo].Assessment_Competency_Summary  where AlignmentType = 'assesses' AND ({0}) ) )";
 			string phraseTemplate = " ([Name] like '%{0}%' OR [Description] like '%{0}%') ";
 			//
+
+			//Updated to use FiltersV2
+			string next = "";
+			if ( where.Length > 0 )
+				AND = " AND ";
+			foreach ( var filter in data.FiltersV2.Where( m => m.Name == "competencies" ) )
+			{
+				var text = filter.AsText();
+
+				//No idea what this is supposed to do
+				try
+				{
+					if ( text.IndexOf( " - " ) > -1 )
+					{
+						text = text.Substring( text.IndexOf( " -- " ) + 4 );
+					}
+				}
+				catch { }
+
+				competencies.Add( text.Trim() );
+				next += OR + string.Format( phraseTemplate, text.Trim() );
+				OR = " OR ";
+
+			}
+			if ( !string.IsNullOrWhiteSpace( next ) )
+			{
+				where = where + AND + string.Format( template, next );
+			}
+
+			/* //Retained for reference
 			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.Name == "competencies" ) )
 			{
 				string next = "";
@@ -164,21 +223,26 @@ namespace CTIServices
 				foreach ( string item in filter.Items )
 				{
 					keyword = ServiceHelper.HandleApostrophes( item );
-					//if ( keyword.IndexOf( "%" ) == -1 )
-					//	keyword = "%" + keyword.Trim() + "%";
 					if ( keyword.IndexOf( ";" ) > -1 )
 					{
 						var words = keyword.Split( ';' );
+						string nextWord = "";
 						foreach ( string word in words )
 						{
-							competencies.Add( word.Trim() );
-							next += OR + string.Format( phraseTemplate, word.Trim() );
+							nextWord = word;
+							if ( nextWord.IndexOf( " - " ) > -1 )
+								nextWord = nextWord.Substring( nextWord.IndexOf( " -- " ) + 4 );
+
+							competencies.Add( nextWord.Trim() );
+							next += OR + string.Format( phraseTemplate, nextWord.Trim() );
 							OR = " OR ";
 						}
-
 					}
 					else
 					{
+						if ( keyword.IndexOf( " -- " ) > -1 )
+							keyword = keyword.Substring( keyword.IndexOf( " - " ) + 4 );
+
 						competencies.Add( keyword.Trim() );
 						//next = "%" + keyword.Trim() + "%";
 						next = string.Format( phraseTemplate, keyword.Trim() );
@@ -191,14 +255,92 @@ namespace CTIServices
 				if ( !string.IsNullOrWhiteSpace( next ) )
 					where = where + AND + string.Format( template, next );
 			}
+			*/
 		}
 		//
 		private static void SetPropertiesFilter( MainSearchInput data, ref string where )
 		{
 			string AND = "";
-			string template = " ( base.RowId in ( SELECT  [ParentUid] FROM [dbo].[Entity.Property] where [PropertyValueId] in ({0}))) ";
-			//what are the valid categories: delivery types
-			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.CategoryId == 16 || s.CategoryId == 18 ) )
+			string searchCategories = UtilityManager.GetAppKeyValue( "asmtSearchCategories", "21,37," );
+			string template = " ( base.Id in ( SELECT  [EntityBaseId] FROM [dbo].[EntityProperty_Summary] where EntityTypeId= 3 AND [PropertyValueId] in ({0}))) ";
+			//what are the valid categories: delivery types.
+			//Where( s => s.CategoryId == 16 || s.CategoryId == 18 ) 
+
+			//Updated to use FiltersV2
+			string next = "";
+			if ( where.Length > 0 )
+				AND = " AND ";
+			foreach ( var filter in data.FiltersV2.Where(m => m.Type == MainSearchFilterV2Types.CODE ) )
+			{
+				var item = filter.AsCodeItem();
+				if ( searchCategories.Contains( item.CategoryId.ToString() ) )
+				{
+					next += item.Id + ",";
+				}
+			}
+			next = next.Trim( ',' );
+			if ( !string.IsNullOrWhiteSpace( next ) )
+			{
+				where = where + AND + string.Format( template, next );
+			}
+
+			/* //Retained for reference
+			foreach ( MainSearchFilter filter in data.Filters)
+			{
+				if ( searchCategories.IndexOf( filter.CategoryId.ToString() ) > -1 )
+				{
+					string next = "";
+					if ( where.Length > 0 )
+						AND = " AND ";
+					foreach ( string item in filter.Items )
+					{
+						next += item + ",";
+					}
+					next = next.Trim( ',' );
+					where = where + AND + string.Format( template, next );
+				}
+			}
+			*/
+		} //
+
+		private static void SetFrameworksFilter( MainSearchInput data, ref string where )
+		{
+			string AND = "";
+			string codeTemplate = "  (base.Id in (SELECT c.id FROM [dbo].[Entity.FrameworkItemSummary] a inner join Entity b on a.EntityId = b.Id inner join Assessment c on b.EntityUid = c.RowId where [CategoryId] = {0} and ([FrameworkGroup] in ({1})  OR ([CodeId] in ({2}) )  ))  ) ";
+
+			//Updated to use FiltersV2
+			string next = "";
+			string groups = "";
+			if ( where.Length > 0 )
+				AND = " AND ";
+			var targetCategoryID = 23;
+			foreach ( var filter in data.FiltersV2.Where(m => m.Type == MainSearchFilterV2Types.FRAMEWORK ) )
+			{
+				var item = filter.AsCodeItem();
+				var isTopLevel = filter.GetValueOrDefault<bool>( "IsTopLevel", false );
+				if ( item.CategoryId == targetCategoryID )
+				{
+					if ( isTopLevel )
+						groups += item.Id + ",";
+					else
+						next += item.Id + ",";
+				}
+			}
+			if ( next.Length > 0 )
+				next = next.Trim( ',' );
+			else
+				next = "''";
+			if ( groups.Length > 0 )
+				groups = groups.Trim( ',' );
+			else
+				groups = "''";
+			if ( groups != "''" || next != "''" )
+			{
+				where = where + AND + string.Format( codeTemplate, targetCategoryID, groups, next );
+			}
+
+			/* //Retained for reference
+			foreach ( MainSearchFilter filter in data.Filters.Where( s => s.CategoryId == 23 ) )
 			{
 				string next = "";
 				if ( where.Length > 0 )
@@ -208,9 +350,12 @@ namespace CTIServices
 					next += item + ",";
 				}
 				next = next.Trim( ',' );
-				where = where + AND + string.Format( template, next );
+				where = where + AND + string.Format( codeTemplate, filter.CategoryId, next );
 			}
+			*/
 		}
+
+
 		public static List<AssessmentProfile> QuickSearch( MainSearchInput data, ref int totalRows )
 		{
 
@@ -231,9 +376,9 @@ namespace CTIServices
 		#endregion 
 
 		#region Retrievals
-		public static AssessmentProfile Get( int id, bool newVersion = true )
+		public static AssessmentProfile Get( int id )
 		{
-			AssessmentProfile entity = Mgr.Assessment_Get( id, false, false, newVersion );
+			AssessmentProfile entity = Mgr.Assessment_Get( id, false, false );
 			return entity;
 		}
 		public static AssessmentProfile GetDetail( int id )
@@ -244,17 +389,23 @@ namespace CTIServices
 		}
 		public static AssessmentProfile GetDetail( int id, AppUser user )
 		{
-			bool newVersion = true;
 			string statusMessage = "";
-			AssessmentProfile entity = Mgr.Assessment_Get( id, false, false, newVersion );
+			AssessmentProfile entity = Mgr.Assessment_Get( id, false, true );
 			if ( CanUserUpdateAssessment( entity, user, ref statusMessage ) )
 				entity.CanUserEditEntity = true;
 
 			return entity;
 		}
-		public static AssessmentProfile GetForEdit( int id, bool newVersion = true )
+		public static AssessmentProfile GetForEdit( int id )
 		{
-			AssessmentProfile entity = Mgr.Assessment_Get( id, true, true, newVersion );
+			AssessmentProfile entity = Mgr.Assessment_Get( id, true, true );
+
+
+			return entity;
+		}
+		public static AssessmentProfile GetBasic( int asmtId )
+		{
+			AssessmentProfile entity = Mgr.GetBasic( asmtId );
 
 
 			return entity;
@@ -342,6 +493,30 @@ namespace CTIServices
 			status = "Error - you do not have edit access for this record.";
 			return isValid;
 		}
+
+		public static bool CanUserViewAssessment( AssessmentProfile entity, AppUser user, ref string status )
+		{
+			bool isValid = false;
+			status = "Error - you do not have view access for this record.";
+			if ( entity == null || entity.Id == 0 )
+			{
+				status = "Assessment was Not found";
+				return false;
+			}
+			if ( entity.StatusId == CF.CodesManager.ENTITY_STATUS_PUBLISHED )
+				return true;
+
+			if ( user == null || user.Id == 0 )
+				return false;
+			else if ( AccountServices.CanUserViewAllOfSite( user ) )
+				return true;
+
+			//is a member of the assessment managing organization 
+			if ( OrganizationServices.IsOrganizationMember( user.Id, entity.ManagingOrgId ) )
+				return true;
+			
+			return isValid;
+		}
 		/// <summary>
 		/// Add a Assessment stack
 		/// ??what to return - given the jumbotron form
@@ -358,15 +533,30 @@ namespace CTIServices
 			Mgr mgr = new Mgr();
 			try
 			{
-				entity.ManagingOrgId = CF.OrganizationManager.GetPrimaryOrganizationId( entity.CreatedById );
+				if ( entity.ManagingOrgId == 0 )
+				{
+					if ( ServiceHelper.IsValidGuid( entity.OwningAgentUid ) )
+					{
+						Organization org = CF.OrganizationManager.GetForSummary( entity.OwningAgentUid );
+						entity.ManagingOrgId = org.Id;
+					}
+					else
+					{
+						entity.ManagingOrgId = CF.OrganizationManager.GetPrimaryOrganizationId( user.Id );
+					}
+				}
 
-				id = mgr.Assessment_Add( entity, ref statusMessage );
+				id = mgr.Add( entity, ref statusMessage );
 				if ( id > 0 )
-					statusMessage = "Successfully Added Assessment";
+					if ( id > 0 )
+					{
+						statusMessage = "Successfully Added Assessment";
+						new ActivityServices().AddActivity( "Assessment", "Add", string.Format( "{0} added a new Assessment: {1}", user.FullName(), entity.Name ), entity.CreatedById, 0, id );
+					}
 			}
 			catch ( Exception ex )
 			{
-				LoggingHelper.LogError( ex, "AssessmentServices.Assessment_Add" );
+				LoggingHelper.LogError( ex, "AssessmentServices.Add" );
 			}
 			return id;
 		}
@@ -386,13 +576,16 @@ namespace CTIServices
 			bool isOK = false;
 			try
 			{
-				isOK = mgr.Assessment_Update( entity, ref statusMessage );
+				isOK = mgr.Update( entity, ref statusMessage );
 				if ( isOK )
-					statusMessage = "Successfully Updated Assessment" ;
+				{
+					statusMessage = "Successfully Updated Assessment";
+					new ActivityServices().AddActivity( "Assessment", "Update", string.Format( "{0} updated Assessment (or parts of): {1}", user.FullName(), entity.Name ), user.Id, 0, entity.Id );
+				}
 			}
 			catch ( Exception ex )
 			{
-				LoggingHelper.LogError( ex, "AssessmentServices.Assessment_Update" );
+				LoggingHelper.LogError( ex, "AssessmentServices.Update" );
 			}
 			return isOK;
 		}

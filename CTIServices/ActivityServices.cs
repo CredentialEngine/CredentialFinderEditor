@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Web;
 
 using Models;
+using Models.Search;
 using ThisUser = Models.AppUser;
 using Factories;
 using Utilities;
@@ -25,7 +26,7 @@ namespace CTIServices
 		/// <param name="comment">A formatted user friendly description of the activity</param>
 		/// <param name="actionByUserId">Optional userId of person initiating the activity</param>
 		/// <param name="activityObjectId"></param>
-		public void AddActivity( string activity, string activityEvent, string comment, int actionByUserId, int targetUserId = 0, int activityObjectId = 0 )
+		public void AddActivity( string activity, string activityEvent, string comment, int actionByUserId, int targetUserId = 0, int activityObjectId = 0, int objectRelatedId = 0)
 		{
 
 			SiteActivity log = new SiteActivity();
@@ -40,8 +41,10 @@ namespace CTIServices
 			log.ActionByUserId = actionByUserId;
 			log.ActivityObjectId = activityObjectId;
 			log.TargetUserId = targetUserId;
-			
-			
+			log.ObjectRelatedId = objectRelatedId;
+
+
+
 			try
 			{
 				mgr.SiteActivityAdd( log );
@@ -61,7 +64,7 @@ namespace CTIServices
 		{
 
 			if ( log.SessionId == null || log.SessionId.Length < 10 )
-				log.SessionId = HttpContext.Current.Session.SessionID;
+				log.SessionId = ActivityManager.GetCurrentSessionId();
 
 			if ( log.IPAddress == null || log.IPAddress.Length < 10 )
 				log.IPAddress = ActivityManager.GetUserIPAddress();
@@ -77,10 +80,10 @@ namespace CTIServices
 			}
 		}
 		#region Site Activity - account
-		public static int UserRegistration( AppUser entity )
+		public static int UserRegistration( AppUser entity, string type = "Registration", string message = "" )
 		{
 			string ipAddress = ActivityManager.GetUserIPAddress();
-			return UserRegistration( entity, ipAddress, "Registration" );
+			return UserRegistration( entity, ipAddress, type, message );
 
 		}
 		public static int UserRegistration( AppUser entity, string ipAddress )
@@ -88,13 +91,14 @@ namespace CTIServices
 			return UserRegistration( entity, ipAddress, "Registration" );
 			
 		}
+
 		public static int UserRegistrationFromGoogle( ThisUser entity, string ipAddress )
 		{
 			return UserRegistration( entity, ipAddress, "Google SSO Registration" );
 			
 		}
 
-		public static int UserRegistration( ThisUser entity, string ipAddress, string type )
+		public static int UserRegistration( ThisUser entity, string ipAddress, string type, string extra = "" )
 		{
 			string server = UtilityManager.GetAppKeyValue( "serverName", "" );
 
@@ -103,7 +107,7 @@ namespace CTIServices
 			log.ActivityType = "Audit";
 			log.Activity = "Account";
 			log.Event = type;
-			log.Comment = string.Format( "{0} ({1}) {4}. From IPAddress: {2}, on server: {3}", entity.FullName(), entity.Id, ipAddress, server, type );
+			log.Comment = string.Format( "{0} ({1}) {4}. From IPAddress: {2}, on server: {3}. {5}", entity.FullName(), entity.Id, ipAddress, server, type, extra );
 			//actor type - person, system
 			log.ActionByUserId = entity.Id;
 			log.TargetUserId = entity.Id;
@@ -146,10 +150,15 @@ namespace CTIServices
 				return 0;
 			}
 		}
-		public static int UserAutoAuthentication( ThisUser entity )
+		public static int AdminLoginAsUserAuthentication( ThisUser entity )
 		{
-			return UserAuthentication( entity, "auto" );
+			return UserAuthentication( entity, "Admin PASSKEY Login " );
 		}
+		/// <summary>
+		/// form based login
+		/// </summary>
+		/// <param name="entity"></param>
+		/// <returns></returns>
 		public static int UserAuthentication( ThisUser entity )
 		{
 			return UserAuthentication( entity, "login" );
@@ -264,6 +273,106 @@ namespace CTIServices
 			}
 		} //
 
+		public static List<SiteActivity> SearchToday( string keywords, string pOrderBy, string sortDirection, int pageNumber, int pageSize, ref int pTotalRows )
+		{
+		
+			BaseSearchModel parms = new BaseSearchModel()
+			{
+				Keyword = keywords,
+				PageNumber = pageNumber,
+				PageSize = pageSize
+			};
+
+			//probably should validate valid order by - or do in proc
+			if ( string.IsNullOrWhiteSpace( pOrderBy ) )
+			{
+				parms.IsDescending = true;
+				parms.OrderBy = "CreatedDate";
+				//pOrderBy = "Created DESC";
+			}
+			else
+			{
+				if ( "activity event email comment createddate".IndexOf( pOrderBy.ToLower() ) == -1 )
+				{
+					parms.OrderBy = "CreatedDate";
+					//pOrderBy = "Created DESC";
+				}
+				else
+					parms.OrderBy = pOrderBy;
+
+				if ( sortDirection.ToLower() == "desc" )
+				{
+					parms.IsDescending = true;
+					//pOrderBy += " DESC";
+				}
+			}
+		
+			List<SiteActivity> list = ActivityManager.SearchToday( parms );
+			pTotalRows = parms.TotalRows;
+			return list;
+		}
+		public static List<SiteActivity> SearchAll( BaseSearchModel parms, ref int pTotalRows )
+		{
+
+			//probably should validate valid order by - or do in proc
+			if ( string.IsNullOrWhiteSpace( parms.OrderBy ) )
+			{
+				parms.IsDescending = true;
+				parms.OrderBy = "CreatedDate";
+				//pOrderBy = "Created DESC";
+			}
+			else
+			{
+				if ( "id activity event email comment createddate actionbyuser".IndexOf( parms.OrderBy.ToLower() ) == -1 )
+				{
+					parms.OrderBy = "CreatedDate";
+					//pOrderBy = "Created DESC";
+				}
+			}
+			List<SiteActivity> list = ActivityManager.SearchAll( parms );
+			pTotalRows = parms.TotalRows;
+			return list;
+		}
+		public static List<SiteActivity> Search( BaseSearchModel parms, ref int pTotalRows )
+		{
+
+			//probably should validate valid order by - or do in proc
+			if ( string.IsNullOrWhiteSpace( parms.OrderBy ) )
+			{
+				parms.IsDescending = true;
+				parms.OrderBy = "CreatedDate desc";
+				//pOrderBy = "Created DESC";
+			}
+			else
+			{
+				if ( "id activity event email comment createddate actionbyuser".IndexOf( parms.OrderBy.ToLower() ) == -1 )
+				{
+					parms.OrderBy = "CreatedDate";
+					//pOrderBy = "Created DESC";
+				}
+			}
+			List<SiteActivity> list = ActivityManager.Search( parms.Filter, parms.OrderBy, parms.PageNumber, parms.PageSize, ref pTotalRows );
+			//pTotalRows = parms.TotalRows;
+			return list;
+		}
+		private static void SetKeywordFilter( string keywords, ref string where )
+		{
+			if ( string.IsNullOrWhiteSpace( keywords ) )
+				return;
+			string text = " (FirstName like '{0}' OR LastName like '{0}'  OR Email like '{0}'  ) ";
+
+			string AND = "";
+			if ( where.Length > 0 )
+				AND = " AND ";
+			//
+			keywords = ServiceHelper.HandleApostrophes( keywords );
+			if ( keywords.IndexOf( "%" ) == -1 )
+				keywords = "%" + keywords.Trim() + "%";
+
+			where = where + AND + string.Format( " ( " + text + " ) ", keywords );
+
+
+		}
 
 	}
 }

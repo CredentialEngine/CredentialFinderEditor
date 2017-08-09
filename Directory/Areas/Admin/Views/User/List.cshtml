@@ -1,0 +1,159 @@
+﻿@{
+    ViewBag.Title = "WorkIT Accounts Listing";
+}
+
+<link href="https://code.jquery.com/ui/1.12.0-rc.2/themes/smoothness/jquery-ui.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/jqgrid/4.6.0/css/ui.jqgrid.css" rel="stylesheet" />
+
+<h1>WorkIT Accounts Listing</h1>
+<br />
+<div style="width:80%">
+    <table id="jqGrid" align="center"></table>
+    <div id="jqGridPager"></div>
+    <br />
+</div>
+<div id="dialog" title="edit view" style="overflow: hidden;"></div>
+
+@section scripts{
+    <script src="https://cdn.jsdelivr.net/jqgrid/4.6.0/i18n/grid.locale-en.js"></script>
+    <script src="https://cdn.jsdelivr.net/jqgrid/4.6.0/jquery.jqGrid.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.0-rc.2/jquery-ui.min.js"></script>
+    <script src="~/Scripts/jquery.unobtrusive-ajax.min.js"></script>
+
+    <script type="text/javascript">
+        var template1 =
+        {
+            "groupOp": "AND",
+            "rules": [
+              { "field": "roles", "op": "cn", "data": "Site Reader" }
+            ]
+        };
+
+        var template2 =
+        {
+            "groupOp": "AND",
+            "rules": [
+              { "field": "roles", "op": "cn", "data": "Site Partner" }
+            ]
+        };
+
+        //, 'Action'
+        //,
+        //{ name: 'Edit', key: true, width: 55, editable: true, formatter: editButton }
+        //, 'Roles'
+       
+
+
+        $(document).ready(function () {
+            var myGrid = $('#jqGrid');
+            myGrid.jqGrid({
+                url: '/Admin/User/GetRecords/',
+                datatype: "json",
+                contentType: "application/json; charset-utf-8",
+                mtype: 'GET',
+                colNames: ['Id', 'FirstName', 'LastName', 'Email', 'OrgsList', 'RolesList'],
+                colModel: [
+                    {
+                        name: 'Id', key: true, width: 50, searchtype: "integer"
+                    , searchoptions: { sopt: ['eq', 'le', 'ge'] }
+                    },
+                    { name: 'FirstName', key: true, width: 50,
+                    searchoptions: { sopt: ['cn'] }
+                    },
+                    {
+                        name: 'LastName', key: true, width: 50,
+                    searchoptions: { sopt: ['cn'] }
+                    },
+                    {
+                        name: 'Email', key: true, width: 125,
+                        searchoptions: { sopt: ['cn'] }
+                    },
+                {
+                    name: 'OrgsList', key: false, width: 150, searchoptions: { sopt: ['cn'] }
+                },
+                {
+                    name: 'RolesList',  key: false, width: 100, searchoptions: { sopt: ['cn'] }
+                }
+                ],
+                autowidth: true,
+                height: 550,
+                rowNum: 20,
+                rowList: [10, 20, 50, 100, 500],
+                pager: '#jqGridPager',
+                gridview: true,
+                rownumbers: true,
+                viewrecords: true,
+                pagerpos: 'center'
+            });
+            $("#jqGrid").jqGrid('filterToolbar', { searchOperators: true });
+            $("#jqGrid").jqGrid('navGrid', '#jqGridPager',
+                  { add: false, edit: false, del: false, search: true, refresh: true },
+                  {},
+                  {},
+                  {},
+                  {
+                      closeOnEscape: true,
+                      multipleSearch: true,
+                      showQuery: true,
+                      closeAfterSearch: true,
+                      //set the names of the template
+                     "tmplNames": ["Site Reader", "Site Partner"],
+                    //set the template contents
+                       "tmplFilters": [template1, template2]
+                  }
+                 );
+
+            
+            
+
+
+            $('#dialog').dialog({
+                autoOpen: false,
+                width: 400,
+                resizable: false,
+                title: 'Edit Account details',
+                modal: true,
+                open: function (event, ui) {
+                    // Load partial view _GridEditPartial
+                    $(this).load("@Url.Action( "GetAccountById" )", { id: id });
+                },
+                buttons: {
+                    "Close": function () {
+                        $(this).dialog("close");
+                    }
+                }
+            });
+
+        });
+
+        //jQuery("#jqGrid").jqGrid('navGrid', '#jqGridPager',
+        //    { add: false, edit: false, del: false },
+        //    {},
+        //    {},
+        //    {},
+        //    {
+        //        multipleSearch: true,
+        //        multipleGroup: true,
+        //        showQuery: true,
+        //        // set the names of the template
+        //        "tmplNames": ["Template One", "Template Two"],
+        //        // set the template contents
+        //        "tmplFilters": [template1, template2]
+        //    }
+        //    );
+
+
+            function editButton(cellvalue, options, rowObject) {
+                return "<a data-value='" + rowObject.Id + "' href='javascript:void(0)' class='btnEdit'>Edit</a>";
+            }
+
+            var id = 0;
+            $(document).on('click', '.btnEdit', function () {
+                id = $(this).attr("data-value");
+                $('#dialog').dialog('open');
+            });
+
+
+
+    </script>
+}

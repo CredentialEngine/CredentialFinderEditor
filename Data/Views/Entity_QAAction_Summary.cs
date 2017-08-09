@@ -41,5 +41,19 @@ namespace Data.Views
         public System.Guid RowId { get; set; }
         public string RelationshipSchema { get; set; }
         public string ReverseRelationSchema { get; set; }
+        public string agentURL { get; set; }
+        public Nullable<System.Guid> ParticipantAgentUid { get; set; }
+        public Nullable<int> ParticipantEntityId { get; set; }
+        public Nullable<int> ParticipantTypeId { get; set; }
+        public string ParticipantType { get; set; }
+        public string ParticipantName { get; set; }
+        public Nullable<int> ParticipantRelativeId { get; set; }
+        public string participantURL { get; set; }
+        public string TargetName { get; set; }
+        public string TargetDescription { get; set; }
+        public int BaseId { get; set; }
+        public Nullable<int> ActionStatusTypeId { get; set; }
+        public string ActionStatusType { get; set; }
+        public string LastUpdatedBy { get; set; }
     }
 }

@@ -13,14 +13,14 @@ namespace Models.Json
 	{
 		public Enumeration()
 		{
-			type = "schema:Enumeration";
+			type = "ceterms:Enumeration";
 		}
 
-		[DataMember( Name="schema:name" )]
+		[DataMember( Name="ceterms:name" )]
 		public string name { get; set; }
-		[DataMember( Name = "schema:description" )]
+		[DataMember( Name = "ceterms:description" )]
 		public string description { get; set; }
-		[DataMember( Name = "schema:url" )]
+		[DataMember( Name = "ceterms:url" )]
 		public string url { get; set; }
 		[DataMember( Name = "unknown:items" )]
 		public List<EnumerationItem> items { get; set; }
@@ -36,9 +36,9 @@ namespace Models.Json
 			type = "unknown:EnumerationItem";
 		}
 
-		[DataMember( Name="schema:name" )]
+		[DataMember( Name="ceterms:name" )]
 		public string name { get; set; }
-		[DataMember( Name="schema:url" )]
+		[DataMember( Name="ceterms:url" )]
 		public string url { get; set; }
 	}
 	//

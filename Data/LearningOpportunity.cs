@@ -35,8 +35,23 @@ namespace Data
         public Nullable<int> StatusId { get; set; }
         public Nullable<int> ManagingOrgId { get; set; }
         public string AvailableOnlineAt { get; set; }
+        public string AvailabilityListing { get; set; }
+        public string CTID { get; set; }
+        public string CredentialRegistryId { get; set; }
+        public Nullable<System.Guid> OwningAgentUid { get; set; }
+        public string CreditHourType { get; set; }
+        public Nullable<decimal> CreditHourValue { get; set; }
+        public Nullable<int> CreditUnitTypeId { get; set; }
+        public string CreditUnitTypeDescription { get; set; }
+        public Nullable<decimal> CreditUnitValue { get; set; }
+        public string DeliveryTypeDescription { get; set; }
+        public string VerificationMethodDescription { get; set; }
+        public Nullable<int> InLanguageId { get; set; }
     
         public virtual ICollection<Entity_LearningOpportunity> Entity_LearningOpportunity { get; set; }
         public virtual Organization Organization { get; set; }
+        public virtual Account Account_Creator { get; set; }
+        public virtual Account Account_Modifier { get; set; }
+        public virtual Codes_Language Codes_Language { get; set; }
     }
 }

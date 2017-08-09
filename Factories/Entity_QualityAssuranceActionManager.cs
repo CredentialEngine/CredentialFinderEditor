@@ -49,21 +49,7 @@ namespace Factories
 					{
 						//should not be able to change the profile/parentId
 						//dbEntity.EntityId = parent.Id;
-						dbEntity.RelationshipTypeId = profile.RoleTypeId;
-						dbEntity.AgentUid = profile.ActingAgentUid;
-						dbEntity.IssuedCredentialId = profile.IssuedCredentialId;
-
-						DateTime date;
-						if ( DateTime.TryParse( profile.StartDate, out date ) )
-							dbEntity.StartDate = date;
-						else
-							dbEntity.StartDate = null;
-						if ( DateTime.TryParse( profile.EndDate, out date ) )
-							dbEntity.EndDate = date;
-						else
-							dbEntity.EndDate = null;
-
-						dbEntity.Description = profile.Description;
+						MapFrom( profile, dbEntity );
 
 						if ( HasStateChanged( context ) )
 						{
@@ -115,20 +101,25 @@ namespace Factories
 			using ( var context = new EM.CTIEntities() )
 			{
 				DBentity dbEntity = new DBentity();
+				MapFrom( profile, dbEntity );
+
 				dbEntity.EntityId = profile.ParentId;
-				dbEntity.AgentUid = profile.ActingAgentUid;
-				dbEntity.RelationshipTypeId = profile.RoleTypeId;
-				dbEntity.IssuedCredentialId = profile.IssuedCredentialId;
 
-				DateTime date;
-				if ( DateTime.TryParse( profile.StartDate, out date ) )
-					dbEntity.StartDate = date;
-				else
-					dbEntity.StartDate = null;
-				if ( DateTime.TryParse( profile.EndDate, out date ) )
-					dbEntity.EndDate = date;
+				//dbEntity.AgentUid = profile.ActingAgentUid;
+				//dbEntity.ParticipantAgentUid = profile.ParticipantAgentUid;
+				//dbEntity.RelationshipTypeId = profile.RoleTypeId;
+				//dbEntity.IssuedCredentialId = profile.IssuedCredentialId;
+				//dbEntity.ActionStatusTypeId = profile.ActionStatusTypeId;
 
-				dbEntity.Description = profile.Description;
+				//DateTime date;
+				//if ( DateTime.TryParse( profile.StartDate, out date ) )
+				//	dbEntity.StartDate = date;
+				//else
+				//	dbEntity.StartDate = null;
+				//if ( DateTime.TryParse( profile.EndDate, out date ) )
+				//	dbEntity.EndDate = date;
+
+				//dbEntity.Description = profile.Description;
 				dbEntity.Created = dbEntity.LastUpdated = System.DateTime.Now;
 				dbEntity.CreatedById = dbEntity.LastUpdatedById = userId;
 				
@@ -287,6 +278,33 @@ namespace Factories
 		}
 
 		/// <summary>
+		/// where the provided agent is the recipient
+		/// </summary>
+		/// <param name="agentUid"></param>
+		/// <returns></returns>
+		public static List<QualityAssuranceActionProfile> QualityAssuranceActionProfile_GetAllForAgent( Guid agentUid )
+		{
+			ThisEntity entity = new QualityAssuranceActionProfile();
+			List<QualityAssuranceActionProfile> list = new List<QualityAssuranceActionProfile>();
+
+			//Views.Entity_Summary parent = EntityManager.GetDBEntity( pParentUid );
+			using ( var context = new ViewContext() )
+			{
+				List<Views.Entity_QAAction_Summary> results = context.Entity_QAAction_Summary
+						.Where( s => s.EntityUid == agentUid )
+						.ToList();
+
+				foreach ( Views.Entity_QAAction_Summary dbEntity in results )
+				{
+					entity = new ThisEntity();
+					MapTo( dbEntity, entity );
+					list.Add( entity );
+				}
+			}
+			return list;
+		}
+
+		/// <summary>
 		/// Primary purpose is to check if a proposed relationship already exists
 		/// </summary>
 		/// <param name="credentialId"></param>
@@ -315,50 +333,41 @@ namespace Factories
 			}
 		}
 
+		public static void MapFrom( ThisEntity from, DBentity to )
+		{
 
-		//private static void MapTo( DBentity from, ThisEntity to )
-		//{
-		//	//QualityAssuranceActionProfile to = new QualityAssuranceActionProfile();
-		//	to.Id = from.Id;
-		//	to.RowId = from.RowId;
+			//want to ensure fields from create are not wiped
+			if ( to.Id == 0 )
+			{
+				if ( IsValidDate( from.Created ) )
+					to.Created = from.Created;
+				to.CreatedById = from.CreatedById;
+			}
+			//don't override
+			//to.EntityId = from.ParentId;
+			to.RelationshipTypeId = from.RoleTypeId;
+			to.AgentUid = from.ActingAgentUid;
+			to.Description = from.Description;
+			to.IssuedCredentialId = from.IssuedCredentialId;
+			DateTime date;
+			if ( DateTime.TryParse( from.StartDate, out date ) )
+				to.StartDate = date;
+			else
+				to.StartDate = null;
+			if ( DateTime.TryParse( from.EndDate, out date ) )
+				to.EndDate = date;
+			else
+				to.EndDate = null;
 
-		//	to.ParentId = from.EntityId;
-		//	to.ActingAgentUid = from.AgentUid;
-		//	to.RoleTypeId = from.RelationshipTypeId;
-		//	to.Description = from.Description;
+			if ( IsGuidValid( from.ParticipantAgentUid ) )
+				to.ParticipantAgentUid = from.ParticipantAgentUid;
+			else
+				to.ParticipantAgentUid = null;
 
-		//	string relation = "";
-		//	if ( from.Codes_CredentialAgentRelationship != null )
-		//	{
-		//		//using direct or reverse? - believe the latter
-		//		relation = from.Codes_CredentialAgentRelationship.ReverseRelation;
-		//	}
+			to.ActionStatusTypeId = from.ActionStatusTypeId;
 
-		//	to.IssuedCredentialId = from.IssuedCredentialId != null ? ( int ) from.IssuedCredentialId : 0;
-
-		//	//to.IssuedCredential = new Credential() { Id = from.Credential1.Id, RowId = from.Credential1.RowId, Name = from.Credential1.Name };
-
-		//	//to.ActingAgent = new Organization() { Id = from.Organization.Id, RowId = from.Organization.RowId, Name = from.Organization.Name };
-
-		//	//TODO - get agent info from a view
-		//	to.ProfileSummary = string.Format( "Agent - TBD ,credential:{0}", to.IssuedCredentialId );
-		//	//OR
-		//	//to.ProfileSummary = string.Format( "{0} {1} this credential", from.Organization.Name, relation );
-		//	to.ProfileName = to.ProfileSummary;
-
-		//	if ( IsValidDate( from.StartDate ) )
-		//		to.StartDate = ( ( DateTime ) from.StartDate ).ToShortDateString();
-		//	if ( IsValidDate( from.EndDate ) )
-		//		to.EndDate = ( ( DateTime ) from.EndDate ).ToShortDateString();
-
-		//	if ( IsValidDate( from.Created ) )
-		//		to.Created = ( DateTime ) from.Created;
-		//	to.CreatedById = from.CreatedById == null ? 0 : ( int ) from.CreatedById;
-		//	if ( IsValidDate( from.LastUpdated ) )
-		//		to.LastUpdated = ( DateTime ) from.LastUpdated;
-		//	to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
-		//}
-
+		}
+		
 		private static void MapTo( Views.Entity_QAAction_Summary from, ThisEntity to )
 		{
 			
@@ -367,8 +376,14 @@ namespace Factories
 
 			to.ParentId = from.EntityId;
 			to.ActingAgentUid = from.AgentUid;
+			if ( IsGuidValid( from.ParticipantAgentUid ) )
+				to.ParticipantAgentUid = ( Guid ) from.ParticipantAgentUid;
+			else
+				to.ParticipantAgentUid = new Guid();
 
 			to.RoleTypeId = from.RelationshipTypeId;
+			to.ActionStatusTypeId = from.ActionStatusTypeId ?? 0;
+			to.ActionStatusType = from.ActionStatusType;
 
 			to.QAAction = from.Relationship;
 			to.QAActionSchema = from.RelationshipSchema;
@@ -382,8 +397,33 @@ namespace Factories
 
 			to.ActingAgent = new Organization() { Id = from.AgentRelativeId, 
 				RowId = from.AgentUid, 
-				Name = from.AgentName };
+				Name = from.AgentName,
+				SubjectWebpage = from.agentURL};
 
+			to.ParticipantAgent = new Organization()
+			{
+				Id = from.ParticipantRelativeId ?? 0,
+				RowId = to.ParticipantAgentUid,
+				Name = from.ParticipantName,
+				SubjectWebpage = from.participantURL
+			};
+
+			if ( from.EntityTypeId == CodesManager.ENTITY_TYPE_CREDENTIAL )
+			{
+				to.TargetCredential = new Credential() { Id = from.BaseId, Name = from.TargetName, Description = from.TargetDescription, RowId = from.EntityUid }; 
+			}
+			else if ( from.EntityTypeId == CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE )
+			{
+				to.TargetAssessment = new AssessmentProfile() { Id = from.BaseId, Name = from.TargetName, Description = from.TargetDescription, RowId = from.EntityUid }; 
+			}
+			else if ( from.EntityTypeId == CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE )
+			{
+				to.TargetLearningOpportunity = new LearningOpportunityProfile() { Id = from.BaseId, Name = from.TargetName, Description = from.TargetDescription, RowId = from.EntityUid }; 
+			}
+			else if ( from.EntityTypeId == CodesManager.ENTITY_TYPE_ORGANIZATION )
+			{
+				to.TargetOrganization = new Organization() { Id = from.BaseId, Name = from.TargetName, Description = from.TargetDescription, RowId = from.EntityUid }; 
+			}
 			to.ProfileSummary = string.Format( "{0} - {1}; credential:{1}", to.QAAction, from.AgentName, from.CredentialName );
 			to.ProfileName = to.ProfileSummary;
 
@@ -398,6 +438,7 @@ namespace Factories
 			if ( IsValidDate( from.LastUpdated ) )
 				to.LastUpdated = ( DateTime ) from.LastUpdated;
 			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
+			to.LastUpdatedBy = from.LastUpdatedBy;
 		}
 
 		#endregion 
@@ -444,7 +485,7 @@ namespace Factories
 		//			else if ( qaRoleState == 2 )
 		//			{
 		//				//this is state is for showing org roles for a credential.
-		//				//16-06-01 mp - for now show qa and no qa, just skip agent to agent which for now is dept and subsiduary
+		//				//16-06-01 mp - for now show qa and no qa, just skip agent to agent which for now is dept and Subsidiary
 		//				if ( entityType.ToLower() == "credential" )
 		//					Query = Query.Where( p => p.IsEntityToAgentRole == true );
 		//				else

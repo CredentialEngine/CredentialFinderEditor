@@ -16,10 +16,10 @@ namespace Data
     {
         public Credential()
         {
-            this.Credential_ConnectionProfile = new HashSet<Credential_ConnectionProfile>();
             this.Entity_Credential = new HashSet<Entity_Credential>();
             this.Entity_QA_Action = new HashSet<Entity_QA_Action>();
             this.Entity_VerificationProfile = new HashSet<Entity_VerificationProfile>();
+            this.Credential_SummaryCache = new HashSet<Credential_SummaryCache>();
         }
     
         public int Id { get; set; }
@@ -42,12 +42,28 @@ namespace Data
         public string AlternateName { get; set; }
         public string CTID { get; set; }
         public string AvailableOnlineAt { get; set; }
+        public string CredentialId { get; set; }
+        public string CodedNotation { get; set; }
+        public string AvailabilityListing { get; set; }
+        public Nullable<int> EarningCredentialPrimaryMethodId { get; set; }
+        public string ProcessStandards { get; set; }
+        public string ProcessStandardsDescription { get; set; }
+        public Nullable<System.Guid> OwningAgentUid { get; set; }
+        public Nullable<System.Guid> CopyrightHolder { get; set; }
+        public Nullable<bool> FeatureLearningOpportunities { get; set; }
+        public Nullable<bool> FeatureAssessments { get; set; }
+        public Nullable<int> InLanguageId { get; set; }
     
         public virtual Codes_Status Codes_Status { get; set; }
-        public virtual ICollection<Credential_ConnectionProfile> Credential_ConnectionProfile { get; set; }
         public virtual Organization Organization { get; set; }
         public virtual ICollection<Entity_Credential> Entity_Credential { get; set; }
         public virtual ICollection<Entity_QA_Action> Entity_QA_Action { get; set; }
         public virtual ICollection<Entity_VerificationProfile> Entity_VerificationProfile { get; set; }
+        public virtual Account Account_Creator { get; set; }
+        public virtual Account Account_Modifier { get; set; }
+        public virtual Credential Credential1 { get; set; }
+        public virtual Credential Credential2 { get; set; }
+        public virtual Codes_Language Codes_Language { get; set; }
+        public virtual ICollection<Credential_SummaryCache> Credential_SummaryCache { get; set; }
     }
 }

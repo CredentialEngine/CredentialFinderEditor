@@ -27,9 +27,13 @@ namespace Data
         public Nullable<System.DateTime> LastUpdated { get; set; }
         public Nullable<int> LastUpdatedById { get; set; }
         public System.Guid RowId { get; set; }
+        public Nullable<System.Guid> ParticipantAgentUid { get; set; }
+        public Nullable<int> ActionStatusTypeId { get; set; }
     
         public virtual Codes_CredentialAgentRelationship Codes_CredentialAgentRelationship { get; set; }
         public virtual Credential Credential { get; set; }
         public virtual Entity Entity { get; set; }
+        public virtual Account Account_Creator { get; set; }
+        public virtual Account Account_Modifier { get; set; }
     }
 }

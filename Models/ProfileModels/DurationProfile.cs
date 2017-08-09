@@ -26,16 +26,22 @@ namespace Models.ProfileModels
 		public Guid ParentUid { get; set; }
 		public int ParentTypeId { get; set; }
 		public string ParentType { get; set; }
-		public string Conditions { get; set; }
+		public string Conditions { get { return Description; } set { Description = value; } }
 		public DurationItem MinimumDuration { get; set; }
 		public DurationItem MaximumDuration { get; set; }
 		public DurationItem ExactDuration { get; set; }
-		
+
+		public int MinimumMinutes { get; set; }
 		public string MinimumDurationISO8601 { get; set; }
+		public int MaximumMinutes { get; set; }
 		public string MaximumDurationISO8601 { get; set; }
 		public string ExactDurationISO8601 { get; set; }
 
-		public bool IsRange { get { return this.MinimumDuration != null && this.MaximumDuration != null && this.MinimumDuration.HasValue && this.MaximumDuration.HasValue; } }
+		public bool IsRange { 
+			get { return this.MinimumDuration != null 
+				&& this.MaximumDuration != null 
+				&& ( this.MinimumDuration.HasValue || this.MaximumDuration.HasValue );
+			} }
 	}
 	//
 

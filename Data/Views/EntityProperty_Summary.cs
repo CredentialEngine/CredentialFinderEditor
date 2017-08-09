@@ -16,9 +16,7 @@ namespace Data.Views
     {
         public int EntityId { get; set; }
         public int EntityTypeId { get; set; }
-        public int ParentTypeId { get; set; }
         public string Title { get; set; }
-        public System.Guid ParentUid { get; set; }
         public int PropertyValueId { get; set; }
         public int EntityPropertyId { get; set; }
         public string Property { get; set; }
@@ -30,5 +28,9 @@ namespace Data.Views
         public Nullable<int> CreatedById { get; set; }
         public string Description { get; set; }
         public Nullable<bool> IsActive { get; set; }
+        public System.Guid EntityUid { get; set; }
+        public Nullable<int> EntityBaseId { get; set; }
+        public string ParentSchemaName { get; set; }
+        public string EntityBaseName { get; set; }
     }
 }

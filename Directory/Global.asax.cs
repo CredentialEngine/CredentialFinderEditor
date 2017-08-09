@@ -39,14 +39,72 @@ namespace CTI.Directory
 				//Response.AddHeader( "Location", builder.ToString() );
 				//Response.End();
 			//}
+			bool doingWWWCheck = UtilityManager.GetAppKeyValue( "doingHttpsRedirectForWWW", false );
+			if ( doingWWWCheck && Context.Request.IsSecureConnection )
+			{
+				//if www redirect to non-www
+				if ( Request.Url.Host.StartsWith( "www" ) && !Request.Url.IsLoopback )
+				{
+					LoggingHelper.DoTrace( 2, "doing www redirect" );
+					Response.Redirect( Context.Request.Url.ToString().Replace( "www.", "" ) );
+				}
+				
+			}
 		}
 		private void Application_EndRequest( object sender, EventArgs e )
 		{
 			//Response.Headers[ "X-FRAME-OPTIONS" ] = string.Empty;
 		}
+		protected void Application_Error( object sender, EventArgs e )
+		{
+			Exception exception = Server.GetLastError();
+			Response.Clear();
+
+			HttpException httpException = exception as HttpException;
+			if ( httpException != null )
+			{
+				RouteData routeData = new RouteData();
+				routeData.Values.Add( "controller", "Error" );
+				switch ( httpException.GetHttpCode() )
+				{
+					case 404:
+						// page not found
+						routeData.Values.Add( "action", "HttpError404" );
+						break;
+					case 500:
+						// server error
+						routeData.Values.Add( "action", "HttpError500" );
+						break;
+					default:
+						routeData.Values.Add( "action", "General" );
+						break;
+				}
+				routeData.Values.Add( "error", exception );
+				bool loggingError = true;
+				if ( exception.Message.IndexOf( "Server cannot set status after HTTP headers;" ) > -1 )
+					loggingError = false;
+
+				string lRefererPage = GetUserReferrer();
+				if ( loggingError )
+					LoggingHelper.LogError( exception, string.Format("Application_Error. referer: {0}", lRefererPage) );
+
+				// clear error on server ==> this would hide the error in dev as well
+				//Server.ClearError();
+
+				// at this point how to properly pass route data to error controller?
+			}
+		}
 
 		void Session_Start( object sender, EventArgs e )
 		{
+			// Code that runs when a new session is started
+			//apparantly can prevent error:
+			/*
+			Session state has created a session id, but cannot save it because the response was already flushed by the application
+			*/
+    		string sessionId = Session.SessionID;
+
+
 			try
 			{
 				//Do we want to track the referer somehow??
@@ -67,13 +125,13 @@ namespace CTI.Directory
 
 					LoggingHelper.DoTrace( 6, string.Format( "Session_Start. referrer: {0}, agent: {1}, IP Address: {2}, User?: {3}", lRefererPage, agent, ipAddress, userState ) );
 
-					string startMsg = "Session Started. SessionID: " + Session.SessionID;
+					string startMsg = "Session Started. SessionID: " + sessionId;
 					
 					startMsg += ", IP Address: " + ipAddress;
 
 					startMsg += ", User: " + userState;
 					startMsg += ", Agent: " + agent;
-					ActivityServices.SessionStartActivity( startMsg, Session.SessionID.ToString(), ipAddress, lRefererPage, isBot );
+					ActivityServices.SessionStartActivity( startMsg, sessionId, ipAddress, lRefererPage, isBot );
 
 				}
 				else

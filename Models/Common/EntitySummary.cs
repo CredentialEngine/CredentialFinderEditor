@@ -18,6 +18,9 @@ namespace Models.Common
 		public int StatusId { get; set; }
 		public System.DateTime Created { get; set; }
 		public int CreatedById { get; set; }
+		/// <summary>
+		/// Entity.Id of the Parent Entity of the Entity related to the base object
+		/// </summary>
 		public int parentEntityId { get; set; }
 		public int ManagingOrgId { get; set; }
 		public Nullable<System.Guid> parentEntityUid { get; set; }

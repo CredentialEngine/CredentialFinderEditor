@@ -16,179 +16,30 @@ namespace Factories
 	public class DurationProfileManager : BaseFactory
 	{
 		#region persistance ==================
-		/// <summary>
-		/// Persist DurationProfile
-		/// </summary>
-		/// <param name="credential"></param>
-		/// <remarks>16-06-29 mparsons - adding storing of EntityId
-		/// </remarks>
-		/// <returns></returns>
-		//public bool DurationProfileUpdate( List<DurationProfile> profiles, Guid parentUid, int parentTypeId, int userId, ref List<string> messages )
-		//{
-		//	bool isValid = true;
-		//	if ( !IsValidGuid( parentUid ) )
-		//	{
-		//		messages.Add( "Error: the parent identifier was not provided." );
-		//	}
-		//	//soon to to obsolete
-		//	if ( parentTypeId == 0 )
-		//	{
-		//		messages.Add( "Error: the parent type was not provided." );
-		//	}
-		//	if ( messages.Count > 0 )
-		//		return false;
 
-		//	int count = 0;
-		//	if ( profiles == null )
-		//		profiles = new List<DurationProfile>();
-
-		//	EM.Entity_DurationProfile efEntity = new EM.Entity_DurationProfile();
-		//	//get parent entity
-		//	Views.Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
-		//	if ( parent == null || parent.Id == 0 )
-		//	{
-		//		messages.Add( "Error - the parent entity was not found." );
-		//		return false;
-		//	}
-		//	using ( var context = new Data.CTIEntities() )
-		//	{
-		//		//check add/updates first
-		//		if ( profiles.Count() > 0 )
-		//		{
-		//			bool isEmpty = false;
-		//			foreach ( DurationProfile dp in profiles )
-		//			{
-		//				if ( ValidateDurationProfile( dp, ref isEmpty, ref messages ) == false )
-		//				{
-		//					continue;
-		//				}
-		//				if ( isEmpty ) //skip
-		//					continue;
-
-		//				//just in case
-		//				dp.ParentUid = parentUid;
-		//				dp.ParentTypeId = parentTypeId;
-		//				dp.EntityId = parent.Id;
-
-		//				if ( dp.Id == 0 )
-		//				{
-		//					//add
-		//					efEntity = new EM.Entity_DurationProfile();
-		//					FromMap( dp, efEntity );
-		//					efEntity.Created = efEntity.LastUpdated = DateTime.Now;
-		//					efEntity.CreatedById = efEntity.LastUpdatedById = userId;
-
-		//					context.Entity_DurationProfile.Add( efEntity );
-		//					count = context.SaveChanges();
-		//					//update profile record so doesn't get deleted
-		//					dp.Id = efEntity.Id;
-
-		//					if ( count == 0 )
-		//					{
-		//						ConsoleMessageHelper.SetConsoleErrorMessage( string.Format( " Unable to add Time to Earn: {0} <br\\> ", string.IsNullOrWhiteSpace( dp.Conditions ) ? "no description" : dp.Conditions ) );
-		//						//isAllValid = false;
-		//					}
-		//				}
-		//				else
-		//				{
-		//					efEntity = context.Entity_DurationProfile.SingleOrDefault( s => s.Id == dp.Id );
-		//					if ( efEntity != null && efEntity.Id > 0 )
-		//					{
-		//						//update
-		//						FromMap( dp, efEntity );
-		//						//has changed?
-		//						if ( HasStateChanged( context ) )
-		//						{
-		//							//note: testing - the latter may be true if the child has changed - but shouldn't as the mapping only updates the parent
-		//							efEntity.LastUpdated = System.DateTime.Now;
-		//							efEntity.LastUpdatedById = userId;
-
-		//							count = context.SaveChanges();
-		//						}
-		//					}
-		//					else
-		//					{
-		//						//??? shouldn't happen unless deleted somehow
-
-		//					}
-		//				}
-
-		//			} //foreach
-
-		//		}
-
-		//		////check for deletes ====================================
-		//		////need to ensure ones just added don't get deleted
-
-		//		////get existing 
-		//		//List<EM.Entity_DurationProfile> results = context.Entity_DurationProfile
-		//		//		.Where( s => s.ParentUid == parentUid )
-		//		//		.OrderBy( s => s.Id )
-		//		//		.ToList();
-
-		//		////if profiles is null, need to delete all!!
-		//		//if ( results.Count() > 0 && profiles.Count() == 0 )
-		//		//{
-		//		//	foreach ( var item in results )
-		//		//		context.Entity_DurationProfile.Remove( item );
-
-		//		//	context.SaveChanges();
-		//		//}
-		//		//else
-		//		//{
-		//		//	//should only have existing ids, where not in current list, so should be deletes
-		//		//	var deleteList = from existing in results
-		//		//					 join item in profiles
-		//		//							 on existing.Id equals item.Id
-		//		//							 into joinTable
-		//		//					 from result in joinTable.DefaultIfEmpty( new DurationProfile { Id = 0, ParentTypeId = 0 } )
-		//		//					 select new { DeleteId = existing.Id, ParentTypeId = ( result.ParentTypeId ) };
-
-		//		//	foreach ( var v in deleteList )
-		//		//	{
-		//		//		if (v.ParentTypeId == 0)
-		//		//	//	if ( v.ParentUid.ToString() == DEFAULT_GUID )
-		//		//		{
-		//		//			//delete item
-		//		//			EM.Entity_DurationProfile p = context.Entity_DurationProfile.FirstOrDefault( s => s.Id == v.DeleteId );
-		//		//			if ( p != null && p.Id > 0 )
-		//		//			{
-		//		//				context.Entity_DurationProfile.Remove( p );
-		//		//				count = context.SaveChanges();
-		//		//			}
-		//		//		}
-		//		//	}
-		//		//}
-
-		//	}
-
-		//	return isValid;
-		//}
 
 		public bool DurationProfileUpdate( DurationProfile profile, int userId, ref List<string> messages )
 		{
 			bool isValid = true;
-			if ( profile == null || !IsValidGuid( profile.ParentUid ) )
+			if ( profile == null || profile.EntityId == 0 )
 			{
 				messages.Add( "Error: the parent identifier was not provided." );
 			}
-			//if ( parentTypeId == 0 )
-			//{
-			//	messages.Add( "Error: the parent type was not provided." );
-			//}
+
 			if ( messages.Count > 0 )
 				return false;
 
 			int count = 0;
+			//LoggingHelper.DoTrace( 2, string.Format( "DurationProfileManager.DurationProfile_Update. EntityId: {0} userId: {1} ", profile.EntityId, userId ) );
 
 			EM.Entity_DurationProfile efEntity = new EM.Entity_DurationProfile();
-			//soon:
-			Views.Entity_Summary parent = EntityManager.GetDBEntity( profile.ParentUid );
-			if ( parent == null || parent.Id == 0 )
-			{
-				messages.Add( "Error - the parent entity was not found." );
-				return false;
-			}
+			//entityId will be in the passed entity
+			//Entity parent = EntityManager.GetEntity( profile.ParentUid );
+			//if ( parent == null || parent.Id == 0 )
+			//{
+			//	messages.Add( "Error - the parent entity was not found." );
+			//	return false;
+			//}
 			using ( var context = new Data.CTIEntities() )
 			{
 				//check add/updates first
@@ -199,19 +50,26 @@ namespace Factories
 				{
 					return false;
 				}
-				if ( isEmpty ) 
+				if ( isEmpty )
+				{
+					messages.Add( "Error - no data was entered." );
 					return false;
+				}
 
 				//just in case
-				profile.ParentTypeId = parent.EntityTypeId;
+				//profile.ParentTypeId = parent.EntityTypeId;
 
 				if ( profile.Id == 0 )
 				{
+					//LoggingHelper.DoTrace( 2, string.Format( "DurationProfileManager.DurationProfile_Update. EntityId: {0} DONG ADD - fromMap: ", profile.EntityId ) );
 					//add
 					efEntity = new EM.Entity_DurationProfile();
 					FromMap( profile, efEntity );
+					efEntity.EntityId = profile.EntityId;
 					efEntity.Created = efEntity.LastUpdated = DateTime.Now;
 					efEntity.CreatedById = efEntity.LastUpdatedById = userId;
+
+					//LoggingHelper.DoTrace( 2, string.Format( "DurationProfileManager.DurationProfile_Update. EntityId: {0} DOING ADD - context.Add: ", profile.EntityId ) );
 
 					context.Entity_DurationProfile.Add( efEntity );
 					count = context.SaveChanges();
@@ -221,7 +79,7 @@ namespace Factories
 					if ( count == 0 )
 					{
 						messages.Add( " Unable to add Duration Profile" ) ;
-						//isAllValid = false;
+						isValid = false;
 					}
 				}
 				else
@@ -273,7 +131,7 @@ namespace Factories
 		}
 		private void FromMap( DurationProfile from, EM.Entity_DurationProfile to )
 		{
-
+			int totalMinutes = 0;
 			to.Id = from.Id;
 			//make sure EntityId is not wiped out. Also can't actually chg
 			if ( (to.EntityId ?? 0) == 0)
@@ -281,9 +139,11 @@ namespace Factories
 
 			if ( to.Id == 0 )
 			{
-				to.ParentUid = from.ParentUid;
-				to.ParentTypeId = from.ParentTypeId;
+				//to.ParentUid = from.ParentUid;
+				//to.ParentTypeId = from.ParentTypeId;
 			}
+
+			//TODO - remove profileName
 			to.ProfileName = from.ProfileName ?? "";
 			to.DurationComment = from.Conditions;
 
@@ -310,8 +170,17 @@ namespace Factories
 				to.FromHours = from.ExactDuration.Hours;
 
 				to.FromMinutes  = from.ExactDuration.Minutes;
-				to.FromDuration = AsSchemaDuration( from.ExactDuration );
+				to.FromDuration = AsSchemaDuration( from.ExactDuration, ref totalMinutes );
+
 				to.TypeId = 1;
+				//reset any to max duration values
+				to.ToYears = null;
+				to.ToMonths = null;
+				to.ToWeeks = null;
+				to.ToDays = null;
+				to.ToHours = null;
+				to.ToMinutes = null;
+				to.ToDuration = "";
 			}
 			else if ( hasRangeDuration )
 			{
@@ -321,7 +190,7 @@ namespace Factories
 				to.FromDays = from.MinimumDuration.Days;
 				to.FromHours = from.MinimumDuration.Hours;
 				to.FromMinutes = from.ExactDuration.Minutes;
-				to.FromDuration = AsSchemaDuration( from.MinimumDuration );
+				to.FromDuration = AsSchemaDuration( from.MinimumDuration, ref totalMinutes );
 
 				to.ToYears = from.MaximumDuration.Years;
 				to.ToMonths = from.MaximumDuration.Months;
@@ -329,7 +198,7 @@ namespace Factories
 				to.ToDays = from.MaximumDuration.Days;
 				to.ToHours = from.MaximumDuration.Hours;
 				to.ToMinutes = from.MaximumDuration.Minutes;
-				to.ToDuration = AsSchemaDuration( from.MaximumDuration );
+				to.ToDuration = AsSchemaDuration( from.MaximumDuration, ref totalMinutes );
 				to.TypeId = 2;
 			}
 
@@ -338,13 +207,13 @@ namespace Factories
 		private static void ToMap( EM.Entity_DurationProfile from, DurationProfile to )
 		{
 			DurationItem duration = new DurationItem();
-
+			int totalMinutes = 0;
 			to.Id = from.Id;
 			to.EntityId = from.EntityId ?? 0;
 			to.ProfileName = from.ProfileName ?? "";
 
-			to.ParentUid = from.ParentUid;
-			to.ParentTypeId = from.ParentTypeId;
+			//to.ParentUid = from.ParentUid;
+			//to.ParentTypeId = from.ParentTypeId;
 
 			to.Conditions = from.DurationComment;
 			to.Created = from.Created != null ? ( DateTime ) from.Created : DateTime.Now;
@@ -364,7 +233,7 @@ namespace Factories
 			{
 				//format as from and to
 				to.MinimumDuration = duration;
-				to.MinimumDurationISO8601 = AsSchemaDuration( duration );
+				to.MinimumDurationISO8601 = AsSchemaDuration( duration, ref totalMinutes );
 				to.ProfileSummary = DurationSummary( to.Conditions, duration );
 
 				duration = new DurationItem();
@@ -376,7 +245,7 @@ namespace Factories
 				duration.Minutes = from.ToMinutes == null ? 0 : ( int ) from.ToMinutes;
 
 				to.MaximumDuration = duration;
-				to.MaximumDurationISO8601 = AsSchemaDuration( duration );
+				to.MaximumDurationISO8601 = AsSchemaDuration( duration, ref totalMinutes );
 
 				to.ProfileSummary += DurationSummary( " to ", duration );
 
@@ -384,7 +253,7 @@ namespace Factories
 			else
 			{
 				to.ExactDuration = duration;
-				to.ExactDurationISO8601 = AsSchemaDuration( duration );
+				to.ExactDurationISO8601 = AsSchemaDuration( duration, ref totalMinutes );
 				to.ProfileSummary = DurationSummary( to.Conditions, duration );
 			}
 
@@ -404,11 +273,16 @@ namespace Factories
 			DurationProfile row = new DurationProfile();
 			DurationItem duration = new DurationItem();
 			List<DurationProfile> profiles = new List<DurationProfile>();
+			Entity parent = EntityManager.GetEntity( parentUid );
+			if ( parent == null || parent.Id == 0 )
+			{
+				return profiles;
+			}
 
 			using ( var context = new Data.CTIEntities() )
 			{
 				List<EM.Entity_DurationProfile> results = context.Entity_DurationProfile
-						.Where( s => s.ParentUid == parentUid )
+						.Where( s => s.EntityId == parent.Id )
 						.OrderBy( s => s.Id )
 						.ToList();
 
@@ -418,53 +292,6 @@ namespace Factories
 					{
 						row = new DurationProfile();
 						ToMap( item, row );
-
-						//row.Id = item.Id;
-						//row.ParentUid = item.ParentUid;
-						//row.ParentTypeId = item.ParentTypeId;
-
-						//row.Conditions = item.DurationComment;
-						//row.Created = item.Created != null ? ( DateTime ) item.Created : DateTime.Now;
-						//row.CreatedById = item.CreatedById != null ? ( int ) item.CreatedById : 0;
-						//row.Created = item.LastUpdated != null ? ( DateTime ) item.LastUpdated : DateTime.Now;
-						//row.LastUpdatedById = item.LastUpdatedById != null ? ( int ) item.LastUpdatedById : 0;
-
-						//duration = new DurationItem();
-						//duration.Years = item.FromYears == null ? 0 : ( int ) item.FromYears;
-						//duration.Months = item.FromMonths == null ? 0 : ( int ) item.FromMonths;
-						//duration.Weeks = item.FromWeeks == null ? 0 : ( int ) item.FromWeeks;
-						//duration.Days = item.FromDays == null ? 0 : ( int ) item.FromDays;
-						//duration.Hours = item.FromHours == null ? 0 : ( int ) item.FromHours;
-						//duration.Minutes = item.FromMinutes == null ? 0 : ( int ) item.FromMinutes;
-
-						//if ( HasToDurations( item ) )
-						//{
-						//	//format as from and to
-						//	row.MinimumDuration = duration;
-						//	row.MinimumDurationISO8601 = AsSchemaDuration( duration );
-						//	row.ProfileSummary = DurationSummary( row.Conditions, duration );
-
-						//	duration = new DurationItem();
-						//	duration.Years = item.ToYears == null ? 0 : ( int ) item.ToYears;
-						//	duration.Months = item.ToMonths == null ? 0 : ( int ) item.ToMonths;
-						//	duration.Weeks = item.ToWeeks == null ? 0 : ( int ) item.ToWeeks;
-						//	duration.Days = item.ToDays == null ? 0 : ( int ) item.ToDays;
-						//	duration.Hours = item.ToHours == null ? 0 : ( int ) item.ToHours;
-						//	duration.Minutes = item.ToMinutes == null ? 0 : ( int ) item.ToMinutes;
-
-						//	row.MaximumDuration = duration;
-						//	row.MaximumDurationISO8601 = AsSchemaDuration( duration );
-
-						//	row.ProfileSummary += DurationSummary( " to ", duration );
-
-						//}
-						//else
-						//{
-						//	row.ExactDuration = duration;
-						//	row.ExactDurationISO8601 = AsSchemaDuration( duration );
-						//	row.ProfileSummary = DurationSummary( row.Conditions, duration );
-						//}
-
 						profiles.Add( row );
 					}
 				}
@@ -527,16 +354,16 @@ namespace Factories
 			{
 				//nothing, 
 				messages.Add( "Error - you must enter either an Exact duration or a Minimum/Maximum range duration (but not both). <br/>");
-				//isValid = false;
+				isValid = false;
 				isEmpty = true;
 			}
-			if ( !string.IsNullOrWhiteSpace( profile.ProfileName ) && profile.ProfileName.Length > 200 )
-			{
-				//nothing, 
-				messages.Add( "Error - the profile name is too long, the maximum length is 200 characters.<br/>" );
-				isValid = false;
-				isEmpty = false;
-			}
+			//if ( !string.IsNullOrWhiteSpace( profile.ProfileName ) && profile.ProfileName.Length > 200 )
+			//{
+			//	//nothing, 
+			//	messages.Add( "Error - the profile name is too long, the maximum length is 200 characters.<br/>" );
+			//	isValid = false;
+			//	isEmpty = false;
+			//}
 			if ( !string.IsNullOrWhiteSpace( profile.Conditions ) && profile.Conditions.Length > 999 )
 			{
 				//nothing, 
@@ -637,49 +464,72 @@ namespace Factories
 
 			return label;
 		}
-		private static string AsSchemaDuration( DurationItem entity )
+		public static string AsSchemaDuration( DurationItem entity, ref int totalMinutes )
 		{
 			string duration = "P";
+			totalMinutes = 0;
 
 			if ( entity.Years > 0 )
+			{
 				duration += entity.Years.ToString() + "Y";
+				totalMinutes += entity.Years * 365 * 24 * 3600;
+			}
 			if ( entity.Months > 0 )
+			{
 				duration += entity.Months.ToString() + "M";
+				totalMinutes += entity.Months * 30 * 24 * 3600;
+			}
+
 			if ( entity.Weeks > 0 )
+			{
 				duration += entity.Weeks.ToString() + "W";
+				totalMinutes += entity.Weeks * 5 * 24 * 3600;
+			}
+
 			if ( entity.Days > 0 )
+			{
 				duration += entity.Days.ToString() + "D";
+				totalMinutes += entity.Days * 24 * 3600;
+			}
+
 			if ( entity.Hours > 0 || entity.Minutes > 0 )
 				duration += "T";
 
 			if ( entity.Hours > 0 )
+			{
 				duration += entity.Hours.ToString() + "H";
+				totalMinutes += entity.Hours * 3600;
+			}
+
 			if ( entity.Minutes > 0 )
+			{
 				duration += entity.Minutes.ToString() + "M";
+				totalMinutes += entity.Minutes;
+			}
 			
 			return duration;
 		}
-		private string AsSchemaDuration( int years, int mths, int weeks, int days = 0, int hours = 0, int minutes = 0 )
-		{
-			string duration = "P";
+		//private string AsSchemaDuration( int years, int mths, int weeks, int days = 0, int hours = 0, int minutes = 0 )
+		//{
+		//	string duration = "P";
 
-			if ( years > 0 )
-				duration += years.ToString() + "Y";
-			if ( mths > 0 )
-				duration += mths.ToString() + "M";
-			if ( weeks > 0 )
-				duration += weeks.ToString() + "W";
-			if ( days > 0 )
-				duration += days.ToString() + "D";
-			if ( hours > 0 || minutes > 0 )
-				duration += "T";
+		//	if ( years > 0 )
+		//		duration += years.ToString() + "Y";
+		//	if ( mths > 0 )
+		//		duration += mths.ToString() + "M";
+		//	if ( weeks > 0 )
+		//		duration += weeks.ToString() + "W";
+		//	if ( days > 0 )
+		//		duration += days.ToString() + "D";
+		//	if ( hours > 0 || minutes > 0 )
+		//		duration += "T";
 
-			if ( hours > 0 )
-				duration += hours.ToString() + "H";
-			if ( minutes > 0 )
-				duration += minutes.ToString() + "M";
-			return duration;
-		}
+		//	if ( hours > 0 )
+		//		duration += hours.ToString() + "H";
+		//	if ( minutes > 0 )
+		//		duration += minutes.ToString() + "M";
+		//	return duration;
+		//}
 		#endregion
 	}
 }

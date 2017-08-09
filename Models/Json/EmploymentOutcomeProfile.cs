@@ -12,7 +12,7 @@ namespace Models.Json
 	{
 		public EmploymentOutcomeProfile()
 		{
-			type = "ctdl:EmploymentOutcomeProfile";
+			type = "ceterms:EmploymentOutcomeProfile";
 		}
 	}
 

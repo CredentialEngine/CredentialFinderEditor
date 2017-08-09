@@ -22,5 +22,10 @@ namespace CTI.Directory.Controllers
 
 					return RedirectToAction( "Index", "Home" );
         }
+
+		public ActionResult Competencies()
+		{
+			return View( "~/Views/Page/Competencies.cshtml" );
+		}
 	}
 }

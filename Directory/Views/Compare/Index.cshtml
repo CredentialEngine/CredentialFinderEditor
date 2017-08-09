@@ -85,7 +85,7 @@
                     </td>
                     <td class="cbxl">
                         <ul>
-                            @foreach ( var level in item.CredentialLevel.Items )
+                            @foreach ( var level in item.AudienceLevelType.Items )
                             {
                                 <li>@level.Name</li>
                             }
@@ -124,7 +124,7 @@
             @foreach ( var item in Model.Organizations )
             {
                 <tr>
-                    <td class=" title"><a href="@Url.Content( "~/OrganizationManagement/detail2/" + item.Id )" target="_blank">@item.Name</td>
+                    <td class=" title"><a href="@Url.Content( "~/OrganizationManagement/detail2/" + item.Id )">@item.Name</td>
                     <td class=" description">@Html.Raw( item.Description )</td>
                     <td class=" cbxl">
                         <ul>

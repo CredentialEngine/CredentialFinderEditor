@@ -890,6 +890,10 @@ namespace Models.Common
 			if ( string.IsNullOrWhiteSpace( phone) )
 				return "";
 
+			//if phone starts with +, leave as is
+			if ( phone.StartsWith( "+" ) )
+				return phone;
+
 			string workPhone = phone.Trim();
 			workPhone = workPhone.Replace( "-", "" );
 			workPhone = workPhone.Replace( " ", "" );
@@ -937,7 +941,13 @@ namespace Models.Common
 			string part2 = "";
 			string part3 = "";
 			string prefix = "";
-			phone = phone.Replace( "-", "" ).Replace( "(", "" ).Trim();
+			//may want to strip first, just in case
+			phone = StripPhone( phone );
+			//phone = phone.Replace( "-", "" ).Replace( "(", "" ).Trim();
+			//if phone starts with +, leave as is
+			if ( phone.StartsWith( "+" ) )
+				return phone;
+
 			if ( phone.Length > 9 )
 			{
 				if ( phone.Length == 10 )

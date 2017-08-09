@@ -1,16 +1,51 @@
 ﻿@model Models.Node.Interface.ProfileSettings
 @using Models.Node.Interface;
+@{
+    var qtipClass = "hasToolTip";
+    var tooltipProperty = Model.Property;
+    if ( ( Model.PropertySchema ?? "" ) == "{none}" )
+    {
+        tooltipProperty = "";
+
+    }
+    else if ( ( Model.PropertySchema ?? "" ).Length > 2 )
+    {
+        tooltipProperty = Model.PropertySchema;
+    }
+
+    if ( Model.Property == "Jurisdiction" )
+    {
+
+    }
+
+}
+
 @switch ( Model.Type )
 {
     case ProfileSettings.ModelType.LIST:
     {
-        <div class="profileBox tabItem @string.Join( " ", Model.ExtraClasses )" data-profile="@Model.Profile" data-property="@Model.Property" data-parentRepeaterID="@Model.ParentRepeaterId" data-profileTitle="@Model.Label">
-            <h2 class="profileLabel">@Model.Label</h2>
+        <div class="profileBox tabItem @Html.Raw( Model.UseSmallLabel ? "smallLabel" : "" ) @string.Join( " ", Model.ExtraClasses )" data-profile="@Model.Profile" data-property="@Model.Property" data-parentRepeaterID="@Model.ParentRepeaterId" data-profileTitle="@Model.Label">
+            <h2 class="profilelabel">@Model.Label</h2>
             <div class="profileData">
-                <div class="guidance">@Model.Guidance</div>
+
+                @if ( tooltipProperty == "" )
+                {
+                    <div class="guidance">@Html.Raw( Model.Guidance )</div>
+}
+                else
+                {
+                    <div class="guidance">@Model.Guidance&nbsp;<a onclick="return false" href="" title="@tooltipProperty" class="hasToolTip"><img src="~/Images/Icons/icon_infobubble.gif" /></a></div>
+                }
+
                 <div class="profileList"></div>
                 <div class="profileButtons">
+                    @if ( ( Model.AddText ?? "" ).Length > 2 ) { 
                     <input type="button" value="@Model.AddText" onclick="addNewProfile(@Model.ParentRepeaterId, '@Model.Property', this);" />
+                    }
+                    @if ( ( Model.CopyText ?? "" ).Length > 2 )
+                    {
+                        <input type="button" value="@Model.CopyText" onclick="createCostSearchBox(@Model.ParentRepeaterId, '@Model.Property', this);" />
+                    }
                 </div>
             </div>
         </div>
@@ -33,28 +68,66 @@
                 }
                 if ( Model.IncludeName )
                 {
-                    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Name", Label = "Profile Name", Type = TextInputSettings.InputType.TEXT, Guidance = "Enter a name to help you identify this profile later." } )
+                    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", new TextInputSettings() { Property = "Name", Label = "Name", Type = TextInputSettings.InputType.TEXT, Guidance = "Enter a name to help you identify this information later.", RequireValue=true } )
                 }
     }
     break;
-    case ProfileSettings.ModelType.WRAPPER_END: 
+    case ProfileSettings.ModelType.WRAPPER_END:
     {
                 if ( Model.HasTabs )
                 {
                     @:</div>
                 }
             @:</div>
-            <div class="profileBoxButtons">
-                <input class="actionButton" type="button" value="Save and Continue" onclick="saveProfile({repeaterID}, this, null, false);" />
-                <input class="actionButton" type="button" value="Save and Close" onclick="saveProfile({repeaterID}, this, null, true);" />
-                <input class="redButton" type="button" value="Cancel" onclick="cancelProfile({repeaterID}, this);" />
-                <input class="redButton" type="button" value="Delete" onclick="deleteProfile({repeaterID}, this);" />
+            <div class="profileBoxFooter">
+                <div class="profileBoxHistory">
+                    <div class="profileHistory" data-hasupdate="false">Last Updated: <span class="profileHistoryUser"></span>, <span class="profileHistoryTimestamp"></span></div>
+                </div>
+                <div class="profileBoxButtons">
+                    <div class="blueButtons profileBoxButtonSet">
+                        <input class="actionButton" type="button" value="Save and Continue" onclick="saveProfile({repeaterID}, this, null, false, false);" />
+                        <input class="actionButton" type="button" value="Save and Close" onclick="saveProfile({repeaterID}, this, null, true, false);" />
+                        <input class="actionButton" type="button" value="Save and Add Another" onclick="saveProfile({repeaterID}, this, null, true, true);" />
+                    </div>
+                    <div class="redButtons profileBoxButtonSet">
+                        <input class="redButton" type="button" value="Cancel" onclick="cancelProfile({repeaterID}, this);" />
+                        <input class="redButton" type="button" value="Delete" onclick="deleteProfile({repeaterID}, this);" />
+                    </div>
+                </div>
             </div>
         @:</div>
     }
     break;
-    default: break;
+
+    case ProfileSettings.ModelType.WRAPPER_CLOSE:
+    {
+        if ( Model.HasTabs )
+        {
+            @:</div>
+        }
+        
+        @:</div>
+        <div class="profileBoxFooter">
+            <div class="profileBoxHistory">
+                       
+            </div>
+            <div class="profileBoxButtons">
+                <div class="blueButtons profileBoxButtonSet">
+                          
+                </div>
+                <div class="redButtons profileBoxButtonSet">
+                    <input type="button" class="actionButton" value="Save Data" onclick="SendGlobalSave();">
+                    <input class="redButton" type="button" value="Close" onclick="confirmCloseProfile({repeaterID}, this);" />
+                        
+                </div>
+            </div>
+        </div>
+        @:</div>
+    }
+    break;
+    default:
+    break;
 }
 
-        
+
 

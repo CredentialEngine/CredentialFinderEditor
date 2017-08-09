@@ -21,6 +21,8 @@ namespace Data
             this.Entity_PropertyOther = new HashSet<Entity_PropertyOther>();
             this.Entity_Reference = new HashSet<Entity_Reference>();
             this.Organization_PropertyOther = new HashSet<Organization_PropertyOther>();
+            this.Entity_Text = new HashSet<Entity_Text>();
+            this.Entity_FrameworkItemOther = new HashSet<Entity_FrameworkItemOther>();
         }
     
         public int Id { get; set; }
@@ -33,11 +35,14 @@ namespace Data
         public Nullable<System.DateTime> Created { get; set; }
         public string CodeName { get; set; }
         public Nullable<int> InterfaceType { get; set; }
+        public string PropertyTableName { get; set; }
     
         public virtual ICollection<Codes_PropertyValue> Codes_PropertyValue { get; set; }
         public virtual ICollection<Entity_FrameworkItem> Entity_FrameworkItem { get; set; }
         public virtual ICollection<Entity_PropertyOther> Entity_PropertyOther { get; set; }
         public virtual ICollection<Entity_Reference> Entity_Reference { get; set; }
         public virtual ICollection<Organization_PropertyOther> Organization_PropertyOther { get; set; }
+        public virtual ICollection<Entity_Text> Entity_Text { get; set; }
+        public virtual ICollection<Entity_FrameworkItemOther> Entity_FrameworkItemOther { get; set; }
     }
 }

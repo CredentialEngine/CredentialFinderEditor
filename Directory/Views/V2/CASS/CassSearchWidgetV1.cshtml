@@ -1,0 +1,59 @@
+﻿@model Models.Helpers.Cass.CassBrowserV1Config
+@{ 
+	var config = Model ?? new Models.Helpers.Cass.CassBrowserV1Config();
+}
+@functions {
+	public string RenderAttributes()
+	{
+		try
+		{
+			var output = "";
+			foreach( var item in Model.Attributes )
+			{
+				output = output + item.Key + "=\"" + item.Value + "\" ";
+			}
+			return output;
+		}
+		catch
+		{
+			return "";
+		}
+	}
+}
+<div class="cassBrowser" 
+	 data-onSelectCompetency="@config.OnSelectCompetency" 
+	 data-onSelectCompetencyList="@config.OnSelectCompetencyList" 
+	 data-onUnselectCompetency ="@config.OnUnselectCompetency"
+	 @Html.Raw( RenderAttributes() )>
+
+	<div class="guidance">Search for and browse a framework to display competencies from that framework. Click the button to the right of each competency you want to select. Click the "Select Included Competencies" button below the list of competencies to make your selection.</div>
+	<div class="searchColumns">
+		<div class="searchColumn searchFrameworks">
+			<div class="searchHeader">
+				<div class="headerText">Find Competency Frameworks</div>
+				<input type="text" class="searchInput searchFrameworkName" placeholder="Find a Framework..." />
+				<div class="searchStatus"></div>
+			</div>
+			<div class="searchResults"></div>
+		</div>
+		<div class="searchColumn searchCompetencies">
+			<div class="searchHeader">
+				<div class="headerText">Include Competencies</div>
+				<input type="text" class="searchInput filterCompetencyName" placeholder="Filter Competencies..." />
+				<div class="searchStatus"></div>
+			</div>
+			<div class="searchResults"></div>
+			<div class="buttons">
+				<button data-action="includeAllCompetencies">Include All</button>
+				<button data-action="selectIncludedCompetencies">Select Included Competencies <i class="fa fa-arrow-right"></i></button>
+			</div>
+		</div>
+		<div class="searchColumn selectedItems">
+			<div class="searchHeader">
+				<div class="headerText">Selected Items</div>
+				<div class="searchStatus"></div>
+			</div>
+			<div class="searchResults"></div>
+		</div>
+	</div>
+</div>

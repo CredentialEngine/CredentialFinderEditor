@@ -26,7 +26,10 @@ namespace Models.Node
 		public MicroProfile()
 		{
 			Properties = new Dictionary<string, object>();
+			Heading2 = "";
 		}
+
+		public string Heading2 { get; set; }
 
 		public Dictionary<string, object> Properties { get; set; }
 		public Dictionary<string, object> Selectors { get; set; }
@@ -39,7 +42,7 @@ namespace Models.Node
 	{
 		[Property( DBName = "Name" )] //hack
 		public override string Name { get; set; }
-		public string ProfileType { get; set; }
+		//public string ProfileType { get; set; }
 		public string SearchType { get; set; } //hack
 		public string Url { get; set; }
 	}
@@ -98,74 +101,28 @@ namespace Models.Node
 	}
 	//
 
-	[Profile( DBType = typeof( Models.Common.JurisdictionProfile ) )]
-	public class JurisdictionProfile : BaseProfile
-	{
-		public bool IsGlobalJurisdiction { get; set; }
-		public bool IsOnlineJurisdiction { get; set; }
-		[Property( DBName = "MainJurisdiction", SaveAsProfile = true )]
-		public ProfileLink MainRegion { get; set; }
-		[Property( DBName = "JurisdictionException", SaveAsProfile = true )]
-		public List<ProfileLink> RegionException { get; set; }
-		[Property( DBName = "ProfileSummary" )]
-		public override string Name { get; set; } //Override the annotation on the base profile name
-	}
-	//
 
-	//May not be used - will have to see
-	public class RegionProfile : BaseProfile
-	{
-		public string ToponymName { get; set; }
-		public string Region { get; set; }
-		public string Country { get; set; }
-		public double Latitude { get; set; }
-		public double Longitude { get; set; }
-		public string GeonamesUrl { get; set; } //URL of a geonames place
-		public string TitleFormatted
-		{
-			get
-			{
-				string taxName = string.IsNullOrWhiteSpace( this.ToponymName ) ? "" : this.ToponymName;
-				if ( !string.IsNullOrWhiteSpace( this.Name ) )
-				{
-					return this.Name + ( ( taxName.ToLower() == this.Name.ToLower() || taxName == "" ) ? "" : " (" + taxName + ")" );
-				}
-				else
-				{
-					return "";
-				}
-			}
-		}
-		public string LocationFormatted { get { return string.IsNullOrWhiteSpace( this.Region ) ? this.Country : this.Region + ", " + this.Country; } }
-	}
-	//
-
-	[Profile( DBType = typeof( Models.ProfileModels.OrganizationRoleProfile ) )]
-	public class AgentRoleProfile : BaseProfile //BaseProfile properties are not currently used, but the inheritance makes processing easier
-	{
-		[Property( DBName = "ActingAgent", DBType = typeof( Models.Common.Organization ), SaveAsProfile = true )]
-		public ProfileLink Actor { get; set; }
-		//Could be one of many types - requires special handling in the services layer
-		public ProfileLink Recipient { get; set; }
-		[Property( DBName = "RoleType", DBType = typeof( Models.Common.Enumeration ) )]
-		public List<int> RoleTypeIds { get; set; }
-	}
-	public class AgentRoleProfile_Recipient : AgentRoleProfile { }
-	public class AgentRoleProfile_Actor : AgentRoleProfile { }
-	public class OrganizationRole_Recipient : AgentRoleProfile { }
-	//
 
 	[Profile( DBType = typeof( Models.ProfileModels.QualityAssuranceActionProfile ) )]
 	public class QualityAssuranceActionProfile : BaseProfile
 	{
+
 		[Property( DBName = "ActingAgent", DBType = typeof( Models.Common.Organization ), SaveAsProfile = true )]
 		public ProfileLink Actor { get; set; }
+
+		[Property( DBName = "ParticipantAgent", DBType = typeof( Models.Common.Organization ), SaveAsProfile = true )]
+		public ProfileLink ParticipantAgent { get; set; }
+
 		//Could be one of many types - requires special handling in the services layer
 		public ProfileLink Recipient { get; set; }
+
 		[Property( DBName = "IssuedCredential", DBType = typeof( Models.Common.Credential ), SaveAsProfile = true )]
 		public ProfileLink IssuedCredential { get; set; }
+
 		[Property( DBName = "RoleTypeId" )]
 		public int QualityAssuranceTypeId { get; set; }
+
+		public int ActionStatusTypeId { get; set; }
 		public string StartDate { get { return this.DateEffective; } set { this.DateEffective = value; } }
 		public string EndDate { get; set; }
 
@@ -177,101 +134,23 @@ namespace Models.Node
 	public class QualityAssuranceActionProfile_Actor : QualityAssuranceActionProfile { }
 	//
 
-	[Profile( DBType = typeof( Models.ProfileModels.ConditionProfile ) )]
-	public class ConditionProfile : BaseProfile
-	{
-		public ConditionProfile()
-		{
-			Other = new Dictionary<string, string>();
-		}
 
-		//List-based Info
-		public Dictionary<string, string> Other { get; set; }
-
-		[Property( DBName = "AssertedByAgentUid", DBType = typeof( Guid ) )]
-		public ProfileLink ConditionProvider { get; set; }
-
-		[Property( DBName="ApplicableAudienceType", DBType = typeof( Models.Common.Enumeration ) )]
-		public List<int> AudienceTypeIds { get; set; }
-
-		[Property( DBName = "RequiredCredential", DBType = typeof( Credential ) )]
-		public List<ProfileLink> Credential { get; set; }
-
-		[Property( DBName = "CredentialType", DBType = typeof( Models.Common.Enumeration ) )]
-		public List<int> CredentialTypeIds { get; set; }
-
-		[Property( DBName = "TargetLearningOpportunity" )]
-		public List<ProfileLink> LearningOpportunity { get; set; }
-		[Property( DBName = "ResidentOf" )]
-		public List<ProfileLink> Residency { get; set; }
-
-		[Property( DBName = "TargetAssessment" )]
-		public List<ProfileLink> Assessment { get; set; }
-
-		[Property( DBName = "TargetTask" )]
-		public List<ProfileLink> Task { get; set; }
-
-		//[Property( DBName = "TargetMiniCompetency" )]
-		//public List<TextValueProfile> MiniCompetency { get; set; } //Not being used currently
-
-		public string Experience { get; set; }
-		public int MinimumAge { get; set; }
-		public decimal YearsOfExperience { get; set; }
-		public List<ProfileLink> Jurisdiction { get; set; }
-
-		public List<TextValueProfile> ConditionItem { get; set; }
-		public List<TextValueProfile> ReferenceUrl { get; set; }
-	}
-	//
-
-	[Profile( DBType = typeof( Models.ProfileModels.RevocationProfile ) )]
-	public class RevocationProfile : BaseProfile
-	{
-		public RevocationProfile()
-		{
-			Other = new Dictionary<string, string>();
-		}
-
-		//List-based Info
-		public Dictionary<string, string> Other { get; set; }
-		//in base:
-		//public string DateEffective { get; set; }
-
-		//[Property( DBName = "RemovalDateEffective" )]
-		//public string StartDate { get { return this.DateEffective; } set { this.DateEffective = value; } }
-		//[Property( DBName = "RenewalDateEffective" )]
-		//public string EndDate { get; set; }
-
-		[Property( DBName = "RevocationCriteriaType", DBType = typeof( Models.Common.Enumeration ) )]
-		public List<int> RevocationCriteriaTypeIds { get; set; }
-		[Property( DBName = "RevocationResourceUrl" )]
-		public List<TextValueProfile> ReferenceUrl { get; set; }
-		public List<ProfileLink> Jurisdiction { get; set; }
-		public string RevocationCriteriaUrl { get; set; }
-	}
-	//
-
-	[Profile( DBType = typeof( Models.ProfileModels.TaskProfile ) )]
-	public class TaskProfile : BaseProfile
-	{
-		[Property( DBName = "AffiliatedAgentUid", DBType = typeof( Guid ) )]
-		public ProfileLink TaskProvider { get; set; }
-		[Property( DBName = "EstimatedCost", DBType = typeof( Models.ProfileModels.CostProfile ) )]
-		public List<ProfileLink> Cost { get; set; }
-		[Property( DBName = "EstimatedDuration", DBType = typeof( Models.ProfileModels.DurationProfile ) )]
-		public List<ProfileLink> Duration { get; set; }
-		public List<ProfileLink> Jurisdiction { get; set; }
-	}
-	//
+	
 
 	[Profile( DBType = typeof( Models.ProfileModels.CostProfile ) )]
 	public class CostProfile : BaseProfile
 	{
+		public CostProfile ()
+		{
+			Condition = new List<TextValueProfile>();
+		}
 		[Property( DBName = "DateEffective" )]
 		public string StartDate { get { return this.DateEffective; } set { this.DateEffective = value; } }
 
 		[Property( DBName = "ExpirationDate" )]
-		public string EndDate { get; set; }
+		public string ExpirationDate { get; set; }
+
+		public string DetailsUrl { get; set; }
 
 		//[Property( DBName = "ReferenceUrl" )]
 		public List<TextValueProfile> ReferenceUrl { get; set; }
@@ -279,10 +158,19 @@ namespace Models.Node
 		[Property( DBName = "Items", DBType = typeof( Models.ProfileModels.CostProfileItem ) )]
 		public List<ProfileLink> CostItem { get; set; }
 
-		public string Currency { get; set; } //Not used anymore
+		public string Currency { get; set; }
+		public string CurrencySymbol { get; set; }
 		//[Property( DBName = "CurrencyType", DBType = typeof( Models.Common.Enumeration ) )]
 		public int CurrencyTypeId { get; set; } 
 		public List<ProfileLink> Jurisdiction { get; set; }
+
+
+		//Profile Info
+		[Property( Type = typeof( JurisdictionProfile ) )]
+		public List<ProfileLink> Region { get; set; }
+
+
+		public List<TextValueProfile> Condition { get; set; }
 	}
 	//
 
@@ -292,14 +180,17 @@ namespace Models.Node
 		public int CostTypeId { get; set; }
 		[Property( DBName = "ResidencyType", DBType = typeof( Models.Common.Enumeration ) )]
 		public List<int> ResidencyTypeIds { get; set; }
-		[Property( DBName = "EnrollmentType", DBType = typeof( Models.Common.Enumeration ) )]
-		public List<int> EnrollmentTypeIds { get; set; }
+		//[Property( DBName = "EnrollmentType", DBType = typeof( Models.Common.Enumeration ) )]
+		//public List<int> EnrollmentTypeIds { get; set; }
+
 		[Property( DBName = "ApplicableAudienceType", DBType = typeof( Models.Common.Enumeration ) )]
-		public List<int> AudienceTypeIds { get; set; }
+		public List<int> AudienceType { get; set; }
+
 		[Property( DBName = "PaymentPattern" )]
 		public string Payments { get; set; }
-		[Property( DBName = "PayeeUid", DBType = typeof( Guid ) )]
-		public ProfileLink Recipient { get; set; }
+
+		//[Property( DBName = "PayeeUid", DBType = typeof( Guid ) )]
+		//public ProfileLink Recipient { get; set; }
 
 		public decimal Price { get; set; }
 	}
@@ -340,78 +231,22 @@ namespace Models.Node
 	}
 	//
 
-	[Profile( DBType = typeof( Models.Common.Address ) )]
-	public class AddressProfile : BaseProfile
-	{
-		[Property( DBName = "Name" )]
-		public override string Name { get; set; }
-		public bool IsMainAddress { get; set; }
-		public string Address1 { get; set; }
-		public string Address2 { get; set; }
-		public string City { get; set; }
-
-		[Property( DBName = "AddressRegion" )]
-		public string Region { get; set; } //State, Province, etc.
-		public int CountryId { get; set; }
-		//leave, as used with DisplayAddress (and is populated in factory)
-		public string Country { get; set; }
-		public string PostalCode { get; set; }
-		public double Latitude { get; set; }
-		public double Longitude { get; set; }
-
-		public string DisplayAddress( string separator = ", " )
-		{
-			var parts = new List<string>() { Address1 ?? "", Address2 ?? "", City ?? "", Region ?? "", PostalCode ?? "", Country ?? "" };
-			var joined = string.Join( separator, parts );
-			if ( !string.IsNullOrWhiteSpace( PostalCode ) )
-			{
-				joined = joined.Replace( PostalCode + separator, PostalCode + " " );
-			}
-			return joined;
-		}
-
-		public bool HasAddress()
-		{
-			return !( string.IsNullOrWhiteSpace( Address1 )
-				&& string.IsNullOrWhiteSpace( Address2 )
-				&& string.IsNullOrWhiteSpace( City )
-				&& string.IsNullOrWhiteSpace( Region )
-				&& string.IsNullOrWhiteSpace( PostalCode )
-			);
-		}
-
-	}
 	//
 
-	[Profile( DBType = typeof( Models.ProfileModels.ProcessProfile ) )]
-	public class ProcessProfile : BaseProfile
-	{
-		public ProfileLink RolePlayer { get; set; }
-		public List<int> ProcessTypeIds { get; set; }
-		public List<int> ExternalStakeholderTypeIds { get; set; }
-		public List<int> ProcessMethodTypeIds { get; set; }
-		public List<ProfileLink> MoreInformationUrl { get; set; }
-		public List<ProfileLink> Context { get; set; }
-		public List<ProfileLink> Frequency { get; set; } //Duration
-		public List<ProfileLink> Jurisdiction { get; set; }
-	}
+	//[Profile( DBType = typeof( Models.ProfileModels.ProcessProfile ) )]
+	//public class ProcessProfile : BaseProfile
+	//{
+	//	public ProfileLink RolePlayer { get; set; }
+	//	public List<int> ProcessTypeIds { get; set; }
+	//	public List<int> ExternalStakeholderTypeIds { get; set; }
+	//	public List<int> ProcessMethodTypeIds { get; set; }
+	//	public List<ProfileLink> MoreInformationUrl { get; set; }
+	//	public List<ProfileLink> Context { get; set; }
+	//	public List<ProfileLink> Frequency { get; set; } //Duration
+	//	public List<ProfileLink> Jurisdiction { get; set; }
+	//}
 	//
 
-	[Profile( DBType = typeof( Models.ProfileModels.AuthenticationProfile ) )]
-	public class VerificationServiceProfile : BaseProfile
-	{
-		[Property( DBName = "EstimatedCost", DBType = typeof( CostProfile ) )]
-		public List<ProfileLink> Cost { get; set; }
-		[Property( DBName = "RelevantCredential", DBType = typeof( Models.Common.Credential ), SaveAsProfile = true )]
-		public ProfileLink Credential { get; set; }
-
-		[Property( DBName = "Provider", DBType = typeof( Models.Common.Organization ) )]
-		public List<ProfileLink> Verifier { get; set; } //Agent
-
-		public List<ProfileLink> Jurisdiction { get; set; }
-		public bool HolderMustAuthorize { get; set; }
-	}
-	//
 
 	[Profile( DBType = typeof( Models.ProfileModels.EarningsProfile ) )]
 	public class EarningsProfile : BaseProfile
@@ -443,24 +278,6 @@ namespace Models.Node
 	}
 	//
 
-	//Attribute to make conversion easier
-	[AttributeUsage(AttributeTargets.Property)]
-	public class Property : Attribute
-	{
-		public Property()
-		{
-			Type = typeof( ProfileLink );
-			DBType = typeof( string );
-		}
-		public Type Type { get; set; }
-		public Type DBType { get; set; }
-		public string DBName { get; set; }
-		public bool SaveAsProfile { get; set; } //Indicates whether or not to initialize a new profile during saving - used with micro searches that do not do direct saves
-		public string SchemaName { get; set; }
-		public string LoadMethod { get; set; }
-		public string SaveMethod { get; set; }
-	}
-	//
 
 	//Attribute to make saving stuff easier
 	[AttributeUsage(AttributeTargets.Class)]

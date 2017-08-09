@@ -1,0 +1,47 @@
+﻿@model CTIDirectory.Models.AccountSearchModel
+@{
+    //Layout = null;
+}
+@{
+    ViewBag.Title = "WorkIT Accounts";
+    WebGrid grid1 = new WebGrid( null, rowsPerPage: @Model.PageSize );
+    var grid = new WebGrid( null, canPage: true, rowsPerPage: @Model.PageSize,
+   selectionFieldName: "selectedRow", ajaxUpdateContainerId: "gridContent" );
+
+    grid.Bind( Model.Accounts, autoSortAndPage: true, rowCount: @Model.PageSize );
+
+    // var grid2 = new WebGrid( Model, canPage: true, rowsPerPage: 5,
+    //selectionFieldName: "selectedRow", ajaxUpdateContainerId: "gridContent" );
+    grid.Pager( WebGridPagerModes.NextPrevious );}
+ 
+
+}
+<style type="text/css">
+    .webGrid { margin: 4px; border-collapse: collapse; width: 500px;  background-color:#B4CFC3;}
+    .header { background-color: #C1D4E6; font-weight: bold; color: #FFF; }
+    .webGrid th, .webGrid td { border: 1px solid #C0C0C0; padding: 5px; }
+    .alt { background-color: #E4E9F5; color: #000; }
+    .gridHead a:hover {text-decoration:underline;}
+    .description { width:auto}
+    .select{background-color: #71857C}
+</style> 
+
+<link href="https://code.jquery.com/ui/1.12.0-rc.2/themes/smoothness/jquery-ui.css" rel="stylesheet" />
+<h1>Accounts</h1>
+<br />
+@grid.GetHtml( tableStyle: "table table-bordered",
+ mode: WebGridPagerModes.All,
+ firstText: "<< First",
+ previousText: "< Prev",
+ nextText: "Next >",
+ lastText: "Last >>",
+    columns: grid.Columns(
+    grid.Column( "Id", " Id" ),
+    grid.Column( "FirstName", "First Name" ),
+    grid.Column( "LastName", "Last Name" ),
+    grid.Column( "Email", "Email" ),
+    grid.Column( header: "Action",
+    format: @<text><a data-value='@item.Id' href='javascript:void(0)' class='btnEdit'>Edit</a></text> )
+    ) )
+
+<div id="dialog" title="edit view" style="overflow: hidden;"></div>

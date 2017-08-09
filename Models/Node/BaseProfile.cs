@@ -19,7 +19,9 @@ namespace Models.Node
 		}
 		public int Id { get; set; }
 		public Guid RowId { get; set; }
-		public string LastUpdatedDisplay { get { return LastUpdated != null && LastUpdated != DateTime.MinValue ? LastUpdated.ToShortDateString() : Created != null && Created != DateTime.MinValue ? Created.ToShortDateString() : ""; } }
+
+		public string LastUpdatedUserName { get { return !string.IsNullOrWhiteSpace( LastUpdatedBy ) ? LastUpdatedBy : !string.IsNullOrWhiteSpace( CreatedBy ) ? CreatedBy : ""; } }
+		public string LastUpdatedTimestamp { get { return LastUpdated != null && LastUpdated != DateTime.MinValue ? LastUpdated.ToString() : Created != null && Created != DateTime.MinValue ? Created.ToString() : ""; } }
 
 		[ScriptIgnore]
 		public DateTime Created { get; set; }
@@ -65,6 +67,15 @@ namespace Models.Node
 		public virtual string Name { get; set; }
 		public string Description { get; set; }
 		public string DateEffective { get; set; }
+		/// <summary>
+		/// Really a subtype - for example is credential type for profile of Credential
+		/// </summary>
+		public string ProfileType { get; set; }
+		public string ProfileSummary{ get; set; }
+		public string ViewHeading { get; set; }
+
+		//TODO -temp
+		public bool IsNewVersion { get; set; }
 	}
 	//
 
@@ -78,7 +89,9 @@ namespace Models.Node
 
 		//Basic Info
 		public override string Name { get; set; } //Overrides the annotation set in Base profile
+
 		public string Url { get; set; }
+		public string SubjectWebpage { get; set; }
 
 		//List-based Info
 		public Dictionary<string, string> Other { get; set; }
@@ -89,6 +102,7 @@ namespace Models.Node
 
 		[Property( Type = typeof( AgentRoleProfile_Recipient ), DBName = "OrganizationRole" )]
 		public List<ProfileLink> AgentRole_Recipient { get; set; }
+
 
 		[Property( Type = typeof( QualityAssuranceActionProfile_Recipient ), DBName = "QualityAssuranceAction" )]
 		public List<ProfileLink> QualityAssuranceAction_Recipient { get; set; }

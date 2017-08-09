@@ -1,0 +1,122 @@
+﻿@using CTIDirectory.Models
+@model RegisterViewModel
+@{
+    ViewBag.Title = "Add New User";
+    ViewBag.Theme = "light";
+}
+@section css {
+    <link href="@Url.Content("~/styles/bootstrap.min.css")" rel="stylesheet" />
+    <link href="@Url.Content( "~/Style/AccountBox" )" rel="stylesheet" type="text/css" />
+}
+<script type="text/javascript">
+
+    $(document).ready(function () {
+
+        $("#Organization").autocomplete({
+            minLength: 4,
+            source: function (request, response) {
+                $.ajax({
+                    url: "@Url.Content( "~/Admin/User/OrgListByName" )",
+                    type: "POST",
+                    dataType: "json",
+                    data: { keyword: request.term, maxTerms: 20 },
+                    success: function (data) {
+                        response($.map(data, function (item) {
+                            return {
+                                label: item.Name,
+                                value: item.Name,
+                                id: item.Id
+                            };
+                        }))
+                    }
+                })
+            },
+            messages: {
+                noResults: "", results: ""
+            },
+            //select
+            select: function (event, ui) {
+               // $("#Email").val(ui.item.value);
+                //$("#txtResult").val(ui.item.label);
+                //$("#txtId").val(ui.item.id);
+                $("#Organization").text(ui.item.label);
+                $("#OrganizationId").val(ui.item.id);
+                $("#txtId").text(ui.item.id);
+                //window.location.href = "/CredentialManagement/Detail/" + ui.item.id;
+            },
+        });
+    })
+
+</script>
+<h2>@ViewBag.Title</h2>
+<div class="row">
+    <div class="col-md-8">
+        @using ( Html.BeginForm( "AddUser", "User", FormMethod.Post, new { @class = "form-horizontal", role = "form" } ) )
+        {
+            @Html.AntiForgeryToken()
+            <h4>Create a new account.</h4>
+            <hr />
+            @Html.ValidationSummary( "", new { @class = "text-danger" } )
+            <div class="form-group">
+                @Html.LabelFor( m => m.Email, new { @class = "col-md-3 control-label" } )
+                <div class="col-md-9">
+                    @Html.TextBoxFor( m => m.Email, new { @class = "form-control" } )
+                </div>
+            </div>
+            <div class="form-group">
+                @Html.LabelFor( m => m.FirstName, new { @class = "col-md-3 control-label" } )
+                <div class="col-md-9">
+                    @Html.TextBoxFor( m => m.FirstName, new { @class = "form-control" } )
+                </div>
+            </div>
+            <div class="form-group">
+                @Html.LabelFor( m => m.LastName, new { @class = "col-md-3 control-label" } )
+                <div class="col-md-9">
+                    @Html.TextBoxFor( m => m.LastName, new { @class = "form-control" } )
+                </div>
+            </div>
+            <div class="form-group">
+                @Html.LabelFor( m => m.Password, new { @class = "col-md-3 control-label" } )
+                <div class="col-md-9">
+                    @Html.PasswordFor( m => m.Password, new { @class = "form-control" } )
+                    <div>Password: Enter at least one upper case letter, one lower case letter at least one one character that is neither a letter or digit. (E.g. '- $ % _ etc.').</div>
+                </div>
+            </div>
+            <div class="form-group">
+                @Html.LabelFor( m => m.ConfirmPassword, new { @class = "col-md-3 control-label" } )
+                <div class="col-md-9">
+                    @Html.PasswordFor( m => m.ConfirmPassword, new { @class = "form-control" } )
+                    <div>Confirm Password:Re-enter password.</div>
+                </div>
+            </div>
+            <div class="form-group">
+                @Html.LabelFor( m => m.Organization, new { @class = "col-md-3 control-label" } )
+                <div class="col-md-9">
+                    @Html.TextBoxFor( m => m.Organization, new { @class = "form-control" } )
+                    <div>Enter/Select the organization for this Account. NOTE: the organization must have already been created. If the user organization doesn't exist, contact CTI to have the organization added.</div>
+                </div>
+            </div>
+            <div class="form-group hidden">
+                @Html.LabelFor( m => m.OrganizationId, new { @class = "col-md-3 control-label" } )
+                <div class="col-md-9">
+                    @Html.TextBoxFor( m => m.OrganizationId )
+                </div>
+            </div>
+            <div class="input hidden">
+                <label>Name</label><div id="txtResult" style="display: inline-block;vertical-align: middle;"></div>
+                <label>Id</label><div id="txtId" style="display: inline-block;vertical-align: middle;"></div>
+            </div>
+           
+            <div class="form-group">
+                <div class="col-md-offset-3 col-md-9">
+                    <input type="submit" class="btn btn-default" value="Add User" />
+                </div>
+            </div>
+        }
+    </div>
+   
+</div>
+@section Scripts {
+    @Scripts.Render( "~/bundles/jqueryval" )
+}
+

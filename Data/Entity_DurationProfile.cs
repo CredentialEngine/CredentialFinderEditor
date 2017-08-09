@@ -15,8 +15,6 @@ namespace Data
     public partial class Entity_DurationProfile
     {
         public int Id { get; set; }
-        public System.Guid ParentUid { get; set; }
-        public int ParentTypeId { get; set; }
         public Nullable<int> TypeId { get; set; }
         public Nullable<int> FromYears { get; set; }
         public Nullable<int> FromMonths { get; set; }
@@ -40,6 +38,7 @@ namespace Data
         public Nullable<int> FromMinutes { get; set; }
         public Nullable<int> ToMinutes { get; set; }
         public string ProfileName { get; set; }
+        public Nullable<int> AverageMinutes { get; set; }
     
         public virtual Entity Entity { get; set; }
     }

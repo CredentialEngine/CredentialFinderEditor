@@ -1,13 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using Models;
 
 using Models.Common;
-using Models.ProfileModels;
 using EM = Data;
 using Utilities;
 using DBentity = Data.Entity_Property;
@@ -50,7 +45,9 @@ namespace Factories
 				return true;
 			}
 			//get parent entity
-			Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
+			//Entity_Summary parent = EntityManager.GetDBEntity( parentUid );
+
+			Entity parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
 			{
 				messages.Add( "Error - the parent entity was not found." );
@@ -69,7 +66,7 @@ namespace Factories
 
 				//get all existing for the category
 				var results = context.Entity_Property
-							.Where( s => s.ParentUid == parentUid
+							.Where( s => s.EntityId == parent.Id
 								&& s.Codes_PropertyValue.CategoryId == categoryId )
 							.OrderBy( s => s.PropertyValueId )
 							.ToList();
@@ -109,8 +106,8 @@ namespace Factories
 						//TODO switch to all EntityId
 						op.EntityId = parent.Id;
 
-						op.ParentUid = parentUid;
-						op.ParentTypeId = parentTypeId;
+						//op.ParentUid = parentUid;
+						//op.ParentTypeId = parentTypeId;
 						op.PropertyValueId = v.AddId;
 
 						op.Created = System.DateTime.Now;
@@ -206,7 +203,7 @@ namespace Factories
 					return false;
 				}
 
-				context.Entity_Property.RemoveRange( context.Entity_Property.Where( s => s.ParentUid == parentUid ) );
+				context.Entity_Property.RemoveRange( context.Entity_Property.Where( s => s.Entity.EntityUid == parentUid ) );
 				int count = context.SaveChanges();
 				if ( count > 0 )
 				{
@@ -250,9 +247,9 @@ namespace Factories
 			using ( var context = new ViewContext() )
 			{
 				List<EntityProperty_Summary> results = context.EntityProperty_Summary
-					.Where( s => s.ParentUid == parentUid 
+					.Where( s => s.EntityUid == parentUid 
 						&& s.CategoryId == categoryId )
-					.OrderBy( s => s.SortOrder ).ThenBy( s => s.Property )
+					.OrderBy(s => s.CategoryId).ThenBy(s => s.SortOrder).ThenBy(s => s.Property)
 					.ToList();
 
 				if ( results != null && results.Count > 0 )
@@ -377,8 +374,8 @@ namespace Factories
 			int count = 0;
 			if ( string.IsNullOrWhiteSpace( entity.OtherValue ) == false )
 				hasOtherValue = true;
-			int entityId = EntityManager.GetEntityId( parentUid );
-			if ( entityId == 0 )
+			Entity parent = EntityManager.GetEntity( parentUid );
+			if ( parent == null || parent.Id == 0 )
 			{
 				messages.Add( "The parent entity was not found - system administration has been notified." );
 				EmailManager.NotifyAdmin( thisClassName + ".PropertyOther_Update", string.Format("The parent entity was not found - user: {0}, category: {1}, parentUid: {2}",lastUpdatedById) );
@@ -389,7 +386,7 @@ namespace Factories
 				//how to determine if item deleted?
 				//may have to always do a read@@@@
 				EM.Entity_PropertyOther item = context.Entity_PropertyOther
-					.SingleOrDefault( s => s.EntityId == entityId && s.CategoryId == categoryId );
+					.SingleOrDefault( s => s.EntityId == parent.Id && s.CategoryId == categoryId );
 
 				if ( item == null || item.EntityId == 0 )
 				{
@@ -397,7 +394,7 @@ namespace Factories
 						return true; //not found, and no value, no action
 					//else add new
 					item = new EM.Entity_PropertyOther();
-					item.EntityId = entityId;
+					item.EntityId = parent.Id;
 					item.CategoryId = categoryId;
 					item.OtherValue = entity.OtherValue;
 					item.Created = System.DateTime.Now;

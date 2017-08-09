@@ -39,10 +39,7 @@ namespace Models.ProfileModels
 		}
 		public System.DateTime EndDate { get; set; }
 		public bool IsQAActionRole { get; set; }
-		public string Description { get; set; }
-		
-
-		
+	
 		
 	}
 }

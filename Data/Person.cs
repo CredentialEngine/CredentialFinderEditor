@@ -35,5 +35,6 @@ namespace Data
         public Nullable<System.DateTime> LastUpdated { get; set; }
         public Nullable<int> LastUpdatedById { get; set; }
         public Nullable<int> StatusId { get; set; }
+        public string CTID { get; set; }
     }
 }

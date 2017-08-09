@@ -8,20 +8,34 @@ using Models.Common;
 
 namespace Models.ProfileModels
 {
-	
-	public class AuthenticationProfile : BaseProfile
+	[Obsolete]
+	abstract class AuthenticationProfile : BaseProfile
 	{
-		public AuthenticationProfile()
-		{
-			EstimatedCost = new List<CostProfile>();
-			RelevantCredential = new Credential();
-		}
+		//public AuthenticationProfile()
+		//{
+		//	//EstimatedCost = new List<CostProfile>();
+		//	//RelevantCredential = new Credential();
+		//	//ClaimType = new Enumeration();
+		//}
 
-		public bool HolderMustAuthorize { get; set; }
-		public List<CostProfile> EstimatedCost { get; set; }
-		public string TargetCredential { get; set; } //url
-		public int TargetCredentialId { get { return RelevantCredential.Id; } set { RelevantCredential.Id = value; } }
-		public Credential RelevantCredential { get; set; } //Workaround
+		//public string VerificationServiceUrl { get; set; }
+		//public bool HolderMustAuthorize { get; set; }
+		//public List<CostProfile> EstimatedCost { get; set; }
+		//public List<CostProfile> EstimatedCosts { get { return EstimatedCost; } set { EstimatedCost = value; } } //Convenience for publishing
+
+
+		////note the credential will now be the context entity
+		//public string TargetCredential { get; set; } //url
+		//public int TargetCredentialId { get { return RelevantCredential.Id; } set { RelevantCredential.Id = value; } }
+		//public Credential RelevantCredential { get; set; } //Workaround
+
+		//public Enumeration ClaimType { get; set; }
+
+
+		//public Guid OfferedByAgentUid { get; set; }
+		//public string VerificationDirectory { get; set; }
+		//public string VerificationMethodDescription { get; set; }
+		//public List<JurisdictionProfile> OfferedIn { get; set; }
 	}
 	//
 

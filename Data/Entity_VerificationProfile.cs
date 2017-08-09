@@ -14,9 +14,13 @@ namespace Data
     
     public partial class Entity_VerificationProfile
     {
+        public Entity_VerificationProfile()
+        {
+            this.Entity_VerificationStatus = new HashSet<Entity_VerificationStatus>();
+        }
+    
         public int Id { get; set; }
         public int EntityId { get; set; }
-        public string ProfileName { get; set; }
         public string Description { get; set; }
         public Nullable<System.DateTime> DateEffective { get; set; }
         public Nullable<bool> HolderMustAuthorize { get; set; }
@@ -26,8 +30,17 @@ namespace Data
         public System.DateTime LastUpdated { get; set; }
         public int LastUpdatedById { get; set; }
         public System.Guid RowId { get; set; }
+        public string VerificationServiceUrl { get; set; }
+        public string VerificationDirectory { get; set; }
+        public string VerificationMethodDescription { get; set; }
+        public Nullable<System.Guid> OfferedByAgentUid { get; set; }
+        public string ProfileName { get; set; }
+        public string SubjectWebpage { get; set; }
     
         public virtual Credential Credential { get; set; }
         public virtual Entity Entity { get; set; }
+        public virtual Account Account_Creator { get; set; }
+        public virtual Account Account_Modifier { get; set; }
+        public virtual ICollection<Entity_VerificationStatus> Entity_VerificationStatus { get; set; }
     }
 }

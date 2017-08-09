@@ -1,152 +1,601 @@
-﻿@model CompareItemSummary
+﻿@using Models.Common;
+@using Models.ProfileModels;
 @using Models.Helpers;
+@using System.Reflection;
+@model CompareItemSummary
 @{
-    ViewBag.Title = "Index";
+	ViewBag.Title = "Comparing Information";
+
+	var defaultCompareType = Model.Credentials.Count() > 0 ? "credential" : Model.Organizations.Count() > 0 ? "organization" : Model.Assessments.Count() > 0 ? "assessment" : Model.LearningOpportunities.Count() > 0 ? "learningopportunity" : "credential";
+
+	//Fix costs
+	var enumServices = new EnumerationServices();
+	var costCodes = enumServices.GetEnumeration( "costType", EnumerationType.SINGLE_SELECT_ID_ONLY ).Items;
+	var currencyCodes = enumServices.GetCurrencies( EnumerationType.SINGLE_SELECT_ID_ONLY ).Items;
+	try
+	{
+		//Fix for Credentials
+		foreach ( var item in Model.Credentials )
+		{
+			MergeCosts( item );
+			var credDurations = item.EstimatedDuration
+				.Concat( item.Requires.SelectMany( m => m.TargetCredential ).SelectMany( m => m.EstimatedDuration ) )
+				.Concat( item.Requires.SelectMany( m => m.TargetAssessment ).SelectMany( m => m.EstimatedDuration ) )
+				.Concat( item.Requires.SelectMany( m => m.TargetLearningOpportunity ).SelectMany( m => m.EstimatedDuration ) )
+				.ToList();
+			item.EstimatedDuration = credDurations;
+		}
+		FixCosts( Model.Credentials.SelectMany( m => m.EstimatedCosts ).ToList(), costCodes, currencyCodes );
+
+		//Fix for Assessments
+		FixCosts( Model.Assessments.SelectMany( m => m.EstimatedCost ).ToList(), costCodes, currencyCodes );
+
+		//Fix for Learning Opportunities
+		foreach ( var learnOpp in Model.LearningOpportunities )
+		{
+			MergeCosts( learnOpp );
+		}
+		FixCosts( Model.LearningOpportunities.SelectMany( m => m.EstimatedCost ).ToList(), costCodes, currencyCodes );
+	}
+	catch { }
+
+
+}
+@functions {
+    public List<CellData> GetData( string propertyName, List<Credential> sources )
+    {
+        return CompareItemSummary.GetData<Credential>( propertyName, sources );
+    }
+    public List<CellData> GetData( string propertyName, List<Organization> sources )
+    {
+        return CompareItemSummary.GetData<Organization>( propertyName, sources );
+    }
+    public List<CellData> GetData( string propertyName, List<AssessmentProfile> sources )
+    {
+        return CompareItemSummary.GetData<AssessmentProfile>( propertyName, sources );
+    }
+    public List<CellData> GetData( string propertyName, List<LearningOpportunityProfile> sources )
+    {
+        return CompareItemSummary.GetData<LearningOpportunityProfile>( propertyName, sources );
+    }
+
+    private void MergeCosts( Credential source )
+    {
+        var costs = new List<CostProfile>();
+        costs = costs.Concat( source.EstimatedCosts ).ToList();
+        costs = costs.Concat( source.Requires.SelectMany( m => m.TargetAssessment ).SelectMany( m => m.EstimatedCost ) ).ToList();
+    //costs = costs.Concat( source.Requires.SelectMany( m => m.TargetTask ).SelectMany( m => m.EstimatedCost ) ).ToList();
+        foreach ( var learnOpp in source.Requires.SelectMany( m => m.TargetLearningOpportunity ) )
+        {
+            MergeCosts( learnOpp, ref costs );
+        }
+        source.EstimatedCosts = costs;
+    }
+    private void MergeCosts( LearningOpportunityProfile source )
+    {
+        var costs = new List<CostProfile>();
+        costs = costs.Concat( source.EstimatedCost ).ToList();
+        foreach ( var learnOpp in source.HasPart )
+        {
+            MergeCosts( learnOpp, ref costs );
+        }
+        source.EstimatedCost = costs;
+    }
+    private void MergeCosts( LearningOpportunityProfile source, ref List<CostProfile> costs )
+    {
+        costs = costs.Concat( source.EstimatedCost ).ToList();
+        foreach ( var learnOpp in source.HasPart )
+        {
+            MergeCosts( learnOpp, ref costs );
+        }
+    }
+
+    private void FixCosts( List<CostProfile> costs, List<EnumeratedItem> costCodes, List<EnumeratedItem> currencyCodes )
+    {
+        foreach ( var cost in costs )
+        {
+            try
+            {
+                cost.Currency = currencyCodes.FirstOrDefault( m => m.CodeId == cost.CurrencyTypeId ).Name;
+            }
+            catch { }
+            foreach ( var costItem in cost.Items )
+            {
+                if ( costItem.CostType.Items.Count() == 0 )
+                {
+                    costItem.CostType.Items.Add( costCodes.FirstOrDefault( m => m.CodeId == costItem.CostTypeId ) );
+                }
+            }
+
+        }
+    }
+}
+@helper ListPropertyCheckboxes( Dictionary<string, string> properties ) 
+{ 
+    return;
+    try
+    {
+        <div class="propertySelector">
+            @foreach ( var item in properties )
+            {
+                <label><input type="checkbox" value="@item.Key" /> @item.Value</label>
+            }
+        </div>
+    }
+    catch { }
+}
+@helper RenderLabel( string rowName, string label ) 
+{ 
+    <div data-rowname="@rowName" class="label">@label <i class="fa fa-caret-right"></i><i class="fa fa-caret-down"></i></div>
+}
+@helper RenderRow_Header( string rowName, List<object> data, string itemType ) 
+{ 
+    try
+    {
+        <div class="row headerRow" data-rowName="@rowName">
+            @foreach ( var item in data )
+            {
+                var itemName = CompareItemSummary.GetData( "Name", item );
+                var itemID = CompareItemSummary.GetData( "Id", item );
+                <div class="cell itemHeader" data-id="@itemID">
+					<a href="@Url.Content( "~/detail/" + itemType + "/" + itemID )" target="compareItemWindow">@itemName</a>
+					<button class="fa fa-trash redButton removeButton" onclick="compare.removeItem(@itemID, '@itemType', this)" title="Remove from comparison"></button>
+				</div>
+			}
+        </div>
+    }
+    catch( Exception ex ) { <div>@ex.Message</div> }
+}
+@helper RenderRow_Text( string rowName, string label, List<CellData> data, string className = "" ) 
+{ 
+    try
+    {
+        <div class="row @className" data-rowname="@rowName">
+            @RenderLabel( rowName, label )
+            @foreach ( var item in data )
+            {
+                <div class="cell" data-id="@item.Id">
+                    @( item.Data as string )
+					<button class="truncateButton">Show/Hide</button>
+                </div>
+            }
+        </div>
+    }
+    catch { }
+}
+@helper RenderRow_Enumeration( string rowName, string label, List<CellData> data, string className = "" ) 
+{ 
+    try
+    {
+        <div class="row" data-rowname="@rowName">
+            @RenderLabel( rowName, label )
+            @foreach ( var item in data )
+            {
+                <div class="cell" data-id="@item.Id">
+                    @{ var list = item.Data as Enumeration; }
+                    @if ( list.Items.Count() > 0 )
+                    {
+                        <ul>
+                            @foreach ( var cbx in list.Items )
+                            {
+                                <li>@cbx.Name</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <div class="noData">No Data</div>
+                    }
+                </div>
+            }
+        </div>
+    }
+    catch { }
+}
+@helper RenderRow_Costs( string rowName, string label, List<CellData> data, string className = "" ) 
+{ 
+    try
+    {
+        var usedCostIDs = new List<int>();
+        <div class="row" data-rowname="@rowName">
+            @RenderLabel( rowName, label )
+            @foreach ( var item in data )
+            {
+                var costs = item.Data as List<CostProfile>;
+                <div class="cell" data-id="@item.Id">
+                    @if ( costs.Count() == 0 || costs.SelectMany( m => m.Items ).Count() == 0 )
+                    {
+                        <div class="noData">No Data</div>
+                    }
+                    else
+                    {
+                        foreach ( var cost in costs )
+                        {
+                            if ( usedCostIDs.Contains( cost.Id ) )
+                            {
+                                continue;
+                            }
+                            usedCostIDs.Add( cost.Id );
+                            <div class="profile cost">
+                                <div class="profileTitle costTitle">@cost.ProfileName</div>
+                                @foreach ( var costItem in cost.Items )
+                                {
+                                    <div class="profile costItem">
+                                        @{
+                                            var type = costItem.CostType.Items.FirstOrDefault();
+                                            var costType = "Estimated Cost";
+                                            if(type != null)
+                                            {
+                                                costType = type.Name;
+                                            }
+                                            var audiences = costItem.ApplicableAudienceType.Items.Count() > 0 ? string.Join( ", ", costItem.ApplicableAudienceType.Items.Select( m => m.Name ).ToList() ) : "";
+                                            var residency = costItem.ResidencyType.Items.Count() > 0 ? string.Join( ", ", costItem.ResidencyType.Items.Select( m => m.Name ).ToList() ) : "";
+                                            var enrollment = "";// costItem.EnrollmentType.Items.Count() > 0 ? string.Join( ", ", costItem.EnrollmentType.Items.Select( m => m.Name ).ToList() ) : "";
+                                        }
+                                        <div class="costType">@costType: @costItem.Price @cost.Currency</div>
+                                        <div class="costConditions">
+                                            <div class="smallText">@costItem.PaymentPattern</div>
+                                            @if ( !string.IsNullOrWhiteSpace( audiences ) )
+                                            {
+                                                <div class="smallText">Audiences: @audiences</div>
+                                            }
+                                            @if ( !string.IsNullOrWhiteSpace( residency ) )
+                                            {
+                                                <div class="smallText">Residency: @residency</div>
+                                            }
+                                            @if ( !string.IsNullOrWhiteSpace( enrollment ) )
+                                            {
+                                                <div class="smallText">Enrollment: @enrollment</div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+            }
+        </div>
+    }
+    catch { }
+}
+@helper RenderRow_Durations( string rowName, string label, List<CellData> data, string className = "" ) 
+{ 
+    try
+    {
+        <div class="row" data-rowname="@rowName">
+            @RenderLabel( rowName, label )
+            @foreach ( var item in data )
+            {
+                var durations = item.Data as List<DurationProfile>;
+                <div class="cell" data-id="@item.Id">
+                    @if ( durations.Count() == 0 )
+                    {
+                        <div class="noData">No Data</div>
+                    }
+                    else
+                    {
+                        foreach ( var duration in durations )
+                        {
+                            <div class="profile duration">
+                                @if ( duration.IsRange )
+                                {
+                                    <div class="durationRange">@duration.MinimumDuration.Print() to @duration.MaximumDuration.Print()</div>
+                                }
+                                else
+                                {
+                                    <div class="durationRange">@duration.ExactDuration.Print()</div>
+                                }
+                                <div class="durationConditions smallText">@duration.Conditions</div>
+                            </div>
+                        }
+                    }
+                </div>
+            }
+        </div>
+    }
+    catch { }
+}
+@helper RenderRow_OrganizationRole( string rowName, string label, List<CellData> data, string roleSchema, string roleTitle ) 
+{ 
+	try
+	{
+		Utilities.LoggingHelper.DoTrace( 4, "Loading Compare - Owner Organizations" );
+		Utilities.LoggingHelper.DoTrace( 4, "OrganizationRoleProfile Count: " + data.Count() );
+		Utilities.LoggingHelper.DoTrace( 4, "Role Schema: " + roleSchema );
+        <div class="row" data-rowname="@rowName">
+            @RenderLabel( rowName, label )
+            @foreach ( var item in data )
+			{
+				var roles = item.Data as List<OrganizationRoleProfile>;
+				Utilities.LoggingHelper.DoTrace( 4, "Roles: " + string.Join( ", ", roles.Select( m => m.AgentRole ).SelectMany( m => m.Items ).Select( m => m.SchemaName ) ) );
+
+				var targetRoles = roles.Where( m => m.AgentRole.Items.Where( n => n.SchemaName == roleSchema ).Count() > 0 ).ToList();
+                <div class="cell" data-id="@item.Id">
+                    @if ( targetRoles.Count() == 0 )
+                    {
+                        <div class="noData">No Data</div>
+                    }
+                    else
+                    {
+                        foreach ( var role in targetRoles )
+                        {
+                            <div class="profile role">
+                                @( string.IsNullOrWhiteSpace( roleTitle ) ? "" : roleTitle + ": ")<a href="@Url.Content( "~/detail/organization/" + role.ActingAgent.Id )" target="_blank">@role.ActingAgent.Name</a>
+                            </div>
+                        }
+                    }
+                </div>
+            }
+        </div>
+	}
+	catch ( Exception ex )
+	{
+		Utilities.LoggingHelper.DoTrace( 4, "Error loading compare for owner organization(s): " + ex.Message + System.Environment.NewLine + ex.ToString() );
+	}
 }
 
-@Html.Partial( "~/Views/Compare/_CompareCore.cshtml", "" )
-
+@Html.Partial( "~/Views/V2/Compare/_CompareCore.cshtml", "" )
 <script type="text/javascript">
-    /* Page Functions */
+    var compareType = "credential";
 
-    function setViewMode(mode) {
-        $(".compareList").removeClass("columns rows").addClass(mode);
-        $(".toolSection#viewMode input").removeClass("selected").filter("[data-view=" + mode + "]").addClass("selected");
+    $(document).ready(function () {
+    	fixSafari();
+    	setupCompareUpdate();
+        setCompareType("@defaultCompareType");
+    	setupAccordions();
+    	setupTruncation();
+    });
+    //
+
+    function setupAccordions() {
+        $(".row .label").each(function () {
+            var label = $(this);
+            var row = $(".row[data-rowname=" + label.attr("data-rowname"));
+
+            label.attr("tabindex", "0");
+
+            label.on("click", function () {
+                label.toggleClass("selected");
+                if (label.hasClass("selected")) {
+                    row.find(".cell").addClass("selected");
+                }
+                else {
+                    row.find(".cell").removeClass("selected");
+                }
+            });
+
+            //label.addClass("selected");
+            //row.find(".cell").addClass("selected");
+        });
+        $(".row .label[data-rowname=Role_Owner], .row .label[data-rowname=Description]").trigger("click");
     }
     //
 
-    function setType(type) {
-        $(".toolSection#type input, .compareList").removeClass("selected").filter("[data-type=" + type + "]").addClass("selected");
+    function setCompareType(type) {
+        compareType = type;
+        $("#compareSelectorBar button, .compareSection").removeClass("selected").filter("[data-comparetype=" + type + "]").addClass("selected");
     }
     //
+
+    function setupCompareUpdate() {
+    	compare.onUpdate.push(function () {
+    		for (var type in compare.items) {
+    			var section = $("[data-compareType=" + type + "]");
+    			section.find(".itemHeader").each(function () {
+    				var id = $(this).attr("data-id");
+    				var keep = false;
+    				for (var item in compare.items[type]) {
+    					if (compare.items[type][item].Id.toString() == id) {
+    						keep = true;
+    					}
+    				}
+    				if (!keep) {
+    					$("[data-compareType=" + type + "] .cell[data-id=" + id + "]").remove();
+    				}
+    			});
+    		}
+    	});
+    }
+	//
+
+    function setupTruncation() {
+    	$(".row.truncate .cell").each(function () {
+    		var cell = $(this);
+    		cell.find(".truncateButton").on("click", function () {
+    			cell.toggleClass("expanded");
+    		});
+    	});
+    	var win = $(window);
+    	win.on("resize", function() {
+    		$(".row.truncate").each(function () {
+    			var cells = $(this).find(".cell");
+    			cells.removeClass("truncated");
+    			cells.each(function () {
+    				var cell = $(this);
+    				if (cell.height() > 200) {
+    					cell.addClass("truncated");
+    				}
+    			});
+    		});
+    	});
+    	win.trigger("resize");
+    }
+
+    function fixSafari() {
+    	//Force cells to be expanded because they don't work in Safari
+    	var agent = window.navigator.userAgent.toLowerCase();
+    	if (agent.indexOf("ipad") > -1 || agent.indexOf("iphone") > -1) {
+    		$(".cell").addClass("selected");
+		}
+	}
 </script>
 <style type="text/css">
-    ul { margin: 0; }
-    #toolbar {  }
-    #toolbar .toolSection { margin: 0 10px; text-align: right; }
-    #toolbar .toolSection button { padding: 5px 10px; margin: 2px 10px; }
+    #titleBar { background-color: #0F3E63; color: #FFF; position: relative; padding: 20px 5vw; margin: 0 -5vw; font-size: 36px; }
+    #compareSelectorBar { padding: 10px 0; }
+    #compareSelectorBar button { font-size: 20px; padding: 10px; }
+    #compareSelectorBar button:disabled { display: none; }
+    #compareSelectorBar button.selected { background-color: #F2F4F4; }
+    .compareSection { display: none; }
+    .compareSection.selected { display: block; }
 
-    td { padding: 5px; min-width: 250px; vertical-align: top; color: #000; } 
-    .compareList { overflow: auto; }
-    .compareList:not(.selected) { display: none; }
+    .propertySelector { padding: 10px 0; }
+    .propertySelector label { display: inline-block; vertical-align: top; padding: 5px 10px; margin: 1px; }
+    .propertySelector label:hover, .propertySelector label:focus { cursor: pointer; background-color: #F2F4F4; }
 
-    .compareList.rows tr { border-bottom: 1px solid #CAD9DB; }
-    .compareList.rows .compareItem { display: table-row; }
-    .compareList.rows td { display: table-cell; border: none; padding: 15px; }
-    .compareList.rows td:not(.title) { color: #607171; }
+    .compareWrapper { overflow: auto; max-width: 100%; border: 1px solid #CAD9DB; padding: 0 5px; margin-bottom: 50px; }
+    .compareBox { display: inline-block; min-width: 100%; }
+    .row { white-space: nowrap; margin-top: 5px; font-size: 0; }
+    .row .cell { white-space: normal; padding: 5px; }
+    .row:first-child { border-top: none; }
+    .row .label { font-weight: bold; font-size: 20px; padding: 5px; background-color: #F2F4F4; }
+    .row .label:hover, .row .label:focus { cursor: pointer; }
+    .row .label:not(.selected) .fa-caret-down { display: none; }
+    .row .label.selected .fa-caret-right { display: none; }
+    .row .cell { display: inline-block; vertical-align: top; width: 100%; padding: 5px 10px; min-width: 400px; position: relative; }
+    .row .cell:not(:first-of-type) .label { opacity: 0; }
+    .row .cell:not(.selected) { display: none; }
+    .row .cell .noData { padding: 20px; text-align: center; font-style: italic; opacity: 0.5; }
 
-    .compareList.columns .compareItem { display: inline-block; vertical-align: top; width: 300px; }
-    .compareList.columns td { display: block; padding: 15px; }
+    .compareBox[data-count='2'] .row .cell { max-width: calc(100% / 2); }
+    .compareBox[data-count='3'] .row .cell { max-width: calc(100% / 3); }
+    .compareBox[data-count='4'] .row .cell { max-width: calc(100% / 4); }
+    .compareBox[data-count='5'] .row .cell { max-width: calc(100% / 5); }
+    .compareBox[data-count='6'] .row .cell { max-width: calc(100% / 6); }
+    .compareBox[data-count='7'] .row .cell { max-width: calc(100% / 7); }
+    .compareBox[data-count='8'] .row .cell { max-width: calc(100% / 8); }
+    .compareBox[data-count='9'] .row .cell { max-width: calc(100% / 9); }
+    .compareBox[data-count='10'] .row .cell { max-width: calc(100% / 10); }
+    .row[data-rowname=Name] { background-color: #F2F4F4; }
+    .row[data-rowname=Name] .cell { font-weight: bold; font-size: 20px; min-height: 3em; display: inline-block; border-right: 1px solid #CCC; }
+	.row[data-rowname=Name] .cell:last-child { border-right: none; }
+    .row[data-rowname=Name] .label { display: none; }
 
-    .compareList.rows th { font-weight: bold; font-size: 18px; background-color: #555; color: #FFF; padding: 10px; text-align: left; }
-    .compareList.columns th { display: none; }
+    .profile { padding: 5px 0; }
+    .smallText { font-size: 16px; font-style: italic; opacity: 0.8; font-weight: lighter; padding: 3px 10px; }
 
-    .title { font-weight: bold; font-size: 18px; background-color: #F2F4F4; }
-    .description { white-space: pre-wrap; }
+    .costTitle { font-weight: bold; }
+    .costItem { padding: 5px;}
+
+    .durationConditions {  }
+	.itemHeader { padding-right: 35px; }
+	.removeButton { position: absolute; top: 5px; right: 0; font-size: 18px; height: 25px; width: 25px; }
+
+	.row.truncate .cell { overflow: hidden; position: relative; }
+	.row.truncate .cell.truncated { max-height: 200px; }
+	.row.truncate .cell.truncated::after { content: ' '; position: absolute; bottom: 0; left: 0; width: 100%; height: 50px; background-image: linear-gradient(rgba(255,255,255,0), rgba(255,255,255,1)); z-index: 10; }
+	.row.truncate .cell.truncated.expanded { max-height: none; padding-bottom: 50px; }
+	.row.truncate .cell .truncateButton { position: absolute; bottom: 5px; right: 5px; z-index: 25; }
+	.row .cell:not(.truncated) .truncateButton { display: none; }
+
+	button.label { display: block; width: 100%; text-align: left; }
 </style>
 
-<h1>Comparing Items</h1>
+<h1 id="titleBar">Comparing Items</h1>
 
-<div id="comparator">
+<div id="compareSelectorBar">
+    <button class="whiteButton" @( Model.Credentials.Count() == 0 ? "disabled=\"disabled\"" : "" ) data-comparetype="credential" onclick="setCompareType('credential');">Compare @Model.Credentials.Count() Credentials</button>
+    <button class="whiteButton" @( Model.Organizations.Count() == 0 ? "disabled=\"disabled\"" : "") data-comparetype="organization" onclick="setCompareType('organization');">Compare @Model.Organizations.Count() Organizations</button>
+    <button class="whiteButton" @( Model.Assessments.Count() == 0 ? "disabled=\"disabled\"" : "") data-comparetype="assessment" onclick="setCompareType('assessment');">Compare @Model.Assessments.Count() Assessments</button>
+    <button class="whiteButton" @( Model.LearningOpportunities.Count() == 0 ? "disabled=\"disabled\"" : "") data-comparetype="learningopportunity" onclick="setCompareType('learningopportunity');">Compare @Model.LearningOpportunities.Count() Learning Opportunities</button>
+</div>
 
-    @* Toolbar *@
-    <div id="toolbar">
-        <div class="toolSection" id="type">
-            <button class="whiteButton selected" data-type="credential" onclick="setType('credential');"><i class="fa fa-copy"></i> Compare Credentials</button>
-            <button type="button" class="whiteButton" data-type="organization" onclick="setType('organization');"><i class="fa fa-copy"></i> Compare Organizations</button>
+@* Credential Comparison *@
+<div class="compareSection" data-comparetype="credential">
+    <h2>Comparing Credentials</h2>
+    @ListPropertyCheckboxes( new Dictionary<string, string>()
+    {
+        { "Description", "Description" },
+        { "CredentialType", "Credential Type" },
+        { "AudienceLevelType", "Audience Level" },
+        { "Industry", "Industries" },
+        { "Occupation", "Occupations" },
+        { "Requires", "Requirements" },
+        { "Availability", "Avaliable At" },
+        { "Costs", "Cost Summary" },
+        { "QualityAssurance", "Quality Assurance" }
+    } )
+    <div class="compareWrapper">
+        <div class="compareBox" data-count="@Model.Credentials.Count()">
+            @RenderRow_Header( "Name", Model.Credentials.ConvertAll(m => (object) m).ToList(), "credential" )
+            @RenderRow_OrganizationRole( "Role_Owner", "Owner", GetData( "OrganizationRole", Model.Credentials ), "ceterms:ownedBy", "" )
+            @RenderRow_Text( "Description", "Description", GetData( "Description", Model.Credentials ), "truncate" )
+            @RenderRow_Enumeration( "CredentialType", "Credential Type", GetData( "CredentialType", Model.Credentials ) )
+            @RenderRow_Enumeration( "AudienceLevelType", "Audience Level", GetData( "AudienceLevelType", Model.Credentials ) )
+            @RenderRow_Enumeration( "Industry", "Industries", GetData( "Industry", Model.Credentials ) )
+            @RenderRow_Enumeration( "Occupation", "Occupations", GetData( "Occupation", Model.Credentials ) )
+            @RenderRow_Costs( "Costs", "Estimated Costs", GetData( "EstimatedCosts", Model.Credentials ) )
+            @RenderRow_Durations( "Duration", "Estimated Duration", GetData( "EstimatedDuration", Model.Credentials ) )
         </div>
-        @*<div class="toolSection" id="viewMode">
-            <input type="button" class="selected" data-view="rows" onclick="setViewMode('rows');" value="View in Rows" />
-            <input type="button" data-view="columns" onclick="setViewMode('columns');" value="View in Columns" />
-        </div>*@
     </div>
+</div>
 
-    @* Credentials *@
-    <div class="compareList rows selected" data-type="credential">
-        <table>
-            <tr>
-                <th>Name</th>
-                <th>Description</th>
-                <th>Credential Type</th>
-                <th>Level</th>
-                <th>Industry</th>
-                <th>Occupation</th>
-            </tr>
-            @foreach ( var item in Model.Credentials )
-            {
-                <tr>
-                    <td class="title"><a href="@Url.Content( "~/detail/credential/" + item.Id )">@item.Name</a></td>
-                    <td class="description">@Html.Raw( item.Description )</td>
-                    <td class="cbxl">
-                        <ul>
-                            @foreach( var type in item.CredentialType.Items )
-                            {
-                                <li>@type.Name</li>
-                            }
-                        </ul>
-                    </td>
-                    <td class="cbxl">
-                        <ul>
-                            @foreach ( var level in item.CredentialLevel.Items )
-                            {
-                                <li>@level.Name</li>
-                            }
-                        </ul>
-                    </td>
-                    <td class="cbxl">
-                        <ul>
-                            @foreach ( var level in item.Industry.Items )
-                            {
-                                <li>@level.Name</li>
-                            }
-                        </ul>
-                    </td>
-                    <td class="cbxl">
-                        <ul>
-                            @foreach ( var level in item.Occupation.Items )
-                            {
-                                <li>@level.Name</li>
-                            }
-                        </ul>
-                    </td>
-                </tr>
-            }
-        </table>
+@* Organization Comparison *@
+<div class="compareSection" data-comparetype="organization">
+    <h2>Comparing Organizations</h2>
+    @ListPropertyCheckboxes( new Dictionary<string, string>()
+    {
+        { "Description", "Description" },
+        { "OrganizationType", "Organization Type" },
+        { "OrganizationSectorType", "Organization Sector" },
+        { "Availability", "Avaliable At" },
+        { "Costs", "Cost Summary" },
+        { "QualityAssurance", "Quality Assurance" }
+    } )
+    <div class="compareWrapper">
+        <div class="compareBox" data-count="@Model.Organizations.Count()">
+            @RenderRow_Header( "Name", Model.Organizations.ConvertAll( m => ( object ) m ).ToList(), "organization" )
+            @RenderRow_Text( "Description", "Description", GetData( "Description", Model.Organizations ), "truncate" )
+            @RenderRow_Enumeration( "OrganizationType", "Organization Type", GetData( "OrganizationType", Model.Organizations ) )
+        </div>
     </div>
+</div>
 
-    @* Organizations *@
-    <div class="compareList rows" data-type="organization">
-        <table>
-            <tr>
-                <th>Name</th>
-                <th>Description</th>
-                <th>Organization Type</th>
-                <th>Service Type</th>
-            </tr>
-            @foreach ( var item in Model.Organizations )
-            {
-                <tr>
-                    <td class=" title"><a href="@Url.Content( "~/detail/organization/" + item.Id )" target="_blank">@item.Name</td>
-                    <td class=" description">@Html.Raw( item.Description )</td>
-                    <td class=" cbxl">
-                        <ul>
-                            @foreach ( var type in item.OrganizationType.Items )
-                            {
-                                <li>@type.Name</li>
-                            }
-                        </ul>
-                    </td>
-                    <td class=" cbxl">
-                        <ul>
-                            @foreach ( var type in item.ServiceType.Items )
-                            {
-                                <li>@type.Name</li>
-                            }
-                        </ul>
-                    </td>
-                </tr>
-            }
-        </table>
+@* Assessment Comparison *@
+<div class="compareSection" data-comparetype="assessment">
+    <h2>Comparing Assessments</h2>
+    @ListPropertyCheckboxes( new Dictionary<string, string>()
+    {
+        { "Description", "Description" },
+        { "AssessmentType", "Assessment Type" },
+        { "AssessmentUseType", "Assessment Use Type" },
+        { "Availability", "Avaliable At" },
+        { "Costs", "Cost Summary" },
+        { "QualityAssurance", "Quality Assurance" }
+    } )
+    <div class="compareWrapper">
+        <div class="compareBox" data-count="@Model.Assessments.Count()">
+            @RenderRow_Header( "Name", Model.Assessments.ConvertAll( m => ( object ) m ).ToList(), "assessment" )
+            @RenderRow_OrganizationRole( "Role_Owner", "Owner", GetData( "OrganizationRole", Model.Assessments ), "ceterms:ownedBy", "" )
+            @RenderRow_Text( "Description", "Description", GetData( "Description", Model.Assessments ), "truncate" )
+            @RenderRow_Enumeration( "AssessmentType", "Assessment Type", GetData( "AssessmentType", Model.Assessments ) )
+            @RenderRow_Costs( "Costs", "Estimated Costs", GetData( "EstimatedCost", Model.Assessments ) )
+            @RenderRow_Durations( "Duration", "Estimated Duration", GetData( "EstimatedDuration", Model.Assessments ) )
+        </div>
     </div>
+</div>
 
+@* Learning Opportunity Comparison *@
+<div class="compareSection" data-comparetype="learningopportunity">
+    <h2>Comparing Learning Opportunities</h2>
+    @ListPropertyCheckboxes( new Dictionary<string, string>()
+    {
+        { "Description", "Description" },
+        { "DeliveryType", "Delivery Type" },
+        { "InstructionalProgramCategory", "Instructional Program Classification" },
+        { "Availability", "Avaliable At" },
+        { "Costs", "Cost Summary" },
+        { "QualityAssurance", "Quality Assurance" }
+    } )
+    <div class="compareWrapper">
+        <div class="compareBox" data-count="@Model.LearningOpportunities.Count()">
+            @RenderRow_Header( "Name", Model.LearningOpportunities.ConvertAll( m => ( object ) m ).ToList(), "learningopportunity" )
+            @RenderRow_OrganizationRole( "Role_Owner", "Owner", GetData( "OrganizationRole", Model.LearningOpportunities ), "ceterms:ownedBy", "" )
+            @RenderRow_Text( "Description", "Description", GetData( "Description", Model.LearningOpportunities ), "truncate" )
+            @RenderRow_Enumeration( "DeliveryType", "Learning Opportunity Type", GetData( "DeliveryType", Model.LearningOpportunities ) )
+            @RenderRow_Enumeration( "InstructionalProgramCategory", "Instructional Program Classification", GetData( "InstructionalProgramCategory", Model.LearningOpportunities ) )
+            @RenderRow_Costs( "Costs", "Estimated Costs", GetData( "EstimatedCost", Model.LearningOpportunities ) )
+            @RenderRow_Durations( "Duration", "Estimated Duration", GetData( "EstimatedDuration", Model.LearningOpportunities ) )
+        </div>
+    </div>
 </div>

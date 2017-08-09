@@ -21,14 +21,19 @@ namespace CTI.Directory
 	{
 		public Task SendAsync( IdentityMessage message )
 		{
-			// Plug in your email service here to send an email.
-			if ( message.Subject == "Reset Password" )
+			// NOTE: the passed subject is essentially a code. The actual subject will be set in the account services method
+			if ( message.Subject == "Reset_Password" )
 			{
-				AccountServices.SendEmail_ResetPassword( message.Subject, message.Destination, message.Body );
+				//change to treat incoming as subject code - for flexibility
+				AccountServices.SendEmail_ResetPassword( message.Destination, message.Body );
 			}
-			else if ( message.Subject == "Confirm Your Account" )
+			else if ( message.Subject == "Confirm_Account")
 			{
-				AccountServices.SendEmail_ConfirmAccount( message.Subject, message.Destination, message.Body );
+				AccountServices.SendEmail_ConfirmAccount( message.Destination, message.Body );
+			} else
+			{
+				//have a fall back to admin if code not recognized
+				AccountServices.SendEmail_MissingSubjectType( message.Subject, message.Destination, message.Body );
 			}
 			return Task.FromResult( 0 );
 		}
@@ -92,8 +97,24 @@ namespace CTI.Directory
 			var dataProtectionProvider = options.DataProtectionProvider;
 			if ( dataProtectionProvider != null )
 			{
-				manager.UserTokenProvider =
-					new DataProtectorTokenProvider<ApplicationUser>( dataProtectionProvider.Create( "ASP.NET Identity" ) );
+				
+				if ( Utilities.UtilityManager.GetAppKeyValue( "envType" ) == "dev" )
+				{
+					//controlling expiration - will this affect remembering day by day?
+					manager.UserTokenProvider =
+				   new DataProtectorTokenProvider<ApplicationUser>
+					  ( dataProtectionProvider.Create( "ASP.NET Identity" ) )
+				   {
+					   TokenLifespan = TimeSpan.FromHours( 24 )
+				   };
+				}
+				else
+				{
+					manager.UserTokenProvider =
+						new DataProtectorTokenProvider<ApplicationUser>( dataProtectionProvider.Create( "ASP.NET Identity" ) );
+				}
+				
+				
 			}
 			return manager;
 		}

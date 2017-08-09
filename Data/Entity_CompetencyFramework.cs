@@ -33,5 +33,7 @@ namespace Data
     
         public virtual Entity Entity { get; set; }
         public virtual ICollection<Entity_CompetencyFrameworkItem> Entity_CompetencyFrameworkItem { get; set; }
+        public virtual Account Account_Creator { get; set; }
+        public virtual Account Account_Modifier { get; set; }
     }
 }

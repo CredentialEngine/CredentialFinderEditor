@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 using Newtonsoft.Json;
 
@@ -40,6 +36,9 @@ namespace MetadataRegistry
 	}
 	public class UpdateEnvelope : Envelope
 	{
+		/// <summary>
+		/// NOTE: at this time, the EnvelopeIdentifier is not provided when doing an initial publish (ie. an Add). It is only used for an update, and will contain the envelope identifier returned by the registry from the initial publish.
+		/// </summary>
 		[JsonProperty( PropertyName = "envelope_id" )]
 		public string EnvelopeIdentifier { get; set; }
 

@@ -1,0 +1,75 @@
+﻿@using CTIServices;
+@model CTIDirectory.Models.ResetPasswordViewModel
+@{
+    ViewBag.Title = "Activate a User's Account";
+}
+<link href="@Url.Content( "~/Style/AccountBox" )" rel="stylesheet" type="text/css" />
+
+<script type="text/javascript">
+
+    $(document).ready(function () {
+        $(function () {
+            $('#reset').click(function () {
+                $('#Email').val('')
+            });
+        });
+
+        $("#Email").autocomplete({
+            minLength: 4,
+            source: function (request, response) {
+                $.ajax({
+                    url: "@Url.Content( "~/Admin/User/UserListByEmail" )",
+                    type: "POST",
+                    dataType: "json",
+                    data: { keyword: request.term, maxTerms: 20 },
+                    success: function (data) {
+                        response($.map(data, function (item) {
+                            return {
+                                label: item.FirstName + " " + item.LastName,
+                                value: item.Email,
+                                id: item.Id
+                            };
+                        }))
+                    }
+                })
+            },
+            messages: {
+                noResults: "", results: ""
+            },
+            //select
+            select: function (event, ui) {
+               // $("#Email").val(ui.item.value);
+                //$("#txtResult").val(ui.item.label);
+                //$("#txtId").val(ui.item.id);
+                $("#txtResult").text(ui.item.label);
+                $("#txtId").text(ui.item.id);
+                //window.location.href = "/CredentialManagement/Detail/" + ui.item.id;
+            },
+        });
+    })
+
+</script>
+<h1>@ViewBag.Title</h1>
+
+<div id="accountBox" class="singleColumn">
+    @using ( Html.BeginForm( "ActivateUser", "User", FormMethod.Post, new { @class = "form-horizontal", role = "form" } ) )
+    {
+        @Html.AntiForgeryToken()
+        @Html.ValidationSummary( "", new { @class = "error" } )
+
+        <div class="input">
+            <label>Email</label>@Html.TextBoxFor( m => m.Email )
+        </div>
+        //if ( AccountServices.IsUserAnAdmin() ) { }
+        <div class="input">
+            <label>Name</label><div id="txtResult" style="display: inline-block;vertical-align: middle;"></div>
+            <label>Id</label><div id="txtId" style="display: inline-block;vertical-align: middle;"></div>
+        </div>
+
+        <div>TODO - option to notify user.</div>
+        <div class="buttons">
+            <button type="submit" class="actionButton">Reset</button>
+        </div>
+    }
+</div>
+@Scripts.Render( "~/bundles/jqueryval" )

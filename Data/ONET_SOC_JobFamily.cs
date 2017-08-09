@@ -14,7 +14,15 @@ namespace Data
     
     public partial class ONET_SOC_JobFamily
     {
+        public ONET_SOC_JobFamily()
+        {
+            this.ONET_SOC = new HashSet<ONET_SOC>();
+        }
+    
         public int JobFamilyId { get; set; }
         public string Description { get; set; }
+        public Nullable<int> Totals { get; set; }
+    
+        public virtual ICollection<ONET_SOC> ONET_SOC { get; set; }
     }
 }

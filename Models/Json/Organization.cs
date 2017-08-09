@@ -27,142 +27,142 @@ namespace Models.Json
 				}
 			}
 
-			type = "ctdl:Organization";
+			type = "ceterms:Organization";
 		}
 
 
 		//Basic Properties
-		[DataMember( Name = "schema:description" )]
+		[DataMember( Name = "ceterms:description" )]
 		public string description { get; set; }
 
-		[DataMember( Name = "schema:image" )]
+		[DataMember( Name = "ceterms:image" )]
 		public string image { get; set; } //Image URL
 
-		[DataMember( Name = "schema:name" )]
+		[DataMember( Name = "ceterms:name" )]
 		public string name { get; set; }
 
-		[DataMember( Name = "schema:url" )]
+		[DataMember( Name = "ceterms:url" )]
 		public string url { get; set; } //URL
 
-		[DataMember( Name = "ctdl:ctid" )]
+		[DataMember( Name = "ceterms:ctid" )]
 		public string ctid { get; set; }
 
-		[DataMember( Name = "schema:email" )]
+		[DataMember( Name = "ceterms:email" )]
 		public string email { get; set; } //Email
 
-		[DataMember( Name = "schema:fein" )]
+		[DataMember( Name = "ceterms:fein" )]
 		public string fein { get; set; }
 
-		[DataMember( Name = "ctdl:identifier" )]
+		[DataMember( Name = "ceterms:identifier" )]
 		public List<object> identifier { get; set; }
 
-		[DataMember( Name = "ctdl:opeid" )]
+		[DataMember( Name = "ceterms:opeid" )]
 		public string opeid { get; set; }
 
-		[DataMember( Name = "ctdl:versioning" )]
+		[DataMember( Name = "ceterms:versioning" )]
 		public string versioning { get; set; }
 
-		[DataMember( Name = "schema:duns" )]
+		[DataMember( Name = "ceterms:duns" )]
 		public string duns { get; set; }
 
-		[DataMember( Name = "schema:foundingDate" )]
+		[DataMember( Name = "ceterms:foundingDate" )]
 		public string foundingDate { get; set; }
 
-		[DataMember( Name = "schema:naics" )]
+		[DataMember( Name = "ceterms:naics" )]
 		public string naics { get; set; }
 
-		[DataMember( Name = "schema:purpose" )]
+		[DataMember( Name = "ceterms:purpose" )]
 		public string purpose { get; set; }
 
-		[DataMember( Name = "schema:sameAs" )]
+		[DataMember( Name = "ceterms:sameAs" )]
 		public List<string> sameAs { get; set; }
 
 
 
 		//Organization Roles
-		[DataMember( Name = "ctdl:creatorOf" )]
+		[DataMember( Name = "ceterms:creatorOf" )]
 		public List<string> creatorOf { get; set; } //Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:owns" )]
+		[DataMember( Name = "ceterms:owns" )]
 		public List<string> owns { get; set; } //Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:updatesVersion" )]
+		[DataMember( Name = "ceterms:updatesVersion" )]
 		public List<string> updatesVersion { get; set; } //Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:verifies" )]
+		[DataMember( Name = "ceterms:verifies" )]
 		public List<string> verifies { get; set; } //Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:assesses" )]
+		[DataMember( Name = "ceterms:assesses" )]
 		public List<string> assesses { get; set; } //Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:offersCredential" )]
+		[DataMember( Name = "ceterms:offersCredential" )]
 		public List<string> offersCredential { get; set; } //Organization URL, Person URL
 
-		[DataMember( Name = "schema:employee" )]
+		[DataMember( Name = "ceterms:employee" )]
 		public List<string> employee { get; set; } //Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:trainingOffered" )]
+		[DataMember( Name = "ceterms:trainingOffered" )]
 		public List<string> trainingOffered { get; set; } //URLs
 
 
 		//Quality Assurance Roles
-		[DataMember( Name = "ctdl:accredits" )]
+		[DataMember( Name = "ceterms:accredits" )]
 		public object accredits { get; set; } //QualityAssuranceAction, Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:approves" )]
+		[DataMember( Name = "ceterms:approves" )]
 		public object approves { get; set; } //QualityAssuranceAction, Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:confers" )]
+		[DataMember( Name = "ceterms:confers" )]
 		public object confers { get; set; } //QualityAssuranceAction, Organization URL, Person URL
 
-		[DataMember( Name = "schema:contributorTo" )]
+		[DataMember( Name = "ceterms:contributorTo" )]
 		public object contributorTo { get; set; } //QualityAssuranceAction, Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:endorses" )]
+		[DataMember( Name = "ceterms:endorses" )]
 		public object endorses { get; set; } //QualityAssuranceAction, Organization URL, Person URL
 
-		[DataMember( Name = "schema:potentialAction" )]
+		[DataMember( Name = "ceterms:potentialAction" )]
 		public object potentialAction { get; set; } //QualityAssuranceAction, Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:recognizes" )]
+		[DataMember( Name = "ceterms:recognizes" )]
 		public object recognizes { get; set; } //QualityAssuranceAction, Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:regulates" )]
+		[DataMember( Name = "ceterms:regulates" )]
 		public object regulates { get; set; } //QualityAssuranceAction, Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:revokes" )]
+		[DataMember( Name = "ceterms:revokes" )]
 		public object revokes { get; set; } //QualityAssuranceAction, Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:renews" )]
+		[DataMember( Name = "ceterms:renews" )]
 		public object renews { get; set; } //QualityAssuranceAction, Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:validates" )]
+		[DataMember( Name = "ceterms:validates" )]
 		public object validates { get; set; } //QualityAssuranceAction, Organization URL, Person URL
 
 
 		//Enumerations
-		[DataMember( Name = "ctdl:agentCategory" )]
+		[DataMember( Name = "ceterms:agentCategory" )]
 		public List<string> agentCategory { get; set; } //Organization Type
 
-		[DataMember( Name = "schema:serviceType" )]
+		[DataMember( Name = "ceterms:serviceType" )]
 		public List<string> serviceType { get; set; }
 
 
 
 		//Profiles
-		[DataMember( Name = "ctdl:agentProcess" )]
+		[DataMember( Name = "ceterms:agentProcess" )]
 		public List<ProcessProfile> agentProcess { get; set; }
 
-		[DataMember( Name = "ctdl:authenticationService" )]
+		[DataMember( Name = "ceterms:authenticationService" )]
 		public List<AuthenticationProfile> authenticationService { get; set; }
 
-		[DataMember( Name = "ctdl:jurisdiction" )]
+		[DataMember( Name = "ceterms:jurisdiction" )]
 		public List<JurisdictionProfile> jurisdiction { get; set; }
 
-		[DataMember( Name = "schema:address" )]
+		[DataMember( Name = "ceterms:address" )]
 		public PostalAddress address { get; set; }
 
-		[DataMember( Name = "schema:contactPoint" )]
+		[DataMember( Name = "ceterms:contactPoint" )]
 		public object contactPoint { get; set; }
 
 

@@ -8,39 +8,51 @@ using Models;
 using CTIServices;
 using Models.Search;
 using Utilities;
+using Models.Helpers;
 
 namespace CTI.Directory.Controllers
 {
-  public class SearchController : Controller
-  {
-	  SearchServices searchService = new SearchServices();
-	  bool valid = true;
-	  string status = "";
-	  AppUser user = new AppUser();
+	public class SearchController : Controller
+	{
+		SearchServices searchService = new SearchServices();
+		bool valid = true;
+		string status = "";
+		AppUser user = new AppUser();
 
-	  //Main Search Page
-	  public ActionResult Index()
-	  {
-			return V2();
-	  }
-	  //
+		//Main Search Page
+		public ActionResult Index()
+		{
+			if( Request.Params[ "useV3" ] == "true" )
+			{
+				return View( "~/Views/V2/Search/Index.cshtml" );
+			}
 
+			return View( "~/Views/V2/SearchV4/Search.cshtml" );
+		}
+		//
+
+		[Obsolete]
 		public ActionResult V2()
 		{
-			return View( "~/Views/V2/Search/Index.cshtml" );
+			return Index();
 		}
 
-	  //Do a search
-	  public JsonResult MainSearch( MainSearchInput query )
-	  {
-		  var results = searchService.MainSearch( query, ref valid, ref status );
+		//Do a search
+		public JsonResult MainSearch( MainSearchInput query )
+		{
+			//DateTime start = DateTime.Now;
+			//LoggingHelper.DoTrace( 6, string.Format( "$$$$SearchController.MainSearch === Started: " ) );
+			var results = searchService.MainSearch( query, ref valid, ref status );
 
-		  return JsonHelper.GetJsonWithWrapper( results, valid, status, null );
-	  }
-	  //
+			//TimeSpan timeDifference = start.Subtract( DateTime.Now );
+			//LoggingHelper.DoTrace( 6, string.Format( "$$$$SearchController.MainSearch === Ended - Elapsed: {0}", timeDifference.TotalSeconds ) );
+
+			return JsonHelper.GetJsonWithWrapper( results, valid, status, null );
+		}
+		//
 
 		//Do a MicroSearch
-		public JsonResult DoMicroSearch( Models.Search.MicroSearchInputV2 query )
+		public JsonResult DoMicroSearch( MicroSearchInputV2 query )
 		{
 			var totalResults = 0;
 			var data = MicroSearchServicesV2.DoMicroSearch( query, ref totalResults, ref valid, ref status );
@@ -57,111 +69,202 @@ namespace CTI.Directory.Controllers
 
 			return JsonHelper.GetJsonWithWrapper( data, valid, status, total );
 		}
+		//
 
-	  [AcceptVerbs( HttpVerbs.Post )]
-	  public JsonResult DeleteCredential( int id )
-	  {
-		  if ( AccountServices.AuthorizationCheck( "delete", true, ref status ) == false )
-		  {
-			  return JsonHelper.GetJsonWithWrapper( null, false, status, null );
-		  }
-		  var valid = true;
+		//Do AutoComplete
+		public JsonResult DoAutoComplete( string text, string context, string searchType )
+		{
+			var data = SearchServices.DoAutoComplete( text, context, searchType );
+
+			return JsonHelper.GetJsonWithWrapper( data, true, "", null );
+		}
+
+		//Get Tag Item data
+		public JsonResult GetTagItemData( string searchType, string entityType, int recordID, int maxRecords = 10 )
+		{
+			try
+			{
+				var data = SearchServices.GetTagSet( searchType, ( SearchServices.TagTypes ) Enum.Parse( typeof( SearchServices.TagTypes ), entityType, true ), recordID, maxRecords );
+				return JsonHelper.GetJsonWithWrapper( data, true, "", null );
+			}
+			catch
+			{
+				return JsonHelper.GetJsonWithWrapper( null, false, "Invalid entity type", null );
+			}
+		}
+
+		//Get Tag Item Data (Used with V2 tag items)
+		public JsonResult GetTagsV2Data( string AjaxQueryName, int RecordId, string SearchType, string TargetEntityType, int MaxRecords = 10 )
+		{
+			try
+			{
+				var tagType = ( SearchServices.TagTypes ) Enum.Parse( typeof( SearchServices.TagTypes ), TargetEntityType, true );
+				var data = SearchServices.GetTagSet( SearchType, tagType, RecordId, MaxRecords );
+				var items = new List<SearchTagItem>();
+
+				switch ( AjaxQueryName )
+				{
+					case "GetSearchResultCompetencies":
+						{
+							items = data.Items.ConvertAll( m => new SearchTagItem()
+							{
+								Display = string.IsNullOrWhiteSpace( m.Description ) ?
+								m.Label :
+								"<b>" + m.Label + "</b>" + System.Environment.NewLine + m.Description,
+								QueryValues = new Dictionary<string, object>()
+								{
+									{ "SchemaName", m.Schema },
+									{ "CodeId", m.CodeId },
+									{ "TextValue", m.Label },
+									{ "TextDescription", m.Description }
+								}
+							} );
+							break;
+						}
+					case "GetSearchResultCosts":
+						{
+							items = data.CostItems.ConvertAll( m => new SearchTagItem()
+							{
+								Display = m.CostType + ": " + m.CurrencySymbol + m.Price + " ( " + (m.SourceEntity ?? "direct") + " )",
+								QueryValues = new Dictionary<string, object>()
+								{
+									{ "CurrencySymbol", m.CurrencySymbol },
+									{ "Price", m.Price },
+									{ "CostType", m.CostType }
+								}
+								//Something that probably looks like that -^
+							} );
+							break;
+						}
+					default: break;
+				}
+				return JsonHelper.GetJsonWithWrapper( items, true, "", null );
+			}
+			catch( Exception ex )
+			{
+				return JsonHelper.GetJsonWithWrapper( null, false, ex.Message, null );
+			}
+		}
+
+		/// <summary>
+		/// Get a summary of QA role for this entity
+		/// </summary>
+		/// <param name="searchType"></param>
+		/// <param name="entityId"></param>
+		/// <param name="maxRecords"></param>
+		/// <returns></returns>
+		public JsonResult GetEntityRoles( string searchType, int entityId, int maxRecords = 10 )
+		{
+			var data = SearchServices.EntityQARolesList( searchType, entityId, maxRecords );
+
+			return JsonHelper.GetJsonWithWrapper( data, true, "", null );
+		}
+		//
+
+		[AcceptVerbs( HttpVerbs.Post )]
+		public JsonResult DeleteCredential( int id )
+		{
+			if ( AccountServices.AuthorizationCheck( "delete", true, ref status, ref user ) == false )
+			{
+				return JsonHelper.GetJsonWithWrapper( null, false, status, null );
+			}
+			var valid = true;
 
 
-		  if ( id > 0 )
-		  {
-			  valid = new CredentialServices().Credential_Delete( id, user, ref status );
-			  if ( !valid )
-			  {
-				  return JsonHelper.GetJsonWithWrapper( null, false, "Error deleting credential: " + status, null );
-			  }
-		  }
-		  else
-		  {
-			  return JsonHelper.GetJsonWithWrapper( null, false, "You must select a credential to delete.", null );
-		  }
+			if ( id > 0 )
+			{
+				valid = new CredentialServices().Credential_Delete( id, user, ref status );
+				if ( !valid )
+				{
+					return JsonHelper.GetJsonWithWrapper( null, false, "Error deleting credential: " + status, null );
+				}
+			}
+			else
+			{
+				return JsonHelper.GetJsonWithWrapper( null, false, "You must select a credential to delete.", null );
+			}
 
-		  return JsonHelper.GetJsonWithWrapper( null, true, "Deleted successfully", null );
-	  }
-	  //
-	  [AcceptVerbs( HttpVerbs.Post )]
-	  public JsonResult DeleteOrganization( int id )
-	  {
-		  if ( AccountServices.AuthorizationCheck( "delete", true, ref status, ref user ) == false )
-		  {
-			  return JsonHelper.GetJsonWithWrapper( null, false, status, null );
-		  }
+			return JsonHelper.GetJsonWithWrapper( null, true, "Deleted successfully", null );
+		}
+		//
+		[AcceptVerbs( HttpVerbs.Post )]
+		public JsonResult DeleteOrganization( int id )
+		{
+			if ( AccountServices.AuthorizationCheck( "delete", true, ref status, ref user ) == false )
+			{
+				return JsonHelper.GetJsonWithWrapper( null, false, status, null );
+			}
 
-		  var valid = true;
-		  if ( id > 0 )
-		  {
-			  //Organization_Delete will check authorization
-			  valid = new OrganizationServices().Organization_Delete( id, user, ref status );
-			  if ( !valid )
-			  {
-				  return JsonHelper.GetJsonWithWrapper( null, false, "Error deleting organization: " + status, null );
-			  }
-		  }
-		  else
-		  {
-			  return JsonHelper.GetJsonWithWrapper( null, false, "You must select an organization to delete.", null );
-		  }
+			var valid = true;
+			if ( id > 0 )
+			{
+				//Organization_Delete will check authorization
+				valid = new OrganizationServices().Organization_Delete( id, user, ref status );
+				if ( !valid )
+				{
+					return JsonHelper.GetJsonWithWrapper( null, false, "Error deleting organization: " + status, null );
+				}
+			}
+			else
+			{
+				return JsonHelper.GetJsonWithWrapper( null, false, "You must select an organization to delete.", null );
+			}
 
-		  return JsonHelper.GetJsonWithWrapper( null, true, "Deleted successfully", null );
-	  }
-	  //
-	  [AcceptVerbs( HttpVerbs.Post )]
-	  public JsonResult DeleteAssessment( int id )
-	  {
-		  if ( AccountServices.AuthorizationCheck( "delete", true, ref status ) == false )
-		  {
-			  return JsonHelper.GetJsonWithWrapper( null, false, status, null );
-		  }
+			return JsonHelper.GetJsonWithWrapper( null, true, "Deleted successfully", null );
+		}
+		//
+		[AcceptVerbs( HttpVerbs.Post )]
+		public JsonResult DeleteAssessment( int id )
+		{
+			if ( AccountServices.AuthorizationCheck( "delete", true, ref status, ref user ) == false )
+			{
+				return JsonHelper.GetJsonWithWrapper( null, false, status, null );
+			}
 
-		  var valid = true;
-		  if ( id > 0 )
-		  {
-			  new AssessmentServices().Delete( id, user.Id, ref valid, ref status );
-			  if ( !valid )
-			  {
-				  return JsonHelper.GetJsonWithWrapper( null, false, "Error deleting assessment: " + status, null );
-			  }
-		  }
-		  else
-		  {
-			  return JsonHelper.GetJsonWithWrapper( null, false, "You must select an assessment to delete.", null );
-		  }
+			var valid = true;
+			if ( id > 0 )
+			{
+				new AssessmentServices().Delete( id, user.Id, ref valid, ref status );
+				if ( !valid )
+				{
+					return JsonHelper.GetJsonWithWrapper( null, false, "Error deleting assessment: " + status, null );
+				}
+			}
+			else
+			{
+				return JsonHelper.GetJsonWithWrapper( null, false, "You must select an assessment to delete.", null );
+			}
 
-		  return JsonHelper.GetJsonWithWrapper( null, true, "Deleted successfully", null );
-	  }
-	  //
-	  //
+			return JsonHelper.GetJsonWithWrapper( null, true, "Deleted successfully", null );
+		}
+		//
+		//
 
-	  //
-	  [AcceptVerbs( HttpVerbs.Post )]
-	  public JsonResult DeleteLearningOpportunity( int id )
-	  {
-		  if ( AccountServices.AuthorizationCheck( "delete", true, ref status ) == false )
-		  {
-			  return JsonHelper.GetJsonWithWrapper( null, false, status, null );
-		  }
+		//
+		[AcceptVerbs( HttpVerbs.Post )]
+		public JsonResult DeleteLearningOpportunity( int id )
+		{
+			if ( AccountServices.AuthorizationCheck( "delete", true, ref status, ref user ) == false )
+			{
+				return JsonHelper.GetJsonWithWrapper( null, false, status, null );
+			}
 
-		  var valid = true;
-		  if ( id > 0 )
-		  {
-			  new LearningOpportunityServices().Delete( id, user.Id, ref valid, ref status );
-			  if ( !valid )
-			  {
-				  return JsonHelper.GetJsonWithWrapper( null, false, "Error deleting Learning Opportunity: " + status, null );
-			  }
-		  }
-		  else
-		  {
-			  return JsonHelper.GetJsonWithWrapper( null, false, "You must select a Learning Opportunity to delete.", null );
-		  }
+			var valid = true;
+			if ( id > 0 )
+			{
+				new LearningOpportunityServices().Delete( id, user.Id, ref valid, ref status );
+				if ( !valid )
+				{
+					return JsonHelper.GetJsonWithWrapper( null, false, "Error deleting Learning Opportunity: " + status, null );
+				}
+			}
+			else
+			{
+				return JsonHelper.GetJsonWithWrapper( null, false, "You must select a Learning Opportunity to delete.", null );
+			}
 
-		  return JsonHelper.GetJsonWithWrapper( null, true, "Deleted successfully", null );
-	  }
+			return JsonHelper.GetJsonWithWrapper( null, true, "Deleted successfully", null );
+		}
 
 	}
 }

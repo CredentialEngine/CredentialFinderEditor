@@ -10,6 +10,7 @@ using Models.Node.Interface;
 using MC = Models.Common;
 using PM = Models.ProfileModels;
 using Utilities;
+using Factories;
 
 namespace CTIServices
 {
@@ -30,6 +31,45 @@ namespace CTIServices
 			//If new profile, save as necessary
 			if ( !skipNewCheck && context.Profile.Id == 0 && context.Profile.RowId == Guid.Empty )
 			{
+				//default owing agent to that of parent
+				if ( context != null && context.Parent != null )
+				{
+					//TBD - check the profile to determine if owningOrg is applicable?
+					//test with lopp parts
+					if ( ServiceHelper.IsValidGuid( context.Parent.OwningAgentUid ) )
+						context.Profile.OwningAgentUid = context.Parent.OwningAgentUid;
+					else
+					{
+						if ( context.Parent.TypeName == "Credential" )
+						{
+							//implement a minimal credential:
+							//GetMinimalCredential
+							MC.Credential c = CredentialServices.GetBasicCredential( context.Parent.Id );
+							context.Profile.OwningAgentUid = c.OwningAgentUid;
+						}
+						else if ( context.Parent.TypeName == "Organization"
+							|| context.Parent.TypeName == "QAOrganization" )
+						{
+							context.Profile.OwningAgentUid = context.Parent.RowId;
+						}
+						else if ( context.Parent.TypeName == "LearningOpportunity" )
+						{
+							PM.LearningOpportunityProfile l = LearningOpportunityServices.GetForMicroProfile( context.Parent.Id );
+							context.Profile.OwningAgentUid = l.OwningAgentUid;
+						}
+						else if ( context.Parent.TypeName == "Assessment" )
+						{
+							PM.AssessmentProfile a = AssessmentServices.GetBasic( context.Parent.Id );
+							context.Profile.OwningAgentUid = a.OwningAgentUid;
+						}
+						else if ( context.Parent.TypeName == "ConditionManifest" )
+						{
+							MC.ConditionManifest a = ConditionManifestServices.GetForEdit( context.Parent.Id );
+							context.Profile.OwningAgentUid = a.OwningAgentUid;
+						}
+					}
+				}
+
 				return SaveNewProfile( context, ref valid, ref status );
 			}
 
@@ -42,16 +82,31 @@ namespace CTIServices
 			switch ( context.Profile.TypeName )
 			{
 				case "Credential":
-					data = CredentialServices.GetCredential( context.Profile.Id, true, true );
+					data = CredentialServices.GetForEdit( context.Profile.Id );
+					break;
+				case "QACredential":
+					data = CredentialServices.GetForEdit( context.Profile.Id);
 					break;
 				case "Organization":
-					data = OrganizationServices.GetOrganization( context.Profile.Id, true );
+					data = OrganizationServices.GetOrganization( context.Profile.Id );
+					break;
+				case "QAOrganization":
+					data = OrganizationServices.Get_QAOrganization( context.Profile.Id );
 					break;
 				case "Assessment":
-					data = AssessmentServices.GetForEdit( context.Profile.Id );
+
+					PM.AssessmentProfile ap = AssessmentServices.GetForEdit( context.Profile.Id );
+					if ( context.Profile.Id == 0 )
+						ap.OwningAgentUid = context.Profile.OwningAgentUid;
+
+					data = ap;
 					break;
 				case "LearningOpportunity":
-					data = LearningOpportunityServices.GetForEdit( context.Profile.Id );
+					PM.LearningOpportunityProfile lopp = LearningOpportunityServices.GetForEdit( context.Profile.Id );
+
+					if ( context.Profile.Id == 0 )
+						lopp.OwningAgentUid = context.Profile.OwningAgentUid;
+					data = lopp;
 					break;
 				case "DurationProfile":
 					//Temporary workaround
@@ -59,12 +114,13 @@ namespace CTIServices
 					//	CredentialServices.DurationProfile_GetTimeToEarn( context.Profile.Id ) :
 						data = CredentialServices.DurationProfile_Get( context.Profile.Id );
 					break;
+				case "JurisdictionProfile_QA":
 				case "JurisdictionProfile":
 					data = new JurisdictionServices().Get( context.Profile.RowId );
 					break;
 				case "AgentRoleProfile_Recipient":
-					//data = CredentialServices.GetCredentialOrgRoles_AsEnumeration( context.Parent.Id, context.Profile.Id );
-
+				case "AgentRoleProfile_Assets":
+				case "AgentRoleProfile_OfferedBy":
 					data = OrganizationServices.GetEntityAgentRoles_AsEnumeration( context.Parent.RowId, context.Profile.RowId );
 					break;
 				case "AgentRoleProfile_Actor":
@@ -76,39 +132,46 @@ namespace CTIServices
 					break;
 				case "QualityAssuranceActionProfile_Actor":
 					break;
-				case "ConditionProfileOLD":
+				//case "ConditionProfileOLD":
 					
-					if ( context.Parent.Type == typeof( Credential ) )
-						data = CredentialServices.ConditionProfile_GetForEdit( context.Profile.Id, true );
-					else
-						data = ConditionProfileServices.ConditionProfile_GetForEdit( context.Profile.Id );
-					break;
+				//	if ( context.Parent.Type == typeof( Credential ) )
+				//		data = CredentialServices.ConditionProfile_GetForEdit( context.Profile.Id, true );
+				//	else
+				//		data = ConditionProfileServices.ConditionProfile_GetForEdit( context.Profile.Id );
+				//	break;
 				case "ConditionProfile":
 
 					data = ConditionProfileServices.ConditionProfile_GetForEdit( context.Profile.Id );
+					
+					break;
+				case "ConditionManifest":
+
+					data = ConditionManifestServices.GetForEdit( context.Profile.Id );
+					break;
+				case "CostManifest":
+
+					data = CostManifestServices.GetForEdit( context.Profile.Id );
 					break;
 				case "RevocationProfile":
 					data = CredentialServices.RevocationProfile_GetForEdit( context.Profile.Id );
 					break;
-				case "TaskProfileOLD":
-					if ( context.Parent.Type == typeof( Credential ) )
-						data = CredentialServices.ConditionProfile_GetTask( context.Profile.Id );
-					else
-						data = ConditionProfileServices.TaskProfile_Get( context.Profile.Id );
+				case "FinancialAlignmentObject":
+
+					data = ProfileServices.FinancialAlignmentProfile_Get( context.Profile.Id );
 					break;
-				case "TaskProfile":
-					data = ConditionProfileServices.TaskProfile_Get( context.Profile.Id );
-					break;
+				//case "TaskProfile":
+				//	data = ConditionProfileServices.TaskProfile_Get( context.Profile.Id );
+				//	break;
 				case "CostProfile":
 					data = ProfileServices.CostProfile_Get( context.Profile.Id );
 					break;
 				case "CostItemProfile":
-					data = ProfileServices.CostProfileItem_Get( context.Profile.Id );
+					data = ProfileServices.CostProfileItem_GetForEdit( context.Profile.Id );
 					break;
 				//case "TextValueProfile": //N-A
 				//	break;
 				case "CredentialAlignmentObjectProfile":
-					data = ProfileServices.CredentialAlignmentObject_Get( context.Profile.Id );
+					//data = ProfileServices.CredentialAlignmentObject_Get( context.Profile.Id );
 					break;
 				case "CredentialAlignmentObjectFrameworkProfile":
 					data = ProfileServices.CredentialAlignmentObjectFrameworkProfile_Get( context.Profile.Id );
@@ -117,12 +180,20 @@ namespace CTIServices
 					data = ProfileServices.CredentialAlignmentObjectItemProfile_Get( context.Profile.Id );
 					break;
 				case "AddressProfile":
-					data = ProfileServices.AddressProfile_Get( context.Profile.Id, context.Parent.TypeName );
+					data = ProfileServices.AddressProfile_Get( context.Profile.Id );
+					break;
+				case "ContactPoint":
+					data = ProfileServices.ContactPoint_Get( context.Profile.Id );
 					break;
 				case "ProcessProfile":
+					data = ProfileServices.ProcessProfile_Get( context.Profile.Id );
 					break;
 				case "VerificationServiceProfile":
-					data = ProfileServices.AuthenticationProfile_Get( context.Profile.Id );
+					data = ProfileServices.VerificationServiceProfile_GetForEdit( context.Profile.Id );
+					break;
+				case "VerificationStatus":
+					//data = ProfileServices.VerificationStatus_Get( context.Profile.Id );
+					data = OrganizationServices.VerificationStatus_Get( context.Profile.Id );
 					break;
 				case "EarningsProfile":
 					break;
@@ -162,7 +233,10 @@ namespace CTIServices
 					{
 						clientProperty.SetValue( clientProfile, otherList );
 					}
-
+					if ( clientProperty.Name == "HasConditionManifest" )
+					{
+						
+					}
 					//Get the attributes for this clientProperty, or set to defaults
 					var attributes = ( Property ) clientProperty.GetCustomAttributes( typeof( Property ), true ).FirstOrDefault() ?? new Property();
 
@@ -250,7 +324,9 @@ namespace CTIServices
 						clientProperty.SetValue( clientProfile, LoadProfileLinkList( serverPropertyValue, attributes ) );
 					}
 
-					else { }
+					else
+					{
+					}
 				}
 				catch (Exception ex) 
 				{ 
@@ -388,14 +464,15 @@ namespace CTIServices
 		/// <returns></returns>
 		public static BaseProfile SaveNewProfile( ProfileContext context, ref bool valid, ref string status )
 		{
+			//BaseProfile profile = new BaseProfile();
 			//Otherwise, get existing profile
-			var profile = ( BaseProfile ) Activator.CreateInstance( context.Profile.Type );
+			//NOT USED!!!
+			//profile = ( BaseProfile ) Activator.CreateInstance( context.Profile.Type );
 			object data = new { };
 
 			//Get the user
 			var user = AccountServices.GetUserFromSession();
-			var id = 0;
-			var rowID = new Guid();
+		
 			context.Profile.Id = 0;
 
 			//TODO check for entity access 
@@ -404,7 +481,11 @@ namespace CTIServices
 			{
 				case "Credential":
 					break;
+				case "QACredential":
+					break;
 				case "Organization":
+					break;
+				case "QAOrganization":
 					break;
 				case "Assessment":
 					break;
@@ -412,64 +493,79 @@ namespace CTIServices
 					break;
 				case "DurationProfile":
 					break;
+				case "JurisdictionProfile_QA":
 				case "JurisdictionProfile":
 					break;
-				/*
-				 * case "AgentRoleProfile_Recipient":	//		N/A
-					break;
-				case "AgentRoleProfile_Actor":	//		N/A
-					break;
-				case "QualityAssuranceActionProfile_Recipient":	//		N/A
-					break;
-				case "QualityAssuranceActionProfile_Actor":	//		N/A
-					break;
-				 */
-				case "ConditionProfileOLD":
-					{
-						var entity = new PM.ConditionProfile(){ProfileName = "*** new profile ***"};
-						entity.ConnectionProfileType = context.Profile.Property;
-						if ( context.Parent.Type == typeof( Credential ) )
-						{
-							if ( new CredentialServices().ConditionProfile_Save( entity, context.Parent.RowId, context.Profile.Property, "Initial", user, ref status, true ) )
-							{
-								//data = CredentialServices.ConditionProfile_GetForEdit( entity.Id );
-								context.Profile.Id = entity.Id;
-								context.Profile.RowId = entity.RowId;
-								context.Profile.Name = entity.ProfileName;
-							}
-						}
-						else
-						{
-							if ( new ConditionProfileServices().ConditionProfile_Save( entity, context.Parent.RowId, "Initial", user, ref status ) )
-							{
-								//data = CredentialServices.ConditionProfile_GetForEdit( entity.Id );
-								context.Profile.Id = entity.Id;
-								context.Profile.RowId = entity.RowId;
-								context.Profile.Name = entity.ProfileName;
-							}
-						}
-						
-						
-						break;
-					}
+				
 				case "ConditionProfile":
 					{
-						var entity = new PM.ConditionProfile() { ProfileName = "*** new profile ***" };
+						//*** ENTER  PROFILE NAME ***
+						var entity = new PM.ConditionProfile() { ProfileName = "     " };
+						entity.IsStarterProfile = true;
 						entity.ConnectionProfileType = context.Profile.Property;
+						//set the type based on the property
+						entity.ConnectionProfileTypeId = ConditionProfileServices.GetConditionTypeId( entity.ConnectionProfileType );
 						
+						//this could be used?
+						entity.IsStarterProfile = true;
+						entity.ConditionSubTypeId = ConditionProfileServices.SetConditionSubTypeId( entity.ConnectionProfileType );
+						
+					
+						entity.AssertedByAgentUid = context.Profile.OwningAgentUid;
+
 						if ( new ConditionProfileServices().ConditionProfile_Save( entity, context.Parent.RowId, "Initial", user, ref status ) )
 						{
-							//data = CredentialServices.ConditionProfile_GetForEdit( entity.Id );
+
 							context.Profile.Id = entity.Id;
 							context.Profile.RowId = entity.RowId;
 							context.Profile.Name = entity.ProfileName;
 						}
 						break;
 					}
+
+
+				case "ConditionManifest":
+					{
+						var entity = new MC.ConditionManifest() { ProfileName = "     " };
+						
+						entity.IsStarterProfile = true;
+		
+						entity.OwningAgentUid = context.Profile.OwningAgentUid;
+
+						if ( new ConditionManifestServices().Save( entity, context.Parent.RowId, "Initial", user, ref status ) )
+						{
+
+							context.Profile.Id = entity.Id;
+							context.Profile.RowId = entity.RowId;
+							context.Profile.Name = "new condition manifest";//entity.Name;
+						}
+						break;
+					}
+
+				case "CostManifest":
+					{
+						var entity = new MC.CostManifest() { ProfileName = "     " };
+
+						entity.IsStarterProfile = true;
+
+						entity.OwningAgentUid = context.Profile.OwningAgentUid;
+
+						if ( new CostManifestServices().Save( entity, context.Parent.RowId, "Initial", user, ref status ) )
+						{
+
+							context.Profile.Id = entity.Id;
+							context.Profile.RowId = entity.RowId;
+							context.Profile.Name = "new cost manifest";//entity.Name;
+						}
+						break;
+					}
+				case "FinancialAlignmentObject":
+					break;
 				case "RevocationProfile":
 					{
-						var entity = new PM.RevocationProfile() { ProfileName = "*** new profile ***" };
-						//entity.ProfileName = "*** new profile ***";
+						var entity = new PM.RevocationProfile() { ProfileName = " " };
+						entity.IsStarterProfile = true;
+
 						if ( new CredentialServices().RevocationProfile_Save( entity, context.Parent.RowId, "Initial", user, ref status, true ) )
 						{
 							//data = CredentialServices.RevocationProfile_GetForEdit( entity.Id );
@@ -480,40 +576,12 @@ namespace CTIServices
 						
 						break;
 					}
-				case "TaskProfileOLD":
-					{
-						var entity = new PM.TaskProfile();
-						entity.ProfileName = "*** new profile ***";
-						if ( new CredentialServices().TaskProfile_Save( entity, context.Parent.RowId, "Initial", user, ref status, true ))
-						{
-							context.Profile.Id = entity.Id;
-							context.Profile.RowId = entity.RowId;
-							context.Profile.Name = entity.ProfileName;
-
-							//return GetProfile( context, ref valid, ref status );
-
-							//data = CredentialServices.ConditionProfile_GetTask( entity.Id );
-						}
-						
-						break;
-					}
-				case "TaskProfile":
-					{
-						var entity = new PM.TaskProfile();
-						entity.ProfileName = "*** new profile ***";
-						if ( new ConditionProfileServices().TaskProfile_Save( entity, context.Parent.RowId, "Initial", user, ref status ) )
-						{
-							context.Profile.Id = entity.Id;
-							context.Profile.RowId = entity.RowId;
-							context.Profile.Name = entity.ProfileName;
-						}
-
-						break;
-					}
+			
 				case "CostProfile":
 					{
 						//int newId = 0;
-						var entity = new PM.CostProfile() { ProfileName = "*** new profile ***" };
+						var entity = new PM.CostProfile() { ProfileName = " " };
+						entity.IsStarterProfile = true;
 						if ( new ProfileServices().CostProfile_Save( entity, context.Parent.RowId, "Initial", user, ref status ) )
 						{
 							//data = ProfileServices.CostProfile_Get( newId );
@@ -526,18 +594,22 @@ namespace CTIServices
 					break;
 				//case "CostItemProfile":  //	N/A
 				//	break;
-				case "CredentialAlignmentObjectProfile":
-					break;
+				//case "CredentialAlignmentObjectProfile":
+				//	break;
 				case "CredentialAlignmentObjectFrameworkProfile":
 					{
 						var entity = new MC.CredentialAlignmentObjectFrameworkProfile();
-						entity.EducationalFrameworkName = "*** new profile ***";
+						entity.EducationalFrameworkName = "";
+						entity.AlignmentType = context.Profile.Property;
+						entity.IsStarterProfile = true;
 						if ( new ProfileServices().CredentialAlignmentObjectFrameworkProfile_Save( entity, context.Parent.RowId, "Initial", user, ref status ) )
 						{
 							context.Profile.Id = entity.Id;
 							context.Profile.RowId = entity.RowId;
 							context.Profile.Name = entity.EducationalFrameworkName;
 						}
+						else
+							valid = false;
 
 						break;
 					}
@@ -545,13 +617,21 @@ namespace CTIServices
 					break;
 				case "AddressProfile":
 					break;
-				case "ProcessProfile":
+				case "ContactPoint":
 					break;
-				case "AuthenticationProfile":
+			
+				case "ProcessProfile":
 					{
-						var entity = new PM.AuthenticationProfile();
-						entity.ProfileName = "*** new profile ***";
-						if ( new ProfileServices().AuthenticationProfile_Save( entity, context.Parent.RowId, "Initial", user, ref status, true ) )
+						var entity = new PM.ProcessProfile();
+						entity.ProfileName = " ";
+						entity.IsStarterProfile = true;
+						//map the process type
+						entity.ProcessProfileType = context.Profile.Property;
+						entity.ProcessTypeId = ProfileServices.DetermineProcessProfileTypeId( entity.ProcessProfileType );
+						entity.ProcessingAgentUid = context.Profile.OwningAgentUid;
+						entity.IsStarterProfile = true;
+
+						if ( new ProfileServices().ProcessProfile_Save( entity, context.Parent.RowId, "Initial", user, ref status, true ) )
 						{
 							context.Profile.Id = entity.Id;
 							context.Profile.RowId = entity.RowId;
@@ -560,6 +640,22 @@ namespace CTIServices
 
 						break;
 					}
+				case "VerificationServiceProfile":
+					{
+						var entity = new PM.VerificationServiceProfile();
+						entity.ProfileName = "*** new profile ***";
+						entity.IsStarterProfile = true;
+						if ( new ProfileServices().VerificationServiceProfile_Save( entity, context.Parent.RowId, "Initial", user, ref status, true ) )
+						{
+							context.Profile.Id = entity.Id;
+							context.Profile.RowId = entity.RowId;
+							context.Profile.Name = entity.ProfileName;
+						}
+
+						break;
+					}
+				case "VerificationStatus":
+					break;
 				case "EarningsProfile":
 					break;
 				case "EmploymentOutcomeProfile":
@@ -573,6 +669,8 @@ namespace CTIServices
 
 			return GetProfile( context, true, ref valid, ref status );
 		}
+
+		//
 		/// <summary>
 		/// Save a Profile (via add or update, as appropriate)
 		/// </summary>
@@ -581,8 +679,10 @@ namespace CTIServices
 		/// <param name="valid"></param>
 		/// <param name="status"></param>
 		/// <returns></returns>
-		public static BaseProfile SaveProfile( ProfileContext context, BaseProfile clientProfile, ref bool valid, ref string status )
+		public static BaseProfile SaveProfile( ProfileContext context, BaseProfile clientProfile, ref bool valid, ref string status,
+			bool isNewVersion)
 		{
+
 			//Get the user
 			var user = AccountServices.GetUserFromSession();
 
@@ -599,7 +699,7 @@ namespace CTIServices
 			//If new, call the Add method
 			if ( context.Profile.Id == 0 )
 			{
-				return AddProfile( context, serverProfile, user, ref valid, ref status );
+				return AddProfile( context, serverProfile, user, ref valid, ref status, isNewVersion );
 			}
 			//If existing, call the Update method
 			else
@@ -610,18 +710,35 @@ namespace CTIServices
 		//
 
 		//Add a new profile
-		private static BaseProfile AddProfile( ProfileContext context, object serverProfile, Models.AppUser user, ref bool valid, ref string status, bool isEmpty = false )
+		private static BaseProfile AddProfile( ProfileContext context, 
+				object serverProfile, 
+				Models.AppUser user, 
+				ref bool valid,
+				ref string status,
+				bool isNewVersion, 
+				bool isEmpty = false )
 		{
 			var id = 0;
 			var rowID = new Guid();
+			string property = context.Profile.Property;
+
 			switch ( context.Profile.TypeName )
 			{
 				case "Credential":
 					{
-						//EnrichData( serverProfile, CredentialServices.GetCredential( context.Profile.Id ) );
 						var profile = ( MC.Credential ) serverProfile;
-						profile.IsNewVersion = true;
-						id = new CredentialServices().Credential_Add( profile, user, ref valid, ref status );
+						//profile.IsNewVersion = true;
+						//profile.IsDescriptionRequired = false;
+						id = new CredentialServices().Add( profile, user, ref valid, ref status );
+						rowID = profile.RowId;
+						break;
+					}
+				case "QACredential":
+					{
+						var profile = ( MC.Credential ) serverProfile;
+						//profile.IsNewVersion = true;
+						//profile.IsDescriptionRequired = false;
+						id = new CredentialServices().Add( profile, user, ref valid, ref status );
 						rowID = profile.RowId;
 						break;
 					}
@@ -629,8 +746,16 @@ namespace CTIServices
 					{
 						//EnrichData( serverProfile, OrganizationServices.GetOrganization( context.Profile.Id ) );
 						var profile = ( MC.Organization ) serverProfile;
-						profile.IsNewVersion = true;
-						id = new OrganizationServices().Organization_Add( profile, user, ref valid, ref status );
+						//profile.IsNewVersion = true;
+						id = new OrganizationServices().Add( profile, user, ref valid, ref status );
+						rowID = profile.RowId;
+					}
+					break;
+				case "QAOrganization":
+					{
+						var profile = ( MC.QAOrganization ) serverProfile;
+						//profile.IsNewVersion = true;
+						id = new OrganizationServices().Add_QAOrg( profile, user, ref valid, ref status );
 						rowID = profile.RowId;
 					}
 					break;
@@ -638,7 +763,7 @@ namespace CTIServices
 					{
 						//EnrichData( serverProfile, AssessmentServices.Get( context.Profile.Id ) );
 						var profile = ( PM.AssessmentProfile ) serverProfile;
-						profile.IsNewVersion = true;
+						//profile.IsNewVersion = true;
 						id = new AssessmentServices().Add( profile, user, ref status );
 						rowID = profile.RowId;
 					}
@@ -655,31 +780,32 @@ namespace CTIServices
 				case "DurationProfile":
 					{
 						var profile = ( PM.DurationProfile ) serverProfile;
-						//if ( context.Parent.Type == typeof( Credential ) )
-						//{
-						//	//var originalData = CredentialServices.DurationProfile_GetTimeToEarn( context.Profile.Id ) ;
-						//	//EnrichData( originalData, serverProfile );
-						//	valid = new CredentialServices().DurationProfile_UpdateTimeToEarn( profile, context.Main.RowId, user.Id, ref status );
-						//}
-						//else
-						//{
-							//var originalData = CredentialServices.DurationProfile_Get( context.Profile.Id );
-							//EnrichData( originalData, serverProfile );
+						
+						//LoggingHelper.DoTrace( 2, "EditorServices. Add DurationProfile. userId: " + user.Id.ToString() );
 							valid = new CredentialServices().DurationProfile_Update( profile, context.Parent.RowId, context.Main.RowId, user.Id, ref status );
 						//}
 							id = profile.Id;
 							rowID = profile.RowId;
 						}
 					break;
+				case "JurisdictionProfile_QA":
 				case "JurisdictionProfile":
 					{
 						//EnrichData( serverProfile, new JurisdictionServices().Get( context.Profile.RowId ) );
 						var profile = ( MC.JurisdictionProfile ) serverProfile;
-						if ( new Factories.RegionsManager().IsEmpty( profile ) )
+						if ( new Factories.Entity_JurisdictionProfileManager().IsEmpty( profile ) )
 						{
 							profile.Description = "Auto-saved Jurisdiction";
 						}
-						valid = new JurisdictionServices().JurisdictionProfile_Add( profile, context.Parent.RowId, context.Profile.Property == "Residency" ? 2 : 1, user.Id, ref status );
+						int jprofilePurposeId = 1;
+						if ( context.Profile.Property == "Region"
+							|| context.Profile.Property == "Residency" )
+							jprofilePurposeId = 2;
+						else if ( context.Profile.Property == "JurisdictionAssertions" )
+							jprofilePurposeId = 3;
+						else
+							jprofilePurposeId = 1;
+						valid = new JurisdictionServices().JurisdictionProfile_Add( profile, context.Parent.RowId, jprofilePurposeId, property, user.Id, ref status );
 						id = profile.Id;
 						rowID = profile.RowId;
 					}
@@ -693,21 +819,13 @@ namespace CTIServices
 						profile.ActingAgentUid = profile.ActingAgent.RowId;
 						profile.ParentUid = context.Parent.RowId;
 
+						//profile.ActedUponEntityUid = profile.ActedUponEntity.EntityUid;
+						//profile.ActedUponEntityId = profile.ActedUponEntity.Id;
+						
+						if ( context.Main.TypeName == "Organization" )
+							property = "OrganizationQARole";
 						//might be able to use for all - where allowing multiple roles
-						valid = new OrganizationServices().EntityAgentRole_Save( profile, profile.ParentUid, user, ref status );
-
-						//Assign target
-						//switch ( context.Parent.TypeName )
-						//{
-						//	case "Credential": profile.TargetCredentialId = context.Parent.Id; break;
-						//	case "Organization": 
-						//		profile.TargetOrganizationId = context.Parent.Id;
-						//		profile.ParentUid = context.Parent.RowId;
-						//		break;
-						//	case "Assessment": profile.TargetAssessmentId = context.Parent.Id; break;
-						//	//case "LearningOpportunity": profile.TargetLearningOpportunityId = context.Parent.Id; break; //Apparently does not exist?
-						//	default: break;
-						//}
+						valid = new OrganizationServices().EntityAgentRole_Save( profile, profile.ParentUid, property, user, ref status );
 
 						//new CredentialServices().Credential_SaveOrgRole( profile, profile.TargetCredentialId, user, ref status );
 						//not applicable yet - a particular rowId is not partinent, as can be multiple roles
@@ -719,9 +837,31 @@ namespace CTIServices
 						context.Profile.Id = profile.ActingAgent.Id;
 						break;
 					}
-				case "AgentRoleProfile_Actor":
+				case "AgentRoleProfile_Assets":
+				case "AgentRoleProfile_OfferedBy":
 					{
+						//MAKE OBSOLETE *******************
+						var profile = ( PM.OrganizationRoleProfile ) serverProfile;
 
+						//Assign acting agent
+						profile.ActingAgentId = profile.ActingAgent.Id;
+						profile.ActingAgentUid = profile.ActingAgent.RowId;
+						profile.ParentUid = context.Parent.RowId;
+						//required
+						profile.ActedUponEntityUid = profile.ActedUponEntity.EntityUid;
+						profile.ActedUponEntityId = profile.ActedUponEntity.Id;
+						
+						//might be able to use for all - where allowing multiple roles
+						valid = new OrganizationServices().CredentialAssets_EntityAgentRole_Save( profile, profile.ParentUid, property, user, ref status );
+
+						//new CredentialServices().Credential_SaveOrgRole( profile, profile.TargetCredentialId, user, ref status );
+						//not applicable yet - a particular rowId is not partinent, as can be multiple roles
+						//want to just get the whole enumerated object
+						id = profile.ActingAgent.Id;
+						rowID = profile.ActingAgent.RowId;
+
+						//force the agent id into the context.Profile.Id for the GetProfile
+						context.Profile.Id = profile.ActingAgent.Id;
 						break;
 					}
 				case "QualityAssuranceActionProfile_Recipient":
@@ -758,29 +898,71 @@ namespace CTIServices
 
 						break;
 					}
-				case "ConditionProfileOLD":
-					{
-						var profile = ( PM.ConditionProfile ) serverProfile;
-						profile.ConnectionProfileType = context.Profile.Property;
-						if ( context.Parent.Type == typeof( Credential ) )
-							valid = new CredentialServices().ConditionProfile_Save( profile, context.Parent.RowId, context.Profile.Property, "Add", user, ref status );
-						else
-							valid = new ConditionProfileServices().ConditionProfile_Save( profile, context.Parent.RowId, "Add", user, ref status );
 
-						id = profile.Id;
-						rowID = profile.RowId;
-					}
-					break;
+				case "HasConditionProfile":
 				case "ConditionProfile":
 					{
 						var profile = ( PM.ConditionProfile ) serverProfile;
 						profile.ConnectionProfileType = context.Profile.Property;
+						profile.ConditionSubTypeId = ConditionProfileServices.SetConditionSubTypeId( profile.ConnectionProfileType );
+
 						valid = new ConditionProfileServices().ConditionProfile_Save( profile, context.Parent.RowId, "Add", user, ref status );
 
 						id = profile.Id;
 						rowID = profile.RowId;
 					}
 					break;
+
+				case "ConditionManifest":
+					{
+						//var profile = ( MC.ConditionManifest ) serverProfile;
+
+						var entity = new MC.ConditionManifest() { ProfileName = "     " };
+
+						//this could be used?
+						entity.IsStarterProfile = true;
+
+						entity.OwningAgentUid = context.Profile.OwningAgentUid;
+
+						if ( new ConditionManifestServices().Save( entity, context.Parent.RowId, "Initial", user, ref status ) )
+						{
+
+							context.Profile.Id = entity.Id;
+							context.Profile.RowId = entity.RowId;
+							context.Profile.Name = "new condition manifest";//entity.Name;
+						}
+						break;
+					}
+
+				case "CostManifest":
+					{
+
+						var entity = new MC.CostManifest() { ProfileName = "     " };
+
+						//this could be used?
+						entity.IsStarterProfile = true;
+
+						entity.OwningAgentUid = context.Profile.OwningAgentUid;
+
+						if ( new CostManifestServices().Save( entity, context.Parent.RowId, "Initial", user, ref status ) )
+						{
+							context.Profile.Id = entity.Id;
+							context.Profile.RowId = entity.RowId;
+							context.Profile.Name = "new cost manifest";//entity.Name;
+						}
+						break;
+					}
+				case "FinancialAlignmentObject":
+					{
+						var profile = ( MC.FinancialAlignmentObject ) serverProfile;
+
+						valid = new ProfileServices().FinancialAlignmentProfile_Save( profile, context.Parent.RowId, "Add", user, ref status );
+
+						id = profile.Id;
+						rowID = profile.RowId;
+						break;
+					}
+					
 				case "RevocationProfile":
 					{
 						var profile = ( PM.RevocationProfile ) serverProfile;
@@ -789,26 +971,19 @@ namespace CTIServices
 						rowID = profile.RowId;
 					}
 					break;
-				case "TaskProfileOLD":
-					{
-						var profile = ( PM.TaskProfile ) serverProfile;
-						valid = new CredentialServices().TaskProfile_Save( profile, context.Parent.RowId, "Add", user, ref status );
-						id = profile.Id;
-						rowID = profile.RowId;
-						break;
-					}
-				case "TaskProfile":
-					{
-						var profile = ( PM.TaskProfile ) serverProfile;
-						valid = new ConditionProfileServices().TaskProfile_Save( profile, context.Parent.RowId, "Add", user, ref status );
-						id = profile.Id;
-						rowID = profile.RowId;
-						break;
-					}
+				
+				//case "TaskProfile":
+				//	{
+				//		var profile = ( PM.TaskProfile ) serverProfile;
+				//		valid = new ConditionProfileServices().TaskProfile_Save( profile, context.Parent.RowId, "Add", user, ref status );
+				//		id = profile.Id;
+				//		rowID = profile.RowId;
+				//		break;
+				//	}
 				case "CostProfile":
 					{
 						var profile = ( PM.CostProfile ) serverProfile;
-						bool isValid = new ProfileServices().CostProfile_Save( profile, context.Parent.RowId, "Add", user, ref status );
+						valid = new ProfileServices().CostProfile_Save( profile, context.Parent.RowId, "Add", user, ref status );
 						id = profile.Id;
 						rowID = profile.RowId;
 					}
@@ -816,7 +991,7 @@ namespace CTIServices
 				case "CostItemProfile":
 					{
 						var profile = ( PM.CostProfileItem ) serverProfile;
-						bool isValid = new ProfileServices().CostProfileItem_Save( profile, context.Parent.RowId, "Add", user, ref status );
+						valid = new ProfileServices().CostProfileItem_Save( profile, context.Parent.RowId, "Add", user, ref status );
 						id = profile.Id;
 						rowID = profile.RowId;
 					}
@@ -826,22 +1001,22 @@ namespace CTIServices
 
 						break;
 					}
-				case "CredentialAlignmentObjectProfile":
-					{
-						var profile = ( MC.CredentialAlignmentObjectProfile ) serverProfile;
-						profile.AlignmentType = context.Profile.Property;
-						bool isValid = new ProfileServices().CredentialAlignmentObject_Save( profile, context.Parent.RowId, "Add", user, ref status );
-						id = profile.Id;
-						rowID = profile.RowId;
-					}
-					break;
+				//case "CredentialAlignmentObjectProfile":
+				//	{
+				//		var profile = ( MC.CredentialAlignmentObjectProfile ) serverProfile;
+				//		profile.AlignmentType = context.Profile.Property;
+				//		valid = new ProfileServices().CredentialAlignmentObject_Save( profile, context.Parent.RowId, "Add", user, ref status );
+				//		id = profile.Id;
+				//		rowID = profile.RowId;
+				//	}
+				//	break;
 				case "CredentialAlignmentObjectFrameworkProfile":
 					{
 						var profile = ( MC.CredentialAlignmentObjectFrameworkProfile ) serverProfile;
 						profile.ParentId = context.Parent.Id;
 						profile.AlignmentType = context.Profile.Property;
 
-						bool isValid = new ProfileServices().CredentialAlignmentObjectFrameworkProfile_Save( profile, context.Parent.RowId, "Add", user, ref status );
+						valid = new ProfileServices().CredentialAlignmentObjectFrameworkProfile_Save( profile, context.Parent.RowId, "Add", user, ref status );
 						id = profile.Id;
 						rowID = profile.RowId;
 					}
@@ -850,7 +1025,7 @@ namespace CTIServices
 					{
 						var profile = ( MC.CredentialAlignmentObjectItemProfile ) serverProfile;
 						profile.ParentId = context.Parent.Id;
-						bool isValid = new ProfileServices().CredentialAlignmentObjectItemProfile_Save( profile, context.Parent.RowId, "Add", user, ref status );
+						valid = new ProfileServices().CredentialAlignmentObjectItemProfile_Save( profile, context.Parent.RowId, "Add", user, ref status );
 						id = profile.Id;
 						rowID = profile.RowId;
 					}
@@ -859,23 +1034,47 @@ namespace CTIServices
 					{
 						//
 						var profile = ( MC.Address ) serverProfile;
-						bool isValid = new ProfileServices().AddressProfile_Save( profile, context.Parent.RowId, "Add", context.Parent.TypeName, user, ref status );
+						valid = new ProfileServices().AddressProfile_Save( profile, context.Parent.RowId, "Add", context.Parent.TypeName, user, ref status );
+						id = profile.Id;
+						rowID = profile.RowId;
+					}
+					break;
+				case "ContactPoint":
+					{
+						//
+						var profile = ( MC.ContactPoint ) serverProfile;
+						valid = new ProfileServices().ContactPoint_Save( profile, context.Parent.RowId, "Add", user, ref status );
 						id = profile.Id;
 						rowID = profile.RowId;
 					}
 					break;
 				case "ProcessProfile":
 					{
-
+						var profile = ( PM.ProcessProfile ) serverProfile;
+						//map the process type
+						profile.ProcessProfileType = context.Profile.Property;
+						//???
+						profile.ProcessTypeId = 0;
+						valid = new ProfileServices().ProcessProfile_Save( profile, context.Parent.RowId, "Add", user, ref status );
+						id = profile.Id;
+						rowID = profile.RowId;
 						break;
 					}
 				case "VerificationServiceProfile":
 					{
-						var profile = ( PM.AuthenticationProfile ) serverProfile;
-						valid = new ProfileServices().AuthenticationProfile_Save( profile, context.Parent.RowId, "Add", user, ref status );
+						var profile = ( PM.VerificationServiceProfile ) serverProfile;
+						valid = new ProfileServices().VerificationServiceProfile_Save( profile, context.Parent.RowId, "Add", user, ref status );
 						id = profile.Id;
 						rowID = profile.RowId;
 						break;
+					}
+				case "VerificationStatus":
+					{
+						var profile = ( PM.VerificationStatus ) serverProfile;
+						valid = new OrganizationServices().VerificationStatus_Save( profile, context.Parent.RowId, "Add", user, ref status );
+						id = profile.Id;
+						rowID = profile.RowId;
+						break; //
 					}
 				case "EarningsProfile":
 					{
@@ -900,7 +1099,7 @@ namespace CTIServices
 						context.Profile.TypeName = profile.ProfileType;
 						
 						//Call the add method as if it were a normal add
-						var added = SaveProfile( context, (BaseProfile) profile, ref valid, ref status );
+						var added = SaveProfile( context, ( BaseProfile ) profile, ref valid, ref status, isNewVersion );
 
 						//Make the association
 						//Note that Profile.Property is available to help determine the proper method to call
@@ -911,20 +1110,22 @@ namespace CTIServices
 							case "OrganizationSearch":
 								
 								break;
-							case "AssessmentSearchOLD":
-								new CredentialServices().ConditionProfile_AddAsmt( context.Parent.Id, added.Id, user, ref valid, ref status );
-								break;
+							//case "AssessmentSearchOLD":
+							//	new CredentialServices().ConditionProfile_AddAsmt( context.Parent.Id, added.Id, user, ref valid, ref status );
+							//	break;
 							case "AssessmentSearch":
-								new ConditionProfileServices().Assessment_Add( context.Parent.Id, added.Id, user, ref valid, ref status );
+								new ProfileServices().Assessment_Add( context.Parent.RowId, added.Id, user, ref valid, ref status );
 								break;
-							case "LearningOpportunitySearchOLD":
-								new CredentialServices().ConditionProfile_AddLearningOpportunity( context.Parent.Id, added.Id, user, ref valid, ref status );
-								break;
+							//case "LearningOpportunitySearchOLD":
+							//	new CredentialServices().ConditionProfile_AddLearningOpportunity( context.Parent.Id, added.Id, user, ref valid, ref status );
+							//	break;
 							case "LearningOpportunitySearch":
-								new ConditionProfileServices().LearningOpportunity_Add( context.Parent.Id, added.Id, user, ref valid, ref status );
+								new ProfileServices().LearningOpportunity_Add( context.Parent.RowId, added.Id, user, ref valid, ref status );
 								break;
 							case "LearningOpportunityHasPartSearch":
-								new LearningOpportunityServices().AddLearningOpportunity_AsPart( context.Parent.Id, added.Id, user, ref valid, ref status );
+								//TODO - can we get rowId instead?
+								Guid rowId = context.Parent.RowId;
+								new LearningOpportunityServices().AddLearningOpportunity_AsPart( context.Parent.RowId, added.Id, user, ref valid, ref status );
 								break;
 							default: break;
 						}
@@ -957,28 +1158,41 @@ namespace CTIServices
 		//Update an existing profile
 		private static BaseProfile UpdateProfile( ProfileContext context, object serverProfile, Models.AppUser user, ref bool valid, ref string status )
 		{
+			string property = context.Profile.Property;
+
 			switch ( context.Profile.TypeName )
 			{
 				case "Credential":
 					EnrichData( serverProfile, CredentialServices.GetBasicCredential( context.Profile.Id ) );
 					valid = new CredentialServices().Credential_Save( ( MC.Credential ) serverProfile, user, ref status );
 					break;
+				case "QACredential":
+					EnrichData( serverProfile, CredentialServices.GetBasicCredential( context.Profile.Id ) );
+					valid = new CredentialServices().Credential_Save( ( MC.Credential ) serverProfile, user, ref status );
+					break;
 				case "Organization":
 					EnrichData( serverProfile, OrganizationServices.GetOrganization( context.Profile.Id ) );
 					var org = ( MC.Organization ) serverProfile;
-					org.IsNewVersion = true;
-					valid = new OrganizationServices().Organization_Update( org, user, ref status );
+					//org.IsNewVersion = true;
+					valid = new OrganizationServices().Update( org, user, ref status );
+					break;
+
+				case "QAOrganization":
+					EnrichData( serverProfile, OrganizationServices.Get_QAOrganization( context.Profile.Id ) );
+					var qaorg = ( MC.QAOrganization ) serverProfile;
+
+					valid = new OrganizationServices().Update_QAOrg( qaorg, user, ref status );
 					break;
 				case "Assessment":
 					EnrichData( serverProfile, AssessmentServices.Get( context.Profile.Id ) );
 					var asmt = ( PM.AssessmentProfile ) serverProfile;
-					asmt.IsNewVersion = true;
+					//asmt.IsNewVersion = true;
 					valid = new AssessmentServices().Update( ( PM.AssessmentProfile ) serverProfile, user, ref status );
 					break;
 				case "LearningOpportunity":
 					EnrichData( serverProfile, LearningOpportunityServices.Get( context.Profile.Id ) );
 					var lopp = ( PM.LearningOpportunityProfile ) serverProfile;
-					lopp.IsNewVersion = true;
+					//lopp.IsNewVersion = true;
 					valid = new LearningOpportunityServices().Update( ( PM.LearningOpportunityProfile ) serverProfile, "", user, ref status );
 					break;
 				case "DurationProfile":
@@ -996,10 +1210,11 @@ namespace CTIServices
 					//}
 					
 					break;
+				case "JurisdictionProfile_QA":
 				case "JurisdictionProfile":
 					var js = new JurisdictionServices();
 					EnrichData( serverProfile, js.Get( context.Profile.Id ) );
-					valid = js.JurisdictionProfile_Update( ( MC.JurisdictionProfile ) serverProfile, context.Parent.RowId, AccountServices.GetUserFromSession().Id, ref status );
+					valid = js.JurisdictionProfile_Update( ( MC.JurisdictionProfile ) serverProfile, context.Parent.RowId, property, AccountServices.GetUserFromSession().Id, ref status );
 					break;
 				case "AgentRoleProfile_Recipient":
 					{
@@ -1009,16 +1224,38 @@ namespace CTIServices
 						profile.ActingAgentUid = profile.ActingAgent.RowId;
 						profile.ParentUid = context.Parent.RowId;
 
+						//profile.ActedUponEntityUid = profile.ActedUponEntity.EntityUid;
+						//profile.ActedUponEntityId = profile.ActedUponEntity.Id;
+						if ( context.Main.TypeName == "Organization" )
+							property = "OrganizationQARole";
 						//might be able to use for all - where allowing multiple roles
-						valid = new OrganizationServices().EntityAgentRole_Save( profile, profile.ParentUid, user, ref status );
+						valid = new OrganizationServices().EntityAgentRole_Save( profile, profile.ParentUid, property, user, ref status );
 
 						
 						//necessary????
 						context.Profile.Id = profile.ActingAgent.Id;
 						break;
 					}
-				case "AgentRoleProfile_Actor":
-					break;
+				case "AgentRoleProfile_Assets":
+				case "AgentRoleProfile_OfferedBy":
+					{
+						var profile = ( PM.OrganizationRoleProfile ) serverProfile;
+						//Assign acting agent fields
+						profile.ActingAgentId = profile.ActingAgent.Id;
+						profile.ActingAgentUid = profile.ActingAgent.RowId;
+						profile.ParentUid = context.Parent.RowId;
+
+						profile.ActedUponEntityUid = profile.ActedUponEntity.EntityUid;
+						profile.ActedUponEntityId = profile.ActedUponEntity.Id;
+
+						//might be able to use for all - where allowing multiple roles
+						valid = new OrganizationServices().CredentialAssets_EntityAgentRole_Save( profile, profile.ParentUid, property, user, ref status );
+
+
+						//necessary????
+						context.Profile.Id = profile.ActingAgent.Id;
+						break;
+					}
 				case "QualityAssuranceActionProfile_Recipient":
 					{
 						var profile = ( PM.QualityAssuranceActionProfile ) serverProfile;
@@ -1027,7 +1264,12 @@ namespace CTIServices
 						profile.ParentUid = context.Parent.RowId;
 						profile.ActingAgentId = profile.ActingAgent.Id;
 						profile.ActingAgentUid = profile.ActingAgent.RowId;
+
+						profile.ActedUponEntityUid = profile.ActedUponEntity.EntityUid;
+						profile.ActedUponEntityId = profile.ActedUponEntity.Id;
+
 						profile.IssuedCredentialId = profile.IssuedCredential.Id;
+						profile.ParticipantAgentUid = profile.ParticipantAgent.RowId;
 
 						valid = new OrganizationServices().QualityAssuranceAction_SaveProfile( profile, profile.ParentUid, user, ref status );
 
@@ -1039,41 +1281,49 @@ namespace CTIServices
 					}
 				case "QualityAssuranceActionProfile_Actor":
 					break;
-				case "ConditionProfileOLD":
-					{
-						var profile = ( PM.ConditionProfile ) serverProfile;
-						profile.ConnectionProfileType = context.Profile.Property;
-						if ( context.Parent.Type == typeof( Credential ) )
-							valid = new CredentialServices().ConditionProfile_Save( profile, context.Parent.RowId, context.Profile.Property, "Modify", user, ref status );
-						else
-							valid = new ConditionProfileServices().ConditionProfile_Save( profile, context.Parent.RowId, "Modify", user, ref status );
-					}
-					break;
+			
 				case "ConditionProfile":
 					{
 						var profile = ( PM.ConditionProfile ) serverProfile;
 						profile.ConnectionProfileType = context.Profile.Property;
+						
 						valid = new ConditionProfileServices().ConditionProfile_Save( profile, context.Parent.RowId, "Modify", user, ref status );
 					}
 					break;
+				case "ConditionManifest":
+					{
+						var profile = ( MC.ConditionManifest ) serverProfile;
+						
+						valid = new ConditionManifestServices().Save( profile, context.Parent.RowId, "Modify", user, ref status );
+					}
+					break;
+				case "CostManifest":
+					{
+						var profile = ( MC.CostManifest ) serverProfile;
+
+						valid = new CostManifestServices().Save( profile, context.Parent.RowId, "Modify", user, ref status );
+					}
+					break;
+				case "FinancialAlignmentObject":
+					{
+						var profile = ( MC.FinancialAlignmentObject ) serverProfile;
+
+						valid = new ProfileServices().FinancialAlignmentProfile_Save( profile, context.Parent.RowId, "Modify", user, ref status );
+						break;
+					}
 				case "RevocationProfile":
 					{
 						var profile = ( PM.RevocationProfile ) serverProfile;
 						valid = new CredentialServices().RevocationProfile_Save( profile, context.Parent.RowId, "Modify", user, ref status );
 					}
 					break;
-				case "TaskProfileOLD":
-					{
-						var profile = ( PM.TaskProfile ) serverProfile;
-						valid = new CredentialServices().TaskProfile_Save( profile, context.Parent.RowId, "Modify", user, ref status );
-					}
-					break;
-				case "TaskProfile":
-					{
-						var profile = ( PM.TaskProfile ) serverProfile;
-						valid = new ConditionProfileServices().TaskProfile_Save( profile, context.Parent.RowId, "Modify", user, ref status );
-					}
-					break;
+				
+				//case "TaskProfile":
+				//	{
+				//		var profile = ( PM.TaskProfile ) serverProfile;
+				//		valid = new ConditionProfileServices().TaskProfile_Save( profile, context.Parent.RowId, "Modify", user, ref status );
+				//	}
+				//	break;
 				case "CostProfile":
 					{
 						var profile = ( PM.CostProfile ) serverProfile;
@@ -1086,13 +1336,13 @@ namespace CTIServices
 						valid = new ProfileServices().CostProfileItem_Save( profile, context.Parent.RowId, "Modify", user, ref status );
 					}
 					break;
-				case "CredentialAlignmentObjectProfile":
-					{
-						var profile = ( MC.CredentialAlignmentObjectProfile ) serverProfile;
-						profile.AlignmentType = context.Profile.Property;
-						valid = new ProfileServices().CredentialAlignmentObject_Save( profile, context.Parent.RowId, "Modify", user, ref status );
-					}
-					break;
+				//case "CredentialAlignmentObjectProfile":
+				//	{
+				//		var profile = ( MC.CredentialAlignmentObjectProfile ) serverProfile;
+				//		profile.AlignmentType = context.Profile.Property;
+				//		valid = new ProfileServices().CredentialAlignmentObject_Save( profile, context.Parent.RowId, "Modify", user, ref status );
+				//	}
+				//	break;
 				case "CredentialAlignmentObjectFrameworkProfile":
 					{
 						var profile = ( MC.CredentialAlignmentObjectFrameworkProfile ) serverProfile;
@@ -1113,12 +1363,34 @@ namespace CTIServices
 						valid = new ProfileServices().AddressProfile_Save( profile, context.Parent.RowId, "Modify", context.Parent.TypeName, user, ref status );
 					}
 					break;
+				case "ContactPoint":
+					{
+						var profile = ( MC.ContactPoint ) serverProfile;
+						valid = new ProfileServices().ContactPoint_Save( profile, context.Parent.RowId, "Modify", user, ref status );
+					}
+					break;
 				case "ProcessProfile":
+					{
+						var profile = ( PM.ProcessProfile ) serverProfile;
+						//map the process type
+						profile.ProcessProfileType = context.Profile.Property;
+
+						valid = new ProfileServices().ProcessProfile_Save( profile, context.Parent.RowId, "Modify", user, ref status );
+					}
 					break;
 				case "VerificationServiceProfile":
 					{
-						var profile = ( PM.AuthenticationProfile ) serverProfile;
-						valid = new ProfileServices().AuthenticationProfile_Save( profile, context.Parent.RowId, "Modify", user, ref status );
+						var profile = ( PM.VerificationServiceProfile ) serverProfile;
+						valid = new ProfileServices().VerificationServiceProfile_Save( profile, context.Parent.RowId, "Modify", user, ref status );
+					}
+					break;
+				case "VerificationStatus":
+					{
+						//
+						var profile = ( PM.VerificationStatus ) serverProfile;
+						valid = new OrganizationServices().VerificationStatus_Save( profile, context.Parent.RowId, "Modify", user, ref status );
+						//var profile = ( PM.VerificationStatus ) serverProfile;
+						//valid = new ProfileServices().VerificationStatus_Save( profile, context.Parent.RowId, "Modify", user, ref status );
 					}
 					break;
 				case "EarningsProfile":
@@ -1136,6 +1408,8 @@ namespace CTIServices
 
 			if ( valid )
 			{
+				//TODO - do we need an indicator of a get after a save?
+				//		- for example, this call may assume get for edit!!
 				return GetProfile( context, true, ref valid, ref status );
 			}
 			return null;
@@ -1143,13 +1417,17 @@ namespace CTIServices
 		//
 
 		//Convert a client profile to a server profile
-		private static void ConvertToServerProfile( object serverProfile, object clientProfile )
+		public static void ConvertToServerProfile( object serverProfile, object clientProfile )
 		{
 			var clientProperties = clientProfile.GetType().GetProperties();
 			foreach ( var clientProperty in clientProperties )
 			{
 				try
 				{
+					if ( clientProperty.Name == "JurisdictionAssertionIds" )
+					{
+
+					}
 					//Get the attributes for this clientProperty, or set to defaults
 					var attributes = ( Property ) clientProperty.GetCustomAttributes( typeof( Property ), true ).FirstOrDefault() ?? new Property();
 
@@ -1162,6 +1440,11 @@ namespace CTIServices
 					var serverProperty = serverProfile.GetType().GetProperties().FirstOrDefault( m => m.Name == name );
 					//Value of the server property
 					var serverPropertyValue = serverProperty.GetValue( serverProfile );
+
+					if ( name.ToLower().Contains( "status" ) )
+					{
+
+					}
 
 					//If an explicit conversion method is set, use it
 					if ( !string.IsNullOrWhiteSpace( attributes.SaveMethod ) )
@@ -1363,6 +1646,9 @@ namespace CTIServices
 				case "Credential":
 					valid = new CredentialServices().Credential_Delete( context.Profile.Id, user, ref status );
 					break;
+				case "QACredential":
+					valid = new CredentialServices().Credential_Delete( context.Profile.Id, user, ref status );
+					break;
 				case "Organization":
 					//called method checks for authorization
 					valid = new OrganizationServices().Organization_Delete( context.Profile.Id, user, ref status );
@@ -1378,13 +1664,15 @@ namespace CTIServices
 					//	new CredentialServices().DurationProfile_DeleteTimeToEarn( context.Profile.Id, ref status ) :
 						valid = new CredentialServices().DurationProfile_Delete( context.Profile.Id, ref status );
 					break;
+				case "JurisdictionProfile_QA":
 				case "JurisdictionProfile":
 					valid = new JurisdictionServices().JurisdictionProfile_Delete( context.Profile.Id, ref status );
 					break;
 				case "AgentRoleProfile_Recipient":
-					//valid = new CredentialServices().Credential_DeleteOrgRoles( context.Main.Id, context.Profile.RowId, user, ref status );
+				case "AgentRoleProfile_Assets":
+				case "AgentRoleProfile_OfferedBy":
 
-					valid = new OrganizationServices().Delete_EntityAgentRoles( context.Main.RowId, context.Profile.RowId, user, ref status );
+					valid = new OrganizationServices().EntityAgent_DeleteAgentRoles( context.Main.RowId, context.Profile.RowId, user, ref status );
 					break;
 				case "AgentRoleProfile_Actor":
 					break;
@@ -1395,27 +1683,30 @@ namespace CTIServices
 					break;
 				case "QualityAssuranceActionProfile_Actor":
 					break;
-				case "ConditionProfileOLD":
-					if ( context.Parent.Type == typeof( Credential ) )
-						valid = new CredentialServices().ConditionProfile_Delete( context.Main.Id, context.Profile.Id, user, ref status );
-					else
-						valid = new ConditionProfileServices().ConditionProfile_Delete( context.Main.RowId, context.Profile.Id, user, ref status );
-					break;
+				//case "ConditionProfileOLD":
+				//	if ( context.Parent.Type == typeof( Credential ) )
+				//		valid = new CredentialServices().ConditionProfile_Delete( context.Main.Id, context.Profile.Id, user, ref status );
+				//	else
+				//		valid = new ConditionProfileServices().ConditionProfile_Delete( context.Main.RowId, context.Profile.Id, user, ref status );
+				//	break;
 				case "ConditionProfile":
 					valid = new ConditionProfileServices().ConditionProfile_Delete( context.Main.RowId, context.Profile.Id, user, ref status );
+					break;
+				case "ConditionManifest":
+					valid = new ConditionManifestServices().Delete( context.Main.RowId, context.Profile.Id, user, ref status );
+					break;
+				case "CostManifest":
+					valid = new CostManifestServices().Delete( context.Main.RowId, context.Profile.Id, user, ref status );
 					break;
 				case "RevocationProfile":
 					valid = new CredentialServices().RevocationProfile_Delete( context.Main.Id, context.Profile.Id, user, ref status );
 					break;
-				case "TaskProfileOLD":
-					if ( context.Parent.Type == typeof( Credential ) )
-						valid = new CredentialServices().ConditionProfile_DeleteTask( context.Main.Id, context.Profile.Id, user, ref status );
-					else
-						valid = new ConditionProfileServices().TaskProfile_Delete( context.Main.RowId, context.Profile.Id, user, ref status );
+				case "FinancialAlignmentObject":
+					valid = new ProfileServices().FinancialAlignmentProfile_Delete( context.Main.RowId, context.Profile.Id, user, ref status );
 					break;
-				case "TaskProfile":
-					valid = new ConditionProfileServices().TaskProfile_Delete( context.Main.RowId, context.Profile.Id, user, ref status );
-					break;
+				//case "TaskProfile":
+				//	valid = new ConditionProfileServices().TaskProfile_Delete( context.Main.RowId, context.Profile.Id, user, ref status );
+				//	break;
 				case "CostProfile":
 					valid = new ProfileServices().CostProfile_Delete( context.Profile.Id, user, ref status );
 					break;
@@ -1425,22 +1716,31 @@ namespace CTIServices
 				case "TextValueProfile":
 					valid = new ProfileServices().Entity_Reference_Delete( context.Parent.Id, context.Profile.Id, user, ref status );
 					break;
-				case "CredentialAlignmentObjectProfile":
-					valid = new ProfileServices().CredentialAlignmentObject_Delete( context.Main.Id, context.Profile.Id, user, ref status );
-					break;
+				//case "CredentialAlignmentObjectProfile":
+				//	valid = new ProfileServices().CredentialAlignmentObject_Delete( context.Main.Id, context.Profile.Id, user, ref status );
+				//	break;
 				case "CredentialAlignmentObjectFrameworkProfile":
-					valid = new ProfileServices().CredentialAlignmentObjectFrameworkProfile_Delete( context.Main.Id, context.Profile.Id, user, ref status );
+					//NOTE - NEED TO USE context.Parent.RowId in this case, need to confirm other uses of context.Main.RowId
+					valid = new ProfileServices().CredentialAlignmentObjectFrameworkProfile_Delete( context.Parent.RowId, context.Profile.Id, user, ref status );
 					break;
 				case "CredentialAlignmentObjectItemProfile":
 					valid = new ProfileServices().CredentialAlignmentObjectItemProfile_Delete( context.Main.Id, context.Profile.Id, user, ref status );
 					break;
 				case "AddressProfile":
-					valid = new ProfileServices().AddressProfile_Delete( context.Profile.Id, context.Parent.TypeName, user, ref status );
+					valid = new ProfileServices().AddressProfile_Delete( context.Main.RowId, context.Profile.Id, context.Parent.TypeName, user, ref status );
+					break;
+				case "ContactPoint":
+					valid = new ProfileServices().ContactPoint_Delete( context.Main.RowId, context.Profile.Id, user, ref status );
 					break;
 				case "ProcessProfile":
+					valid = new ProfileServices().ProcessProfile_Delete( context.Main.Id, context.Profile.Id, user, ref status );
 					break;
 				case "VerificationServiceProfile":
-					valid = new ProfileServices().AuthenticationProfile_Delete( context.Main.Id, context.Profile.Id, user, ref status );
+					valid = new ProfileServices().VerificationServiceProfile_Delete( context.Main.Id, context.Profile.Id, user, ref status );
+					break;
+				case "VerificationStatus":
+					valid = new OrganizationServices().VerificationStatus_Delete( context.Parent.Id, context.Profile.Id, user, ref status );
+					//
 					break;
 				case "EarningsProfile":
 					break;
@@ -1473,15 +1773,30 @@ namespace CTIServices
 			var user = AccountServices.GetUserFromSession();
 			List<SiteActivity> list = new List<SiteActivity>();
 
-			//Do the delete
+			//Do the register
 			switch ( context.Profile.TypeName )
 			{
 				case "Credential":
-					valid = new RegistryServices().MetadataRegistry_PublishCredential( context.Profile.Id, user, ref status, ref list );
+				case "CredentialProfile":
+					valid = new RegistryServices().PublishCredential( context.Profile.Id, user, ref status, ref list );
+					break;
+				case "QACredential":
+					valid = new RegistryServices().PublishCredential( context.Profile.Id, user, ref status, ref list );
 					break;
 				case "Organization":
+				case "QAOrganization":
 					//called method checks for authorization
-					valid = new RegistryServices().MetadataRegistry_PublishOrganization( context.Profile.Id, user, ref status, ref list );
+					valid = new RegistryServices().PublishOrganization( context.Profile.Id, user, ref status, ref list );
+					break;
+				case "AssessmentProfile":
+				case "Assessment":
+					//called method checks for authorization
+					valid = new RegistryServices().PublishAssessment( context.Profile.Id, user, ref status, ref list );
+					break;
+				case "LearningOpportunityProfile":
+				case "LearningOpportunity":
+					//called method checks for authorization
+					valid = new RegistryServices().PublishLearningOpportunity( context.Profile.Id, user, ref status, ref list );
 					break;
 				default:
 					valid = false;
@@ -1500,11 +1815,31 @@ namespace CTIServices
 			switch ( context.Profile.TypeName )
 			{
 				case "Credential":
+				case "CredentialProfile":
+				case "QACredential":
 					valid = new RegistryServices().UnregisterCredential( context.Profile.Id, user, ref status, ref list );
 					break;
 				case "Organization":
+				case "QAOrganization":
 					//called method checks for authorization
 					valid = new RegistryServices().UnregisterOrganization( context.Profile.Id, user, ref status, ref list );
+					break;
+				case "AssessmentProfile":
+				case "Assessment":
+					valid = new RegistryServices().Unregister_Assessment( context.Profile.Id, user, ref status, ref list );
+					break;
+				case "LearningOpportunityProfile":
+				case "LearningOpportunity":
+					//called method checks for authorization
+					valid = new RegistryServices().Unregister_LearningOpportunity( context.Profile.Id, user, ref status, ref list );
+					break;
+				case "ConditionManifest":
+					//called method checks for authorization
+					valid = new RegistryServices().Unregister_ConditionManifest( context.Profile.Id, user, ref status, ref list );
+					break;
+				case "CostManifest":
+					//called method checks for authorization
+					valid = new RegistryServices().Unregister_CostManifest( context.Profile.Id, user, ref status, ref list );
 					break;
 				default:
 					valid = false;

@@ -21,6 +21,7 @@ namespace Data
     
         public string Id { get; set; }
         public string Name { get; set; }
+        public Nullable<bool> IsActive { get; set; }
     
         public virtual ICollection<AspNetUserRoles> AspNetUserRoles { get; set; }
     }

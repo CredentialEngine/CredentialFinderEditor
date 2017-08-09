@@ -9,31 +9,100 @@ namespace Models.Node
 	[Profile( DBType = typeof( Models.Common.Credential ) )]
 	public class Credential : BaseMainProfile
 	{
+		public Credential()
+		{
+			Subject = new List<TextValueProfile>();
+			Keyword = new List<TextValueProfile>();
+			DegreeConcentration = new List<TextValueProfile>();
+			DegreeMajor = new List<TextValueProfile>();
+			DegreeMinor = new List<TextValueProfile>();
+			CommonCosts = new List<ProfileLink>();
+			CommonConditions = new List<ProfileLink>();
+			Requires = new List<ProfileLink>();
+			Recommends = new List<ProfileLink>();
+			Corequisite = new List<ProfileLink>();
+			EstimatedCosts = new List<ProfileLink>();
+			FinancialAssistance = new List<ProfileLink>();
+			OtherIndustries = new List<TextValueProfile>();
+			OtherOccupations = new List<TextValueProfile>();
+			
+			JurisdictionAssertions = new List<ProfileLink>();
+			OfferedByOrganizationRole = new List<ProfileLink>();
+			OfferedByOrganization = new List<ProfileLink>();
+		}
 		//Basic Info
+		//Url is in BaseMainProfile
+		//SubjectWebpage was added to BaseMainProfile.
+		//public string SubjectWebpage { get; set; }
 		public string ImageUrl { get; set; }
 		public string AlternateName { get; set; }
-		public string Version { get; set; }
+		public string VersionIdentifier { get; set; }
 		public string LatestVersionUrl { get; set; }
-		public string ReplacesVersionUrl { get; set; }
+		public string PreviousVersion { get; set; }
 		public int ManagingOrgId { get; set; }
-		
+		public int InLanguageId { get; set; }
+		public string CredentialRegistryId { get; set; }
+		public string CTID { get; set; }
+
+		[Property( DBName = "OwningOrganization", DBType = typeof( Models.Common.Organization ) )]
+		public ProfileLink DisplayOwningOrganization { get; set; }
+
+		[Property( DBName = "OwningAgentUid", DBType = typeof( Guid ) )]
+		public ProfileLink OwningOrganization { get; set; }
+
+		/// <summary>
+		/// OwnerRoles are used only for add
+		/// </summary>
+		[Property( DBName = "OwnerRoles", DBType = typeof( Models.Common.Enumeration ) )]
+		public List<int> RoleTypeIds { get; set; }
+
+		//NOTE: AgentRole_Recipient/OrganizationRole is defined in BaseMainProfile
+		[Property( Type = typeof( AgentRoleProfile_Recipient ), DBName = "OwnerOrganizationRoles" )]
+		public List<ProfileLink> OwnerOrganizationRoles { get; set; }
+
+		[Property( Type = typeof( AgentRoleProfile_Recipient ), DBName = "OrganizationRole" )]
+		public List<ProfileLink> QAOrganizationRole { get; set; }
+
+		[Property( Type = typeof( AgentRoleProfile_Recipient ), DBName = "OfferedByOrganizationRole" )]
+		public List<ProfileLink> OfferedByOrganizationRole { get; set; }
+
+		[Property( Type = typeof( Organization ) )]
+		public List<ProfileLink> OfferedByOrganization { get; set; }
+
+		public int EarningCredentialPrimaryMethodId { get; set; }
+		public bool FeatureLearningOpportunities { get; set; }
+		public bool FeatureAssessments { get; set; }
+
 		//List-based Info
 		[Property( DBName = "CredentialType", DBType = typeof( Models.Common.Enumeration ) )]
-		public int CredentialTypeId { get { return CredentialTypeIds.FirstOrDefault(); } set { CredentialTypeIds = new List<int>() { value }; } }
+		public int CredentialType { get { return CredentialTypeIds.FirstOrDefault(); } set { CredentialTypeIds = new List<int>() { value }; } }
 
 		[Property( DBName = "null" )] //Database processes need to skip this item
 		public List<int> CredentialTypeIds { get; set; }
 
-		[Property( DBName = "Purpose", DBType = typeof( Models.Common.Enumeration ) )]
-		public List<int> CredentialPurposeTypeIds { get; set; }
+		public string CredentialTypeDisplay { get; set; }
+		public string OwningOrgDisplay { get; set; }
 
-		[Property( DBName = "CredentialLevel", DBType = typeof( Models.Common.Enumeration ) )]
-		public List<int> CredentialLevelTypeIds { get; set; }
+
+		[Property( DBName = "CopyrightHolder", DBType = typeof( Guid ) )]
+		public ProfileLink CopyrightHolder { get; set; }
+		//[Property( DBName = "Purpose", DBType = typeof( Models.Common.Enumeration ) )]
+		//public List<int> IntendedPurpose { get; set; }
+
+		[Property( DBName = "AudienceLevelType", DBType = typeof( Models.Common.Enumeration ) )]
+		public List<int> AudienceLevelType { get; set; }
+
+		[Property( DBName = "CredentialStatusType", DBType = typeof( Models.Common.Enumeration ) )]
+		public int CredentialStatusType { get; set; }
 
 		public string AvailableOnlineAt { get; set; }
+		public string AvailabilityListing { get; set; }
 
-		public List<TextValueProfile> Subjects { get; set; }
-		public List<TextValueProfile> Keywords { get; set; }
+		public List<TextValueProfile> Subject { get; set; }
+		public List<TextValueProfile> DegreeConcentration { get; set; }
+		public List<TextValueProfile> DegreeMajor { get; set; }
+		public List<TextValueProfile> DegreeMinor { get; set; }
+		public List<TextValueProfile> Keyword { get; set; }
 		public List<TextValueProfile> OtherIndustries { get; set; }
 		public List<TextValueProfile> OtherOccupations { get; set; }
 		//Text Value Info
@@ -44,8 +113,39 @@ namespace Models.Node
 		public List<ProfileLink> Occupation { get; set; }
 
 		//Profile Info
-		[Property( Type = typeof( DurationProfile ) )]
-		public List<ProfileLink> EstimatedTimeToEarn { get; set; }
+		[Property( DBName = "EstimatedDuration", Type = typeof( DurationProfile ) )]
+		public List<ProfileLink> DurationProfile { get; set; }
+
+		#region Condition profile related, and all targets
+		//[Property( DBName = "TargetCredential", DBType = typeof( Credential ) )]
+		//public List<ProfileLink> TargetCredential { get; set; }
+
+		[Property( DBName = "TargetLearningOpportunity", Type = typeof( LearningOpportunityProfile ) )]
+		public List<ProfileLink> TargetLearningOpportunity { get; set; }
+
+		[Property( DBName = "TargetAssessment", Type = typeof( AssessmentProfile ) )]
+		public List<ProfileLink> TargetAssessment { get; set; }
+
+		//not sure which will be correct
+		//[Property( DBName = "TargetLearningOpportunity" )]
+		//public List<ProfileLink> LearningOpportunity { get; set; }
+
+
+		//[Property( DBName = "TargetAssessment" )]
+		//public List<ProfileLink> Assessment { get; set; }
+
+
+		[Property( Type = typeof( ConditionProfile ) )]
+		public List<ProfileLink> CredentialConnections { get; set; }
+
+
+		#endregion
+		[Property( Type = typeof( ConditionManifest ) )]
+		public List<ProfileLink> CommonCosts { get; set; }
+
+		#region Condition profile related
+		[Property( Type = typeof( ConditionManifest ) )]
+		public List<ProfileLink> CommonConditions { get; set; }
 
 		[Property( Type = typeof( ConditionProfile ) )]
 		public List<ProfileLink> Requires { get; set; }
@@ -53,31 +153,67 @@ namespace Models.Node
 		[Property( Type = typeof( ConditionProfile ) )]
 		public List<ProfileLink> Recommends { get; set; }
 
-		[Property( Type = typeof( ConditionProfile ) )]
-		public List<ProfileLink> IsRequiredFor { get; set; }
 
 		[Property( Type = typeof( ConditionProfile ) )]
-		public List<ProfileLink> IsRecommendedFor { get; set; }
+		public List<ProfileLink> Corequisite { get; set; }
+
+		//[Property( Type = typeof( ConditionProfile ) )]
+		//public List<ProfileLink> IsRequiredFor { get; set; }
+
+		//[Property( Type = typeof( ConditionProfile ) )]
+		//public List<ProfileLink> IsRecommendedFor { get; set; }
+
+		//[Property( Type = typeof( ConditionProfile ) )]
+		//public List<ProfileLink> AdvancedStandingFor { get; set; }
+
+		//[Property( Type = typeof( ConditionProfile ) )]
+		//public List<ProfileLink> AdvancedStandingFrom { get; set; }
+
+		//[Property( Type = typeof( ConditionProfile ) )]
+		//public List<ProfileLink> IsPreparationFor { get; set; }
+
+		//[Property( Type = typeof( ConditionProfile ) )]
+		//public List<ProfileLink> PreparationFrom { get; set; }
 
 		[Property( Type = typeof( ConditionProfile ) )]
 		public List<ProfileLink> Renewal { get; set; }
 
-		[Property( Type = typeof( RevocationProfile ) )]
-		public List<ProfileLink> Revocation { get; set; }
+		//[Property( Type = typeof( RevocationProfile ) )]
+		//public List<ProfileLink> Revocation { get; set; }
+		#endregion
 
 		[Property( Type = typeof( ProcessProfile ) )]
-		public List<ProfileLink> CredentialProcess { get; set; }
+		public List<ProfileLink> AdministrationProcess { get; set; }
 
-		[Property( Type = typeof( EarningsProfile ) )]
-		public List<ProfileLink> Earnings { get; set; }
+		[Property( Type = typeof( ProcessProfile ) )]
+		public List<ProfileLink> DevelopmentProcess { get; set; }
 
-		[Property( Type = typeof( EmploymentOutcomeProfile ) )]
-		public List<ProfileLink> EmploymentOutcome { get; set; }
+		[Property( Type = typeof( ProcessProfile ) )]
+		public List<ProfileLink> MaintenanceProcess { get; set; }
 
-		[Property( Type = typeof( HoldersProfile ) )]
-		public List<ProfileLink> Holders { get; set; }
+        [Property( Type = typeof( ProcessProfile ) )]
+        public List<ProfileLink> AppealProcess { get; set; }
 
-		[Property( Type = typeof( Credential ) )]
+        [Property( Type = typeof( ProcessProfile ) )]
+        public List<ProfileLink> ComplaintProcess { get; set; }
+
+        [Property( Type = typeof( ProcessProfile ) )]
+        public List<ProfileLink> RevocationProcess { get; set; }
+
+        [Property( Type = typeof( ProcessProfile ) )]
+        public List<ProfileLink> ReviewProcess { get; set; }
+
+
+        //[Property( Type = typeof( EarningsProfile ) )]
+        //public List<ProfileLink> Earnings { get; set; }
+
+        //[Property( Type = typeof( EmploymentOutcomeProfile ) )]
+        //public List<ProfileLink> EmploymentOutcome { get; set; }
+
+        //[Property( Type = typeof( HoldersProfile ) )]
+        //public List<ProfileLink> Holders { get; set; }
+
+        [Property( Type = typeof( Credential ) )]
 		public List<ProfileLink> EmbeddedCredentials { get; set; }
 
 		[Property( Type = typeof( Credential ) )]
@@ -86,8 +222,44 @@ namespace Models.Node
 		[Property( Type = typeof( CostProfile ) )]
 		public List<ProfileLink> EstimatedCosts { get; set; }
 
+		[Property( Type = typeof( FinancialAlignmentObject ) )]
+		public List<ProfileLink> FinancialAssistance { get; set; }
+
+		[Property( Type = typeof( CostProfile ) )]
+		public List<ProfileLink> AssessmentEstimatedCosts { get; set; }
+
+		[Property( Type = typeof( CostProfile ) )]
+		public List<ProfileLink> LearningOpportunityEstimatedCosts { get; set; }
+
 		[Property( DBName = "Addresses", DBType = typeof( Models.Common.Address ) )]
 		public List<ProfileLink> Addresses { get; set; }
+		public string CredentialId { get; set; }
+		public string CodedNotation { get; set; }
+
+		/// <summary>
+		/// processStandards (Nov2016)
+		/// URL
+		/// </summary>
+		public string ProcessStandards { get; set; }
+		/// <summary>
+		/// ProcessStandardsDescription (Nov2016)
+		/// </summary>
+		public string ProcessStandardsDescription { get; set; }
+
+		[Property( DBName = "VerificationServiceProfiles", DBType = typeof( Models.ProfileModels.VerificationServiceProfile ) )]
+		public List<ProfileLink> VerificationService { get; set; }
+
+		[Property( Type = typeof( JurisdictionProfile ) )]
+		public List<ProfileLink> JurisdictionAssertions { get; set; }
+
+
+		[Property( Type = typeof( RevocationProfile ) )]
+		public List<ProfileLink> Revocation { get; set; }
+
+
+		//Profile Info
+		[Property( Type = typeof( JurisdictionProfile ) )]
+		public List<ProfileLink> Region { get; set; }
 	}
 	//
 

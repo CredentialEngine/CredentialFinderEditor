@@ -1,20 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.SqlClient;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using Models;
 using Models.Common;
-using Models.ProfileModels;
-using EM = Data;
 using Utilities;
 using DBentity = Data.Entity_CompetencyFramework;
 using DBentityItem = Data.Entity_CompetencyFrameworkItem;
 using ThisEntity = Models.Common.CredentialAlignmentObjectFrameworkProfile;
-using Views = Data.Views;
 using ThisEntityItem = Models.Common.CredentialAlignmentObjectItemProfile;
-using ViewContext = Data.Views.CTIEntities1;
 
 namespace Factories
 {
@@ -154,6 +150,9 @@ namespace Factories
 			bool isValid = true;
 
 			isEmpty = false;
+			if ( profile.IsStarterProfile )
+				return true;
+
 			//check if empty
 			//if ( string.IsNullOrWhiteSpace( profile.EducationalFrameworkName )
 			//	&& string.IsNullOrWhiteSpace( profile.EducationalFrameworkUrl )
@@ -177,7 +176,7 @@ namespace Factories
 		#region  retrieval ==================
 
 		/// <summary>
-		/// Get all Task profiles for the parent
+		/// Get all profiles for the parent
 		/// Uses the parent Guid to retrieve the related ThisEntity, then uses the EntityId to retrieve the child objects.
 		/// </summary>
 		/// <param name="parentUid"></param>
@@ -199,7 +198,7 @@ namespace Factories
 					List<DBentity> results = context.Entity_CompetencyFramework
 							.Where( s => s.EntityId == parent.Id
 							&& ( alignmentType == "" || s.AlignmentType == alignmentType ) )
-							.OrderBy( s => s.Id )
+							.OrderBy( s => s.EducationalFrameworkName )
 							.ToList();
 
 					if ( results != null && results.Count > 0 )
@@ -257,6 +256,11 @@ namespace Factories
 			//to.Id = from.Id;
 
 			to.EducationalFrameworkName = from.EducationalFrameworkName;
+			int pos2 = from.EducationalFrameworkName.ToLower().IndexOf( "jquery" );
+			if ( pos2 > 1 )
+			{
+				from.EducationalFrameworkName = from.EducationalFrameworkName.Substring( 0, pos2 );
+			}
 			to.EducationalFrameworkUrl = from.EducationalFrameworkUrl;
 
 			//TODO work to eliminate
@@ -275,12 +279,10 @@ namespace Factories
 		{
 			to.Id = from.Id;
 			to.RowId = from.RowId;
+			to.ParentId = from.EntityId;
 
 			to.ProfileName = from.EducationalFrameworkName;
-			if ( from.EducationalFrameworkName == "*** new profile ***" )
-				to.EducationalFrameworkName = "";
-			else 
-				to.EducationalFrameworkName = from.EducationalFrameworkName;
+			to.EducationalFrameworkName = from.EducationalFrameworkName;
 
 			to.EducationalFrameworkUrl = from.EducationalFrameworkUrl;
 
@@ -293,6 +295,7 @@ namespace Factories
 			if ( IsValidDate( from.LastUpdated ) )
 				to.LastUpdated = ( DateTime ) from.LastUpdated;
 			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
+			to.LastUpdatedBy = SetLastUpdatedBy( to.LastUpdatedById, from.Account_Modifier );
 
 			ThisEntityItem ip = new ThisEntityItem();
 			//get all competencies - as profile links?
@@ -481,7 +484,7 @@ namespace Factories
 		#region  retrieval ==================
 
 		/// <summary>
-		/// Get all Task profiles for the parent
+		/// Get all records for the parent
 		/// Uses the parent Guid to retrieve the related ThisEntityItem, then uses the EntityId to retrieve the child objects.
 		/// </summary>
 		/// <param name="parentUid"></param>
@@ -548,13 +551,80 @@ namespace Factories
 			return entity;
 		}//
 
+		public static List<ThisEntityItem> Search( string pFilter, string pOrderBy, int pageNumber, int pageSize, ref int pTotalRows )
+		{
+			string connectionString = DBConnectionRO();
+			ThisEntityItem item = new ThisEntityItem();
+			List<ThisEntityItem> list = new List<ThisEntityItem>();
+			var result = new DataTable();
 
+			using ( SqlConnection c = new SqlConnection( connectionString ) )
+			{
+				c.Open();
+
+				if ( string.IsNullOrEmpty( pFilter ) )
+				{
+					pFilter = "";
+				}
+
+				using ( SqlCommand command = new SqlCommand( "[Competencies_search]", c ) )
+				{
+					command.CommandType = CommandType.StoredProcedure;
+					command.Parameters.Add( new SqlParameter( "@Filter", pFilter ) );
+					command.Parameters.Add( new SqlParameter( "@SortOrder", pOrderBy ) );
+					command.Parameters.Add( new SqlParameter( "@StartPageIndex", pageNumber ) );
+					command.Parameters.Add( new SqlParameter( "@PageSize", pageSize ) );
+
+					SqlParameter totalRows = new SqlParameter( "@TotalRows", pTotalRows );
+					totalRows.Direction = ParameterDirection.Output;
+					command.Parameters.Add( totalRows );
+
+					using ( SqlDataAdapter adapter = new SqlDataAdapter() )
+					{
+						adapter.SelectCommand = command;
+						adapter.Fill( result );
+					}
+					string rows = command.Parameters[ 4 ].Value.ToString();
+					try
+					{
+						pTotalRows = Int32.Parse( rows );
+					}
+					catch
+					{
+						pTotalRows = 0;
+					}
+				}
+
+				foreach ( DataRow dr in result.Rows )
+				{
+					item = new ThisEntityItem();
+					item.Id = GetRowColumn( dr, "CompetencyFrameworkItemId", 0 );
+					item.Name = GetRowColumn( dr, "Competency", "???" );
+					item.ProfileName = GetRowPossibleColumn( dr, "Competency2", "???" );
+					item.Description = GetRowColumn( dr, "Description", "" );
+
+					//don't include credentialId, as will work with source of the search will often be for a credential./ Same for condition profiles for now. 
+					item.SourceParentId = GetRowColumn( dr, "SourceId", 0 );
+					item.SourceEntityTypeId = GetRowColumn( dr, "SourceEntityTypeId", 0 );
+					item.AlignmentTypeId = GetRowColumn( dr, "AlignmentTypeId", 0 );
+					item.AlignmentType = GetRowColumn( dr, "AlignmentType", "" );
+					//Although the condition profile type may be significant?
+					item.ConnectionTypeId = GetRowColumn( dr, "ConnectionTypeId", 0 );
+					
+					list.Add( item );
+				}
+
+				return list;
+
+			}
+		} //
+		
 		public static void FromMap( ThisEntityItem from, DBentityItem to )
 		{
 			//want to ensure fields from create are not wiped
 			//to.Id = from.Id;
 			to.EntityFrameworkId = from.ParentId;
-			to.Name = from.Name;
+			to.Name = StripJqueryTag( from.Name );
 			to.Description = from.Description;
 			to.TargetName = from.TargetName;
 			to.TargetDescription = from.TargetDescription;
@@ -573,7 +643,7 @@ namespace Factories
 			to.ParentId = from.EntityFrameworkId;
 			to.RowId = from.RowId;
 
-			to.Name = from.Name;
+			to.Name = StripJqueryTag( from.Name );
 			to.Description = from.Description;
 			to.TargetName = from.TargetName;
 			to.TargetDescription = from.TargetDescription;
@@ -591,7 +661,7 @@ namespace Factories
 			if ( IsValidDate( from.LastUpdated ) )
 				to.LastUpdated = ( DateTime ) from.LastUpdated;
 			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
-
+			to.LastUpdatedBy = SetLastUpdatedBy( to.LastUpdatedById, from.Account_Modifier );
 		}
 
 		#endregion

@@ -17,9 +17,10 @@ namespace Data
         public int Id { get; set; }
         public int EntityId { get; set; }
         public int CategoryId { get; set; }
-        public int CodeId { get; set; }
+        public Nullable<int> CodeId { get; set; }
         public Nullable<System.DateTime> Created { get; set; }
         public Nullable<int> CreatedById { get; set; }
+        public string OtherValue { get; set; }
     
         public virtual Codes_PropertyCategory Codes_PropertyCategory { get; set; }
         public virtual Entity Entity { get; set; }

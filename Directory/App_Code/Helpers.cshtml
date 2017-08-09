@@ -1,0 +1,90 @@
+﻿@using System.Web.Mvc;
+@using System.Web.Mvc.Routing;
+@using System.Web.Mvc.Html;
+@using System.Web.Mvc.Razor;
+
+@using Models.Node.Interface;
+@using Models.Common;
+@using Models;
+
+@functions {
+    private static WebViewPage page { get { return PageContext.Page as WebViewPage; } }
+    private static System.Web.Mvc.HtmlHelper Html { get { return page.Html; } }
+    private static UrlHelper Url { get { return page.Url; } }
+    private static dynamic ViewBag { get { return page.ViewBag; } }
+
+
+    public static string RenderText2( string text )
+    {
+        return string.IsNullOrWhiteSpace( text ) ? "" : text;
+    }
+    public static string RenderAttribute2( string attribute, string value )
+    {
+        return string.IsNullOrWhiteSpace( value ) ? "" : attribute + "=\"" + value + "\"";
+    }
+}
+
+
+@helper MakeNote( string content )
+{
+    <div class="note"
+         style="border: 1px solid black; width: 90%; padding: 5px; margin-left: 15px;">
+        <p>
+            <strong>Note</strong>&nbsp;&nbsp; @content
+        </p>
+    </div>
+}
+
+@helper Testing()
+{
+    <p>Hello world</p>
+}
+@helper RenderPanel2( string id, string cssClass, string title, HelperResult content )
+{
+    @RenderPanel2( id, cssClass, title, content.ToString() )
+}
+@helper RenderPanel2( string id = "", string cssClass = "", string title = "Panel2", string content = "In Development - 2" )
+{
+    <div class="panel @RenderText2( cssClass )" @RenderAttribute2( "id", id )>
+        <button class="panelButton">@title</button>
+        <div class="panelContent">@Html.Raw( content )</div>
+    </div>
+}
+
+@helper RenderTextInput( TextInputSettings settings )
+{
+    @Html.Partial( "~/Views/Editor/_PropertyBox.cshtml", settings )
+}
+@helper RenderTextInput( string property, string label, TextInputSettings.InputType type, string guidance, bool isRequired = false, int minimumLength = 0 )
+{
+    @RenderTextInput( new TextInputSettings()
+{
+    Property = property,
+    Label = label,
+    Type = type,
+    Guidance = guidance,
+    RequireValue = isRequired,
+    MinimumLength = minimumLength
+} )
+}
+
+
+@helper SectionButton1( string title, string detailName, int profileId = 0, int count = 0 )
+{
+    if ( profileId > 0 )
+    {
+        <button class="blackOutlineButton" id="btn_@detailName" data-detailname="@detailName"> @title @if ( count > 0 )
+        {<i class="fa fa-check-square"></i>} <i class="fa fa-caret-down"></i><i class="fa fa-caret-right"></i></button>
+    }
+
+}
+@helper SectionButton2( string title, string detailName,  int count = 0 )
+{
+  
+        <button class="blackOutlineButton" id="btn_@detailName" data-detailname="@detailName">
+            @title @if ( count > 0 )
+            {<i class="fa fa-check-square"></i>} <i class="fa fa-caret-down"></i><i class="fa fa-caret-right"></i>
+        </button>
+
+
+}

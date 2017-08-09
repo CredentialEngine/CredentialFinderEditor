@@ -10,7 +10,11 @@ namespace Models.Common
 {
 	public class OrganizationMember
 	{
-
+		public OrganizationMember()
+		{
+			Organization = new Organization();
+			Account = new AppUser();
+		}
 		public int Id { get; set; }
 		public int ParentOrgId { get; set; }
 		public int UserId { get; set; }
@@ -22,7 +26,7 @@ namespace Models.Common
 		public System.DateTime LastUpdated { get; set; }
 		public int LastUpdatedById { get; set; }
 
-		public virtual Organization Organization { get; set; }
-		public virtual AppUser Account { get; set; }
+		public Organization Organization { get; set; }
+		public AppUser Account { get; set; }
 	}
 }

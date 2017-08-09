@@ -11,6 +11,8 @@ namespace Models.Common
 		public System.Guid EntityUid { get; set; }
 		public int EntityTypeId { get; set; }
 		public string EntityType { get; set; }
-		
+
+		public int EntityBaseId { get; set; }
+		public string EntityBaseName { get; set; }
 	}
 }

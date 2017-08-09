@@ -18,7 +18,6 @@ namespace Data
         {
             this.Entity_AgentRelationship = new HashSet<Entity_AgentRelationship>();
             this.Entity_Assessment = new HashSet<Entity_Assessment>();
-            this.Entity_Competency = new HashSet<Entity_Competency>();
             this.Entity_CostProfile = new HashSet<Entity_CostProfile>();
             this.Entity_Credential = new HashSet<Entity_Credential>();
             this.Entity_DurationProfile = new HashSet<Entity_DurationProfile>();
@@ -35,17 +34,30 @@ namespace Data
             this.Entity_JurisdictionProfile = new HashSet<Entity_JurisdictionProfile>();
             this.Entity_CompetencyFramework = new HashSet<Entity_CompetencyFramework>();
             this.Entity_ConditionProfile = new HashSet<Entity_ConditionProfile>();
+            this.Entity_Text = new HashSet<Entity_Text>();
+            this.Entity_FrameworkItemOther = new HashSet<Entity_FrameworkItemOther>();
+            this.Entity_ProcessProfile = new HashSet<Entity_ProcessProfile>();
+            this.Entity_ContactPoint = new HashSet<Entity_ContactPoint>();
+            this.Entity_ConditionManifest = new HashSet<Entity_ConditionManifest>();
+            this.Entity_CommonCondition = new HashSet<Entity_CommonCondition>();
+            this.Entity_FinancialAlignmentProfile = new HashSet<Entity_FinancialAlignmentProfile>();
+            this.Entity_CommonCost = new HashSet<Entity_CommonCost>();
+            this.Entity_CostManifest = new HashSet<Entity_CostManifest>();
+            this.Entity_Competency = new HashSet<Entity_Competency>();
+            this.Entity_EducationFramework = new HashSet<Entity_EducationFramework>();
         }
     
         public int Id { get; set; }
         public System.Guid EntityUid { get; set; }
         public int EntityTypeId { get; set; }
         public Nullable<System.DateTime> Created { get; set; }
+        public Nullable<int> EntityBaseId { get; set; }
+        public string EntityBaseName { get; set; }
+        public Nullable<System.DateTime> LastUpdated { get; set; }
     
         public virtual Codes_EntityType Codes_EntityType { get; set; }
         public virtual ICollection<Entity_AgentRelationship> Entity_AgentRelationship { get; set; }
         public virtual ICollection<Entity_Assessment> Entity_Assessment { get; set; }
-        public virtual ICollection<Entity_Competency> Entity_Competency { get; set; }
         public virtual ICollection<Entity_CostProfile> Entity_CostProfile { get; set; }
         public virtual ICollection<Entity_Credential> Entity_Credential { get; set; }
         public virtual ICollection<Entity_DurationProfile> Entity_DurationProfile { get; set; }
@@ -62,5 +74,16 @@ namespace Data
         public virtual ICollection<Entity_JurisdictionProfile> Entity_JurisdictionProfile { get; set; }
         public virtual ICollection<Entity_CompetencyFramework> Entity_CompetencyFramework { get; set; }
         public virtual ICollection<Entity_ConditionProfile> Entity_ConditionProfile { get; set; }
+        public virtual ICollection<Entity_Text> Entity_Text { get; set; }
+        public virtual ICollection<Entity_FrameworkItemOther> Entity_FrameworkItemOther { get; set; }
+        public virtual ICollection<Entity_ProcessProfile> Entity_ProcessProfile { get; set; }
+        public virtual ICollection<Entity_ContactPoint> Entity_ContactPoint { get; set; }
+        public virtual ICollection<Entity_ConditionManifest> Entity_ConditionManifest { get; set; }
+        public virtual ICollection<Entity_CommonCondition> Entity_CommonCondition { get; set; }
+        public virtual ICollection<Entity_FinancialAlignmentProfile> Entity_FinancialAlignmentProfile { get; set; }
+        public virtual ICollection<Entity_CommonCost> Entity_CommonCost { get; set; }
+        public virtual ICollection<Entity_CostManifest> Entity_CostManifest { get; set; }
+        public virtual ICollection<Entity_Competency> Entity_Competency { get; set; }
+        public virtual ICollection<Entity_EducationFramework> Entity_EducationFramework { get; set; }
     }
 }

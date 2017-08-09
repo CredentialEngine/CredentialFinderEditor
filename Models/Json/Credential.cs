@@ -28,23 +28,23 @@ namespace Models.Json
 				}
 			}
 
-			type = "ctdl:Credential";
+			type = "ceterms:Credential";
 		}
 
 		//Basic Properties
-		[DataMember( Name = "ctdl:dateEffective" )]
+		[DataMember( Name = "ceterms:dateEffective" )]
 		public string dateEffective { get; set; } //ISO date string
 
-		[DataMember( Name = "ctdl:latestVersion" )]
+		[DataMember( Name = "ceterms:latestVersion" )]
 		public string latestVersion { get; set; } //URL
 
-		[DataMember( Name = "ctdl:replacesVersion" )]
+		[DataMember( Name = "ceterms:replacesVersion" )]
 		public string replacesVersion { get; set; } //URL
 
-		[DataMember( Name = "ctdl:versionIdentifier" )]
+		[DataMember( Name = "ceterms:versionIdentifier" )]
 		public string versionIdentifier { get; set; }
 
-		[DataMember( Name = "ctdl:ctid" )]
+		[DataMember( Name = "ceterms:ctid" )]
 		public string ctid { get; set; }
 
 		[DataMember( Name = "dc:hasPart" )]
@@ -53,159 +53,159 @@ namespace Models.Json
 		[DataMember( Name = "dc:isPartOf" )]
 		public List<string> isPartOf { get; set; } //Credential URLs
 
-		[DataMember( Name = "schema:description" )]
+		[DataMember( Name = "ceterms:description" )]
 		public string description { get; set; }
 
-		[DataMember( Name = "schema:alternateName" )]
+		[DataMember( Name = "ceterms:alternateName" )]
 		public string alternateName { get; set; }
 
-		[DataMember( Name = "schema:image" )]
+		[DataMember( Name = "ceterms:image" )]
 		public string image { get; set; } //Image URL
 
-		[DataMember( Name = "schema:name" )]
+		[DataMember( Name = "ceterms:name" )]
 		public string name { get; set; }
 
-		[DataMember( Name = "schema:url" )]
+		[DataMember( Name = "ceterms:url" )]
 		public string url { get; set; } //URL
 
 
 		//Organization Roles
-		[DataMember( Name = "schema:creator" )]
+		[DataMember( Name = "ceterms:creator" )]
 		public List<string> creator { get; set; } //Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:owner" )]
+		[DataMember( Name = "ceterms:owner" )]
 		public List<string> owner { get; set; } //Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:updatedVersionBy" )]
+		[DataMember( Name = "ceterms:updatedVersionBy" )]
 		public List<string> updatedVersionBy { get; set; } //Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:verifiedBy" )]
+		[DataMember( Name = "ceterms:verifiedBy" )]
 		public List<string> verifiedBy { get; set; } //Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:assessedBy" )]
+		[DataMember( Name = "ceterms:assessedBy" )]
 		public List<string> assessedBy { get; set; } //Organization URL, Person URL
 
-		[DataMember( Name = "ctdl:offeredBy" )]
+		[DataMember( Name = "ceterms:offeredBy" )]
 		public List<string> offeredBy { get; set; } //Organization URL, Person URL
 
 
 		//Quality Assurance Roles
-		[DataMember( Name = "ctdl:accreditedBy" )]
+		[DataMember( Name = "ceterms:accreditedBy" )]
 		public List<string> accreditedBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
-		[DataMember( Name = "ctdl:accreditedBy" )]
+		[DataMember( Name = "ceterms:accreditedByAction" )]
 		public List<QualityAssuranceAction> accreditedByAction { get; set; }
 
-		[DataMember( Name = "ctdl:approvedBy" )]
+		[DataMember( Name = "ceterms:approvedBy" )]
 		public List<string> approvedBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
-		[DataMember( Name = "ctdl:approvedBy" )]
+		[DataMember( Name = "ceterms:approvedByAction" )]
 		public List<QualityAssuranceAction> approvedByAction { get; set; }
 
-		[DataMember( Name = "ctdl:conferredBy" )]
+		[DataMember( Name = "ceterms:conferredBy" )]
 		public List<string> conferredBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
-		[DataMember( Name = "ctdl:conferredBy" )]
+		[DataMember( Name = "ceterms:conferredByAction" )]
 		public List<QualityAssuranceAction> conferredByAction { get; set; }
 
-		[DataMember( Name = "ctdl:endorsedBy" )]
+		[DataMember( Name = "ceterms:endorsedBy" )]
 		public List<string> endorsedBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
-		[DataMember( Name = "ctdl:endorsedBy" )]
+		[DataMember( Name = "ceterms:endorsedByAction" )]
 		public List<QualityAssuranceAction> endorsedByAction { get; set; }
 
-		[DataMember( Name = "ctdl:recognizedBy" )]
+		[DataMember( Name = "ceterms:recognizedBy" )]
 		public List<string> recognizedBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
-		[DataMember( Name = "ctdl:recognizedBy" )]
+		[DataMember( Name = "ceterms:recognizedByAction" )]
 		public List<QualityAssuranceAction> recognizedByAction { get; set; }
 
-		[DataMember( Name = "ctdl:regulatedBy" )]
+		[DataMember( Name = "ceterms:regulatedBy" )]
 		public List<string> regulatedBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
-		[DataMember( Name = "ctdl:regulatedBy" )]
+		[DataMember( Name = "ceterms:regulatedByAction" )]
 		public List<QualityAssuranceAction> regulatedByAction { get; set; }
 
-		[DataMember( Name = "ctdl:revocationBy" )]
+		[DataMember( Name = "ceterms:revocationBy" )]
 		public List<string> revocationBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
-		[DataMember( Name = "ctdl:revocationBy" )]
+		[DataMember( Name = "ceterms:revocationByAction" )]
 		public List<QualityAssuranceAction> revocationByAction { get; set; }
 
-		[DataMember( Name = "ctdl:renewalBy" )]
+		[DataMember( Name = "ceterms:renewalBy" )]
 		public List<string> renewalBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
-		[DataMember( Name = "ctdl:renewalBy" )]
+		[DataMember( Name = "ceterms:renewalByAction" )]
 		public List<QualityAssuranceAction> renewalByAction { get; set; }
 
-		[DataMember( Name = "ctdl:validatedBy" )]
+		[DataMember( Name = "ceterms:validatedBy" )]
 		public List<string> validatedBy { get; set; } //QualityAssuranceAction, Organization URL, Person URL
-		[DataMember( Name = "ctdl:validatedBy" )]
+		[DataMember( Name = "ceterms:validatedByAction" )]
 		public List<QualityAssuranceAction> validatedByAction { get; set; }
 
-		[DataMember( Name = "schema:contributor" )]
+		[DataMember( Name = "ceterms:contributor" )]
 		public List<string> contributor { get; set; } //QualityAssuranceAction, Organization URL, Person URL
-		[DataMember( Name = "ctdl:contributor" )]
+		[DataMember( Name = "ceterms:contributorAction" )]
 		public List<QualityAssuranceAction> contributorAction { get; set; }
 
 
 		//Enumerations
-		[DataMember( Name = "ctdl:credentialLevel" )]
+		[DataMember( Name = "ceterms:credentialLevel" )]
 		public List<string> credentialLevel { get; set; }
 
-		[DataMember( Name = "ctdl:credentialType" )]
+		[DataMember( Name = "ceterms:credentialType" )]
 		public List<string> credentialType { get; set; }
 
-		[DataMember( Name = "ctdl:purpose" )]
+		[DataMember( Name = "ceterms:purpose" )]
 		public List<string> purpose { get; set; }
 
 
 		//Profiles
-		[DataMember( Name = "ctdl:RecommendedFor" )]
+		[DataMember( Name = "ceterms:RecommendedFor" )]
 		public List<ConditionProfile> isRecommendedFor { get; set; }
 
-		[DataMember( Name = "ctdl:RequiredFor" )]
+		[DataMember( Name = "ceterms:RequiredFor" )]
 		public List<ConditionProfile> isRequiredFor { get; set; }
 
-		[DataMember( Name = "ctdl:recommends" )]
+		[DataMember( Name = "ceterms:recommends" )]
 		public List<ConditionProfile> recommends { get; set; }
 
-		[DataMember( Name = "ctdl:renewal" )]
+		[DataMember( Name = "ceterms:renewal" )]
 		public List<ConditionProfile> renewal { get; set; }
 
-		[DataMember( Name = "ctdl:requires" )]
+		[DataMember( Name = "ceterms:requires" )]
 		public List<ConditionProfile> requires { get; set; }
 
-		[DataMember( Name = "ctdl:industryCategory" )]
+		[DataMember( Name = "ceterms:industryCategory" )]
 		public List<Enumeration> industryCategory { get; set; }
 
-		[DataMember( Name = "ctdl:occupationCategory" )]
+		[DataMember( Name = "ceterms:occupationCategory" )]
 		public List<Enumeration> occupationCategory { get; set; }
 
-		[DataMember( Name = "ctdl:developmentProcess" )]
+		[DataMember( Name = "ceterms:developmentProcess" )]
 		public List<ProcessProfile> developmentProcess { get; set; }
 
-		[DataMember( Name = "ctdl:maintenanceProcess" )]
+		[DataMember( Name = "ceterms:maintenanceProcess" )]
 		public List<ProcessProfile> maintenanceProcess { get; set; }
 
-		[DataMember( Name = "ctdl:selectionProcess" )]
+		[DataMember( Name = "ceterms:selectionProcess" )]
 		public List<ProcessProfile> selectionProcess { get; set; }
 
-		[DataMember( Name = "ctdl:validationProcess" )]
+		[DataMember( Name = "ceterms:validationProcess" )]
 		public List<ProcessProfile> validationProcess { get; set; }
 
-		[DataMember( Name = "ctdl:estimatedTimeToEarn" )]
+		[DataMember( Name = "ceterms:estimatedTimeToEarn" )]
 		public List<DurationProfile> estimatedTimeToEarn { get; set; }
 
-		[DataMember( Name = "ctdl:jurisdiction" )]
+		[DataMember( Name = "ceterms:jurisdiction" )]
 		public List<JurisdictionProfile> jurisdiction { get; set; }
 
-		[DataMember( Name = "ctdl:removal" )]
+		[DataMember( Name = "ceterms:removal" )]
 		public List<RevocationProfile> revocation { get; set; }
 
-		[DataMember( Name = "ctdl:earnings" )]
+		[DataMember( Name = "ceterms:earnings" )]
 		public List<EarningsProfile> earnings { get; set; }
 
-		[DataMember( Name = "ctdl:employmentOutcome" )]
+		[DataMember( Name = "ceterms:employmentOutcome" )]
 		public List<EmploymentOutcomeProfile> employmentOutcome { get; set; }
 
-		[DataMember( Name = "ctdl:holders" )]
+		[DataMember( Name = "ceterms:holders" )]
 		public List<HoldersProfile> holders { get; set; }
 
 		//Temporary
-		[DataMember(Name = "ctdl:industryCategory_Flat")]
+		[DataMember(Name = "ceterms:industryCategory_Flat")]
 		public List<TemporaryEnumerationItem> industryCategoryFlat { get; set; }
 	}
 
@@ -218,10 +218,10 @@ namespace Models.Json
 			type = "unknown:EnumerationItem";
 		}
 
-		[DataMember( Name = "schema:name" )]
+		[DataMember( Name = "ceterms:name" )]
 		public string name { get; set; }
 
-		[DataMember( Name = "schema:url" )]
+		[DataMember( Name = "ceterms:url" )]
 		public string url { get; set; }
 
 		[DataMember( Name = "unknown:frameworkName" )]

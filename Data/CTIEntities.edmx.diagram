@@ -4,56 +4,52 @@
   <edmx:Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
     <!-- Diagram content (shape and connector positions) -->
     <edmx:Diagrams>
-      <Diagram DiagramId="603dfd5bf554464dbde76045ea714258" Name="Diagram1" ZoomLevel="85">
+      <Diagram DiagramId="603dfd5bf554464dbde76045ea714258" Name="Diagram1" ZoomLevel="60">
         <EntityTypeShape EntityType="CTIModel.Entity_Relationship_AgentSummary" Width="1.5" PointX="21.75" PointY="15.75" />
-        <EntityTypeShape EntityType="CTIModel.Account" Width="1.5" PointX="3" PointY="11" FillColor="Aqua" />
+        <EntityTypeShape EntityType="CTIModel.Account" Width="2.5" PointX="0.5" PointY="10.5" FillColor="Aqua" />
         <EntityTypeShape EntityType="CTIModel.ActivityLog" Width="1.5" PointX="5.75" PointY="0.75" />
         <EntityTypeShape EntityType="CTIModel.AspNetRoles" Width="1.5" PointX="3.75" PointY="8.625" FillColor="Aqua" />
         <EntityTypeShape EntityType="CTIModel.AspNetUserClaims" Width="1.5" PointX="3" PointY="5.5" FillColor="Aqua" />
         <EntityTypeShape EntityType="CTIModel.AspNetUserLogins" Width="1.5" PointX="3.5" PointY="2.875" FillColor="Aqua" />
         <EntityTypeShape EntityType="CTIModel.AspNetUserRoles" Width="1.5" PointX="6" PointY="6.375" FillColor="Aqua" />
         <EntityTypeShape EntityType="CTIModel.AspNetUsers" Width="1.5" PointX="0.75" PointY="5" FillColor="Aqua" />
-        <EntityTypeShape EntityType="CTIModel.Assessment" Width="1.5" PointX="5" PointY="47.75" />
+        <EntityTypeShape EntityType="CTIModel.Assessment" Width="3.375" PointX="10.125" PointY="54.125" />
         <EntityTypeShape EntityType="CTIModel.CIPCode2010" Width="1.5" PointX="7.75" PointY="0.75" />
         <EntityTypeShape EntityType="CTIModel.Codes_AgentService" Width="3.25" PointX="17.5" PointY="50.875" />
-        <EntityTypeShape EntityType="CTIModel.Codes_Countries" Width="2.625" PointX="12.625" PointY="3.875" />
-        <EntityTypeShape EntityType="CTIModel.Codes_CredentialAgentRelationship" Width="2" PointX="27.125" PointY="23.625" />
-        <EntityTypeShape EntityType="CTIModel.Codes_Currency" Width="1.5" PointX="17.875" PointY="47.375" />
-        <EntityTypeShape EntityType="CTIModel.Codes_EntityType" Width="1.875" PointX="4.75" PointY="25" />
+        <EntityTypeShape EntityType="CTIModel.Codes_Countries" Width="2.625" PointX="26.125" PointY="13.625" />
+        <EntityTypeShape EntityType="CTIModel.Codes_CredentialAgentRelationship" Width="2" PointX="31.125" PointY="21.375" />
+        <EntityTypeShape EntityType="CTIModel.Codes_Currency" Width="1.5" PointX="13.625" PointY="46.5" />
+        <EntityTypeShape EntityType="CTIModel.Codes_EntityType" Width="1.875" PointX="13.625" PointY="30.75" />
         <EntityTypeShape EntityType="CTIModel.Codes_PropertyCategory" Width="2" PointX="1.25" PointY="22.5" />
-        <EntityTypeShape EntityType="CTIModel.Codes_PropertyValue" Width="2" PointX="9.25" PointY="21.625" />
+        <EntityTypeShape EntityType="CTIModel.Codes_PropertyValue" Width="2" PointX="8.5" PointY="21.125" />
         <EntityTypeShape EntityType="CTIModel.Codes_Status" Width="2" PointX="22.5" PointY="50" />
-        <EntityTypeShape EntityType="CTIModel.Credential" Width="2.375" PointX="18.875" PointY="15" />
-        <EntityTypeShape EntityType="CTIModel.Credential_ConnectionProfile" Width="2.25" PointX="26.5" PointY="14.375" />
-        <EntityTypeShape EntityType="CTIModel.Entity" Width="3.125" PointX="19.375" PointY="31.75" FillColor="192, 0, 192" />
-        <EntityTypeShape EntityType="CTIModel.Entity_AgentRelationship" Width="2.25" PointX="26.25" PointY="30.125" FillColor="Purple" />
+        <EntityTypeShape EntityType="CTIModel.Credential" Width="2.375" PointX="21.875" PointY="11.5" IsExpanded="true" />
+        <EntityTypeShape EntityType="CTIModel.Entity" Width="3.125" PointX="19.875" PointY="31.25" FillColor="192, 0, 192" />
+        <EntityTypeShape EntityType="CTIModel.Entity_AgentRelationship" Width="2.25" PointX="33.625" PointY="28.25" FillColor="Indigo" />
         <EntityTypeShape EntityType="CTIModel.Entity_Assessment" Width="2.125" PointX="11.625" PointY="26.875" FillColor="Purple" />
-        <EntityTypeShape EntityType="CTIModel.Entity_Competency" Width="2.5" PointX="25.875" PointY="42.625" FillColor="Purple" />
-        <EntityTypeShape EntityType="CTIModel.Entity_CostProfile" Width="1.5" PointX="13.375" PointY="40" FillColor="Purple" />
+        <EntityTypeShape EntityType="CTIModel.Entity_CostProfile" Width="2.25" PointX="12.625" PointY="39.375" FillColor="Purple" />
         <EntityTypeShape EntityType="CTIModel.Entity_CostProfileItem" Width="2.875" PointX="16" PointY="39.375" FillColor="Purple" />
         <EntityTypeShape EntityType="CTIModel.Entity_Credential" Width="2.375" PointX="13.5" PointY="35.75" FillColor="Purple" />
-        <EntityTypeShape EntityType="CTIModel.Entity_DurationProfile" Width="1.5" PointX="32.375" PointY="40.5" FillColor="Purple" />
-        <EntityTypeShape EntityType="CTIModel.Entity_FrameworkItem" Width="2" PointX="1.375" PointY="37.5" FillColor="Purple" />
+        <EntityTypeShape EntityType="CTIModel.Entity_DurationProfile" Width="2.125" PointX="36.375" PointY="42.875" FillColor="Purple" />
+        <EntityTypeShape EntityType="CTIModel.Entity_FrameworkItem" Width="2" PointX="5.625" PointY="37.625" FillColor="Purple" />
         <EntityTypeShape EntityType="CTIModel.Entity_LearningOpportunity" Width="2.625" PointX="9.125" PointY="35.25" FillColor="Purple" />
-        <EntityTypeShape EntityType="CTIModel.Entity_Property" Width="2.25" PointX="8.125" PointY="28.375" FillColor="Purple" />
+        <EntityTypeShape EntityType="CTIModel.Entity_Property" Width="2.25" PointX="7.75" PointY="27.875" FillColor="Purple" />
         <EntityTypeShape EntityType="CTIModel.Entity_PropertyOther" Width="2.125" PointX="15.75" PointY="24.375" FillColor="Purple" />
         <EntityTypeShape EntityType="CTIModel.Entity_QA_Action" Width="2.25" PointX="20" PointY="23.375" FillColor="Purple" />
         <EntityTypeShape EntityType="CTIModel.Entity_Reference" Width="2.25" PointX="15.75" PointY="28.25" FillColor="Purple" />
-        <EntityTypeShape EntityType="CTIModel.Entity_RevocationProfile" Width="2.625" PointX="26.5" PointY="47.75" FillColor="Purple" />
-        <EntityTypeShape EntityType="CTIModel.Entity_TaskProfile" Width="1.5" PointX="29.75" PointY="46.5" FillColor="Purple" />
-        <EntityTypeShape EntityType="CTIModel.Entity_VerificationProfile" Width="2.5" PointX="1.125" PointY="33.25" FillColor="Purple" />
-        <EntityTypeShape EntityType="CTIModel.GeoCoordinate" Width="1.5" PointX="14.125" PointY="8.625" />
-        <EntityTypeShape EntityType="CTIModel.JurisdictionProfile" Width="1.5" PointX="13.75" PointY="15.375" />
-        <EntityTypeShape EntityType="CTIModel.LearningOpportunity" Width="2.375" PointX="6" PointY="36.625" />
-        <EntityTypeShape EntityType="CTIModel.NAICS" Width="1.5" PointX="9.75" PointY="0.75" />
-        <EntityTypeShape EntityType="CTIModel.ONET_SOC" Width="1.5" PointX="11.625" PointY="0.75" />
-        <EntityTypeShape EntityType="CTIModel.ONET_SOC_JobFamily" Width="2.5" PointX="13.5" PointY="0.875" />
-        <EntityTypeShape EntityType="CTIModel.Organization" Width="2.75" PointX="2.375" PointY="41.25" />
-        <EntityTypeShape EntityType="CTIModel.Organization_Address" Width="3.375" PointX="8.75" PointY="53.25" />
-        <EntityTypeShape EntityType="CTIModel.Organization_Member" Width="2.25" PointX="1.25" PointY="17.875" />
-        <EntityTypeShape EntityType="CTIModel.Organization_PropertyOther" Width="2" PointX="1.375" PointY="29.25" />
+        <EntityTypeShape EntityType="CTIModel.Entity_RevocationProfile" Width="2.625" PointX="27" PointY="50.375" FillColor="Purple" />
+        <EntityTypeShape EntityType="CTIModel.Entity_TaskProfile" Width="1.5" PointX="33" PointY="46.25" FillColor="Purple" />
+        <EntityTypeShape EntityType="CTIModel.Entity_VerificationProfile" Width="2.5" PointX="0.5" PointY="33.375" FillColor="Purple" />
+        <EntityTypeShape EntityType="CTIModel.GeoCoordinate" Width="1.5" PointX="15.625" PointY="8.125" />
+        <EntityTypeShape EntityType="CTIModel.LearningOpportunity" Width="2.375" PointX="8.375" PointY="38.625" />
+        <EntityTypeShape EntityType="CTIModel.NAICS" Width="1.5" PointX="13.125" PointY="0.5" />
+        <EntityTypeShape EntityType="CTIModel.ONET_SOC" Width="1.5" PointX="15.375" PointY="0.5" />
+        <EntityTypeShape EntityType="CTIModel.ONET_SOC_JobFamily" Width="2.5" PointX="15.75" PointY="2.75" />
+        <EntityTypeShape EntityType="CTIModel.Organization" Width="2.75" PointX="5.125" PointY="47.875" />
+        <EntityTypeShape EntityType="CTIModel.Organization_Member" Width="2.25" PointX="4.75" PointY="18.375" />
+        <EntityTypeShape EntityType="CTIModel.Organization_PropertyOther" Width="2" PointX="0.5" PointY="28.5" />
         <EntityTypeShape EntityType="CTIModel.Organization_Service" Width="3.125" PointX="13.5" PointY="51.5" />
-        <EntityTypeShape EntityType="CTIModel.Person" Width="1.5" PointX="8.75" PointY="7.25" />
+        <EntityTypeShape EntityType="CTIModel.Person" Width="1.5" PointX="12.25" PointY="5.75" />
         <AssociationConnector Association="CTIModel.FK_Account_AspNetUsers" />
         <AssociationConnector Association="CTIModel.FK_Organization_Member_Account" />
         <AssociationConnector Association="CTIModel.FK_dbo_AspNetUserRoles_dbo_AspNetRoles_RoleId" />
@@ -66,9 +62,7 @@
         <AssociationConnector Association="CTIModel.FK_Entity_AgentRelationship_Codes_CredentialAgentRelationship" />
         <AssociationConnector Association="CTIModel.FK_Entity_QA_Action_Codes_CredentialAgentRelationship" />
         <AssociationConnector Association="CTIModel.FK_Entity_CostProfile_Codes_Currency" />
-        <AssociationConnector Association="CTIModel.FK_Entity_Property_Codes_EntityType" />
         <AssociationConnector Association="CTIModel.FK_Entity_Codes_EntityType" />
-        <AssociationConnector Association="CTIModel.FK_JurisdictionProfile_Codes_EntityType" />
         <AssociationConnector Association="CTIModel.FK_Codes_TagValue_Codes_TagCategory" />
         <AssociationConnector Association="CTIModel.FK_Entity_FrameworkItem_Codes_PropertyCategory" />
         <AssociationConnector Association="CTIModel.FK_Entity_PropertyOther_Codes_PropertyCategory" />
@@ -79,15 +73,14 @@
         <AssociationConnector Association="CTIModel.FK_Entity_Reference_Codes_PropertyValue" />
         <AssociationConnector Association="CTIModel.FK_Credential_Codes_Status" />
         <AssociationConnector Association="CTIModel.FK_Organization_Codes_Status" />
-        <AssociationConnector Association="CTIModel.FK_Credential_ConnectionProfile_Credential" />
         <AssociationConnector Association="CTIModel.FK_Credential_Organization" />
         <AssociationConnector Association="CTIModel.FK_Entity_Credential_Credential" />
         <AssociationConnector Association="CTIModel.FK_Entity_QA_Action_Credential" />
         <AssociationConnector Association="CTIModel.FK_Entity_VerificationProfile_Credential" />
         <AssociationConnector Association="CTIModel.FK_Entity_AgentRelationship_Entity" />
         <AssociationConnector Association="CTIModel.FK_Entity_Assessment_Entity" />
-        <AssociationConnector Association="CTIModel.FK_Entity_Competency_Entity" />
-        <AssociationConnector Association="CTIModel.FK_Entity_CostProfile_Entity1" />
+        <AssociationConnector Association="CTIModel.FK_Entity_CostProfile_Entity1" ManuallyRouted="false" >
+        </AssociationConnector>
         <AssociationConnector Association="CTIModel.FK_Entity_Credential_Entity" />
         <AssociationConnector Association="CTIModel.FK_Entity_DurationProfile_Entity1" />
         <AssociationConnector Association="CTIModel.FK_Entity_FrameworkItem_Entity" />
@@ -102,25 +95,128 @@
         <AssociationConnector Association="CTIModel.FK_Entity_CostProfileItem_Entity_CostProfile" />
         <AssociationConnector Association="CTIModel.FK_Entity_LearningOpportunity_LearningOpportunity" />
         <AssociationConnector Association="CTIModel.FK_LearningOpportunity_Organization" />
-        <AssociationConnector Association="CTIModel.FK_Organization_Address_Organization" />
         <AssociationConnector Association="CTIModel.FK_Organization_Member_Organization" />
         <AssociationConnector Association="CTIModel.FK_Organization_PropertyOther_Organization" />
         <AssociationConnector Association="CTIModel.FK_Organization_Service_Organization" />
         <EntityTypeShape EntityType="CTIModel.AspNetUser_Import" Width="2.25" PointX="0.75" PointY="0.5" FillColor="Aqua" />
-        <EntityTypeShape EntityType="CTIModel.Entity_Address" Width="2.125" PointX="23.25" PointY="32" FillColor="Purple" />
+        <EntityTypeShape EntityType="CTIModel.Entity_Address" Width="2.125" PointX="24.625" PointY="31.75" FillColor="Purple" />
         <AssociationConnector Association="CTIModel.FK_Entity_Address_Entity" />
-        <AssociationConnector Association="CTIModel.FK_Credential_ConnectionProfile_Codes_PropertyValue" />
-        <EntityTypeShape EntityType="CTIModel.Entity_JurisdictionProfile" Width="2.375" PointX="23.625" PointY="37.75" FillColor="Purple" />
+        <EntityTypeShape EntityType="CTIModel.Entity_JurisdictionProfile" Width="2.375" PointX="23.875" PointY="39.625" FillColor="Purple" />
         <AssociationConnector Association="CTIModel.FK_Entity_Address_Codes_Countries" />
-        <AssociationConnector Association="CTIModel.FK_Organization_Address_Codes_Countries" />
         <AssociationConnector Association="CTIModel.FK_Entity_JurisdictionProfile_Entity" />
-        <EntityTypeShape EntityType="CTIModel.Entity_CompetencyFramework" Width="2.375" PointX="23.25" PointY="53.75" FillColor="Purple" />
-        <EntityTypeShape EntityType="CTIModel.Entity_CompetencyFrameworkItem" Width="3.25" PointX="27.125" PointY="53.625" FillColor="Purple" />
+        <EntityTypeShape EntityType="CTIModel.Entity_CompetencyFramework" Width="2.375" PointX="23.375" PointY="55.75" FillColor="Purple" />
+        <EntityTypeShape EntityType="CTIModel.Entity_CompetencyFrameworkItem" Width="3.25" PointX="30.25" PointY="55.625" FillColor="Purple" />
         <AssociationConnector Association="CTIModel.FK_Entity_CompetencyFramework_Entity" />
         <AssociationConnector Association="CTIModel.FK_Entity_CompetencyFrameworkItem_Entity_CompetencyFramework" />
-        <EntityTypeShape EntityType="CTIModel.Entity_ConditionProfile" Width="2" PointX="23.125" PointY="26.125" />
+        <EntityTypeShape EntityType="CTIModel.Entity_ConditionProfile" Width="2" PointX="23.625" PointY="25.125" FillColor="Purple" />
         <AssociationConnector Association="CTIModel.FK_Entity_ConditionProfile_Codes_PropertyValue" />
         <AssociationConnector Association="CTIModel.FK_Entity_ConditionProfile_Entity" />
+        <EntityTypeShape EntityType="CTIModel.Entity_Cache" Width="1.5" PointX="9" PointY="5.75" />
+        <EntityTypeShape EntityType="CTIModel.Entity_ReferenceConnection" Width="2.375" PointX="18.75" PointY="10.625" />
+        <EntityTypeShape EntityType="CTIModel.Entity_Text" Width="1.5" PointX="27.5" PointY="26.5" />
+        <AssociationConnector Association="CTIModel.FK_Entity_Text_Codes_PropertyCategory" />
+        <AssociationConnector Association="CTIModel.FK_Entity_Text_Entity" />
+        <AssociationConnector Association="CTIModel.FK_Entity_ReferenceRelated_Entity_Reference" />
+        <EntityTypeShape EntityType="CTIModel.Entity_FrameworkItemOther" Width="2.375" PointX="31.75" PointY="37.625" />
+        <AssociationConnector Association="CTIModel.FK_Entity_FrameworkItemOther_Codes_PropertyCategory" />
+        <AssociationConnector Association="CTIModel.FK_Entity_FrameworkItemOther_Entity" />
+        <AssociationConnector Association="CTIModel.FK_Assessment_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_Assessment_Account_Modifier" />
+        <AssociationConnector Association="CTIModel.FK_Credential_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_Credential_Account_Modifier" />
+        <AssociationConnector Association="CTIModel.FK_LearningOpportunity_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_LearningOpportunity_Account_Modifier" />
+        <AssociationConnector Association="CTIModel.FK_Organization_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_Organization_Account_Modifier" />
+        <AssociationConnector Association="CTIModel.FK_Entity_Address_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_Entity_Address_Account_Modifier" />
+        <AssociationConnector Association="CTIModel.FK_Entity_AgentRelationship_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_Entity_AgentRelationship_Account_Modifier" />
+        <AssociationConnector Association="CTIModel.FK_Entity_CompetencyFramework_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_Entity_CompetencyFramework_Account_Modifier" />
+        <AssociationConnector Association="CTIModel.FK_Entity_CompetencyFrameworkItem_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_Entity_CompetencyFrameworkItem_Account_Modifier" />
+        <AssociationConnector Association="CTIModel.FK_Entity_ConditionProfile_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_Entity_ConditionProfile_Account_Modifier" />
+        <AssociationConnector Association="CTIModel.FK_Entity_CostProfile_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_Entity_CostProfile_Account_Modifier" />
+        <AssociationConnector Association="CTIModel.FK_Entity_CostProfileItem_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_Entity_CostProfileItem_Account_Modifier" />
+        <AssociationConnector Association="CTIModel.FK_Entity_RevocationProfile_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_Entity_RevocationProfile_Account_Modifier" />
+        <AssociationConnector Association="CTIModel.FK_Entity_TaskProfile_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_Entity_TaskProfile_Account_Modifier" />
+        <AssociationConnector Association="CTIModel.FK_Entity_VerificationProfile_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_Entity_VerificationProfile_Account_Modifier" />
+        <AssociationConnector Association="CTIModel.FK_Entity_QA_Action_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_Entity_QA_Action_Account_Modifier" />
+        <AssociationConnector Association="CTIModel.FK_Credential_Credential" />
+        <EntityTypeShape EntityType="CTIModel.Codes_ConditionProfileType" Width="1.5" PointX="4" PointY="11.75" />
+        <EntityTypeShape EntityType="CTIModel.Entity_ProcessProfile" Width="2.25" PointX="28.875" PointY="30.875" FillColor="Purple" />
+        <AssociationConnector Association="CTIModel.FK_Entity_ProcessProfile_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_Entity_ProcessProfile_Account_Modifier" />
+        <AssociationConnector Association="CTIModel.FK_Entity_ProcessProfile_Entity" />
+        <EntityTypeShape EntityType="CTIModel.Entity_ContactPoint" Width="2.375" PointX="16.875" PointY="44.875" />
+        <AssociationConnector Association="CTIModel.FK_EntityContactPoint_ParentEntity" />
+        <AssociationConnector Association="CTIModel.FK_Entity_ContactPoint_AccountCreator" />
+        <AssociationConnector Association="CTIModel.FK_Entity_ContactPoint_AccountModifier" />
+        <EntityTypeShape EntityType="CTIModel.Entity_VerificationStatus" Width="2.5" PointX="0.5" PointY="42.125" />
+        <AssociationConnector Association="CTIModel.FK_Entity_VerificationStatus_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_Entity_VerificationStatus_Entity_VerificationProfile" />
+        <AssociationConnector Association="CTIModel.FK_EntityVerificationStatus_AccountModifier" />
+        <EntityTypeShape EntityType="CTIModel.Organization_VerificationStatus" Width="2.625" PointX="0.625" PointY="54.75" />
+        <AssociationConnector Association="CTIModel.FK_Organization_VerificationStatus_Organization" />
+        <AssociationConnector Association="CTIModel.FK_Organization_VerificationStatus_AccountModifier" />
+        <EntityTypeShape EntityType="CTIModel.Message" Width="1.5" PointX="6.375" PointY="11.75" />
+        <EntityTypeShape EntityType="CTIModel.CIPCode2010_JobFamily" Width="1.875" PointX="10.25" PointY="1.125" />
+        <EntityTypeShape EntityType="CTIModel.ConditionManifest" Width="2.125" PointX="16.375" PointY="33.125" />
+        <EntityTypeShape EntityType="CTIModel.CostManifest" Width="2" PointX="12.375" PointY="19" />
+        <EntityTypeShape EntityType="CTIModel.NAICS_NaicsGroup" Width="1.5" PointX="14.5" PointY="4.875" />
+        <AssociationConnector Association="CTIModel.FK_ConditionManifest_Organization" />
+        <AssociationConnector Association="CTIModel.FK_CostManifest_Organization" />
+        <AssociationConnector Association="CTIModel.FK_ConditionManifest_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_ConditionManifest_Account_Modifier" />
+        <AssociationConnector Association="CTIModel.FK_CostManifest_Account_Creator" />
+        <AssociationConnector Association="CTIModel.FK_CostManifest_Account_Modifier" />
+        <EntityTypeShape EntityType="CTIModel.Entity_ConditionManifest" Width="2.375" PointX="28.75" PointY="40.125" />
+        <AssociationConnector Association="CTIModel.FK_Entity_ConditionManifest_Entity" />
+        <AssociationConnector Association="CTIModel.FK_CIPCode2010_CIPCode2010_JobFamily" />
+        <AssociationConnector Association="CTIModel.FK_NAICS_NAICS_NaicsGroup" />
+        <AssociationConnector Association="CTIModel.FK_ONET_SOC_ONET_SOC_JobFamily" />
+        <EntityTypeShape EntityType="CTIModel.Entity_CommonCondition" Width="3" PointX="28.25" PointY="44.375" />
+        <AssociationConnector Association="CTIModel.FK_Entity_CommonCondition_Entity" />
+        <EntityTypeShape EntityType="CTIModel.Counts_SiteTotals" Width="1.5" PointX="8.375" PointY="11.75" />
+        <AssociationConnector Association="CTIModel.FK_Entity_CommonCondition_ConditionManifest" />
+        <AssociationConnector Association="CTIModel.FK_Entity_ConditionManifest_ConditionManifest" />
+        <EntityTypeShape EntityType="CTIModel.Codes_Language" Width="1.5" PointX="10.375" PointY="11.75" />
+        <AssociationConnector Association="CTIModel.FK_Entity_ConditionProfile_Codes_PropertyValue1" />
+        <AssociationConnector Association="CTIModel.FK_Credential_Codes_Language" />
+        <AssociationConnector Association="CTIModel.FK_Assessment_Codes_Language" />
+        <AssociationConnector Association="CTIModel.FK_LearningOpportunity_Codes_Language" />
+        <EntityTypeShape EntityType="CTIModel.Entity_FinancialAlignmentProfile" Width="3" PointX="24.125" PointY="44.75" />
+        <AssociationConnector Association="CTIModel.FK_Entity_FinancialAlignmentProfile_Entity" />
+        <AssociationConnector Association="CTIModel.FK_Entity_FinancialAlignmentProfile_AccountModified" />
+        <AssociationConnector Association="CTIModel.FK_Entity_FinancialAlignmentProfile_Codes_PropertyValue" />
+        <EntityTypeShape EntityType="CTIModel.Entity_CommonCost" Width="1.5" PointX="26.75" PointY="22.875" />
+        <EntityTypeShape EntityType="CTIModel.Entity_CostManifest" Width="1.5" PointX="23.75" PointY="21.875" />
+        <AssociationConnector Association="CTIModel.FK_Entity_CommonCost_CostManifest" />
+        <AssociationConnector Association="CTIModel.FK_Entity_CostManifest_CostManifest" />
+        <AssociationConnector Association="CTIModel.FK_Entity_CommonCost_Entity" />
+        <AssociationConnector Association="CTIModel.FK_Entity_CostManifest_Entity" />
+        <EntityTypeShape EntityType="CTIModel.EducationFramework" Width="1.5" PointX="4.25" PointY="28.375" />
+        <EntityTypeShape EntityType="CTIModel.EducationFramework_Competency" Width="1.5" PointX="6.5" PointY="22.25" />
+        <EntityTypeShape EntityType="CTIModel.Entity_Competency" Width="1.5" PointX="33.25" PointY="33.625" />
+        <EntityTypeShape EntityType="CTIModel.Entity_EducationFramework" Width="1.5" PointX="30.25" PointY="26.625" />
+        <AssociationConnector Association="CTIModel.FK_EducationFramework_Competency_Account" />
+        <AssociationConnector Association="CTIModel.FK_EducationFramework_Account_Created" />
+        <AssociationConnector Association="CTIModel.FK_Entity_EducationFramework_Account" />
+        <AssociationConnector Association="CTIModel.FK_EducationFramework_Competency_EducationFramework" />
+        <AssociationConnector Association="CTIModel.FK_Entity_EducationFramework_EducationFramework" />
+        <AssociationConnector Association="CTIModel.FK_Entity_Competency_EducationFramework_Competency" />
+        <AssociationConnector Association="CTIModel.FK_Entity_Competency_Entity1" />
+        <AssociationConnector Association="CTIModel.FK_Entity_EducationFramework_Entity" />
+        <EntityTypeShape EntityType="CTIModel.Credential_SummaryCache" Width="1.5" PointX="25" PointY="5.5" />
+        <AssociationConnector Association="CTIModel.FK_Credential_SummaryCache_Credential" />
         </Diagram>
       <Diagram DiagramId="1676b1d1c622484caa4d273ce43c20dd" Name="Entity Relationships" ZoomLevel="64" >
         </Diagram>

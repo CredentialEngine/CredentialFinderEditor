@@ -21,7 +21,7 @@ namespace CTI.Directory.Areas.Admin.Controllers
 				var identity = User.Identity;
 				var user = AccountServices.GetCurrentUser();
 
-				if ( user.Roles.Contains( "Administrator" ) )
+				if ( user.UserRoles.Contains( "Administrator" ) )
 				{
 					return true;
 				}

@@ -24,5 +24,9 @@ namespace Data.Views
         public Nullable<int> SortOrder { get; set; }
         public string PropertySchemaName { get; set; }
         public string PropertySchemaUrl { get; set; }
+        public bool CategoryIsActive { get; set; }
+        public string ParentSchemaName { get; set; }
+        public int Totals { get; set; }
+        public string PropertyDescription { get; set; }
     }
 }

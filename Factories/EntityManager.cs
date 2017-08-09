@@ -33,57 +33,59 @@ namespace Factories
 		#region 
 		/// <summary>
 		/// Add an Entity mirror
+		/// NOTE: ALL ENTITY ADDS SHOULD BE DONE VIA TRIGGERS
 		/// </summary>
 		/// <param name="entityUid">RowId of the base Object</param>
 		/// <param name="baseId">Integer PK of the base object</param>
 		/// <param name="entityTypeId"></param>
 		/// <param name="statusMessage"></param>
 		/// <returns></returns>
-		public int Add( Guid entityUid, int baseId, int entityTypeId, ref string statusMessage )
-		{
+		//private int Add( Guid entityUid, int baseId, int entityTypeId, ref string statusMessage )
+		//{
 
-			DBentity efEntity = new DBentity();
-			using ( var context = new Data.CTIEntities() )
-			{
-				try
-				{
-					efEntity.EntityUid = entityUid;
-					//TODO
-					//efEntity.BaseId = baseId;
+		//	DBentity efEntity = new DBentity();
+		//	using ( var context = new Data.CTIEntities() )
+		//	{
+		//		try
+		//		{
+		//			efEntity.EntityUid = entityUid;
+		//			//TODO
+		//			//efEntity.BaseId = baseId;
 
-					efEntity.EntityTypeId = entityTypeId;
-					efEntity.Created = System.DateTime.Now;
+		//			efEntity.EntityTypeId = entityTypeId;
+		//			efEntity.Created = System.DateTime.Now;
 
-					context.Entity.Add( efEntity );
+		//			context.Entity.Add( efEntity );
 
-					// submit the change to database
-					int count = context.SaveChanges();
-					if ( count > 0 )
-					{
-						statusMessage = "successful";				
+		//			// submit the change to database
+		//			int count = context.SaveChanges();
+		//			if ( count > 0 )
+		//			{
+		//				statusMessage = "successful";				
 
-						return efEntity.Id;
-					}
-					else
-					{
-						//?no info on error
-						statusMessage = "Error - the add was not successful. ";
-						string message = thisClassName + string.Format( ". Add Failed", "Attempted to add an Entity. The process appeared to not work, but was not an exception, so we have no message, or no clue. entityUid: {0}, entityTypeId: {1}", entityUid.ToString(), entityTypeId );
-						EmailManager.NotifyAdmin( "AssessmentManager. Assessment_Add Failed", message );
-						return 0;
-					}
-				}
-				catch ( Exception ex )
-				{
-					LoggingHelper.LogError( ex, thisClassName + string.Format( ".Add(). entityUid: {0}, entityTypeId: {1}", entityUid.ToString(), entityTypeId ));
-				}
-			}
+		//				return efEntity.Id;
+		//			}
+		//			else
+		//			{
+		//				//?no info on error
+		//				statusMessage = "Error - the add was not successful. ";
+		//				string message = thisClassName + string.Format( ". Add Failed", "Attempted to add an Entity. The process appeared to not work, but was not an exception, so we have no message, or no clue. entityUid: {0}, entityTypeId: {1}", entityUid.ToString(), entityTypeId );
+		//				EmailManager.NotifyAdmin( "AssessmentManager. Assessment_Add Failed", message );
+		//				return 0;
+		//			}
+		//		}
+		//		catch ( Exception ex )
+		//		{
+		//			LoggingHelper.LogError( ex, thisClassName + string.Format( ".Add(). entityUid: {0}, entityTypeId: {1}", entityUid.ToString(), entityTypeId ));
+		//		}
+		//	}
 
-			return 0;
-		}
+		//	return 0;
+		//}
 
 		/// <summary>
 		/// Delete an Entity
+		/// This should be handled by triggers as well, or at least with the child entity
 		/// </summary>
 		/// <param name="entityUid"></param>
 		/// <param name="statusMessage"></param>
@@ -125,22 +127,23 @@ namespace Factories
 		}
 		#endregion 
 		#region retrieval
-		public static int GetEntityId( Guid entityUid )
-		{
-			int entityId = 0;
-			using ( var context = new Data.CTIEntities() )
-			{
-				DBentity item = context.Entity
-						.SingleOrDefault( s => s.EntityUid == entityUid );
+		//public static int GetEntityId( Guid entityUid )
+		//{
+		//	int entityId = 0;
+		//	using ( var context = new Data.CTIEntities() )
+		//	{
+		//		DBentity item = context.Entity
+		//				.SingleOrDefault( s => s.EntityUid == entityUid );
 
-				if ( item != null && item.Id > 0 )
-				{
-					entityId = item.Id;
-				}
-			}
+		//		if ( item != null && item.Id > 0 )
+		//		{
+		//			entityId = item.Id;
+		//		}
+		//	}
 
-			return entityId;
-		}
+		//	return entityId;
+		//}
+
 		public static Entity GetEntity( Guid entityUid )
 		{
 			Entity entity = new Entity();
@@ -155,6 +158,8 @@ namespace Factories
 					entity.EntityTypeId = item.EntityTypeId;
 					entity.EntityType = item.Codes_EntityType.Title;
 					entity.EntityUid = item.EntityUid;
+					entity.EntityBaseId = item.EntityBaseId ?? 0;
+					entity.EntityBaseName = item.EntityBaseName;
 					entity.Created = (DateTime)item.Created;
 
 				}
@@ -163,6 +168,62 @@ namespace Factories
 
 
 		}
+
+		public static Entity GetEntity( int entityId)
+		{
+			Entity entity = new Entity();
+			using ( var context = new Data.CTIEntities() )
+			{
+				DBentity item = context.Entity
+						.SingleOrDefault( s => s.Id == entityId);
+
+				if ( item != null && item.Id > 0 )
+				{
+					entity.Id = item.Id;
+					entity.EntityTypeId = item.EntityTypeId;
+					entity.EntityType = item.Codes_EntityType.Title;
+					entity.EntityUid = item.EntityUid;
+					entity.EntityBaseId = item.EntityBaseId ?? 0;
+					entity.EntityBaseName = item.EntityBaseName;
+					entity.Created = ( DateTime ) item.Created;
+
+				}
+				return entity;
+			}
+
+
+		}
+		public static Entity GetEntity( int entityTypeId, int entityBaseId )
+		{
+			Entity entity = new Entity();
+			using ( var context = new Data.CTIEntities() )
+			{
+				DBentity item = context.Entity
+						.SingleOrDefault( s => s.EntityTypeId == entityTypeId 
+							&& s.EntityBaseId == entityBaseId );
+
+				if ( item != null && item.Id > 0 )
+				{
+					entity.Id = item.Id;
+					entity.EntityTypeId = item.EntityTypeId;
+					entity.EntityType = item.Codes_EntityType.Title;
+					entity.EntityUid = item.EntityUid;
+					entity.EntityBaseId = item.EntityBaseId ?? 0;
+					entity.EntityBaseName = item.EntityBaseName;
+					entity.Created = ( DateTime ) item.Created;
+
+				}
+				return entity;
+			}
+
+
+		}
+		/// <summary>
+		/// Get Entity_Summary
+		/// NOTE: work to minimize use of this method - slow
+		/// </summary>
+		/// <param name="entityUid"></param>
+		/// <returns></returns>
 		public static Views.Entity_Summary GetDBEntity( Guid entityUid )
 		{
 			using ( var context = new ViewContext() )
@@ -178,43 +239,43 @@ namespace Factories
 			}
 		}
 
-		/// <summary>
-		/// Get an Entity Summary object by entityUid
-		/// </summary>
-		/// <param name="entityUid"></param>
-		/// <returns></returns>
-		public static EntitySummary GetEntitySummary( Guid entityUid )
-		{
-			EntitySummary entity = new EntitySummary();
-			using ( var context = new ViewContext() )
-			{
-				Views.Entity_Summary item = context.Entity_Summary
-						.SingleOrDefault( s => s.EntityUid == entityUid );
+		///// <summary>
+		///// Get an Entity Summary object by entityUid
+		///// </summary>
+		///// <param name="entityUid"></param>
+		///// <returns></returns>
+		//public static EntitySummary GetEntitySummary( Guid entityUid )
+		//{
+		//	EntitySummary entity = new EntitySummary();
+		//	using ( var context = new ViewContext() )
+		//	{
+		//		Views.Entity_Summary item = context.Entity_Summary
+		//				.SingleOrDefault( s => s.EntityUid == entityUid );
 
-				if ( item != null && item.Id > 0 )
-				{
-					entity.Id = item.Id;
-					entity.EntityTypeId = item.EntityTypeId;
-					entity.EntityType = item.EntityType;
-					entity.EntityUid = item.EntityUid;
-					entity.Name = item.Name;
-					entity.BaseId = item.BaseId;
-					entity.Description = item.Description;
-					entity.StatusId = (int) (item.StatusId ?? 1);
-					if ( IsValidDate( item.Created ))
-						entity.Created = (DateTime) item.Created;
-					entity.CreatedById = item.CreatedById ?? 0;
+		//		if ( item != null && item.Id > 0 )
+		//		{
+		//			entity.Id = item.Id;
+		//			entity.EntityTypeId = item.EntityTypeId;
+		//			entity.EntityType = item.EntityType;
+		//			entity.EntityUid = item.EntityUid;
+		//			entity.Name = item.Name;
+		//			entity.BaseId = item.BaseId;
+		//			entity.Description = item.Description;
+		//			entity.StatusId = (int) (item.StatusId ?? 1);
+		//			if ( IsValidDate( item.Created ))
+		//				entity.Created = (DateTime) item.Created;
+		//			entity.CreatedById = item.CreatedById ?? 0;
 
-					entity.ManagingOrgId = ( int ) ( item.ManagingOrgId ?? 0 );
+		//			entity.ManagingOrgId = ( int ) ( item.ManagingOrgId ?? 0 );
 
-					entity.parentEntityId = item.parentEntityId;
-					entity.parentEntityUid = item.parentEntityUid;
-					entity.parentEntityType = item.parentEntityType;
-					entity.parentEntityTypeId = item.parentEntityTypeId;
-				}
-				return entity;
-			}
-		}
+		//			entity.parentEntityId = item.parentEntityId;
+		//			entity.parentEntityUid = item.parentEntityUid;
+		//			entity.parentEntityType = item.parentEntityType;
+		//			entity.parentEntityTypeId = item.parentEntityTypeId;
+		//		}
+		//		return entity;
+		//	}
+		//}
 
 		/// <summary>
 		/// Get an Entity Summary object by entityId 
@@ -254,70 +315,70 @@ namespace Factories
 			}
 		}
 
-		public static EntitySummary GetEntitySummary( int entityBaseId, int entityTypeId )
-		{
-			EntitySummary entity = new EntitySummary();
-			Views.Entity_Summary efEntity = GetDBEntityByBaseId( entityBaseId, entityTypeId );
+		//public static EntitySummary GetEntitySummary( int entityBaseId, int entityTypeId )
+		//{
+		//	EntitySummary entity = new EntitySummary();
+		//	Views.Entity_Summary efEntity = GetDBEntityByBaseId( entityBaseId, entityTypeId );
 
-				if ( efEntity != null && efEntity.Id > 0 )
-				{
-					entity.Id = efEntity.Id;
-					entity.EntityTypeId = efEntity.EntityTypeId;
-					entity.EntityType = efEntity.EntityType;
-					entity.EntityUid = efEntity.EntityUid;
-					entity.Name = efEntity.Name;
-					entity.BaseId = efEntity.BaseId;
-					entity.Description = efEntity.Description;
-					entity.StatusId = ( int ) ( efEntity.StatusId ?? 1 );
-					if ( IsValidDate( efEntity.Created ) )
-						entity.Created = ( DateTime ) efEntity.Created;
-					entity.CreatedById = efEntity.CreatedById ?? 0;
+		//		if ( efEntity != null && efEntity.Id > 0 )
+		//		{
+		//			entity.Id = efEntity.Id;
+		//			entity.EntityTypeId = efEntity.EntityTypeId;
+		//			entity.EntityType = efEntity.EntityType;
+		//			entity.EntityUid = efEntity.EntityUid;
+		//			entity.Name = efEntity.Name;
+		//			entity.BaseId = efEntity.BaseId;
+		//			entity.Description = efEntity.Description;
+		//			entity.StatusId = ( int ) ( efEntity.StatusId ?? 1 );
+		//			if ( IsValidDate( efEntity.Created ) )
+		//				entity.Created = ( DateTime ) efEntity.Created;
+		//			entity.CreatedById = efEntity.CreatedById ?? 0;
 
-					entity.ManagingOrgId = ( int ) ( efEntity.ManagingOrgId ?? 0 );
+		//			entity.ManagingOrgId = ( int ) ( efEntity.ManagingOrgId ?? 0 );
 
-					entity.parentEntityId = efEntity.parentEntityId;
-					entity.parentEntityUid = efEntity.parentEntityUid;
-					entity.parentEntityType = efEntity.parentEntityType;
-					entity.parentEntityTypeId = efEntity.parentEntityTypeId;
-				}
-				return entity;
+		//			entity.parentEntityId = efEntity.parentEntityId;
+		//			entity.parentEntityUid = efEntity.parentEntityUid;
+		//			entity.parentEntityType = efEntity.parentEntityType;
+		//			entity.parentEntityTypeId = efEntity.parentEntityTypeId;
+		//		}
+		//		return entity;
 			
-		}
-		public static Views.Entity_Summary GetDBEntity( int entityId )
-		{
-			using ( var context = new ViewContext() )
-			{
-				Views.Entity_Summary item = context.Entity_Summary
-						.SingleOrDefault( s => s.Id == entityId );
+		//}
+		//public static Views.Entity_Summary GetDBEntity( int entityId )
+		//{
+		//	using ( var context = new ViewContext() )
+		//	{
+		//		Views.Entity_Summary item = context.Entity_Summary
+		//				.SingleOrDefault( s => s.Id == entityId );
 
-				if ( item != null && item.Id > 0 )
-				{
+		//		if ( item != null && item.Id > 0 )
+		//		{
 
-				}
-				return item;
-			}
-		}
+		//		}
+		//		return item;
+		//	}
+		//}
 
 		/// <summary>
 		/// Get Entity by the base or child id (ex: Credential.Id)
 		/// </summary>
 		/// <param name="baseId"></param>
 		/// <returns></returns>
-		public static Views.Entity_Summary GetDBEntityByBaseId( int baseId, int entityTypeId )
-		{
-			using ( var context = new ViewContext() )
-			{
-				Views.Entity_Summary item = context.Entity_Summary
-						.SingleOrDefault( s => s.BaseId == baseId
-						&& s.EntityTypeId == entityTypeId );
+		//public static Views.Entity_Summary GetDBEntityByBaseId( int baseId, int entityTypeId )
+		//{
+		//	using ( var context = new ViewContext() )
+		//	{
+		//		Views.Entity_Summary item = context.Entity_Summary
+		//				.SingleOrDefault( s => s.BaseId == baseId
+		//				&& s.EntityTypeId == entityTypeId );
 
-				if ( item != null && item.Id > 0 )
-				{
+		//		if ( item != null && item.Id > 0 )
+		//		{
 
-				}
-				return item;
-			}
-		}
+		//		}
+		//		return item;
+		//	}
+		//}
 
 		/// <summary>
 		/// Get the top level entity for a entity component. 

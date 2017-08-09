@@ -23,7 +23,7 @@ namespace Factories
 		/// <returns></returns>
 		public static bool IsCredentialAvailableFromCache( int id, string key, ref Credential credential )
 		{
-			string statusMessage = "";
+			
 			int cacheMinutes = UtilityManager.GetAppKeyValue( "credentialCacheMinutes", 60 );
 			DateTime maxTime = DateTime.Now.AddMinutes( cacheMinutes * -1 );
 
@@ -128,7 +128,7 @@ namespace Factories
 		}
 		public static void AddLearningOpportunityToCache( LearningOpportunityProfile entity )
 		{
-			int cacheMinutes = UtilityManager.GetAppKeyValue( "learningOppCacheMinutes", 60 );
+			int cacheMinutes = UtilityManager.GetAppKeyValue( "learningOppCacheMinutes", 0 );
 
 			string key = "LearningOpportunity_" + entity.Id.ToString();
 
@@ -198,7 +198,7 @@ namespace Factories
 		}
 		public static void AddConditionProfileToCache( ConditionProfile entity )
 		{
-			int cacheMinutes = UtilityManager.GetAppKeyValue( "learningOppCacheMinutes", 60 );
+			int cacheMinutes = UtilityManager.GetAppKeyValue( "learningOppCacheMinutes", 0 );
 
 			string key = "ConditionProfile_" + entity.Id.ToString();
 

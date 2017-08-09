@@ -26,6 +26,7 @@ namespace Data
         public Nullable<System.DateTime> LastUpdated { get; set; }
         public Nullable<int> LastUpdatedById { get; set; }
         public System.Guid RowId { get; set; }
+        public Nullable<System.Guid> AssertedByAgentUid { get; set; }
     
         public virtual Entity Entity { get; set; }
     }

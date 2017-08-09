@@ -20,7 +20,6 @@ namespace Factories
 		{
 			bool isAllValid = true;
 			int updatedCount = 0;
-			int count = 0;
 			statusMessage = "";
 			if ( entity.Id == 0 )
 			{
@@ -195,6 +194,8 @@ namespace Factories
 				item.CodeId = prop.CodeId;
 				item.Value = prop.CodeId.ToString();
 				item.Name = prop.Codes_AgentService.Title;
+				item.SchemaName = prop.Codes_AgentService.SchemaTag;
+
 				item.Description = prop.Codes_AgentService.Description;
 				if ( (bool) prop.Codes_AgentService.IsQAService )
 					to.IsAQAOrg = true;
@@ -244,7 +245,8 @@ namespace Factories
 						val.CodeId = item.Id;
 						val.Name = item.Title;
 						val.Description = item.Description != null ? item.Description : "";
-							
+						val.Totals = (int) item.Totals;
+
 						val.SchemaName = item.SchemaTag != null ? item.SchemaTag : "";
 						//val.SchemaUrl = item.SchemaUrl;
 						val.Value = item.Id.ToString();
@@ -254,6 +256,9 @@ namespace Factories
 							if ( IsDevEnv() )
 								val.Name += " (QA)";
 						}
+
+						val.Description = item.Description;
+						val.ParentId = category.Id;
 						entity.Items.Add( val );
 					}
 				}

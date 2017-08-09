@@ -13,7 +13,7 @@ namespace Models.Json
 	{
 		public ProcessProfile()
 		{
-			type = "ctdl:ProcessProfile";
+			type = "ceterms:ProcessProfile";
 		}
 	}
 
