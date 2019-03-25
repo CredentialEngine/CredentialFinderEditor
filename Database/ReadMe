@@ -1,4 +1,4 @@
-#SQL server 2012 backup
+# SQL server 2012 backup
 The attached zip file contains a backup of a Sql server2012 database. 
 This file can be used with a sql 2012 or later database. The developer version was used to create the backup.
 The database contains the latest table structure, an admin account, and all the necessary code tables. 
