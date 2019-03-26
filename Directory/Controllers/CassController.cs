@@ -14,7 +14,7 @@ namespace CTI.Directory.Controllers
 		//Get the raw data for a framework
 		public JsonResult GetFrameworkData( string frameworkURL )
 		{
-			var data = ThirdPartyApiServices.GetCassObject<CassFramework>( frameworkURL );
+			var data = CassServices.GetCassObject<CassFramework>( frameworkURL );
 			var result = new CassServices.FrameworkModel()
 			{
 				FrameworkNode = new CassServices.NodeModel()

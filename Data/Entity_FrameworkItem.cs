@@ -21,6 +21,7 @@ namespace Data
         public Nullable<System.DateTime> Created { get; set; }
         public Nullable<int> CreatedById { get; set; }
         public string OtherValue { get; set; }
+        public string CodedNotation { get; set; }
     
         public virtual Codes_PropertyCategory Codes_PropertyCategory { get; set; }
         public virtual Entity Entity { get; set; }

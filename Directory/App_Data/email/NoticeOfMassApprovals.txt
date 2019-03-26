@@ -1,0 +1,10 @@
+﻿All
+
+<h2>{0} Approvals</h2>
+<p>{1} has approved <b>{2}</b> records for Organization: {3}</p>
+<p>Use the <a href="{4}">Organization summary page</a> to view the details of approvals, and publishing.</p>
+
+<p>HINT: login first, before clicking links!</p>
+
+
+<p>The Credential Engine Team</p>

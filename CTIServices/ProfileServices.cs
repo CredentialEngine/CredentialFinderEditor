@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using Factories;
 using Models;
-using MN= Models.Node;
+using MN = Models.Node;
 using Models.Common;
 using Models.ProfileModels;
 using Utilities;
@@ -15,9 +15,67 @@ namespace CTIServices
 {
 	public class ProfileServices
 	{
-		string thisClassName = "ProfileServices";
+		static string thisClassName = "ProfileServices";
 		ActivityServices activityMgr = new ActivityServices();
 		public List<string> messages = new List<string>();
+
+
+
+		#region Entity 
+		public static EntitySummary GetEntityByCtid( string ctid )
+		{
+			//NOTE: this is an expensive call
+			//could change to use entity_cache
+			EntitySummary entity = EntityManager.GetEntityByCtid( ctid );
+
+			return entity;
+		}
+		public void UpdateTopLevelEntityLastUpdateDate( int entityId, string triggeringEvent )
+		{
+			EntitySummary item = new EntitySummary();
+			string statusMessage = "";
+			int cntr = 0;
+			int userId = 0;
+			var user = AccountServices.GetCurrentUser();
+			if ( user != null && user.Id > 0 )
+				userId = user.Id;
+			do
+			{
+				cntr++;
+				item = EntityManager.GetEntitySummary( entityId );
+				entityId = item.parentEntityId;
+				LoggingHelper.DoTrace( 6, string.Format( "____GetTopLevelEntity: entityId:{0}, nextParent: {1}", entityId, item.parentEntityId ) );
+
+			} while ( item.IsTopLevelEntity == false
+					&& item.parentEntityId > 0 );
+
+			if ( item != null && item.Id > 0 && "1 2 4 7 19 20".IndexOf( item.EntityTypeId.ToString() ) > -1 )
+			{
+				//set last updated, and log
+				new EntityManager().UpdateModifiedDate( item.EntityUid, ref statusMessage );
+
+				activityMgr.AddActivity( new SiteActivity()
+				{
+					ActivityType = item.EntityType,
+					Activity = "Child Event"
+					,
+					Event = "Set Entity Modified"
+					,
+					Comment = triggeringEvent
+					,
+					ActivityObjectId = item.BaseId
+					,
+					ActionByUserId = userId
+					,
+					ActivityObjectParentEntityUid = item.EntityUid
+				} );
+				//, ObjectRelatedId = item.Id //??
+			}
+
+			//return item;
+		}
+
+		#endregion
 
 		#region Cost Profile
 
@@ -96,7 +154,12 @@ namespace CTIServices
 				{
 					status = "Successfully Saved Cost Profile ";
 					//should the activity be for the parent
-					activityMgr.AddActivity( "Cost Profile", action, string.Format( "{0} saved cost profile: {1}", user.FullName(), entity.ProfileName ), user.Id, 0, entity.Id );
+					//if this CP is not on a top object, need to get it
+					activityMgr.AddEditorActivity( "Cost Profile", action, string.Format( "{0} saved cost profile: {1}", user.FullName(), entity.ProfileName ), user.Id, entity.Id, parentUid );
+					//update related entity
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} saving cost profile: {1}", user.FullName(), entity.ProfileName ) );
+
+
 				}
 			}
 			catch ( Exception ex )
@@ -137,7 +200,9 @@ namespace CTIServices
 				{
 					status = "Successfully Copied Cost Profile ";
 					//should the activity be for the parent
-					activityMgr.AddActivity( "Cost Profile", "copy", string.Format( "{0} copied cost profile: {1}", user.FullName(), newCostProfile.ProfileName ), user.Id, 0, newCostProfile.Id );
+					activityMgr.AddEditorActivity( "Cost Profile", "copy", string.Format( "{0} copied cost profile: {1}", user.FullName(), newCostProfile.ProfileName ), user.Id, newCostProfile.Id, parentUid );
+
+					UpdateTopLevelEntityLastUpdateDate( newCostProfile.EntityId, string.Format( "Entity Update triggered by {0} copying a cost profile: {1}", user.FullName(), newCostProfile.ProfileName ) );
 				}
 			}
 			catch ( Exception ex )
@@ -175,16 +240,18 @@ namespace CTIServices
 				//if ( CanUserUpdateCredential( profile.ParentId, user, ref status ) )
 				//{
 				if ( mgr.Delete( profileId, ref status ) )
-					{
-						//if valid, log
-						activityMgr.AddActivity( "Cost Profile", "Delete", string.Format( "{0} deleted Cost Profile {1} ({2}) from Credential: {3}", user.FullName(), profile.ProfileName, profileId, profile.ParentId ), user.Id, 0, profileId, profile.ParentId );
-						status = "";
-					}
-					else
-					{
-						status = "Error - delete failed: " + status;
-						return false;
-					}
+				{
+					//if valid, log
+					activityMgr.AddEditorActivity( "Cost Profile", "Delete", string.Format( "{0} deleted Cost Profile {1} ({2}) from Credential: {3}", user.FullName(), profile.ProfileName, profileId, profile.ParentId ), user.Id, profileId, profile.ParentUid );
+
+					UpdateTopLevelEntityLastUpdateDate( profile.EntityId, string.Format( "Entity Update triggered by {0} deleting a cost profile: {1}", user.FullName(), profile.ProfileName ) );
+					status = "";
+				}
+				else
+				{
+					status = "Error - delete failed: " + status;
+					return false;
+				}
 				//}
 				//else
 				//{
@@ -230,7 +297,7 @@ namespace CTIServices
 			CostProfileItem profile = CostProfileItemManager.Get( profileId, true, true );
 			return profile;
 		}
-	
+
 		#endregion
 
 		#region Persistance
@@ -243,7 +310,6 @@ namespace CTIServices
 			CostProfileItemManager mgr = new CostProfileItemManager();
 			//validate user has access. Parent can be multiple types, but aways is an entity
 			CostProfile parent = CostProfileManager.GetBasicProfile( parentUid );
-			//Credential credential = CredentialServices.GetBasicCredential( credentialUid );
 
 			try
 			{
@@ -257,7 +323,9 @@ namespace CTIServices
 				{
 					status = "Successfully Saved Cost Profile Item";
 					//should the activity be for the parent
-					activityMgr.AddActivity( "Cost Profile Item", action, string.Format( "{0} saved cost profile item: {1}", user.FullName(), entity.ProfileName ), user.Id, 0, entity.Id );
+					activityMgr.AddEditorActivity( "Cost Profile Item", action, string.Format( "{0} saved cost profile item: {1}", user.FullName(), entity.ProfileName ), user.Id, entity.Id, parent.ParentUid );
+
+					UpdateTopLevelEntityLastUpdateDate( parent.EntityId, string.Format( "Entity Update triggered by {0} saving a cost profile item for cost profile: {1}", user.FullName(), parent.ProfileName ) );
 				}
 			}
 			catch ( Exception ex )
@@ -287,7 +355,12 @@ namespace CTIServices
 				if ( mgr.Delete( profileId, ref status ) )
 				{
 					//if valid, log
-					activityMgr.AddActivity( "Cost Profile Item", "Delete", string.Format( "{0} deleted Cost Profile Item {1} ({2}) from Credential: {3}", user.FullName(), profile.ProfileName, profileId, profile.ParentId ), user.Id, 0, profileId, profile.ParentId );
+					CostProfile parent = CostProfileManager.GetBasicProfile( profile.CostProfileId );
+					activityMgr.AddEditorActivity( "Cost Profile Item", "Delete", string.Format( "{0} deleted Cost Profile Item {1} ({2}) from Credential: {3}", user.FullName(), profile.ProfileName, profileId, profile.ParentId ), user.Id, profileId, parent.ParentUid );
+
+
+					UpdateTopLevelEntityLastUpdateDate( parent.EntityId, string.Format( "Entity Update triggered by {0} deleting a cost profile item for cost profile: {1}", user.FullName(), parent.ProfileName ) );
+
 					status = "";
 				}
 				else
@@ -317,16 +390,6 @@ namespace CTIServices
 		#endregion
 		#region Entity Credential Reference Profile
 		#region retrieval
-		/// <summary>
-		/// Get all Entity_Credential for a parent
-		/// </summary>
-		/// <param name="parentId"></param>
-		/// <returns></returns>
-		//public static List<Entity_Credential> Entity_Credential_GetAll( Guid parentUid )
-		//{
-		//	List<Entity_Credential> list = Entity_CredentialManager.GetAll( parentUid );
-		//	return list;
-		//}
 
 		/// <summary>
 		/// Get a Entity_Credential By integer Id
@@ -338,7 +401,7 @@ namespace CTIServices
 			Entity_Credential profile = Entity_CredentialManager.Get( profileId );
 			return profile;
 		}
-
+		#endregion
 		#region Persistance
 		public int EntityCredential_Save( Guid parentUid, int credentialId, AppUser user, bool allowMultipleSavedItems, ref bool valid, ref string status )
 		{
@@ -362,17 +425,18 @@ namespace CTIServices
 				Entity parent = EntityManager.GetEntity( parentUid );
 				if ( parent == null || parent.Id == 0 )
 				{
-					status = "Error - the parent entity was not found." ;
+					status = "Error - the parent entity was not found.";
 					valid = false;
 					return 0;
 				}
 				if ( parent.EntityTypeId == CodesManager.ENTITY_TYPE_CREDENTIAL
 					&& parent.EntityBaseId == credentialId )
 				{
-					status ="Error - a credential cannot be embedded within itself." ;
+					status = "Error - a credential cannot be embedded within itself.";
 					valid = false;
 					return 0;
-				} else if ( parent.EntityTypeId == CodesManager.ENTITY_TYPE_CONDITION_PROFILE )
+				}
+				else if ( parent.EntityTypeId == CodesManager.ENTITY_TYPE_CONDITION_PROFILE )
 				{
 					/* 
 					 * ensure not adding the parent assessment to itself:
@@ -410,7 +474,7 @@ namespace CTIServices
 				//if ( parent.EntityTypeId == CodesManager.ENTITY_TYPE_PROCESS_PROFILE )
 				//	allowMultiples = false;
 
-				if ( mgr.Add( credentialId, parentUid, user.Id, allowMultipleSavedItems, ref newId, ref messages ) == false )
+				if ( mgr.Add( credentialId, parentUid, user.Id, allowMultipleSavedItems, ref newId, ref messages ) == 0 )
 				{
 					valid = false;
 					status = string.Join( "<br/>", messages.ToArray() );
@@ -419,7 +483,9 @@ namespace CTIServices
 				{
 					status = "Successfully Saved Item";
 					//should the activity be for the parent
-					//activityMgr.AddActivity( "Cost Profile Item", action, string.Format( "{0} saved cost profile item: {1}", user.FullName(), entity.ProfileName ), user.Id, 0, entity.Id );
+					activityMgr.AddEditorActivity( "Entity.Credential", "Update", string.Format( "{0} added a credential child entity: {1} to {2} ({3})", user.FullName(), credentialId, parent.EntityType, parent.EntityBaseId ), user.Id, 0, newId );
+
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} adding credential to {1} {2}", user.FullName(), parent.EntityType, parent.EntityBaseId ) );
 				}
 			}
 			catch ( Exception ex )
@@ -449,7 +515,7 @@ namespace CTIServices
 				Entity parent = EntityManager.GetEntity( parentUid );
 				if ( parent == null || parent.Id == 0 )
 				{
-					status = "Error - the parent entity was not found." ;
+					status = "Error - the parent entity was not found.";
 					return false;
 				}
 
@@ -466,7 +532,10 @@ namespace CTIServices
 				if ( mgr.Delete( parent.Id, credentialId, ref status ) )
 				{
 					//if valid, log
-					activityMgr.AddActivity( "Related Credential", "Remove", string.Format( "{0} removed Credential {1} ({2}) from Entity: {3} (4)", user.FullName(), profile.Credential.Name, credentialId, parent.EntityType, parent.EntityBaseId ), user.Id, 0, credentialId, parent.EntityBaseId );
+					activityMgr.AddEditorActivity( "Related Credential", "Remove", string.Format( "{0} removed Credential {1} ({2}) from Entity: {3} (4)", user.FullName(), profile.Credential.Name, credentialId, parent.EntityType, parent.EntityBaseId ), user.Id, 0, credentialId, parent.EntityBaseId );
+
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} removing a credential from a: {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId ) );
+
 					status = "Successfully removed credential";
 				}
 				else
@@ -486,11 +555,11 @@ namespace CTIServices
 			return valid;
 		}
 		#endregion
-		#endregion
+
 		#endregion
 
 		#region Entity Reference Profile
-	
+
 		/// <summary>
 		/// Get all Entity_Credential for a parent
 		/// </summary>
@@ -499,7 +568,7 @@ namespace CTIServices
 		/// <returns></returns>
 		public static List<TextValueProfile> Entity_Reference_GetAll( Guid parentUid, int categoryId = 25 )
 		{
-			List<TextValueProfile> list = Entity_ReferenceManager.Entity_GetAll( parentUid, categoryId );
+			List<TextValueProfile> list = Entity_ReferenceManager.GetAll( parentUid, categoryId );
 			return list;
 		}
 
@@ -558,7 +627,10 @@ namespace CTIServices
 				if ( mgr.Delete( profileId, ref status ) )
 				{
 					//if valid, log
-					activityMgr.AddActivity( "Entity Reference", "Delete", string.Format( "{0} deleted Entity Reference {1} ({2}) from Parent: {3}", user.FullName(), profile.ProfileName, profileId, profile.ParentId ), user.Id, 0, profileId );
+					activityMgr.AddEditorActivity( "Entity Reference", "Delete", string.Format( "{0} deleted Entity Reference {1} ({2}) from Parent: {3}", user.FullName(), profile.ProfileName, profileId, profile.ParentId ), user.Id, 0, profileId );
+
+					CodeItem category = CodesManager.Codes_PropertyCategory_Get( profile.CategoryId );
+					UpdateTopLevelEntityLastUpdateDate( profile.EntityId, string.Format( "Entity Update triggered by {0} removing a {1} from a: {2}, BaseId: {3}", user.FullName(), category.Title, profile.EntityType, profile.EntityBaseId ) );
 					status = "";
 				}
 				else
@@ -604,9 +676,9 @@ namespace CTIServices
 			List<Address> list = AddressProfileManager.QuickSearch( address1, city, postalCode, pageNumber, pageSize, ref pTotalRows );
 			return list;
 		}
-		public static List<Address> AddressProfile_Search( string filter, int pageNumber, int pageSize, ref int pTotalRows )
+		public static List<Address> AddressProfile_Search( string filter, int pageNumber, int pageSize, ref int pTotalRows, int entityTypeId = 2 )
 		{
-			List<Address> list = AddressProfileManager.QuickSearch( filter, pageNumber, pageSize, ref pTotalRows );
+			List<Address> list = AddressProfileManager.QuickSearch( filter, pageNumber, pageSize, ref pTotalRows, entityTypeId );
 			return list;
 		}
 		/// <summary>
@@ -629,11 +701,50 @@ namespace CTIServices
 		/// <returns></returns>
 		public static Address AddressProfile_Get( int profileId )
 		{
-			Address profile = AddressProfileManager.Entity_Address_Get( profileId );
+			Address profile = AddressProfileManager.Get( profileId );
 			return profile;
-		
+
 		}
 
+		public int LocationReferenceAdd( Guid parentUid, int locationId, int userId, ref List<string> messages )
+		{
+			//int newId = new Entity_LocationManager().Add( parentUid, locationId, userId, ref messages );
+
+			//return newId;
+			return 0;
+		}
+		public bool LocationReferenceDelete( Guid parentUid, int recordId, int userId, ref List<string> messages )
+		{
+			//if ( new Entity_LocationManager().Delete( recordId, ref messages ))
+			//{
+			//	//add activity:
+
+				return true;
+			//} else
+			//{
+			//	return false;
+			//}
+		}
+		//public int LocationContactReferenceAdd( int locationId, int entityContactPointId, int userId, ref List<string> messages )
+		//{
+		//	int newId = new Entity_LocationManager().AddContact( locationId, entityContactPointId, userId, ref messages );
+
+		//	return newId;
+
+		//}
+		//public bool LocationContactReferenceDelete( Guid parentUid, int recordId, int userId, ref List<string> messages )
+		//{
+		//	if ( new Entity_LocationManager().ContactDelete( recordId, ref messages ) )
+		//	{
+		//		//add activity:
+
+		//		return true;
+		//	}
+		//	else
+		//	{
+		//		return false;
+		//	}
+		//}
 		#endregion
 
 		#region Persistance
@@ -649,15 +760,59 @@ namespace CTIServices
 
 			try
 			{
+				Entity parent = EntityManager.GetEntity( parentUid );
 				entity.CreatedById = entity.LastUpdatedById = user.Id;
 
 				valid = mgr.Save( entity, parentUid, user.Id, ref messages );
-			
+
 				if ( valid )
 				{
 					status = "Successfully Saved Address";
 					//should the activity be for the parent
-					activityMgr.AddActivity( "Address Profile", action, string.Format( "{0} saved address profile: {1}", user.FullName(), entity.Name ), user.Id, 0, entity.Id );
+					activityMgr.AddEditorActivity( "Address Profile", action, string.Format( "{0} saved address profile: {1}", user.FullName(), entity.Name ), user.Id, entity.Id, parentUid );
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} adding an address to : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId ) );
+				}
+				else
+				{
+					status = string.Join( "<br/>", messages.ToArray() );
+				}
+			}
+			catch ( Exception ex )
+			{
+				LoggingHelper.LogError( ex, thisClassName + ".AddressProfile_Save" );
+				valid = false;
+				status = ex.Message;
+			}
+			return valid;
+		}
+
+		public bool Address_Import( Address entity, Guid parentUid, int orgId, string action, string parentType, AppUser user, ref string status )
+		{
+			bool valid = true;
+			status = "";
+
+			List<string> messages = new List<string>();
+			AddressProfileManager mgr = new AddressProfileManager();
+			//validate user has access. Parent can be multiple types, but always is an entity
+
+			try
+			{
+				Entity parent = EntityManager.GetEntity( parentUid );
+				entity.CreatedById = entity.LastUpdatedById = user.Id;
+
+				valid = mgr.Save( entity, parentUid, user.Id, ref messages );
+
+				if ( valid )
+				{
+					status = "Successfully Saved Address";
+					//should the activity be for the parent
+					activityMgr.AddEditorActivity( "Address Profile", action, string.Format( "{0} saved address profile: {1}", user.FullName(), entity.Name ), user.Id, 0, entity.Id );
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} adding an address to : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId ) );
+
+					//prototype saving a location
+					//if ( ServiceHelper.IsTestEnv() )
+					//	new LocationManager().Save( entity, orgId, user.Id, ref messages );
+
 				}
 				else
 				{
@@ -686,7 +841,7 @@ namespace CTIServices
 			try
 			{
 				//get profile and ensure user has access
-				Address profile = AddressProfileManager.Entity_Address_Get( profileId );
+				Address profile = AddressProfileManager.Get( profileId );
 				if ( profile == null || profile.Id == 0 )
 				{
 					status = "Error - the requested address was not found.";
@@ -698,74 +853,21 @@ namespace CTIServices
 					return false;
 				}
 
-				//TODO - remove if after merge
-				//if ( parentType == "Organization" )
-				//{
-				//	//Address profile = AddressProfileManager.GetOrganizationAddress( profileId );
-				//	//if ( profile == null || profile.Id == 0 )
-				//	//{
-				//	//	status = "Error - the requested address was not found.";
-				//	//	return false;
-				//	//}
+				if ( mgr.Entity_Address_Delete( profileId, ref status ) )
+				{
+					//if valid, log
+					activityMgr.AddEditorActivity( "Address Profile", "Delete", string.Format( "{0} deleted Address Profile {1} ({2}) from ParentId: {3}", user.FullName(), profile.Name, profileId, profile.ParentId ), user.Id, profileId, profile.ParentRowId );
 
-				//	if ( OrganizationServices.CanUserUpdateOrganization( user, parentUid ) )
-				//	{
-				//		//if ( mgr.Delete( profileId, ref status ) )
-				//		if ( mgr.Entity_Address_Delete( profileId, ref status ) )
-				//		{
-				//			//if valid, log
-				//			activityMgr.AddActivity( "Address Profile", "Delete", string.Format( "{0} deleted Address Profile {1} ({2}) from Organization: {3}", user.FullName(), profile.Name, profileId, profile.ParentId ), user.Id, 0, profileId );
-				//			status = "";
-				//		}
-				//		else
-				//		{
-				//			status = "Error - delete failed: " + status;
-				//			return false;
-				//		}
-				//	}
-				//	else
-				//	{
-				//		//reject and log
-				//		status = "Error - the requested profile was not found.";
-				//		string msg = string.Format( "UNAUTHORIZED USER: {0} attempted to delete Address Profile {1} ({2}) from Organization: {3}", user.FullName(), profile.Name, profileId, profile.ParentId );
-				//		//activityMgr.AddActivity( "Address Profile", "Delete", msg , user.Id, 0, profileId );
-				//		activityMgr.AddActivity( new SiteActivity()
-				//		{
-				//			Activity = "Address Profile",
-				//			Event = "Unauthorized Delete Attempt",
-				//			Comment = msg,
-				//			ActionByUserId = user.Id,
-				//			TargetObjectId = profileId,
-				//			ObjectRelatedId = profile.ParentId
-				//		} );
+					UpdateTopLevelEntityLastUpdateDate( profile.ParentId, string.Format( "Entity Update triggered by {0} deleting an address from EntityId: {1}, BaseId: {2}", user.FullName(), profile.ParentId, 0 ) );
 
-				//		LoggingHelper.LogError( msg, true );
-				//		return false;
-				//	}
-				//}
-				//else
-				//{
-					//Address profile = AddressProfileManager.Entity_Address_Get( profileId );
-					//if ( profile == null || profile.Id == 0 )
-					//{
-					//	status = "Error - the requested address was not found.";
-					//	return false;
-					//}
+					status = "";
+				}
+				else
+				{
+					status = "Error - delete failed: " + status;
+					return false;
+				}
 
-					//if ( OrganizationServices.CanUserUpdateOrganization( user, profile.ParentId ) )
-					//{
-						if ( mgr.Entity_Address_Delete( profileId, ref status ) )
-						{
-							//if valid, log
-							activityMgr.AddActivity( "Address Profile", "Delete", string.Format( "{0} deleted Address Profile {1} ({2}) from ParentId: {3}", user.FullName(), profile.Name, profileId, profile.ParentId ), user.Id, 0, profileId );
-							status = "";
-						}
-						else
-						{
-							status = "Error - delete failed: " + status;
-							return false;
-						}
-					
 				//}
 			}
 			catch ( Exception ex )
@@ -798,7 +900,7 @@ namespace CTIServices
 		//	List<ContactPoint> list = Entity_ContactPointManager.QuickSearch( filter, pageNumber, pageSize, ref pTotalRows );
 		//	return list;
 		//}
-		
+
 		/// <summary>
 		/// Get a ContactPoint By integer Id
 		/// </summary>
@@ -825,6 +927,7 @@ namespace CTIServices
 
 			try
 			{
+				Entity parent = EntityManager.GetEntity( parentUid );
 				entity.CreatedById = entity.LastUpdatedById = user.Id;
 
 				valid = mgr.Save( entity, parentUid, user.Id, ref messages );
@@ -833,7 +936,9 @@ namespace CTIServices
 				{
 					status = "Successfully Saved ContactPoint";
 					//should the activity be for the parent
-					activityMgr.AddActivity( "ContactPoint Profile", action, string.Format( "{0} saved Contact Point: {1}", user.FullName(), entity.ProfileName ), user.Id, 0, entity.Id );
+					activityMgr.AddEditorActivity( "ContactPoint Profile", action, string.Format( "{0} saved Contact Point: {1}", user.FullName(), entity.ProfileName ), user.Id, 0, entity.Id );
+
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} updating a contact point from : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId ) );
 				}
 				else
 				{
@@ -878,7 +983,10 @@ namespace CTIServices
 				if ( mgr.Delete( profileId, ref status ) )
 				{
 					//if valid, log
-					activityMgr.AddActivity( "ContactPoint Profile", "Delete", string.Format( "{0} deleted ContactPoint Profile {1} ({2}) from ParentId: {3}", user.FullName(), profile.ProfileName, profileId, profile.ParentId ), user.Id, 0, profileId );
+					activityMgr.AddEditorActivity( "ContactPoint Profile", "Delete", string.Format( "{0} deleted ContactPoint Profile {1} ({2}) from ParentId: {3}", user.FullName(), profile.ProfileName, profileId, profile.ParentId ), user.Id, 0, profileId );
+					Entity parent = EntityManager.GetEntity( parentUid );
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} deleting a contact point from : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId ) );
+
 					status = "";
 				}
 				else
@@ -886,8 +994,8 @@ namespace CTIServices
 					status = "Error - delete failed: " + status;
 					return false;
 				}
-					
-				
+
+
 			}
 			catch ( Exception ex )
 			{
@@ -921,10 +1029,10 @@ namespace CTIServices
 
 			try
 			{
-				Entity e = EntityManager.GetEntity( parentUid );
+				Entity parent = EntityManager.GetEntity( parentUid );
 				//remove this if properly passed from client
 				//plus need to migrate to the use of EntityId
-				entity.ParentId = e.Id;
+				entity.ParentId = parent.Id;
 				entity.CreatedById = entity.LastUpdatedById = user.Id;
 
 				if ( isQuickCreate )
@@ -937,7 +1045,9 @@ namespace CTIServices
 
 					//if valid, status contains the cred id, category, and codeId
 					status = "Successfully Saved Verification Profile";
-					activityMgr.AddActivity( "Verification Profile", action, string.Format( "{0} added/updated credential connection task profile: {1}", user.FullName(), entity.ProfileName ), user.Id, 0, entity.Id );
+					activityMgr.AddEditorActivity( "Verification Profile", action, string.Format( "{0} added/updated verification profile: {1}", user.FullName(), entity.ProfileName ), user.Id, 0, entity.Id );
+
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} saving a verification service profile for : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId ) );
 
 				}
 				else
@@ -956,7 +1066,7 @@ namespace CTIServices
 			return isValid;
 		}
 
-		public bool VerificationServiceProfile_Delete( int conditionProfileId, int profileId, AppUser user, ref string status )
+		public bool VerificationServiceProfile_Delete( int parentProfileId, int profileId, AppUser user, ref string status )
 		{
 			bool valid = true;
 
@@ -972,7 +1082,9 @@ namespace CTIServices
 				if ( valid )
 				{
 					//if valid, status contains the cred id, category, and codeId
-					activityMgr.AddActivity( "Verification Profile", "Delete Task", string.Format( "{0} deleted Verification Profile {1} from Condition Profile  {2}", user.FullName(), profileId, conditionProfileId ), user.Id, 0, profileId );
+					activityMgr.AddEditorActivity( "Verification Profile", "Delete", string.Format( "{0} deleted Verification Profile {1} from Condition Profile  {2}", user.FullName(), profileId, parentProfileId ), user.Id, 0, profileId );
+					Entity parent = EntityManager.GetEntity( profile.ParentId );
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} deleting a verification service profile from : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId ) );
 					status = "";
 				}
 			}
@@ -1023,10 +1135,12 @@ namespace CTIServices
 					//}
 					//else
 					//{
-						//if valid, status contains the cred id, category, and codeId
-						status = "Successfully Saved Process Profile";
-						activityMgr.AddActivity( "Process Profile", action, string.Format( "{0} added/updated credential connection task profile: {1}", user.FullName(), entity.ProfileName ), user.Id, 0, entity.Id );
-					//}
+					//if valid, status contains the cred id, category, and codeId
+					status = "Successfully Saved Process Profile";
+					activityMgr.AddEditorActivity( "Process Profile", action, string.Format( "{0} added/updated process profile: {1}", user.FullName(), entity.ProfileName ), user.Id, entity.Id, parentUid );
+
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} saving a process profile for : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId ) );
+
 				}
 				else
 				{
@@ -1096,7 +1210,7 @@ namespace CTIServices
 					LoggingHelper.LogError( "Received request for unhandled process profile type of [" + processProfileType + "] ", true, "Unexpected ProcesProfile type encountered" );
 					//messages.Add( string.Format( "Error: Unexpected profile type of {0} was encountered.", entity.ProcessProfileType ) );
 					break;
-					
+
 			}
 			return typeId;
 		}
@@ -1116,8 +1230,12 @@ namespace CTIServices
 
 				if ( valid )
 				{
+					Entity parent = EntityManager.GetEntity( profile.ParentId );
 					//if valid, status contains the cred id, category, and codeId
-					activityMgr.AddActivity( "Process Profile", "Delete", string.Format( "{0} deleted Process Profile {1} from Credential {2}", user.FullName(), profileId, conditionProfileId ), user.Id, 0, profileId );
+					activityMgr.AddEditorActivity( "Process Profile", "Delete", string.Format( "{0} deleted Process Profile {1} from Credential {2}", user.FullName(), profileId, conditionProfileId ), user.Id, profileId, parent.EntityUid );
+
+
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} deleting a process profile from : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId ) );
 					status = "";
 				}
 			}
@@ -1139,33 +1257,6 @@ namespace CTIServices
 			List<EnumeratedItem> list = Entity_FrameworkItemManager.ItemsGet( recordIds );
 
 			return list;
-		}
-		/// <summary>
-		/// Add a framework item
-		/// </summary>
-		/// <param name="parentId"></param>
-		/// <param name="parentEntityTypeId"></param>
-		/// <param name="categoryId"></param>
-		/// <param name="codeID"></param>
-		/// <param name="user"></param>
-		/// <param name="valid"></param>
-		/// <param name="status"></param>
-		/// <returns></returns>
-		[Obsolete]
-		public EnumeratedItem FrameworkItem_Add( int parentId, int parentEntityTypeId, int categoryId, int codeID, AppUser user, ref bool valid, ref string status )
-		{
-
-			if ( user == null || user.Id == 0 )
-			{
-				valid = false;
-				status = "Error - you must be authenticated in order to update data";
-				return new EnumeratedItem();
-			}
-
-			Entity parent = EntityManager.GetEntity( parentEntityTypeId, parentId );
-			//EntitySummary parent = EntityManager.GetEntitySummary( parentId, parentEntityTypeId );
-
-			return FrameworkItem_Add( parent.EntityUid, categoryId, codeID, user, ref valid, ref status );
 		}
 
 		/// <summary>
@@ -1198,17 +1289,20 @@ namespace CTIServices
 			EnumeratedItem item = new EnumeratedItem();
 			try
 			{
-				frameworkItemId = mgr.ItemAdd( parent.Id, categoryId, codeID, user.Id, ref status );
+				frameworkItemId = mgr.Add( parent.Id, categoryId, codeID, user.Id, ref status );
 
 				if ( frameworkItemId > 0 )
 				{
 					//get full item, as a codeItem to return
 					item = Entity_FrameworkItemManager.ItemGet( frameworkItemId );
-					
-					ActivityServices.SiteActivityAdd( parent.EntityType + " FrameworkItem", "Add item", string.Format( "{0} added {1} FrameworkItem. ParentId: {2}, categoryId: {3}, codeId: {4}, summary: {5}", user.FullName(), parent.EntityType, parent.Id, categoryId, codeID, item.ItemSummary ), user.Id, 0, frameworkItemId );
+
+					new ActivityServices().AddEditorActivity( parent.EntityType, "Add FrameworkItem item", string.Format( "{0} added {1} FrameworkItem. ParentId: {2}, categoryId: {3}, codeId: {4}, summary: {5}", user.FullName(), parent.EntityType, parent.Id, categoryId, codeID, item.ItemSummary ), user.Id, frameworkItemId, parentUid );
+
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} adding a framework item for : {1}, BaseId: {2}, categoryId: {3}, codeId: {4}", user.FullName(), parent.EntityType, parent.EntityBaseId, categoryId, codeID ) );
+
 					status = "";
 				}
-				else
+				else if ( frameworkItemId == 0 )
 				{
 					valid = false;
 				}
@@ -1221,7 +1315,7 @@ namespace CTIServices
 			}
 
 			return item;
-	}
+		}
 
 		/// <summary>
 		/// Delete a framework item
@@ -1247,12 +1341,15 @@ namespace CTIServices
 					return false;
 				}
 
-				valid = mgr.ItemDelete( frameworkItemId, ref status );
+				valid = mgr.Delete( frameworkItemId, ref status );
 
 				if ( valid )
 				{
 					//if valid, status contains the cred id, category, and codeId
-					ActivityServices.SiteActivityAdd( "FrameworkItem", "Delete item", string.Format( "{0} deleted FrameworkItem {1} from {2} {3}", user.FullName(), frameworkItemId, parent.EntityType, parent.EntityBaseName ), user.Id, 0, frameworkItemId );
+					new ActivityServices().AddEditorActivity( parent.EntityType, "Delete FrameworkItem", string.Format( "{0} deleted FrameworkItem {1} from {2} {3}", user.FullName(), frameworkItemId, parent.EntityType, parent.EntityBaseName ), user.Id, frameworkItemId, parentUid );
+
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} deleting a framework item from : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId ) );
+
 					status = "";
 				}
 			}
@@ -1266,31 +1363,144 @@ namespace CTIServices
 			return valid;
 		}
 		#endregion
+		
+		//#region Language
+		//public static List<EnumeratedItem> Language_GetItems( List<int> recordIds )
+		//{
+		//    List<EnumeratedItem> list = Entity_FrameworkItemManager.ItemsGet( recordIds );
+
+		//    return list;
+		//}
+
+		///// <summary>
+		///// Add a framework item to a parent
+		///// </summary>
+		///// <param name="parentUid"></param>
+		///// <param name="categoryId"></param>
+		///// <param name="codeID"></param>
+		///// <param name="user"></param>
+		///// <param name="valid"></param>
+		///// <param name="status"></param>
+		///// <returns></returns>
+		//public EnumeratedItem Language_Add( Guid parentUid, int categoryId, int codeID, AppUser user, ref bool valid, ref string status )
+		//{
+		//    if ( !BaseFactory.IsGuidValid( parentUid ) || categoryId == 0 || codeID == 0 )
+		//    {
+		//        valid = false;
+		//        status = "Error - invalid request - missing code identifiers";
+		//        return new EnumeratedItem();
+		//    }
+		//    Entity parent = EntityManager.GetEntity( parentUid );
+		//    if ( parent == null || parent.Id == 0 )
+		//    {
+		//        valid = false;
+		//        status = "Error - invalid request - missing parent";
+		//        return new EnumeratedItem();
+		//    }
+		//    Entity_FrameworkItemManager mgr = new Entity_FrameworkItemManager();
+		//    int frameworkItemId = 0;
+		//    EnumeratedItem item = new EnumeratedItem();
+		//    try
+		//    {
+		//        frameworkItemId = mgr.Add( parent.Id, categoryId, codeID, user.Id, ref status );
+
+		//        if ( frameworkItemId > 0 )
+		//        {
+		//            //get full item, as a codeItem to return
+		//            item = Entity_FrameworkItemManager.ItemGet( frameworkItemId );
+
+		//            new ActivityServices().AddEditorActivity( parent.EntityType, "Add FrameworkItem item", string.Format( "{0} added {1} FrameworkItem. ParentId: {2}, categoryId: {3}, codeId: {4}, summary: {5}", user.FullName(), parent.EntityType, parent.Id, categoryId, codeID, item.ItemSummary ), user.Id, frameworkItemId, parentUid );
+
+		//            UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} adding a framework item for : {1}, BaseId: {2}, categoryId: {3}, codeId: {4}", user.FullName(), parent.EntityType, parent.EntityBaseId, categoryId, codeID ) );
+
+		//            status = "";
+		//        }
+		//        else if ( frameworkItemId == 0 )
+		//        {
+		//            valid = false;
+		//        }
+		//    }
+		//    catch ( Exception ex )
+		//    {
+		//        LoggingHelper.LogError( ex, thisClassName + ".FrameworkItem_Add" );
+		//        status = ex.Message;
+		//        valid = false;
+		//    }
+
+		//    return item;
+		//}
+
+		///// <summary>
+		///// Delete a framework item
+		///// </summary>
+		///// <param name="parentUid"></param>
+		///// <param name="frameworkItemId"></param>
+		///// <param name="user"></param>
+		///// <param name="status"></param>
+		///// <returns></returns>
+		//public bool Language_Delete( Guid parentUid, int frameworkItemId, AppUser user, ref string status )
+		//{
+		//    Entity_FrameworkItemManager mgr = new Entity_FrameworkItemManager();
+		//    bool valid = true;
+
+		//    try
+		//    {
+		//        Entity parent = EntityManager.GetEntity( parentUid );
+		//        //EntitySummary parent = EntityManager.GetEntitySummary( parentUid );
+		//        if ( parent == null || parent.Id == 0 )
+		//        {
+		//            valid = false;
+		//            status = "Error - invalid request - missing parent";
+		//            return false;
+		//        }
+
+		//        valid = mgr.Delete( frameworkItemId, ref status );
+
+		//        if ( valid )
+		//        {
+		//            //if valid, status contains the cred id, category, and codeId
+		//            new ActivityServices().AddEditorActivity( parent.EntityType, "Delete FrameworkItem", string.Format( "{0} deleted FrameworkItem {1} from {2} {3}", user.FullName(), frameworkItemId, parent.EntityType, parent.EntityBaseName ), user.Id, frameworkItemId, parentUid );
+
+		//            UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} deleting a framework item from : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId ) );
+
+		//            status = "";
+		//        }
+		//    }
+		//    catch ( Exception ex )
+		//    {
+		//        LoggingHelper.LogError( ex, thisClassName + ".FrameworkItem_Delete" );
+		//        status = ex.Message;
+		//        valid = false;
+		//    }
+
+		//    return valid;
+		//}
+		//#endregion
 
 		#region Entity_Assessments and Entity_LearningOpportunities
 		/// <summary>
 		/// Add an assessment profile to a profile
 		/// </summary>
-		/// <param name="parentUid"></param>
+		/// <param name="immediateParentUid"></param>
 		/// <param name="assessmentId"></param>
 		/// <param name="user"></param>
 		/// <param name="valid"></param>
 		/// <param name="status"></param>
 		/// <returns></returns>
-		public int Assessment_Add( Guid parentUid, int assessmentId, AppUser user, ref bool valid, ref string status, bool allowMultiples = true )
+		public int Assessment_Add( Guid immediateParentUid, Guid topParentUid, int assessmentId, AppUser user, ref bool valid, ref string status, bool allowMultiples = true )
 		{
 			int id = 0;
 			//bool allowMultiples = true;
 			try
 			{
-				Entity parent = EntityManager.GetEntity( parentUid );
+				Entity parent = EntityManager.GetEntity( immediateParentUid );
 				if ( parent == null || parent.Id == 0 )
 				{
 					status = "Error - the parent entity was not found.";
 					valid = false;
 					return 0;
 				}
-				if (parent.EntityTypeId == CodesManager.ENTITY_TYPE_CONDITION_PROFILE)
+				if ( parent.EntityTypeId == CodesManager.ENTITY_TYPE_CONDITION_PROFILE )
 				{
 					/* 
 					 * ensure not adding the parent assessment to itself:
@@ -1300,7 +1510,7 @@ namespace CTIServices
 					 * - if true reject
 					 * - are there other levels of recursion to test?
 					 */
-					if (Entity_ConditionProfileManager.IsParentBeingAddedAsChildToItself( parent.EntityBaseId, assessmentId, CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE ) )
+					if ( Entity_ConditionProfileManager.IsParentBeingAddedAsChildToItself( parent.EntityBaseId, assessmentId, CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE ) )
 					{
 						status = "Error - The assessment cannot be added to this condition profile as this same assessment is the parent of the condition profile.";
 						valid = false;
@@ -1327,17 +1537,19 @@ namespace CTIServices
 				//if ( parent.EntityTypeId == CodesManager.ENTITY_TYPE_PROCESS_PROFILE )
 				//	allowMultiples = false;
 
-				id = new Entity_AssessmentManager().Add( parentUid, assessmentId, user.Id, allowMultiples, ref messages );
+				id = new Entity_AssessmentManager( true ).Add( immediateParentUid, assessmentId, user.Id, allowMultiples, ref messages );
 
 				if ( id > 0 )
 				{
 					//if valid, status contains the cred id, category, and codeId
-					activityMgr.AddActivity( "Assessment", "Add Assessment", string.Format( "{0} added Assessment {1} to {3} EntityId: {2}", user.FullName(), assessmentId, parent.Id, parent.EntityType ), user.Id, 0, assessmentId );
+					activityMgr.AddEditorActivity( "Assessment", "Add Assessment", string.Format( "{0} added Assessment {1} to {3} EntityId: {2}", user.FullName(), assessmentId, parent.Id, parent.EntityType ), user.Id, assessmentId, topParentUid );
+
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} adding an assessment to : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId ) );
 					status = "";
 
 					if ( parent.EntityTypeId == CodesManager.ENTITY_TYPE_CONDITION_PROFILE )
 					{
-						//CHECK IF NEED TO ADD LOPP TO THE PARENT CREDENTIAL
+						//CHECK IF NEED TO ADD Asmt TO THE PARENT CREDENTIAL
 						//get credential entity
 						Credential cred = ConditionProfileServices.GetProfileParentCredential( parent.EntityUid );
 						if ( cred != null && cred.Id > 0 )
@@ -1346,7 +1558,8 @@ namespace CTIServices
 							//need to check for duplicates, and return without an error
 							bool valid2 = true;
 							string status2 = "";
-							Assessment_Add( cred.RowId, assessmentId, user, ref valid2, ref status2, allowMultiples );
+							//TODO - not sure if topParentUid is correct here 
+							Assessment_Add( cred.RowId, topParentUid, assessmentId, user, ref valid2, ref status2, allowMultiples );
 						}
 					}
 				}
@@ -1393,8 +1606,9 @@ namespace CTIServices
 				if ( valid && status.Length == 0 )
 				{
 					//activity
-					activityMgr.AddActivity( "Assessment", "Remove Assessment", string.Format( "{0} removed Assessment {1} ({2}) from Entity: {3} (4)", user.FullName(), profile.Assessment.Name, assessmentId, parent.EntityType, parent.EntityBaseId ), user.Id, 0, assessmentId, parent.EntityBaseId );
+					activityMgr.AddEditorActivity( "Assessment", "Remove Assessment", string.Format( "{0} removed Assessment {1} ({2}) from Entity: {3} (4)", user.FullName(), profile.Assessment.Name, assessmentId, parent.EntityType, parent.EntityBaseId ), user.Id, 0, assessmentId, parent.EntityBaseId );
 
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} removing an assessment from : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId ) );
 					status = "";
 				}
 			}
@@ -1409,29 +1623,41 @@ namespace CTIServices
 		}
 
 
-		public int LearningOpportunity_Add( Guid parentUid, int recordId, 
-				AppUser user, 
-				ref bool valid, 
-				ref string status, 
+		//public int LearningOpportunity_Add( Guid immediateParentUid, int recordId,
+		//        AppUser user,
+		//        ref bool isValid,
+		//        ref string status,
+		//        bool allowMultiples = true,
+		//        bool warnOnDuplicate = true )
+		//{
+		//    Guid topParentUid = new Guid();
+		//    return LearningOpportunity_Add( immediateParentUid, topParentUid, recordId, user, ref isValid, ref status, true );
+		//}
+
+
+		public int LearningOpportunity_Add( Guid immediateParentUid, Guid topParentUid, int recordId,
+				AppUser user,
+				ref bool valid,
+				ref string status,
 				bool allowMultiples = true,
-				bool warnOnDuplicate = true)
+				bool warnOnDuplicate = true )
 		{
 			int id = 0;
 			//bool allowMultiples = true;
 			Entity_LearningOpportunityManager mgr = new Entity_LearningOpportunityManager();
 			try
 			{
-				Entity parent = EntityManager.GetEntity( parentUid );
+				Entity parent = EntityManager.GetEntity( immediateParentUid );
 				if ( parent == null || parent.Id == 0 )
 				{
-					status = "Error - the parent entity was not found." ;
+					status = "Error - the parent entity was not found.";
 					valid = false;
 					return 0;
 				}
 				if ( parent.EntityTypeId == CodesManager.ENTITY_TYPE_CONDITION_PROFILE )
 				{
 					/* 
-					 * ensure not adding the parent assessment to itself:
+					 * ensure not adding the parent lopp to itself:
 					 * - get the condition profile
 					 * - get parent entity of the CP
 					 * - check if of type asmt, and base id matches the assessmentId
@@ -1448,7 +1674,7 @@ namespace CTIServices
 				else if ( parent.EntityTypeId == CodesManager.ENTITY_TYPE_PROCESS_PROFILE )
 				{
 					/* 
-					 * ensure not adding the parent credential to itself:
+					 * ensure not adding the parent lopp to itself:
 					 * - get the process profile
 					 * - get parent entity
 					 * - check if of type ???, and base id matches the Id
@@ -1467,13 +1693,13 @@ namespace CTIServices
 				//if ( parent.EntityTypeId == CodesManager.ENTITY_TYPE_PROCESS_PROFILE )
 				//	allowMultiples = false;
 
-				id = mgr.Add( parentUid, recordId, user.Id, allowMultiples, ref messages, warnOnDuplicate );
+				id = mgr.Add( immediateParentUid, recordId, user.Id, allowMultiples, ref messages, warnOnDuplicate );
 
 				if ( id > 0 )
 				{
 					//if valid, save activity
-					activityMgr.AddActivity( "Learning Opportunity", "Add Learning Opportunity", string.Format( "{0} added Learning Opportunity {1} to {3} EntityId: {2}", user.FullName(), recordId, parent.Id, parent.EntityType ), user.Id, 0, recordId );
-
+					activityMgr.AddEditorActivity( SiteActivity.LearningOpportunity, "Add Learning Opportunity", string.Format( "{0} added Learning Opportunity {1} to {3} EntityId: {2}", user.FullName(), recordId, parent.Id, parent.EntityType ), user.Id, recordId, topParentUid );
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} adding a learning opportunity to : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId ) );
 					status = "";
 					if ( parent.EntityTypeId == CodesManager.ENTITY_TYPE_CONDITION_PROFILE )
 					{
@@ -1486,9 +1712,9 @@ namespace CTIServices
 							//need to check for duplicates, and return without an error
 							bool valid2 = true;
 							string status2 = "";
-							LearningOpportunity_Add( cred.RowId, recordId, user, ref valid2, ref status2,
+							LearningOpportunity_Add( cred.RowId, topParentUid, recordId, user, ref valid2, ref status2,
 								allowMultiples,
-								false);
+								false );
 						}
 					}
 				}
@@ -1528,9 +1754,9 @@ namespace CTIServices
 				if ( valid && status.Length == 0 )
 				{
 					//activity
-					activityMgr.AddActivity( "Learning Opportunity", "Remove Learning Opportunity", string.Format( "{0} removed Learning Opportunity {1} from {3} EntityId: {2}", user.FullName(), recordId, parent.Id, parent.EntityType ), user.Id, 0, recordId );
+					activityMgr.AddEditorActivity( SiteActivity.LearningOpportunity, "Remove Learning Opportunity", string.Format( "{0} removed Learning Opportunity {1} from {3} EntityId: {2}", user.FullName(), recordId, parent.Id, parent.EntityType ), user.Id, 0, recordId );
 
-					//activityMgr.AddActivity( "Assessment", "Remove Assessment", string.Format( "{0} removed Assessment {1} ({2}) from Entity: {3} (4)", user.FullName(), profile.Assessment.Name, assessmentId, parent.EntityType, parent.EntityBaseId ), user.Id, 0, assessmentId, parent.EntityBaseId );
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} removing a learning opportunity from : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId ) );
 
 					status = "";
 				}
@@ -1578,20 +1804,22 @@ namespace CTIServices
 				messages.Add( "Error - missing an identifier for the FinancialAlignmentObject" );
 				return false;
 			}
-			
+
 			try
 			{
-				Entity e = EntityManager.GetEntity( parentUid );
+				Entity parent = EntityManager.GetEntity( parentUid );
 				//remove this if properly passed from client
 				//plus need to migrate to the use of EntityId
-				entity.ParentId = e.Id;
+				entity.ParentId = parent.Id;
 				entity.CreatedById = entity.LastUpdatedById = user.Id;
 
 				if ( new Entity_FinancialAlignmentProfileManager().Save( entity, parentUid, user.Id, ref messages ) )
 				{
 					//if valid, status contains the cred id, category, and codeId
 					status = "Successfully Saved Profile";
-					activityMgr.AddActivity( "FinancialAlignmentObject Profile", action, string.Format( "{0} added/updated FinancialAlignmentObject profile: {1}", user.FullName(), entity.FrameworkName ), user.Id, 0, entity.Id );
+					activityMgr.AddEditorActivity( "FinancialAlignmentObject Profile", action, string.Format( "{0} added/updated FinancialAlignmentObject profile: {1}", user.FullName(), entity.FrameworkName ), user.Id, 0, entity.Id );
+
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} saving a financial alignment profile to : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId ) );
 				}
 				else
 				{
@@ -1647,7 +1875,10 @@ namespace CTIServices
 				if ( valid )
 				{
 					//if valid, status contains the cred id, category, and codeId
-					activityMgr.AddActivity( "FinancialAlignmentObject", "Delete", string.Format( "{0} deleted FinancialAlignmentObject ProfileId {1} from Parent Profile {2} (Id {3})", user.FullName(), profileId, parent.EntityType, parent.Id ), user.Id, 0, profileId );
+					activityMgr.AddEditorActivity( "FinancialAlignmentObject", "Delete", string.Format( "{0} deleted FinancialAlignmentObject ProfileId {1} from Parent Profile {2} (Id {3})", user.FullName(), profileId, parent.EntityType, parent.Id ), user.Id, 0, profileId );
+
+					UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} deleting a financial alignment profile from : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId ) );
+
 					status = "";
 				}
 			}
@@ -1662,21 +1893,532 @@ namespace CTIServices
 		}
 		#endregion
 
+		#region Entity_Approval
+		/// <summary>
+		/// Get a Entity_Approval record
+		/// to.EntityApproval = Entity_ApprovalManager.GetByParent( to.RowId );
+		/// </summary>
+		/// <param name="profileId"></param>
+		/// <returns></returns>
+		public static Entity_Approval Entity_Approval_Get( int profileId )
+		{
+			Entity_Approval profile = Entity_ApprovalManager.Get( profileId );
 
-		#region competencies OLD
+			return profile;
+		}
+		/// <summary>
+		/// Get an approval record for an entity via the rowId
+		/// </summary>
+		/// <param name="profileUId"></param>
+		/// <returns></returns>
+		public static Entity_Approval Entity_Approval_GetForParent( Guid profileUId )
+		{
+			Entity_Approval profile = Entity_ApprovalManager.GetByParent( profileUId );
 
-		#region CredentialAlignmentObjectFrameworkProfile 
+			return profile;
+		}
+		/// <summary>
+		/// Add/Update Entity_Approval
+		/// </summary>
+		/// <param name="entity"></param>
+		/// <param name="parentUid"></param>
+		/// <param name="action"></param>
+		/// <param name="user"></param>
+		/// <param name="status"></param>
+		/// <returns></returns>
+		public bool Entity_Approval_Save( string entityType, Guid parentUid, AppUser user, ref bool isPublished, ref string status, bool sendEmailOnSuccess )
+		{
+			EntitySummary entity = EntityManager.GetSummary( parentUid );
+			return Entity_Approval_Save( entity, user, ref isPublished, ref status, sendEmailOnSuccess );
+
+		}
+
+		public bool Entity_Approval_Save( string entityType, int parentBaseId, AppUser user, ref bool isPublished, ref string status, bool sendEmailOnSuccess )
+		{
+			int entityTypeId = 0;
+			if ( entityType.ToLower() == "credential" )
+				entityTypeId = 1;
+			else if ( entityType.ToLower() == "organization" )
+				entityTypeId = 2;
+			else if ( entityType.ToLower() == "assessment" )
+				entityTypeId = 3;
+			else if ( entityType.ToLower() == "learningopportunity" )
+				entityTypeId = 7;
+
+			else if ( entityType.ToLower() == "conditionmanifest" )
+				entityTypeId = 19;
+			else if ( entityType.ToLower() == "costmanifest" )
+				entityTypeId = 20;
+			else if ( entityType.ToLower() == "competencyframework" )
+				entityTypeId = 10;
+			else if ( entityType.ToLower() == "cass_competencyframework" )
+				entityTypeId = 17;
+			else if ( entityType.ToLower() == "conceptscheme" )
+				entityTypeId = 11;
+			//uses entity_cache, no organization name
+			EntitySummary entity = EntityManager.GetEntitySummary( entityTypeId, parentBaseId );
+
+			return Entity_Approval_Save( entity, user, ref isPublished, ref status, sendEmailOnSuccess );
+		}
+
+
+		public bool Entity_Approval_Save( int entityTypeId, int parentBaseId, AppUser user, ref bool isPublished, ref string status, bool sendEmailOnSuccess )
+		{
+			EntitySummary entity = EntityManager.GetEntitySummary( entityTypeId, parentBaseId );
+
+			return Entity_Approval_Save( entity, user, ref isPublished, ref status, sendEmailOnSuccess );
+		}
+
+
+		public bool Entity_Approval_Save( EntitySummary entity, AppUser user, ref bool isPublished, ref string status, bool sendingEmailOnSuccess )
+		{
+			bool isValid = true;
+			List<String> messages = new List<string>();
+			if ( entity == null || entity.Id == 0 )
+			{
+				status = "Error - invalid entity (null/empty)";
+				return false;
+			}
+			//make validation configurable
+			switch ( entity.EntityTypeId )
+			{
+				case 1:
+					var cred = CredentialManager.GetForApproval( entity.EntityBaseId, ref messages );
+					if ( cred == null || cred.Id == 0 )
+					{
+						status = "Error - credential was not found, or is invalid. ";
+					}
+					else
+					{
+						entity.OwningOrganization = cred.OwningOrganization.Name;
+					}
+					break;
+				case 2:
+					var org = OrganizationManager.GetForApproval( entity.EntityBaseId, ref messages );
+					if ( org == null || org.Id == 0 )
+					{
+						status = "Error - Organization was not found, or is invalid. ";
+					}
+					else
+						entity.OwningOrganization = org.Name;
+					break;
+				case 3:
+					var asmt = AssessmentManager.GetForApproval( entity.EntityBaseId, ref messages );
+					if ( asmt == null || asmt.Id == 0 )
+					{
+						status = "Error - assessment was not found, or is invalid. ";
+					}
+					else
+						entity.OwningOrganization = asmt.OwningOrganization.Name;
+					break;
+				case 7:
+					var lopp = LearningOpportunityManager.GetForApproval( entity.EntityBaseId, ref messages );
+					if ( lopp == null || lopp.Id == 0 )
+					{
+						status = "Error - Learning Opportunity was not found, or is invalid. ";
+					}
+					else
+						entity.OwningOrganization = lopp.OwningOrganization.Name;
+					break;
+				case 10:
+				case 11:
+				case 17:
+				{
+					//nothing yet
+					break;
+				}
+				case 19:
+				{
+					var record = ConditionManifestManager.GetForApproval( entity.EntityBaseId, ref messages );
+					if ( record == null || record.Id == 0 )
+					{
+						status = "Error - Condition Manifest was not found, or is invalid. ";
+					}
+					else
+						entity.OwningOrganization = record.OwningOrganization.Name;
+					break;
+				}
+				case 20:
+				{
+					var record = CostManifestManager.GetForApproval( entity.EntityBaseId, ref messages );
+					if ( record == null || record.Id == 0 )
+					{
+						status = "Error - Cost Manifest was not found, or is invalid. ";
+					}
+					else
+						entity.OwningOrganization = record.OwningOrganization.Name;
+					break;
+				}
+				default:
+					status = string.Format( "Error - Unhandled entity type if of {0}. ", entity.EntityTypeId );
+					break;
+			}
+			if ( messages.Count > 0 )
+				status = "Error - Validation failed. " + string.Join( "<br/>", messages.ToArray() );
+
+			if ( !string.IsNullOrEmpty( status ) )
+				return false;
+
+			try
+			{
+				//add an approval
+				if ( new Entity_ApprovalManager().Add( entity.EntityUid, user.Id, entity.EntityType, ref messages ) > 0 )
+				{
+					//EntitySummary es = EntityManager.GetEntitySummary( entity.Id );
+					//if valid, status contains the cred id, category, and codeId
+					status = "Successfully Approved Record";
+					//activityMgr.AddEditorActivity( entity.EntityType, "Approval", string.Format( "{0} Approved entity: {1}, Id: {2}", user.FullName(), entity.EntityType, entity.EntityBaseId ), user.Id, 0, entity.EntityBaseId );
+
+					activityMgr.AddActivity( new SiteActivity()
+					{
+						ActivityType = entity.EntityType,
+						Activity = "Editor",
+						Event = "Approval",
+						Comment = string.Format( "{0} Approved entity: {1}, Id: {2}, Name: {3}", user.FullName(), entity.EntityType, entity.EntityBaseId, entity.Name ),
+						ActivityObjectId = entity.EntityBaseId,
+						ActionByUserId = user.Id,
+						ActivityObjectParentEntityUid = entity.EntityUid
+					} );
+
+					if ( sendingEmailOnSuccess )
+						SendApprovalEmail( entity, user, ref status );
+
+					string lastPublishDate = ActivityManager.GetLastPublishDate( entity.EntityType.ToLower(), entity.EntityBaseId );
+					if ( lastPublishDate.Length > 5 )
+						isPublished = true;
+				}
+				else
+				{
+					status += string.Join( "<br/>", messages.ToArray() );
+					return false;
+				}
+			}
+			catch ( Exception ex )
+			{
+				LoggingHelper.LogError( ex, thisClassName + ".Entity_Approval_Save(EntitySummary entity)" );
+				status = LoggingHelper.FormatExceptions( ex );
+				isValid = false;
+
+			}
+
+			return isValid;
+		}
+
+
+		public void SendApprovalEmail( EntitySummary entity, AppUser user, ref string status )
+		{
+			LoggingHelper.DoTrace( 5, thisClassName + string.Format( ".SendApprovalEmail(). type: {0}, EntityBaseId: {1}", entity.EntityType, entity.BaseId ) );
+
+			//if not a site staff, send email 
+			bool sendApprovalIfBySiteStaff = UtilityManager.GetAppKeyValue( "sendApprovalIfBySiteStaff", true );
+			if ( AccountServices.IsUserSiteStaff( user ) && sendApprovalIfBySiteStaff == false )
+				return;
+			if ( entity.OwningOrgId > 0 && entity.OwningOrganization == "" )
+			{
+				var owningOrg = OrganizationManager.GetForSummary( entity.OwningOrgId );
+				if ( owningOrg != null && owningOrg.Id > 0 )
+					entity.OwningOrganization = owningOrg.Name;
+			}
+
+			string domainName = UtilityManager.GetAppKeyValue( "domainName", "" );
+			string approvalCCs = UtilityManager.GetAppKeyValue( "approvalCCs", "" );
+			string emailTemplate = EmailManager.GetEmailText( "NoticeOfEntityApproval" );
+			//send link to review page
+			//https://credentialengine.org/publisher/review/credential/2928
+
+			string reviewUrl = UtilityManager.FormatAbsoluteUrl( string.Format( "~/review/{0}/{1}", entity.EntityType, entity.BaseId ) );
+			//https://credentialengine.org/publisher/editor/credential/2928
+			//var url1 = UtilityManager.FormatAbsoluteUrl( string.Format( "~/summary/organization/{0}", entity.OwningOrgId ));
+			string summaryUrl = string.Format( "<a href='{0}'>{1} (summary)</a>", UtilityManager.FormatAbsoluteUrl( string.Format( "~/summary/organization/{0}", entity.OwningOrgId ) ), entity.OwningOrganization );
+
+			string editUrl1 = string.Format( domainName + "editor/{0}/{1}", entity.EntityType, entity.EntityBaseId );
+			string editUrl = UtilityManager.FormatAbsoluteUrl( string.Format( "~/editor/{0}/{1}", entity.EntityType, entity.EntityBaseId ) );
+			string subject = string.Format( "{0} Approval Notification", entity.EntityType );
+			//string msg = string.Format( "{0} has approved the following {1}: <br/>Number: {2},<br/>Review: <a href='{4}'>{3}</a><br/>Edit: <a href='{5}'>{3}</a>", user.FirstName + " " + user.LastName,entity.EntityType, entity.EntityBaseId, entity.EntityBaseName, reviewUrl, editUrl );
+
+			string org = "";
+			if ( ( entity.OwningOrganization ?? "" ).Length > 0 )
+				org = summaryUrl;
+			string body = "";
+
+			if ( entity.EntityType == "CASS_CompetencyFramework" )
+			{
+				reviewUrl = UtilityManager.FormatAbsoluteUrl( "~/Competencies/" );
+				body = string.Format( emailTemplate,
+					user.FirstName + " " + user.LastName, entity.EntityType,
+					entity.Name, entity.EntityBaseId,
+					reviewUrl,
+					"none",
+					org
+					);
+			}
+			else if ( entity.EntityType == "ConceptScheme" )
+			{
+				reviewUrl = UtilityManager.FormatAbsoluteUrl( "~/ConceptScheme/" );
+				body = string.Format( emailTemplate,
+					user.FirstName + " " + user.LastName, entity.EntityType,
+					entity.Name, entity.EntityBaseId,
+					reviewUrl,
+					"none",
+					org
+					);
+			}
+			else
+			{
+				body = string.Format( emailTemplate,
+					user.FirstName + " " + user.LastName, entity.EntityType,
+					entity.EntityBaseName, entity.EntityBaseId,
+					reviewUrl,
+					editUrl,
+					org
+					);
+			}
+            EmailServices.SendSiteEmail( "Entity Approval Notification", body, approvalCCs );
+
+            //TODO - sent a confirmation notice to the sender
+            SendConfirmationOfApprovalAction( entity.EntityType, 1, user, ref status, "" );
+
+        }
+
+		public static void SendApprovalSummaryEmail( string entityType, int approvalCount, string organizationGUID, AppUser user, ref string status )
+		{
+			var owningOrg = OrganizationManager.GetForSummary( organizationGUID );
+
+			LoggingHelper.DoTrace( 7, thisClassName + string.Format( ".SendApprovalSummaryEmail(). Count: {0}, User: {1}, Org: {2}", approvalCount, user.FullName(), owningOrg.Name ) );
+
+			//if not a site staff, send email 
+			//bool sendApprovalIfBySiteStaff = UtilityManager.GetAppKeyValue( "sendApprovalIfBySiteStaff", true );
+			//if ( AccountServices.IsUserSiteStaff( user ) && sendApprovalIfBySiteStaff == false )
+			//    return;
+
+
+			string approvalCCs = UtilityManager.GetAppKeyValue( "approvalCCs", "" );
+			string emailTemplate = EmailManager.GetEmailText( "NoticeOfMassApprovals" );
+
+			//string summaryUrl = string.Format( "<a href='{0}'>{1} (summary)</a>", UtilityManager.FormatAbsoluteUrl( string.Format( "~/summary/organization/{0}", owningOrg.Id ) ), owningOrg.Name );
+			string summaryUrl = UtilityManager.FormatAbsoluteUrl( string.Format( "~/summary/organization/{0}", owningOrg.Id ) );
+			string subject = string.Format( "{0} Approvals Notification", entityType );
+
+			string body = string.Format( emailTemplate,
+					entityType,
+					user.FirstName + " " + user.LastName,
+					approvalCount,
+					owningOrg.Name,
+					summaryUrl
+					);
+			EmailServices.SendSiteEmail( subject, body, approvalCCs );
+
+            //TODO - sent a confirmation notice to the sender
+            SendConfirmationOfApprovalAction( entityType, approvalCount, user, ref status, "" );
+
+        }
+
+		public static void SendConfirmationOfApprovalAction( string entityType, int approvalCount, AppUser user, ref string status, string notes = "" )
+		{
+			string subject = string.Format( "Confirmation of Approval Action", entityType );
+			string emailTemplate = EmailManager.GetEmailText( "AcknowledgeReceiptOfApprovalNotification" );
+
+			string body = string.Format( emailTemplate,
+				user.FirstName,
+				entityType
+				);
+			//a potential future action to provide more detail on what was approved. for now, set [notes] to empty
+			body = body.Replace( "[notes]", "" );
+			EmailServices.SendEmail( user.Email, subject, body );
+		}
+
+        /// <summary>
+        /// Delete Entity_Approval
+        /// </summary>
+        /// <param name="parentUid"></param>
+        /// <param name="user"></param>
+        /// <param name="status"></param>
+        /// <returns></returns>
+        public bool Entity_Approval_Delete( Guid parentUid, AppUser user, ref string status )
+		{
+			bool valid = true;
+
+			Entity_ApprovalManager mgr = new Entity_ApprovalManager();
+			try
+			{
+				Entity parent = EntityManager.GetEntity( parentUid );
+				//delete the active approval record if present
+				valid = mgr.Delete( parentUid, ref status );
+
+				if ( valid )
+				{
+					//if valid, status contains the cred id, category, and codeId
+					activityMgr.AddEditorActivity( parent.EntityType, "Delete Approval", string.Format( "{0} deleted Entity_Approval for Parent type: {1} (Id {2})", user.FullName(), parent.EntityType, parent.Id ), user.Id, 0, parent.Id );
+					status = "";
+				}
+			}
+			catch ( Exception ex )
+			{
+				LoggingHelper.LogError( ex, thisClassName + ".Entity_Approval_Delete" );
+				status = ex.Message;
+				valid = false;
+			}
+
+			return valid;
+		}
+		public bool Entity_Approval_Delete( string entityType, int parentBaseId, AppUser user, ref string status )
+		{
+			bool isValid = true;
+			List<String> messages = new List<string>();
+			Entity_ApprovalManager mgr = new Entity_ApprovalManager();
+
+			int entityTypeId = 0;
+			if ( entityType.ToLower() == "credential" )
+				entityTypeId = 1;
+			else if ( entityType.ToLower() == "organization" )
+				entityTypeId = 2;
+			else if ( entityType.ToLower() == "assessement" )
+				entityTypeId = 3;
+			else if ( entityType.ToLower() == "learningopportunity" )
+				entityTypeId = 7;
+
+			else if ( entityType.ToLower() == "conditionmanifest" )
+				entityTypeId = 19;
+			else if ( entityType.ToLower() == "costmanifest" )
+				entityTypeId = 20;
+
+			try
+			{
+				//get entity
+				Entity entity = EntityManager.GetEntity( entityTypeId, parentBaseId );
+
+				//delete the active approval record if present
+				isValid = mgr.Delete( entity.EntityUid, ref status );
+			}
+			catch ( Exception ex )
+			{
+				LoggingHelper.LogError( ex, thisClassName + ".Entity_Approval_Save" );
+				status = LoggingHelper.FormatExceptions( ex );
+				isValid = false;
+
+			}
+
+			return isValid;
+		}
+
+
+		#endregion
+
+		#region Publishing related emails 
+		public static void SendPublishingSummaryEmail( string entityType, int organizationId, AppUser user, ref string status )
+		{
+			var owningOrg = OrganizationManager.GetForSummary( organizationId );
+			SendPublishingSummaryEmail( owningOrg, entityType, 1, "NoticeOfOrganizationPublish", user, ref status );
+		}
+		public static void SendPublishingSummaryEmail( string entityType, int actionCount, string organizationGUID, AppUser user, ref string status )
+		{
+			var owningOrg = OrganizationManager.GetForSummary( organizationGUID );
+			SendPublishingSummaryEmail( owningOrg, entityType, actionCount, "NoticeOfMassApprovals", user, ref status );
+		}
+		public static void SendPublishingSummaryEmail( Organization owningOrg, string entityType, int actionCount, string emailTemplateName, AppUser user, ref string status )
+		{
+
+
+			LoggingHelper.DoTrace( 7, thisClassName + string.Format( ".SendPublishingSummaryEmail(). Count: {0}, User: {1}, Org: {2}", actionCount, user.FullName(), owningOrg.Name ) );
+
+			string domainName = UtilityManager.GetAppKeyValue( "domainName", "" );
+			string approvalCCs = UtilityManager.GetAppKeyValue( "approvalCCs", "" );
+			string emailTemplate = EmailManager.GetEmailText( emailTemplateName );
+
+			int pTotalRows = 0;
+
+			var members = OrganizationServices.OrganizationMember_List( owningOrg.RowId.ToString(), 1, 10, ref pTotalRows );
+			string emailList = "";
+			foreach ( var item in members )
+			{
+				if ( !string.IsNullOrWhiteSpace( item.Email ) )
+					emailList += item.Email + "; ";
+			}
+			//string summaryUrl = string.Format( "<a href='{0}'>{1} (summary)</a>", UtilityManager.FormatAbsoluteUrl( string.Format( "~/summary/organization/{0}", owningOrg.Id ) ), owningOrg.Name );
+			string summaryUrl = UtilityManager.FormatAbsoluteUrl( string.Format( "~/summary/organization/{0}", owningOrg.Id ) );
+
+			string graphUrl = UtilityManager.GetAppKeyValue( "credRegistryGraphUrl", "" ) + owningOrg.ctid;
+			//
+			string subject = string.Format( "{0} Publishing Notification", entityType );
+			string body = "";
+			try
+			{
+				if ( emailTemplateName == "NoticeOfOrganizationPublish" )
+				{
+					body = string.Format( emailTemplate,
+						user.FirstName + " " + user.LastName,
+						owningOrg.Name,
+						summaryUrl,
+						graphUrl
+						);
+				}
+				else
+				{
+					body = string.Format( emailTemplate,
+						entityType,
+						user.FirstName + " " + user.LastName,
+						actionCount,
+						owningOrg.Name,
+						summaryUrl
+						);
+				}
+
+
+				body = body.Replace( "Approvals", "Publishing" );
+				body = body.Replace( "approved", "published" );
+				//, approvalCCs
+				EmailServices.SendEmail( emailList, subject, body, true );
+			}
+			catch ( Exception ex )
+			{
+				LoggingHelper.LogError( ex, thisClassName + ".CredentialAlignmentObjectFrameworkProfile_Save" );
+				status = LoggingHelper.FormatExceptions( ex );
+			}
+		}
+
+
+		public static void SendUnpublishingSummaryEmail( string entityType, int approvalCount, string organizationGUID, AppUser user, ref string status )
+		{
+			var owningOrg = OrganizationManager.GetForSummary( organizationGUID );
+
+			LoggingHelper.DoTrace( 7, thisClassName + string.Format( ".SendPublishingSummaryEmail(). Count: {0}, User: {1}, Org: {2}", approvalCount, user.FullName(), owningOrg.Name ) );
+
+			string domainName = UtilityManager.GetAppKeyValue( "domainName", "" );
+			string approvalCCs = UtilityManager.GetAppKeyValue( "approvalCCs", "" );
+			string emailTemplate = EmailManager.GetEmailText( "NoticeOfMassApprovals" );
+
+			string summaryUrl = UtilityManager.FormatAbsoluteUrl( string.Format( "~/summary/organization/{0}", owningOrg.Id ) );
+			string subject = string.Format( "{0} Un-Publishing Notification", entityType );
+
+			string body = string.Format( emailTemplate,
+					entityType,
+					user.FirstName + " " + user.LastName,
+					approvalCount,
+					owningOrg.Name,
+					summaryUrl
+					);
+
+			body = body.Replace( "Approvals", "Un-Publishing" );
+			body = body.Replace( "approved", "unpublished" );
+			EmailServices.SendSiteEmail( subject, body, approvalCCs );
+
+		}
+		#endregion
+
+		#region competencies OBSOLETE
+
+		#region CredentialAlignmentObjectFrameworkProfile OBSOLETE
 		/// <summary>
 		/// Get a CredentialAlignmentObjectFramework profile
 		/// </summary>
 		/// <param name="profileId"></param>
 		/// <returns></returns>
-		public static CredentialAlignmentObjectFrameworkProfile CredentialAlignmentObjectFrameworkProfile_Get( int profileId )
-		{
-			CredentialAlignmentObjectFrameworkProfile profile = Entity_CompetencyFrameworkManager.Get( profileId );
+		//public static CredentialAlignmentObjectFrameworkProfile CredentialAlignmentObjectFrameworkProfile_Get( int profileId )
+		//{
+		//	CredentialAlignmentObjectFrameworkProfile profile = Entity_CompetencyFrameworkManager.Get( profileId );
 
-			return profile;
-		}
+		//	return profile;
+		//}
 		/// <summary>
 		/// Add/Update CredentialAlignmentObjectFrameworkProfile
 		/// </summary>
@@ -1686,57 +2428,60 @@ namespace CTIServices
 		/// <param name="user"></param>
 		/// <param name="status"></param>
 		/// <returns></returns>
-		public bool CredentialAlignmentObjectFrameworkProfile_Save( CredentialAlignmentObjectFrameworkProfile entity, Guid parentUid, string action, AppUser user, ref string status )
-		{
-			bool isValid = true;
-			List<String> messages = new List<string>();
-			if ( entity == null || !BaseFactory.IsGuidValid( parentUid ) )
-			{
-				messages.Add( "Error - missing an identifier for the Competency Framework Profile" );
-				return false;
-			}
-			if ( string.IsNullOrWhiteSpace( entity.AlignmentType ) )
-			{
-				status = "Error - missing an alignment type" ;
-				return false;
-			}
-			try
-			{
-				Entity e = EntityManager.GetEntity( parentUid );
-				//remove this if properly passed from client
-				//plus need to migrate to the use of EntityId
-				entity.ParentId = e.Id;
-				entity.CreatedById = entity.LastUpdatedById = user.Id;
+		//[Obsolete]
+		//public bool CredentialAlignmentObjectFrameworkProfile_Save( CredentialAlignmentObjectFrameworkProfile entity, Guid parentUid, string action, AppUser user, ref string status )
+		//{
+		//	bool isValid = true;
+		//	List<String> messages = new List<string>();
+		//	if ( entity == null || !BaseFactory.IsGuidValid( parentUid ) )
+		//	{
+		//		messages.Add( "Error - missing an identifier for the Competency Framework Profile" );
+		//		return false;
+		//	}
+		//	if ( string.IsNullOrWhiteSpace( entity.AlignmentType ) )
+		//	{
+		//		status = "Error - missing an alignment type";
+		//		return false;
+		//	}
+		//	try
+		//	{
+		//		Entity parent = EntityManager.GetEntity( parentUid );
+		//		//remove this if properly passed from client
+		//		//plus need to migrate to the use of EntityId
+		//		entity.ParentId = parent.Id;
+		//		entity.CreatedById = entity.LastUpdatedById = user.Id;
 
-				if ( new Entity_CompetencyFrameworkManager().Save( entity, parentUid, user.Id, ref messages ) )
-				{
-					//if valid, status contains the cred id, category, and codeId
-					status = "Successfully Saved Profile";
-					activityMgr.AddActivity( "CredentialAlignmentObjectFrameworkProfile Profile", action, string.Format( "{0} added/updated CredentialAlignmentObjectFrameworkProfile profile: {1}", user.FullName(), entity.EducationalFrameworkName ), user.Id, 0, entity.Id );
-				}
-				else
-				{
-					status += string.Join( "<br/>", messages.ToArray() );
-					return false;
-				}
-			}
-			catch ( Exception ex )
-			{
-				LoggingHelper.LogError( ex, thisClassName + ".CredentialAlignmentObjectFrameworkProfile_Save" );
-				status = ex.Message;
-				isValid = false;
+		//		if ( new Entity_CompetencyFrameworkManager().Save( entity, parentUid, user.Id, ref messages ) )
+		//		{
+		//			//if valid, status contains the cred id, category, and codeId
+		//			status = "Successfully Saved Profile";
+		//			activityMgr.AddEditorActivity( "CredentialAlignmentObjectFrameworkProfile Profile", action, string.Format( "{0} added/updated CredentialAlignmentObjectFrameworkProfile profile: {1}", user.FullName(), entity.EducationalFrameworkName ), user.Id, 0, entity.Id );
 
-				if ( ex.InnerException != null && ex.InnerException.Message != null )
-				{
-					status = ex.InnerException.Message;
+		//			UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} adding/updating CAO FrameworkProfile profile: {1}", user.FullName(), entity.EducationalFrameworkName ) );
+		//		}
+		//		else
+		//		{
+		//			status += string.Join( "<br/>", messages.ToArray() );
+		//			return false;
+		//		}
+		//	}
+		//	catch ( Exception ex )
+		//	{
+		//		LoggingHelper.LogError( ex, thisClassName + ".CredentialAlignmentObjectFrameworkProfile_Save" );
+		//		status = LoggingHelper.FormatExceptions( ex );
+		//		isValid = false;
 
-					if ( ex.InnerException.InnerException != null && ex.InnerException.InnerException.Message != null )
-						status = ex.InnerException.InnerException.Message;
-				}
-			}
+		//		//if ( ex.InnerException != null && ex.InnerException.Message != null )
+		//		//{
+		//		//	status = ex.InnerException.Message;
 
-			return isValid;
-		}
+		//		//	if ( ex.InnerException.InnerException != null && ex.InnerException.InnerException.Message != null )
+		//		//		status = ex.InnerException.InnerException.Message;
+		//		//}
+		//	}
+
+		//	return isValid;
+		//}
 
 		/// <summary>
 		/// Delete CredentialAlignmentObjectFrameworkProfile
@@ -1746,55 +2491,57 @@ namespace CTIServices
 		/// <param name="user"></param>
 		/// <param name="status"></param>
 		/// <returns></returns>
-		public bool CredentialAlignmentObjectFrameworkProfile_Delete( Guid parentUid, int profileId, AppUser user, ref string status )
-		{
-			bool valid = true;
+		//public bool CredentialAlignmentObjectFrameworkProfile_Delete( Guid parentUid, int profileId, AppUser user, ref string status )
+		//{
+		//	bool valid = true;
 
-			Entity_CompetencyFrameworkManager mgr = new Entity_CompetencyFrameworkManager();
-			try
-			{
-				//get first to validate (soon)
-				Entity parent = EntityManager.GetEntity( parentUid );
+		//	Entity_CompetencyFrameworkManager mgr = new Entity_CompetencyFrameworkManager();
+		//	try
+		//	{
+		//		//get first to validate (soon)
+		//		Entity parent = EntityManager.GetEntity( parentUid );
 
-				//to do match to the conditionProfileId
-				CredentialAlignmentObjectFrameworkProfile profile = Entity_CompetencyFrameworkManager.Get( profileId );
-				if ( profile.ParentId != parent.Id )
-				{
-					status = "Error - invalid parentId";
-					return false;
-				}
-				valid = mgr.Delete( profileId, ref status );
+		//		//to do match to the conditionProfileId
+		//		CredentialAlignmentObjectFrameworkProfile profile = Entity_CompetencyFrameworkManager.Get( profileId );
+		//		if ( profile.ParentId != parent.Id )
+		//		{
+		//			status = "Error - invalid parentId";
+		//			return false;
+		//		}
+		//		valid = mgr.Delete( profileId, ref status );
 
-				if ( valid )
-				{
-					//if valid, status contains the cred id, category, and codeId
-					activityMgr.AddActivity( "CredentialAlignmentObjectFrameworkProfile", "Delete", string.Format( "{0} deleted CredentialAlignmentObjectFrameworkProfile ProfileId {1} from Parent Profile {2} (Id {3})", user.FullName(), profileId, parent.EntityType, parent.Id ), user.Id, 0, profileId );
-					status = "";
-				}
-			}
-			catch ( Exception ex )
-			{
-				LoggingHelper.LogError( ex, thisClassName + ".CredentialAlignmentObjectFrameworkProfile_Delete" );
-				status = ex.Message;
-				valid = false;
-			}
+		//		if ( valid )
+		//		{
+		//			//if valid, status contains the cred id, category, and codeId
+		//			activityMgr.AddEditorActivity( "CredentialAlignmentObjectFrameworkProfile", "Delete", string.Format( "{0} deleted CredentialAlignmentObjectFrameworkProfile ProfileId {1} from Parent Profile {2} (Id {3})", user.FullName(), profileId, parent.EntityType, parent.Id ), user.Id, 0, profileId );
+		//			status = "";
 
-			return valid;
-		}
+		//			UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} deleting a CAO FrameworkProfile profile: {1}", user.FullName(), profile.EducationalFrameworkName ) );
+		//		}
+		//	}
+		//	catch ( Exception ex )
+		//	{
+		//		LoggingHelper.LogError( ex, thisClassName + ".CredentialAlignmentObjectFrameworkProfile_Delete" );
+		//		status = ex.Message;
+		//		valid = false;
+		//	}
+
+		//	return valid;
+		//}
 		#endregion
 
-		#region CredentialAlignmentObjectItemProfile Profile
+		#region CredentialAlignmentObjectItemProfile Profile OBSOLETE
 		/// <summary>
 		/// Get a Credential Alignment profile
 		/// </summary>
 		/// <param name="profileId"></param>
 		/// <returns></returns>
-		public static CredentialAlignmentObjectItemProfile CredentialAlignmentObjectItemProfile_Get( int profileId )
-		{
-			CredentialAlignmentObjectItemProfile profile = Entity_CompetencyFrameworkManager.Entity_Competency_Get( profileId );
+		//public static CredentialAlignmentObjectItemProfile CredentialAlignmentObjectItemProfile_Get( int profileId )
+		//{
+		//	CredentialAlignmentObjectItemProfile profile = Entity_CompetencyFrameworkManager.Entity_CompetencyFrameworkItem_Get( profileId );
 
-			return profile;
-		}
+		//	return profile;
+		//}
 		/// <summary>
 		/// Add/Update CredentialAlignmentObjectItemProfile
 		/// </summary>
@@ -1804,91 +2551,97 @@ namespace CTIServices
 		/// <param name="user"></param>
 		/// <param name="status"></param>
 		/// <returns></returns>
-		public bool CredentialAlignmentObjectItemProfile_Save( CredentialAlignmentObjectItemProfile entity, Guid parentUid, string action, AppUser user, ref string status )
-		{
-			bool isValid = true;
-			List<String> messages = new List<string>();
-			if ( entity == null || !BaseFactory.IsGuidValid( parentUid ) )
-			{
-				messages.Add( "Error - missing an identifier for the Competency Profile" );
-				return false;
-			}
+		//public bool CredentialAlignmentObjectItemProfile_Save( CredentialAlignmentObjectItemProfile entity, Guid parentUid, string action, AppUser user, ref string status )
+		//{
+		//	bool isValid = true;
+		//	List<String> messages = new List<string>();
+		//	if ( entity == null || !BaseFactory.IsGuidValid( parentUid ) )
+		//	{
+		//		messages.Add( "Error - missing an identifier for the Competency Profile" );
+		//		return false;
+		//	}
 
-			try
-			{
-				Entity e = EntityManager.GetEntity( parentUid );
-				//remove this if properly passed from client
-				//plus need to migrate to the use of EntityId
-				//entity.ParentId = e.Id;
-				entity.CreatedById = entity.LastUpdatedById = user.Id;
+		//	try
+		//	{
+		//		Entity parent = EntityManager.GetEntity( parentUid );
+		//		//remove this if properly passed from client
+		//		//plus need to migrate to the use of EntityId
+		//		//entity.ParentId = e.Id;
+		//		entity.CreatedById = entity.LastUpdatedById = user.Id;
 
-				if ( new Entity_CompetencyFrameworkManager().Entity_Competency_Save( entity, user.Id, ref messages ) )
-				{
-					//if valid, status contains the cred id, category, and codeId
-					status = "Successfully Saved Profile";
-					activityMgr.AddActivity( "CredentialAlignmentObjectItemProfile Profile", action, string.Format( "{0} added/updated CredentialAlignmentObjectItemProfile profile: {1}", user.FullName(), entity.Name ), user.Id, 0, entity.Id );
-				}
-				else
-				{
-					status += string.Join( "<br/>", messages.ToArray() );
-					return false;
-				}
-			}
-			catch ( Exception ex )
-			{
-				LoggingHelper.LogError( ex, thisClassName + ".CredentialAlignmentObjectItemProfile_Save" );
-				status = ex.Message;
-				isValid = false;
+		//		if ( new Entity_CompetencyFrameworkManager().Entity_CompetencyFrameworkItem_Save( entity, user.Id, ref messages ) )
+		//		{
+		//			//if valid, status contains the cred id, category, and codeId
+		//			status = "Successfully Saved Profile";
+		//			activityMgr.AddEditorActivity( "CredentialAlignmentObjectItemProfile Profile", action, string.Format( "{0} added/updated CredentialAlignmentObjectItemProfile profile: {1}", user.FullName(), entity.TargetNodeName ), user.Id, 0, entity.Id );
 
-				if ( ex.InnerException != null && ex.InnerException.Message != null )
-				{
-					status = ex.InnerException.Message;
+		//			UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by {0} saving a CAO Item profile: {1}", user.FullName(), entity.TargetNodeName ) );
+		//		}
+		//		else
+		//		{
+		//			status += string.Join( "<br/>", messages.ToArray() );
+		//			return false;
+		//		}
+		//	}
+		//	catch ( Exception ex )
+		//	{
+		//		LoggingHelper.LogError( ex, thisClassName + ".CredentialAlignmentObjectItemProfile_Save" );
+		//		status = ex.Message;
+		//		isValid = false;
 
-					if ( ex.InnerException.InnerException != null && ex.InnerException.InnerException.Message != null )
-						status = ex.InnerException.InnerException.Message;
-				}
-			}
+		//		if ( ex.InnerException != null && ex.InnerException.Message != null )
+		//		{
+		//			status = ex.InnerException.Message;
 
-			return isValid;
-		}
+		//			if ( ex.InnerException.InnerException != null && ex.InnerException.InnerException.Message != null )
+		//				status = ex.InnerException.InnerException.Message;
+		//		}
+		//	}
+
+		//	return isValid;
+		//}
 
 		/// <summary>
-		/// Delete CredentialAlignmentObjectItemProfile
+		/// Delete CredentialAlignmentObjectItemProfile - Competency
 		/// </summary>
 		/// <param name="conditionProfileId"></param>
 		/// <param name="profileId"></param>
 		/// <param name="user"></param>
 		/// <param name="status"></param>
 		/// <returns></returns>
-		public bool CredentialAlignmentObjectItemProfile_Delete( int conditionProfileId, int profileId, AppUser user, ref string status )
-		{
-			bool valid = true;
+		//public bool Entity_Competency_Delete( int conditionProfileId, int profileId, AppUser user, ref string status )
+		//{
+		//	bool valid = true;
 
-			Entity_CompetencyFrameworkManager mgr = new Entity_CompetencyFrameworkManager();
-			try
-			{
-				//get first to validate (soon)
-				//to do match to the conditionProfileId
-				CredentialAlignmentObjectItemProfile profile = Entity_CompetencyFrameworkManager.Entity_Competency_Get( profileId );
+		//	Entity_CompetencyFrameworkManager mgr = new Entity_CompetencyFrameworkManager();
+		//	try
+		//	{
+		//		//get first to validate (soon)
+		//		//to do match to the conditionProfileId
+		//		CredentialAlignmentObjectItemProfile profile = Entity_CompetencyFrameworkManager.Entity_CompetencyFrameworkItem_Get( profileId );
 
-				valid = mgr.Entity_Competency_Delete( profileId, ref status );
+		//		valid = mgr.Entity_CompetencyFrameworkItem_Delete( profileId, ref status );
 
-				if ( valid )
-				{
-					//if valid, status contains the cred id, category, and codeId
-					activityMgr.AddActivity( "CredentialAlignmentObjectItemProfile", "Delete", string.Format( "{0} deleted CredentialAlignmentObjectItemProfile Profile {1} from Profile  {2}", user.FullName(), profileId, conditionProfileId ), user.Id, 0, profileId );
-					status = "";
-				}
-			}
-			catch ( Exception ex )
-			{
-				LoggingHelper.LogError( ex, thisClassName + ".CredentialAlignmentObjectItemProfile_Delete" );
-				status = ex.Message;
-				valid = false;
-			}
+		//		if ( valid )
+		//		{
+		//			//if valid, status contains the cred id, category, and codeId
+		//			activityMgr.AddEditorActivity( "CredentialAlignmentObjectItemProfile", "Delete", string.Format( "{0} deleted CredentialAlignmentObjectItemProfile Profile {1} from Profile  {2}", user.FullName(), profileId, conditionProfileId ), user.Id, 0, profileId );
+		//			status = "";
 
-			return valid;
-		}
+		//			ConditionProfile cp = ConditionProfileServices.GetBasic( conditionProfileId );
+
+		//			UpdateTopLevelEntityLastUpdateDate( cp.ParentId, string.Format( "Entity Update triggered by {0} deleting a Compentency, TargetNodeName: {1}", user.FullName(), profile.TargetNodeName ) );
+		//		}
+		//	}
+		//	catch ( Exception ex )
+		//	{
+		//		LoggingHelper.LogError( ex, thisClassName + ".CredentialAlignmentObjectItemProfile_Delete" );
+		//		status = ex.Message;
+		//		valid = false;
+		//	}
+
+		//	return valid;
+		//}
 
 		#endregion
 		#endregion

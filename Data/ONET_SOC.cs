@@ -22,6 +22,7 @@ namespace Data
         public Nullable<int> JobFamily { get; set; }
         public string URL { get; set; }
         public Nullable<int> Totals { get; set; }
+        public Nullable<bool> IsNew2018 { get; set; }
     
         public virtual ONET_SOC_JobFamily ONET_SOC_JobFamily { get; set; }
     }

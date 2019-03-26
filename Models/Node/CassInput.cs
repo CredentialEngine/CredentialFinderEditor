@@ -21,4 +21,15 @@ namespace Models.Node
 		public List<HelperModels.Cass.CassCompetency> Competencies { get; set; }
 		public HelperModels.Cass.CassFramework Framework { get; set; }
 	}
+
+	public class CassInputV2
+	{
+		public CassInputV2()
+		{
+
+		}
+
+		public ProfileContext Context { get; set; }
+		public List<HelperModels.Cass.CassCompetencyV2> Competencies { get; set; }
+	}
 }

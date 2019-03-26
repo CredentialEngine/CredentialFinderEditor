@@ -16,7 +16,7 @@ namespace Models
 			UserRoles = new List<string>();
 			Roles = "";
             OrgMbrs = "";
-			Organizations = new List<CodeItem>();
+			PublishByOrgCtid = "";
 		}
 		//public int Id { get; set; }
 		//public Guid RowId { get; set; }
@@ -28,41 +28,28 @@ namespace Models
 		public string SortName { get; set; }
 		public string AspNetUserId { get; set; }
 		//
+		public string CEAccountIdentifier { get; set; } = "";
 		public bool IsActive { get; set; }
 		public bool IsValid { get; set; }
 
 		public List<string> UserRoles { get; set; }
 		public string Roles { get; set; }
         public string OrgMbrs { get; set; }
-
+		//public List<CodeItem> Organizations1 { get; set; }
+        public List<Organization> Organizations { get; set; } = new List<Organization>();
 		public string lastLogon { get; set; }
 
 		public int PrimaryOrgId { get; set; }
+		public string PublishByOrgCtid { get; set; }
 		public int DefaultRoleId { get; set; }
-		public List<CodeItem> Organizations { get; set; }
 
-		//public bool CanPublish
-		//{
-		//	get 
-		//	{
-		//		if ( Roles == null || Roles.Count == 0)
-		//			return false;
-		//		else 
-		//		{
-		//			if ( Roles.Contains( "CTI Author" )
-		//		)
-		//				return true;
-		//			else
-		//				return false;
-		//		}
-		//	}
-		//}
 
-		/// <summary>
-		/// Returns full name of user
-		/// </summary>
-		/// <returns></returns>
-		public string FullName()
+
+        /// <summary>
+        /// Returns full name of user
+        /// </summary>
+        /// <returns></returns>
+        public string FullName()
 		{
 			if ( string.IsNullOrWhiteSpace( FirstName ) )
 				return "Incomplete - Update Profile";

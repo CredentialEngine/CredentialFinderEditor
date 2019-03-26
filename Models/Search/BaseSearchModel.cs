@@ -27,8 +27,9 @@ namespace Models.Search
 
 		public string OrderBy { get; set; }
 		public bool IsDescending { get; set; }
-
-		public int PageNumber { get; set; }
+        public bool IsMicrosearch { get; set; }
+        public bool IsAutocomplete { get; set; }
+        public int PageNumber { get; set; }
 		public int PageSize { get; set; }
 
 		public int TotalRows { get; set; }

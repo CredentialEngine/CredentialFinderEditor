@@ -1,0 +1,14 @@
+﻿All
+<p>{0} has approved the following <b>{1}</b>:</p>
+<table style="width:90%;">
+<tr><td style="width: 100px; text-align: right;">Name:</td><td>{2}</td></tr>
+<tr><td style="width: 100px; text-align: right;">Organization:</td><td>{6}</td></tr>
+<tr><td style="width: 100px; text-align: right;">Number:</td><td>{3}</td></tr>
+<tr><td style="width: 100px; text-align: right;">Review Link:</td><td><a href='{4}'>{1}</a></td></tr>
+<tr><td style="width: 100px; text-align: right;">Edit Link:</td><td><a href='{5}'>{1}</a></td></tr>
+</table>
+
+<p>HINT: login first, before clicking links! Also, delay for awhile, and use the organization summary to make use of mass publishing.</p>
+
+
+<p>The Credential Engine Team

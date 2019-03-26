@@ -65,5 +65,19 @@ namespace Data.Views
         public string AgentAndRoles { get; set; }
         public int entryConditionCount { get; set; }
         public int corequisiteConditionCount { get; set; }
+        public string ImageUrl { get; set; }
+        public string ExternalIdentifier { get; set; }
+        public string cerEnvelopeUrl { get; set; }
+        public string editUrl { get; set; }
+        public string detailUrl { get; set; }
+        public Nullable<System.DateTime> EntityLastUpdated { get; set; }
+        public string QAAgentAndRoles { get; set; }
+        public string HasPartList { get; set; }
+        public string IsPartOfList { get; set; }
+        public string LastApprovalDate { get; set; }
+        public string ContentApprovedBy { get; set; }
+        public Nullable<int> ContentApprovedById { get; set; }
+        public string IsPublished { get; set; }
+        public string LastPublishDate { get; set; }
     }
 }

@@ -14,7 +14,7 @@ namespace CTI.Directory.Areas.Admin.Controllers
 
 		public string RoleName { get; set; }
 		// GET: Users
-		public Boolean isAdminUser()
+		public Boolean IsAdminUser()
 		{
 			if ( User.Identity.IsAuthenticated )
 			{

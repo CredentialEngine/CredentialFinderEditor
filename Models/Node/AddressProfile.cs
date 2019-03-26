@@ -8,7 +8,9 @@ namespace Models.Node
 	{
 		[Property( DBName = "Name" )]
 		public override string Name { get; set; }
-		public bool IsMainAddress { get; set; }
+        public string ExternalIdentifier { get; set; }
+        
+        public bool IsMainAddress { get; set; }
 		public string Address1 { get; set; }
 		public string Address2 { get; set; }
 		public string PostOfficeBoxNumber { get; set; }

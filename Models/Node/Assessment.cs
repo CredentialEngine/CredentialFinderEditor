@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Models.ProfileModels;
 
 namespace Models.Node
 {
@@ -26,9 +27,6 @@ namespace Models.Node
 			Corequisite = new List<ProfileLink>();
 			EntryCondition = new List<ProfileLink>();
 			AssessmentConnections = new List<ProfileLink>();
-			//to be deleted
-			AssessmentExamples = new List<TextValueProfile>();
-			IsPartOfCredential = new List<ProfileLink>();
 
 			//AssessmentProcess = new List<ProfileLink>();
 			AdministrationProcess = new List<ProfileLink>();
@@ -37,6 +35,13 @@ namespace Models.Node
 
 			Cost = new List<ProfileLink>();
 			FinancialAssistance = new List<ProfileLink>();
+
+			RequiresCompetenciesFrameworks = new List<ProfileLink>();
+
+			//to be deleted
+			AssessmentExamples = new List<TextValueProfile>();
+			IsPartOfCredential = new List<ProfileLink>();
+
 		}
 
 		//Basic Info
@@ -45,7 +50,6 @@ namespace Models.Node
 	
 		[Property( DBName = "AssessmentMethodType", DBType = typeof( Models.Common.Enumeration ) )]
 		public List<int> AssessmentMethodType { get; set; }
-		
 		
 		[Property( DBName = "AssessmentUseType", DBType = typeof( Models.Common.Enumeration ) )]
 		public List<int> AssessmentUseType { get; set; }
@@ -58,7 +62,10 @@ namespace Models.Node
 		public string DeliveryTypeDescription { get; set; }
 		public string VerificationMethodDescription { get; set; }
 
-		public int ManagingOrgId { get; set; }
+        [Property(DBName = "AudienceType", DBType = typeof(Models.Common.Enumeration))]
+        public List<int> AudienceType { get; set; }
+
+        public int ManagingOrgId { get; set; }
 
 		[Property( DBName = "OwningOrganization", DBType = typeof( Models.Common.Organization ) )]
 		public ProfileLink DisplayOwningOrganization { get; set; }
@@ -78,6 +85,7 @@ namespace Models.Node
 		public List<ProfileLink> OfferedByOrganizationRole { get; set; }
 		public List<TextValueProfile> Subject { get; set; }
 		public List<TextValueProfile> Keyword { get; set; }
+
 
 		public string CodedNotation { get; set; }
 		public string CredentialRegistryId { get; set; }
@@ -100,7 +108,21 @@ namespace Models.Node
 		}
 		public string AvailableOnlineAt { get; set; }
 		public int InLanguageId { get; set; }
-		public string CreditHourType { get; set; }
+        public List<int> InLanguageIds { get; set; }
+        public List<LanguageProfile> InLanguageCodeList
+        {
+            get
+            {
+                var list = new List<LanguageProfile>();
+                foreach ( var item in InLanguageIds )
+                {
+                    var newItem = new LanguageProfile { LanguageCodeId = item };
+                    list.Add( newItem );
+                }
+                return list;
+            }
+        }
+        public string CreditHourType { get; set; }
 		public decimal CreditHourValue { get; set; }
 
 		[Property( DBName = "CreditUnitTypeId" )]
@@ -140,12 +162,18 @@ namespace Models.Node
 		[Property( DBName = "Addresses", DBType = typeof( Models.Common.Address ) )]
 		public List<ProfileLink> Addresses { get; set; }
 
-		
+		[Property( Type = typeof( MicroProfile ), DBType = typeof( Models.Common.Enumeration ) )]
+		public List<ProfileLink> Occupation { get; set; }
 
-		[Property( DBName = "InstructionalProgramCategory", Type = typeof( MicroProfile ), DBType = typeof( Models.Common.Enumeration ) )]
+		[Property( Type = typeof( MicroProfile ), DBType = typeof( Models.Common.Enumeration ) )]
+		public List<ProfileLink> Industry { get; set; }
+		public List<TextValueProfile> AlternativeIndustries { get; set; } = new List<TextValueProfile>();
+		public List<TextValueProfile> AlternativeOccupations { get; set; } = new List<TextValueProfile>();
+
+		[Property( DBName = "InstructionalProgramType", Type = typeof( MicroProfile ), DBType = typeof( Models.Common.Enumeration ) )]
 		public List<ProfileLink> CipCode { get; set; }
 
-		public List<TextValueProfile> OtherInstructionalProgramCategory { get; set; }
+		public List<TextValueProfile> AlternativeInstructionalProgramType { get; set; }
 
 		[Property( Type = typeof( Credential ) )]
 		public List<ProfileLink> IsPartOfCredential { get; set; }
@@ -170,13 +198,6 @@ namespace Models.Node
 		[Property( Type = typeof( JurisdictionProfile ) )]
 		public List<ProfileLink> JurisdictionAssertions { get; set; }
 
-		#region TO BE DELETED 
-
-		//Text Value Info
-		//public List<TextValueProfile> VersionIdentifier { get; set; }
-
-		public List<TextValueProfile> AssessmentExamples { get; set; }
-		public string AssessmentInformationUrl { get; set; }
 		[Property( Type = typeof( ConditionManifest ) )]
 		public List<ProfileLink> CommonCosts { get; set; }
 		[Property( Type = typeof( ConditionManifest ) )]
@@ -195,9 +216,6 @@ namespace Models.Node
 		[Property( Type = typeof( ConditionProfile ) )]
 		public List<ProfileLink> EntryCondition { get; set; }
 
-		[Property( Type = typeof( ConditionProfile ) )]
-		public List<ProfileLink> AssessmentConnections { get; set; }
-
 		[Property( Type = typeof( ProcessProfile ) )]
 		public List<ProfileLink> AdministrationProcess { get; set; }
 
@@ -206,6 +224,19 @@ namespace Models.Node
 
 		[Property( Type = typeof( ProcessProfile ) )]
 		public List<ProfileLink> MaintenanceProcess { get; set; }
+
+		#region TO BE DELETED  =========================================
+
+		//Text Value Info
+		//public List<TextValueProfile> VersionIdentifier { get; set; }
+
+		public List<TextValueProfile> AssessmentExamples { get; set; }
+		public string AssessmentInformationUrl { get; set; }
+		
+
+		[Property( Type = typeof( ConditionProfile ) )]
+		public List<ProfileLink> AssessmentConnections { get; set; }
+
 		#endregion
 
 	}

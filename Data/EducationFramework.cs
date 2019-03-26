@@ -17,7 +17,6 @@ namespace Data
         public EducationFramework()
         {
             this.EducationFramework_Competency = new HashSet<EducationFramework_Competency>();
-            this.Entity_EducationFramework = new HashSet<Entity_EducationFramework>();
         }
     
         public int Id { get; set; }
@@ -29,9 +28,11 @@ namespace Data
         public Nullable<System.DateTime> Created { get; set; }
         public Nullable<int> CreatedById { get; set; }
         public Nullable<int> OwningOrganizationId { get; set; }
+        public string CTID { get; set; }
+        public Nullable<System.DateTime> LastUpdated { get; set; }
+        public Nullable<int> LastUpdatedById { get; set; }
     
         public virtual Account Account { get; set; }
         public virtual ICollection<EducationFramework_Competency> EducationFramework_Competency { get; set; }
-        public virtual ICollection<Entity_EducationFramework> Entity_EducationFramework { get; set; }
     }
 }

@@ -19,6 +19,7 @@ namespace Data
             this.Credential = new HashSet<Credential>();
             this.Assessment = new HashSet<Assessment>();
             this.LearningOpportunity = new HashSet<LearningOpportunity>();
+            this.Entity_Language = new HashSet<Entity_Language>();
         }
     
         public int Id { get; set; }
@@ -29,9 +30,13 @@ namespace Data
         public string NativeName { get; set; }
         public Nullable<int> SortOrder { get; set; }
         public Nullable<bool> HasSublanguage { get; set; }
+        public Nullable<int> CredentialTotals { get; set; }
+        public Nullable<int> AssessmentTotals { get; set; }
+        public Nullable<int> LearningOpportunityTotals { get; set; }
     
         public virtual ICollection<Credential> Credential { get; set; }
         public virtual ICollection<Assessment> Assessment { get; set; }
         public virtual ICollection<LearningOpportunity> LearningOpportunity { get; set; }
+        public virtual ICollection<Entity_Language> Entity_Language { get; set; }
     }
 }

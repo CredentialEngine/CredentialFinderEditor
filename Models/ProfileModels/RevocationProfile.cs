@@ -15,7 +15,7 @@ namespace Models.ProfileModels
 		{
 			//RevocationCriteriaType = new Enumeration();
 			Region = new List<JurisdictionProfile>();
-			CredentialProfiled = new List<Credential>();
+			//CredentialProfiled = new List<Credential>();
 			RemovalDateEffective = "";
 			//RenewalDateEffective = "";
 		}
@@ -30,7 +30,8 @@ namespace Models.ProfileModels
 		public string RevocationCriteriaUrl { get; set; }
 		public string RevocationCriteriaDescription { get; set; }
 
-		public List<Credential> CredentialProfiled { get; set; } //holds values of RequiredCredential
+		//deprecated 170825
+		//public List<Credential> CredentialProfiled { get; set; } //holds values of RequiredCredential
 
 		public List<JurisdictionProfile> Region { get; set; }
 

@@ -2,24 +2,34 @@
 
 using Newtonsoft.Json;
 
-namespace MetadataRegistry
+namespace CredentialRegistry
 {
 	public class Envelope
 	{
+		public Envelope()
+		{
+			NodeHeader = new CredentialRegistry.NodeHeader();
+		}
+
 		[JsonProperty( PropertyName = "envelope_type" )]
 		public string EnvelopeType { get; set; }
 
 		[JsonProperty( PropertyName = "envelope_version" )]
 		public string EnvelopeVersion { get; set; }
 
+        [JsonProperty( PropertyName = "envelope_ceterms_ctid" )]
+        public string EnvelopeCetermsCtid { get; set; }
 
-		/// <summary>
-		/// Not used for an add - may be added back later
-		/// </summary>
-		//[JsonProperty( PropertyName = "envelope_id" )]
-		//public string EnvelopeIdentifier { get; set; }
+        [JsonProperty( PropertyName = "envelope_ctdl_type" )]
+        public string EnvelopeCtdlType { get; set; }
 
-		[JsonProperty( PropertyName = "envelope_community" )]
+        /// <summary>
+        /// Not used for an add - may be added back later
+        /// </summary>
+        //[JsonProperty( PropertyName = "envelope_id" )]
+        //public string EnvelopeIdentifier { get; set; }
+
+        [JsonProperty( PropertyName = "envelope_community" )]
 		public string EnvelopeCommunity { get; set; }
 
 		[JsonProperty( PropertyName = "resource" )]
@@ -33,6 +43,15 @@ namespace MetadataRegistry
 
 		[JsonProperty( PropertyName = "resource_public_key" )]
 		public string ResourcePublicKey { get; set; }
+
+		/// <summary>
+		/// We don't have access to this here, only via the accounts site???
+		/// </summary>
+		[JsonProperty( PropertyName = "publisher_id" )]
+		public string publisher_id { get; set; }
+
+		[JsonProperty( PropertyName = "node_headers" )]
+		public NodeHeader NodeHeader { get; set; }
 	}
 	public class UpdateEnvelope : Envelope
 	{
@@ -55,8 +74,8 @@ namespace MetadataRegistry
 		public object DecodedResource { get; set; }
 
 		//probably don't care about the headers, but include for now
-		[JsonProperty( PropertyName = "node_headers" )]
-		public NodeHeader NodeHeaders { get; set; }
+		//[JsonProperty( PropertyName = "node_headers" )]
+		//public NodeHeader NodeHeaders { get; set; }
 
 	}
 	public class NodeHeader
@@ -174,4 +193,5 @@ namespace MetadataRegistry
 		public List<string> JsonSchema { get; set; }
 
 	}
+
 }

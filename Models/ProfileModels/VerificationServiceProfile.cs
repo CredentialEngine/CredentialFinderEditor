@@ -13,9 +13,11 @@ namespace Models.ProfileModels
 		public VerificationServiceProfile()
 		{
 			EstimatedCost = new List<CostProfile>();
-			RelevantCredential = new Credential();
+			//RelevantCredential = new Credential();
 			ClaimType = new Enumeration();
+			TargetCredential = new List<Credential>();
 			//VerificationStatus = new List<VerificationStatus>();
+			OfferedBy = new Organization();
 		}
 
 		public string SubjectWebpage { get; set; }
@@ -37,19 +39,39 @@ namespace Models.ProfileModels
 		public List<CostProfile> EstimatedCost { get; set; }
 		public List<CostProfile> EstimatedCosts { get { return EstimatedCost; } set { EstimatedCost = value; } } //Convenience for publishing
 
+		public List<Credential> TargetCredential { get; set; }
 
 		//note the credential will now be the context entity
-		public string TargetCredential { get; set; } //url
+		//public string TargetCredential { get; set; } //url
 		public int TargetCredentialId {
 			get { return RelevantCredential.Id; }
 			set { RelevantCredential.Id = value; }
 		}
-		public Credential RelevantCredential { get; set; } //Workaround
+		//Workaround
+		public Credential RelevantCredential { get; set; } = new Credential();
 
 		public Enumeration ClaimType { get; set; }
 
 
+		public Organization OfferedBy { get; set; } 
 		public Guid OfferedByAgentUid { get; set; }
+		public List<TextValueProfile> Auto_OfferedBy
+		{
+			get
+			{
+				var result = new List<TextValueProfile>();
+				if ( OfferedBy == null
+					|| OfferedBy.Id == 0
+					|| ( OfferedBy.CTID ?? "" ).Length != 39 )
+					return result;
+
+				if ( !string.IsNullOrWhiteSpace( OfferedBy.CTID ) && OfferedBy.CTID.IndexOf( "00000000-" ) == -1 )
+				{
+					result.Add( new TextValueProfile() { TextValue = Utilities.GetWebConfigValue( "credRegistryResourceUrl" ) + OfferedBy.CTID } );
+				}
+				return result;
+			}
+		}
 		public string VerificationDirectory { get; set; }
 		public List<TextValueProfile> Auto_VerificationDirectory
 		{

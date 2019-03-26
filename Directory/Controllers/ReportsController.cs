@@ -10,17 +10,33 @@ using CTIServices;
 
 namespace CTI.Directory.Controllers
 {
-    public class ReportsController : Controller
+    public class ReportsController : BaseController
     {
         // GET: Report
         public ActionResult Index()
         {
 			CommonTotals vm = new CommonTotals();
-			
-
 			vm = ReportServices.SiteTotals();
 
-			return View( "~/Views/V2/Reports/Reports.cshtml", vm );
+			return View( "~/Views/V2/Reports/ReportsV2.cshtml", vm );
         }
-    }
+		public ActionResult V1()
+		{
+			CommonTotals vm = new CommonTotals();
+			vm = ReportServices.SiteTotals();
+			return View( "~/Views/V2/Reports/Reports.cshtml", vm );
+		}
+
+		public JsonResult GetOrganizationStatistics( string organizationCTID, string password )
+		{
+			if( password != Utilities.ConfigHelper.GetConfigValue( "CEAccountSystemStaticPassword", Guid.NewGuid().ToString() ) )
+			{
+				return null;
+			}
+
+			var data = ReportServices.GetOrganizationStatistics( organizationCTID );
+			return JsonResponse( data, true, "", null );
+		}
+		//
+	}
 }

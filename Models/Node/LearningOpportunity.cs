@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Models.Common;
+using Models.ProfileModels;
 
 namespace Models.Node
 {
@@ -35,6 +36,8 @@ namespace Models.Node
 
 			Cost = new List<ProfileLink>();
 			FinancialAssistance = new List<ProfileLink>();
+
+			RequiresCompetenciesFrameworks = new List<ProfileLink>();
 		}
 		
 
@@ -65,14 +68,45 @@ namespace Models.Node
 		public List<ProfileLink> OwnerOrganizationRoles { get; set; }
 		[Property( Type = typeof( AgentRoleProfile_Recipient ), DBName = "OfferedByOrganizationRole" )]
 		public List<ProfileLink> OfferedByOrganizationRole { get; set; }
-
-		public string CodedNotation { get; set; }
+        [Property(DBName = "AudienceType", DBType = typeof(Models.Common.Enumeration))]
+        public List<int> AudienceType { get; set; }
+        public string CodedNotation { get; set; }
+		public string VersionIdentifier { get; set; }
+		public List<Models.Common.IdentifierValue> Auto_VersionIdentifier
+		{
+			get
+			{
+				var result = new List<Models.Common.IdentifierValue>();
+				if ( !string.IsNullOrWhiteSpace( VersionIdentifier ) )
+				{
+					result.Add( new Models.Common.IdentifierValue()
+					{
+						IdentifierValueCode = VersionIdentifier
+					} );
+				}
+				return result;
+			}
+		}
 		public string CredentialRegistryId { get; set; }
 		public string CTID { get; set; }
 		public string AvailableOnlineAt { get; set; }
 		public string AvailabilityListing { get; set; }
 		public int InLanguageId { get; set; }
-		public string CreditHourType { get; set; }
+        public List<int> InLanguageIds { get; set; }
+        public List<LanguageProfile> InLanguageCodeList
+        {
+            get
+            {
+                var list = new List<LanguageProfile>();
+                foreach ( var item in InLanguageIds )
+                {
+                    var newItem = new LanguageProfile { LanguageCodeId = item };
+                    list.Add( newItem );
+                }
+                return list;
+            }
+        }
+        public string CreditHourType { get; set; }
 		public decimal CreditHourValue { get; set; }
 
 		[Property( DBName = "CreditUnitTypeId" )]
@@ -80,11 +114,17 @@ namespace Models.Node
 		public string CreditUnitTypeDescription { get; set; }
 		public decimal CreditUnitValue { get; set; }
 
-	
-		[Property( DBName = "InstructionalProgramCategory", Type = typeof( MicroProfile ), DBType = typeof( Models.Common.Enumeration ) )]
-		public List<ProfileLink> CipCode { get; set; }
+		[Property( Type = typeof( MicroProfile ), DBType = typeof( Models.Common.Enumeration ) )]
+		public List<ProfileLink> Occupation { get; set; }
 
-		public List<TextValueProfile> OtherInstructionalProgramCategory { get; set; }
+		[Property( Type = typeof( MicroProfile ), DBType = typeof( Models.Common.Enumeration ) )]
+		public List<ProfileLink> Industry { get; set; }
+		public List<TextValueProfile> AlternativeIndustries { get; set; } = new List<TextValueProfile>();
+		public List<TextValueProfile> AlternativeOccupations { get; set; } = new List<TextValueProfile>();
+
+		[Property( DBName = "InstructionalProgramType", Type = typeof( MicroProfile ), DBType = typeof( Models.Common.Enumeration ) )]
+		public List<ProfileLink> CipCode { get; set; }
+		public List<TextValueProfile> AlternativeInstructionalProgramType { get; set; } = new List<TextValueProfile>();
 
 
 		//Profiles
@@ -113,7 +153,7 @@ namespace Models.Node
 		[Property( DBName = "Addresses", DBType = typeof( Models.Common.Address ) )]
 		public List<ProfileLink> Addresses { get; set; }
 
-	
+
 
 		[Property( DBName = "RequiresCompetenciesFrameworks", DBType = typeof( Models.Common.CredentialAlignmentObjectFrameworkProfile ) )]
 		public List<ProfileLink> RequiresCompetenciesFrameworks { get; set; }
@@ -132,15 +172,11 @@ namespace Models.Node
 		[Property( Type = typeof( JurisdictionProfile ) )]
 		public List<ProfileLink> JurisdictionAssertions { get; set; }
 
-		#region TO BE DELETED
-		[Property( DBName = "ResourceUrls" )]
-		public List<TextValueProfile> ResourceUrls { get; set; }
-
-		public List<ProfileLink> EmbeddedAssessment { get; set; }
 		[Property( Type = typeof( ConditionManifest ) )]
 		public List<ProfileLink> CommonCosts { get; set; }
 		[Property( Type = typeof( ConditionManifest ) )]
 		public List<ProfileLink> CommonConditions { get; set; }
+
 
 		[Property( Type = typeof( ConditionProfile ) )]
 		public List<ProfileLink> Requires { get; set; }
@@ -153,6 +189,14 @@ namespace Models.Node
 
 		[Property( Type = typeof( ConditionProfile ) )]
 		public List<ProfileLink> EntryCondition { get; set; }
+
+
+		#region TO BE DELETED - maybe not all
+		[Property( DBName = "ResourceUrls" )]
+		public List<TextValueProfile> ResourceUrls { get; set; }
+
+		public List<ProfileLink> EmbeddedAssessment { get; set; }
+
 
 
 		[Property( Type = typeof( ConditionProfile ) )]

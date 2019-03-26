@@ -34,7 +34,7 @@ namespace Models.Common
 		/// An option available on this contact point.
 		/// For example, a toll-free number or support for hearing-impaired callers.
 		/// </summary>
-		public string ContactOption { get; set; }
+		//public string ContactOption { get; set; }
 		public string Email { get; set; }
 		public string Telephone { get; set; }
 		public string FaxNumber { get; set; }
@@ -52,7 +52,7 @@ namespace Models.Common
 		public List<TextValueProfile> Auto_Telephone { get
 			{
 				var result = new List<TextValueProfile>()
-					.Concat( PhoneNumbers.ConvertAll( m => new TextValueProfile() { TextTitle = m.CodeTitle, TextValue = m.TextValue } ) ).ToList();
+					.Concat( PhoneNumbers ).ToList();
 				if ( !string.IsNullOrWhiteSpace( Telephone ) )
 				{
 					result.Add( new TextValueProfile()
@@ -112,14 +112,14 @@ namespace Models.Common
 		public List<TextValueProfile> Auto_ContactOption { get
 			{
 				var result = new List<TextValueProfile>();
-				if ( !string.IsNullOrWhiteSpace( ContactOption ) )
-				{
-					result.Add( new TextValueProfile()
-					{
-						TextTitle = ContactType,
-						TextValue = ContactOption
-					} );
-				}
+				//if ( !string.IsNullOrWhiteSpace( ContactOption ) )
+				//{
+				//	result.Add( new TextValueProfile()
+				//	{
+				//		TextTitle = ContactType,
+				//		TextValue = ContactOption
+				//	} );
+				//}
 				return result;
 			}
 		}

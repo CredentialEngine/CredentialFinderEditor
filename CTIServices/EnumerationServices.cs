@@ -6,6 +6,7 @@ using System.Web;
 using Models;
 using MC = Models.Common;
 using Factories;
+using Utilities;
 
 namespace CTIServices
 {
@@ -33,7 +34,7 @@ namespace CTIServices
 		{
 			MC.Enumeration e = CodesManager.GetEnumeration( dataSource, getAll );
 			e.InterfaceType = MC.EnumerationType.SINGLE_SELECT;
-			if ( preselectId > -1 && e.hasItems() )
+			if ( preselectId > -1 && e.HasItems() )
 			{
 				int cntr = 0;
 				foreach(MC.EnumeratedItem item in e.Items) 
@@ -80,6 +81,13 @@ namespace CTIServices
 			return list;
 		}
 
+		public static MC.Enumeration GetPropertiesList( int CategoryId , bool getAll = true )
+		{
+			MC.Enumeration e = CodesManager.GetEnumeration( CategoryId, getAll );
+			e.InterfaceType = MC.EnumerationType.MULTI_SELECT;
+			e.ShowOtherValue = true;
+			return e;
+		}
 		public static CodeItem GetPropertyBySchema( string categoryCode, string schemaName )
 		{
 			CodeItem item = CodesManager.GetPropertyBySchema( categoryCode, schemaName );
@@ -121,7 +129,36 @@ namespace CTIServices
 			e.ShowOtherValue = true;
 			return e;
 		}
-		
+        public static List<string> GetPropertiesSchemaNameList(int categoryId, bool getAll = true)
+        {
+            List<CodeItem> list = CodesManager.Property_GetValues(categoryId, "", false, getAll);
+            List<string> output = new List<string>();
+            foreach (var item in list)
+            {
+                if (!string.IsNullOrWhiteSpace(item.SchemaName))
+                {
+                    string[] parts = item.SchemaName.Split(':');
+                    if (parts.Count() == 2)
+                        output.Add(parts[1]);
+                }
+            }
+            return output;
+        }
+        public MC.Enumeration GetAudienceTypes(MC.EnumerationType interfaceType, bool getAll = true)
+        {
+            MC.Enumeration e = CodesManager.GetEnumeration(CodesManager.PROPERTY_CATEGORY_AUDIENCE_TYPE, getAll);
+            e.InterfaceType = interfaceType;
+            e.ShowOtherValue = true;
+            return e;
+        }
+		//
+		public MC.Enumeration GetSiteTotals( MC.EnumerationType interfaceType, int categoryId, int entityTypeId, bool getAll = true )
+		{
+			MC.Enumeration e = CodesManager.GetSiteTotalsAsEnumeration( categoryId, entityTypeId, getAll );
+			e.InterfaceType = interfaceType;
+			e.ShowOtherValue = true;
+			return e;
+		}
 		//
 		[Obsolete]
 		public MC.Enumeration GetCredentialLevel( MC.EnumerationType interfaceType, bool getAll = true )
@@ -162,15 +199,22 @@ namespace CTIServices
 		/// <param name="interfaceType"></param>
 		/// <param name="getAll"></param>
 		/// <returns></returns>
-		public MC.Enumeration GetCredentialsConditionProfile( MC.EnumerationType interfaceType, bool getAll = true )
+		public MC.Enumeration GetCredentialsConditionProfile( MC.EnumerationType interfaceType, bool getAll = true, bool useConditionManifestTitles = false )
 		{
 
-			MC.Enumeration e = CodesManager.GetCredentialsConditionProfileTypes();
+			MC.Enumeration e = CodesManager.GetCredentialsConditionProfileTypes( getAll, useConditionManifestTitles );
 			e.ShowOtherValue = false;
 			e.InterfaceType = interfaceType;
 			return e;
 		}
+		public MC.Enumeration GetCommonConditionProfileTypes( MC.EnumerationType interfaceType, bool getAll = true, bool useConditionManifestTitles = false )
+		{
 
+			MC.Enumeration e = CodesManager.GetCommonConditionProfileTypes( getAll, useConditionManifestTitles );
+			e.ShowOtherValue = false;
+			e.InterfaceType = interfaceType;
+			return e;
+		}
 		public MC.Enumeration GetConditionManifestConditionTypes( MC.EnumerationType interfaceType, bool getAll = true )
 		{
 
@@ -241,8 +285,14 @@ namespace CTIServices
 			e.ShowOtherValue = true;
 			return e;
 		}
-
-		public MC.Enumeration GetEntityQARoles( MC.EnumerationType interfaceType, string entityType = "Credential", bool getAll = true )
+        public MC.Enumeration GetAllAgentQAPerformedRoles( MC.EnumerationType interfaceType )
+        {
+            MC.Enumeration e = OrganizationRoleManager.GetAgentToAgentRolesCodes( true );
+            e.InterfaceType = interfaceType;
+            e.ShowOtherValue = true;
+            return e;
+        }
+        public MC.Enumeration GetEntityQARoles( MC.EnumerationType interfaceType, string entityType = "Credential", bool getAll = true )
 		{
 			//get roles as entity to org
 			MC.Enumeration e = OrganizationRoleManager.GetEntityQARoles();
@@ -274,8 +324,15 @@ namespace CTIServices
 			e.ShowOtherValue = true;
 			return e;
 		}
-
-		public MC.Enumeration GetCredentialAgentRoles( MC.EnumerationType interfaceType, string entityType = "Credential" )
+		public MC.Enumeration GetQAPerformedFilters ( MC.EnumerationType interfaceType, string entityType, bool getAll, bool showInverseName = true)
+        {
+            //get roles as entity to org
+            MC.Enumeration e = OrganizationRoleManager.GetEntityAgentQAActions( showInverseName, getAll, entityType );
+            e.InterfaceType = interfaceType;
+            e.ShowOtherValue = true;
+            return e;
+        }
+        public MC.Enumeration GetCredentialAgentRoles( MC.EnumerationType interfaceType, string entityType = "Credential" )
 		{
 			//get roles as entity to org
 			MC.Enumeration e = new MC.Enumeration();
@@ -293,8 +350,18 @@ namespace CTIServices
 		{
 			//get roles as entity to org
 			MC.Enumeration e = new MC.Enumeration();
-			e = OrganizationRoleManager.GetCredentialOwnerAgentRoles( false );
+			e = OrganizationRoleManager.GetOwnerAgentRoles( false );
 			
+			e.InterfaceType = interfaceType;
+			e.ShowOtherValue = true;
+			return e;
+		}
+		public MC.Enumeration GetNonCredentialOwnerAgentRoles( MC.EnumerationType interfaceType )
+		{
+			//get roles as entity to org
+			MC.Enumeration e = new MC.Enumeration();
+			e = OrganizationRoleManager.GetOwnerAgentRoles( false, true );
+
 			e.InterfaceType = interfaceType;
 			e.ShowOtherValue = true;
 			return e;
@@ -399,7 +466,11 @@ namespace CTIServices
 			return e;
 		}
 	
-		//
+		/// <summary>
+        /// Used to retrieve managing orgs in the editor
+        /// </summary>
+        /// <param name="insertSelectTitle"></param>
+        /// <returns></returns>
 		public List<CodeItem> GetOrganizationsAsCodes(bool insertSelectTitle = false)
 		{
 			
@@ -407,45 +478,45 @@ namespace CTIServices
 
 			return list;
 		}
-		public MC.Enumeration GetOrganizations( string schemaName, bool includeDefaultOption, bool forCurrentUser, MC.EnumerationType interfaceType )
-		{
-			var result = new MC.Enumeration()
-			{
-				InterfaceType = interfaceType,
-				Name = "Organizations",
-				SchemaName = schemaName
-			};
+		//public MC.Enumeration GetOrganizations( string schemaName, bool includeDefaultOption, bool forCurrentUser, MC.EnumerationType interfaceType )
+		//{
+		//	var result = new MC.Enumeration()
+		//	{
+		//		InterfaceType = interfaceType,
+		//		Name = "Organizations",
+		//		SchemaName = schemaName
+		//	};
 
-			AppUser user = AccountServices.GetCurrentUser();
-			if ( ( user == null | user.Id == 0 ) )
-				return result;
+		//	AppUser user = AccountServices.GetCurrentUser();
+		//	if ( ( user == null | user.Id == 0 ) )
+		//		return result;
 			
-			if ( includeDefaultOption )
-			{
-				result.Items.Add( new MC.EnumeratedItem()
-				{
-					Id = 0,
-					RowId = "",
-					Name = "Select an Organization",
-					Value = ""
-				} );
-			}
+		//	if ( includeDefaultOption )
+		//	{
+		//		result.Items.Add( new MC.EnumeratedItem()
+		//		{
+		//			Id = 0,
+		//			RowId = "",
+		//			Name = "Select an Organization",
+		//			Value = ""
+		//		} );
+		//	}
 
-			//May need some overload to only get orgs for current user
-			var organizations = OrganizationServices.OrganizationsForCredentials_Select(user.Id);
-			foreach ( var org in organizations )
-			{
-				result.Items.Add( new MC.EnumeratedItem()
-				{
-					Id = org.Id,
-					RowId = org.RowId.ToString(),
-					Name = org.Name,
-					Value = org.SubjectWebpage
-				} );
-			}
+		//	//May need some overload to only get orgs for current user
+		//	var organizations = OrganizationServices.OrganizationsForCredentials_Select(user.Id);
+		//	foreach ( var org in organizations )
+		//	{
+		//		result.Items.Add( new MC.EnumeratedItem()
+		//		{
+		//			Id = org.Id,
+		//			RowId = org.RowId.ToString(),
+		//			Name = org.Name,
+		//			Value = org.SubjectWebpage
+		//		} );
+		//	}
 
-			return result;
-		}
+		//	return result;
+		//}
 		//
 		#endregion
 
@@ -477,15 +548,24 @@ namespace CTIServices
 			return e;
 		}
 
+
 		/// <summary>
 		/// Get Languages
 		/// </summary>
 		/// <param name="interfaceType"></param>
+		/// <param name="entityTypeId"></param>
+		/// <param name="getAll"></param>
 		/// <returns></returns>
-
-		public MC.Enumeration GetLanguages( MC.EnumerationType interfaceType )
+		public MC.Enumeration GetLanguages( MC.EnumerationType interfaceType, int entityTypeId = 0, bool getAll = true )
 		{
-			MC.Enumeration e = CodesManager.GetLanguages();
+			MC.Enumeration e = CodesManager.GetLanguages( entityTypeId , getAll);
+			e.ShowOtherValue = false;
+			e.InterfaceType = interfaceType;
+			return e;
+		}//GetLanguages
+		public MC.Enumeration GetLanguagesForEditor( MC.EnumerationType interfaceType, int entityTypeId = 0, bool getAll = true )
+		{
+			MC.Enumeration e = CodesManager.GetLanguagesForEditor( entityTypeId, getAll );
 			e.ShowOtherValue = false;
 			e.InterfaceType = interfaceType;
 			return e;
@@ -663,7 +743,7 @@ namespace CTIServices
 
 			foreach ( var item in input )
 			{
-				output.Add( new MC.EnumeratedItem()
+                output.Add( new MC.EnumeratedItem()
 				{
 					CodeId = item.Id,
 					Id = item.Id,

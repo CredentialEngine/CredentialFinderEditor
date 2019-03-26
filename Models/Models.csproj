@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -9,12 +9,13 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Models</RootNamespace>
     <AssemblyName>Models</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SccProjectName>SAK</SccProjectName>
     <SccLocalPath>SAK</SccLocalPath>
     <SccAuxPath>SAK</SccAuxPath>
     <SccProvider>SAK</SccProvider>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -92,6 +93,10 @@
     <Compile Include="Common\Address.cs" />
     <Compile Include="Common\Agent.cs" />
     <Compile Include="Common\BaseObject.cs" />
+    <Compile Include="Common\CASS_CompetencyFramework.cs" />
+    <Compile Include="Common\Competency.cs" />
+    <Compile Include="Common\CompetencyFramework.cs" />
+    <Compile Include="Common\ConceptScheme.cs" />
     <Compile Include="Common\ConditionManifest.cs" />
     <Compile Include="Common\ContactPoint.cs" />
     <Compile Include="Common\CostManifest.cs" />
@@ -105,6 +110,7 @@
     <Compile Include="Common\FinancialAlignmentObject.cs" />
     <Compile Include="Common\GeoCoordinates.cs" />
     <Compile Include="Common\IdentifierValue.cs" />
+    <Compile Include="Common\LanguageMap.cs" />
     <Compile Include="Common\Organization.cs" />
     <Compile Include="Common\OrganizationMember.cs" />
     <Compile Include="Common\OrganizationSummary.cs" />
@@ -115,9 +121,18 @@
     <Compile Include="Common\Utilities.cs" />
     <Compile Include="Helpers\Cass.cs" />
     <Compile Include="Helpers\Compare.cs" />
+    <Compile Include="Helpers\Notification.cs" />
     <Compile Include="Helpers\Reports.cs" />
+    <Compile Include="Helpers\Review.cs" />
     <Compile Include="Helpers\SearchTag.cs" />
     <Compile Include="Helpers\ToolTip.cs" />
+    <Compile Include="Import\BaseDTO.cs" />
+    <Compile Include="Import\CommonProfiles.cs" />
+    <Compile Include="Import\CredentialDTO.cs" />
+    <Compile Include="Import\CredentialExport.cs" />
+    <Compile Include="Import\ImportStatus.cs" />
+    <Compile Include="Import\LearningOppDTO.cs" />
+    <Compile Include="Import\QAPerformedDTO.cs" />
     <Compile Include="Json\JsonLDV2Auto.cs" />
     <Compile Include="Json\PostalAddress.cs" />
     <Compile Include="Json\AlignmentObject.cs" />
@@ -130,7 +145,6 @@
     <Compile Include="Json\EmploymentOutcomeProfile.cs" />
     <Compile Include="Json\Enumeration.cs" />
     <Compile Include="Json\GeoCoordinates.cs" />
-    <Compile Include="Json\HoldersProfile.cs" />
     <Compile Include="Json\JsonLD.cs" />
     <Compile Include="Json\JurisdictionProfile.cs" />
     <Compile Include="Json\Organization.cs" />
@@ -140,6 +154,7 @@
     <Compile Include="Json\TaskProfile.cs" />
     <Compile Include="Node\AddressProfile.cs" />
     <Compile Include="Node\AgentRoleProfile.cs" />
+    <Compile Include="Node\Assertion.cs" />
     <Compile Include="Node\Assessment.cs" />
     <Compile Include="Node\AssessmentProfile.cs" />
     <Compile Include="Node\BaseProfile.cs" />
@@ -174,6 +189,7 @@
     <Compile Include="ProfileModels\Entity_Assessment.cs" />
     <Compile Include="ProfileModels\Entity_Competency.cs" />
     <Compile Include="ProfileModels\Entity_Credential.cs" />
+    <Compile Include="ProfileModels\LanguageProfile.cs" />
     <Compile Include="ProfileModels\LearningOpportunityProfile.cs" />
     <Compile Include="ProfileModels\CredentialAgentRelationship.cs" />
     <Compile Include="ProfileModels\DurationProfile.cs" />
@@ -181,6 +197,7 @@
     <Compile Include="ProfileModels\EmploymentOutcomeProfile.cs" />
     <Compile Include="ProfileModels\HoldersProfile.cs" />
     <Compile Include="Common\JurisdictionProfile.cs" />
+    <Compile Include="ProfileModels\OrganizationAssertion.cs" />
     <Compile Include="ProfileModels\OrganizationRoleProfile.cs" />
     <Compile Include="ProfileModels\PlaceholderProfile.cs" />
     <Compile Include="ProfileModels\ProcessProfile.cs" />

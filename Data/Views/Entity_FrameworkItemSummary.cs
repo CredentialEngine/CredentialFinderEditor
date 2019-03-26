@@ -32,5 +32,9 @@ namespace Data.Views
         public string URL { get; set; }
         public Nullable<int> CodeGroup { get; set; }
         public int EntityTypeId { get; set; }
+        public Nullable<int> EntityBaseId { get; set; }
+        public string OtherValue { get; set; }
+        public Nullable<System.DateTime> Created { get; set; }
+        public string Source { get; set; }
     }
 }

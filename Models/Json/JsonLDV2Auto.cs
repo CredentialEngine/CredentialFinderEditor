@@ -23,48 +23,54 @@ namespace Models.JsonV2
 	{
 		public JsonLDDocument()
 		{
-			Context = new Dictionary<string, object>()
-			{
-				{ "ceterms", "http://purl.org/ctdl/terms/" },
-				{ "dc", "http://purl.org/dc/elements/1.1/" },
-				{ "dct", "http://dublincore.org/dc/terms/" },
-				{ "foaf", "http://xmlns.com/foaf/0.1/" },
-				{ "obi", "https://w3id.org/openbadges#" },
-				{ "owl", "http://www.w3.org/2002/07/owl#" },
-				{ "rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#" },
-				{ "rdfs", "http://www.w3.org/2000/01/rdf-schema#" },
-				{ "schema", "http://schema.org/" },
-				{ "skos", "http://www.w3.org/2004/02/skos/core#" },
-				{ "vs", "https://www.w3.org/2003/06/sw-vocab-status/ns" },
-				{ "xsd", "http://www.w3.org/2001/XMLSchema#" },
-				{ "lrmi", "http://purl.org/dcx/lrmi-terms/" },
-				{ "asn", "http://purl.org/ASN/schema/core/" },
-				{ "vann", "http://purl.org/vocab/vann/" },
-				{ "actionStat", "http://purl.org/ctdl/vocabs/actionStat/" },
-				{ "agentSector", "http://purl.org/ctdl/vocabs/agentSector/" },
-				{ "serviceType", "http://purl.org/ctdl/vocabs/serviceType/" },
-				{ "assessMethod", "http://purl.org/ctdl/vocabs/assessMethod/" },
-				{ "assessUse", "http://purl.org/ctdl/vocabs/assessUse/" },
-				{ "audience", "http://purl.org/ctdl/vocabs/audience/" },
-				{ "claimType", "http://purl.org/ctdl/vocabs/claimType/" },
-				{ "costType", "http://purl.org/ctdl/vocabs/costType/" },
-				{ "credentialStat", "http://purl.org/ctdl/vocabs/credentialStat/" },
-				{ "creditUnit", "http://purl.org/ctdl/vocabs/creditUnit/" },
-				{ "deliveryType", "http://purl.org/ctdl/vocabs/deliveryType/" },
-				{ "inputType", "http://purl.org/ctdl/vocabs/inputType/" },
-				{ "learnMethod", "http://purl.org/ctdl/vocabs/learnMethod/" },
-				{ "orgType", "http://purl.org/ctdl/vocabs/orgType/" },
-				{ "residency", "http://purl.org/ctdl/vocabs/residency/" },
-				{ "score", "http://purl.org/ctdl/vocabs/score/" },
-				{ "@language", "en-US" } //Default. May change later if/when we implement language selection
-			};
+			Context = "http://credreg.net/ctdl/schema/context/json";
+
+			//Context = new Dictionary<string, object>()
+			//{
+			//	{ "ceterms", "http://purl.org/ctdl/terms/" },
+			//	{ "dc", "http://purl.org/dc/elements/1.1/" },
+			//	{ "dct", "http://purl.org/dc/terms/" },
+			//	{ "foaf", "http://xmlns.com/foaf/0.1/" },
+			//	{ "obi", "https://w3id.org/openbadges#" },
+			//	{ "owl", "http://www.w3.org/2002/07/owl#" },
+			//	{ "rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#" },
+			//	{ "rdfs", "http://www.w3.org/2000/01/rdf-schema#" },
+			//	{ "schema", "http://schema.org/" },
+			//	{ "skos", "http://www.w3.org/2004/02/skos/core#" },
+			//	{ "vs", "https://www.w3.org/2003/06/sw-vocab-status/ns" },
+			//	{ "xsd", "http://www.w3.org/2001/XMLSchema#" },
+			//	{ "lrmi", "http://purl.org/dcx/lrmi-terms/" },
+			//	{ "asn", "http://purl.org/ASN/schema/core/" },
+			//	{ "vann", "http://purl.org/vocab/vann/" },
+			//	{ "actionStat", "http://purl.org/ctdl/vocabs/actionStat/" },
+			//	{ "agentSector", "http://purl.org/ctdl/vocabs/agentSector/" },
+			//	{ "serviceType", "http://purl.org/ctdl/vocabs/serviceType/" },
+			//	{ "assessMethod", "http://purl.org/ctdl/vocabs/assessMethod/" },
+			//	{ "assessUse", "http://purl.org/ctdl/vocabs/assessUse/" },
+			//	{ "audience", "http://purl.org/ctdl/vocabs/audience/" },
+			//	{ "claimType", "http://purl.org/ctdl/vocabs/claimType/" },
+			//	{ "costType", "http://purl.org/ctdl/vocabs/costType/" },
+			//	{ "credentialStat", "http://purl.org/ctdl/vocabs/credentialStat/" },
+			//	{ "creditUnit", "http://purl.org/ctdl/vocabs/creditUnit/" },
+			//	{ "deliveryType", "http://purl.org/ctdl/vocabs/deliveryType/" },
+			//	{ "inputType", "http://purl.org/ctdl/vocabs/inputType/" },
+			//	{ "learnMethod", "http://purl.org/ctdl/vocabs/learnMethod/" },
+			//	{ "orgType", "http://purl.org/ctdl/vocabs/orgType/" },
+			//	{ "residency", "http://purl.org/ctdl/vocabs/residency/" },
+			//	{ "score", "http://purl.org/ctdl/vocabs/score/" },
+			//	{ "@language", "en-US" } //Default. May change later if/when we implement language selection
+			//};
 		}
-		public Dictionary<string, object> Context { get; set; }
+		public string Context { get; set; }
+		//public Dictionary<string, object> Context { get; set; }
 	}
 
+	/// <summary>
+	/// For ENUMERATION_ALIGNMENTOBJECT_LIST, we don't want integer code ids to be included. For Enumerations with significant codes like SOC and Naics, use ENUMERATION_CODED_ALIGNMENTOBJECT_LIST
+	/// </summary>
 	public enum PropertyType
 	{
-		TEXT, URL, NUMBER, DATE, DATETIME, DURATION, BOOLEAN, ENUMERATION, ENUMERATION_EXTERNAL, PROFILE, PROFILE_EXTERNAL, PROFILE_EXTERNAL_LIST, PROFILE_LIST, ROLE, TEXTVALUE_LIST, PARENT_TYPE_OVERRIDE, ENUMERATION_ALIGNMENTOBJECT_LIST
+		TEXT, URL, NUMBER, DATE, DATETIME, DURATION, BOOLEAN, ENUMERATION, ENUMERATION_EXTERNAL, PROFILE, PROFILE_EXTERNAL, PROFILE_EXTERNAL_LIST, PROFILE_LIST, ROLE, TEXTVALUE_LIST, PARENT_TYPE_OVERRIDE, ENUMERATION_ALIGNMENTOBJECT_LIST, ENUMERATION_CODED_ALIGNMENTOBJECT_LIST
 	}
 
 	public enum SourceType
@@ -190,9 +196,18 @@ namespace Models.JsonV2
 
 		public PropertyData ApprovedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ceterms:approvedBy", Source = "OrganizationRole", Label = "Approved By" };
 		public PropertyData ApprovedIn = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:approvedIn", Source = "ApprovedIn", Label = "Approved In", ProfileType = typeof( JurisdictionProfile ) };
-		public PropertyData Approves = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:approves", Source = "Approves", Label = "Approves", ProfileType = typeof( JsonLDIdentifier ) };
+		public PropertyData Approves = new PropertyData() { Type = PropertyType.PROFILE_LIST,
+			SchemaName = "ceterms:approves",
+			Source = "Approves",
+			Label = "Approves",
+			ProfileType = typeof( JsonLDIdentifier ) };
 
-		public PropertyData AssertedBy = new PropertyData() { Type = PropertyType.URL, SchemaName = "ceterms:assertedBy", Source = "Auto_AssertedBy", Label = "Asserted By", ProfileType = typeof( JsonLDIdentifier ), SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "TextValue" };
+		public PropertyData AssertedBy = new PropertyData() { Type = PropertyType.URL, SchemaName = "ceterms:assertedBy",
+			Source = "Auto_AssertedBy",
+			Label = "Asserted By",
+			ProfileType = typeof( JsonLDIdentifier ),
+			SourceType = SourceType.FROM_OBJECT_LIST,
+			InnerSource = "TextValue" };
 
 		public PropertyData ConditionManifestOf = new PropertyData() { Type = PropertyType.PROFILE_EXTERNAL_LIST,
 			SchemaName = "ceterms:conditionManifestOf",
@@ -217,10 +232,18 @@ namespace Models.JsonV2
 		public PropertyData CodedNotation = new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ceterms:codedNotation", Source = "Auto_CodedNotation", Label = "Coded Notation", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "TextValue" };
 		//public PropertyData ContactPoint = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:contactPoint", Source = "ContactPoint", Label = "Contact Point", ProfileType = typeof( ContactPoint ) };
 		public PropertyData Condition = new PropertyData() { Type = PropertyType.TEXTVALUE_LIST, SchemaName = "ceterms:condition", Source = "Condition", Label = "Condition" };
-		public PropertyData CopyrightHolder = new PropertyData() { Type = PropertyType.PROFILE_EXTERNAL_LIST, SchemaName = "ceterms:copyrightHolder", Source = "CopyrightHolderOrganization", Label = "Copyright Holder", SourceType = SourceType.FROM_OBJECT };
+		public PropertyData CopyrightHolder = new PropertyData()
+		{
+			Type = PropertyType.PROFILE_EXTERNAL_LIST,
+			SchemaName = "ceterms:copyrightHolder",
+			Source = "CopyrightHolderOrganization",
+			Label = "Copyright Holder",
+			SourceType = SourceType.FROM_OBJECT
+		};
 
 		public PropertyData Corequisite = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:corequisite", Source = "Corequisite", Label = "Corequisite", ProfileType = typeof( ConditionProfile ) };
 		public PropertyData CommonConditions = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:commonConditions", Source = "CommonConditions", Label = "Common Conditions", ProfileType = typeof( JsonLDIdentifier ) };
+		public PropertyData CommonCosts = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:commonCosts", Source = "CommonCosts", Label = "Common Costs", ProfileType = typeof( JsonLDIdentifier ) };
 		public PropertyData CostDetails = new PropertyData() { Type = PropertyType.URL, SchemaName = "ceterms:costDetails", Source = "CostDetails", Label = "Cost Details" };
 		public PropertyData CredentialIdentifier = new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ceterms:credentialId", Source = "CredentialId", Label = "Credential Identifier" };
 		public PropertyData CredentialingAction = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:credentialingAction", Source = "CredentialingAction", Label = "Credentialing Action", ProfileType = typeof( JsonLDIdentifier ) };
@@ -282,16 +305,35 @@ namespace Models.JsonV2
 
 		public PropertyData Holders = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:holders", Source = "Holders", Label = "Holders", ProfileType = typeof( HoldersProfile ) };
 		public PropertyData Image = new PropertyData() { Type = PropertyType.URL, SchemaName = "ceterms:image", Source = "Auto_ImageUrl", Label = "Image URL", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "TextValue" };
-		public PropertyData IndustryType = new PropertyData() { Type = PropertyType.ENUMERATION_ALIGNMENTOBJECT_LIST, SchemaName = "ceterms:industryType", Source = "IndustryType", Label = "Industry Type" };
+		public PropertyData IndustryType = new PropertyData()
+		{
+			Type = PropertyType.ENUMERATION_CODED_ALIGNMENTOBJECT_LIST,
+			SchemaName = "ceterms:industryType",
+			Source = "IndustryType",
+			Label = "Industry Type"
+		};
 		public PropertyData InLanguage = new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ceterms:inLanguage", Source = "Auto_InLanguageCode", Label = "In Language", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "TextValue" };
 
-		public PropertyData InstructionalProgramType = new PropertyData() { Type = PropertyType.ENUMERATION_ALIGNMENTOBJECT_LIST, SchemaName = "ceterms:instructionalProgramType", Source = "InstructionalProgramType", Label = "Instructional Program Type" };
+		public PropertyData InstructionalProgramType = new PropertyData()
+		{
+			Type = PropertyType.ENUMERATION_CODED_ALIGNMENTOBJECT_LIST,
+			SchemaName = "ceterms:instructionalProgramType",
+			Source = "InstructionalProgramType",
+			Label = "Instructional Program Type"
+		};
 
 		public PropertyData Instrument = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:instrument", Source = "Instrument", Label = "Instrument", ProfileType = typeof( JsonLDIdentifier ) };
 
 		public PropertyData IPEDSID = new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ceterms:ipedsID", Source = "ID_IPEDSID", Label = "iPEDS ID" };
 		public PropertyData IsAdvancedStandingFor = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:isAdvancedStandingFor", Source = "IsAdvancedStandingFor", Label = "Is Advanced Standing For", ProfileType = typeof( ConditionProfile ) };
-		public PropertyData IsPartOf = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:isPartOf", Source = "IsPartOf", Label = "Is Part Of", ProfileType = typeof( JsonLDIdentifier ) };
+		public PropertyData IsPartOf = new PropertyData()
+		{
+			Type = PropertyType.PROFILE_LIST,
+			SchemaName = "ceterms:isPartOf",
+			Source = "IsPartOf",
+			Label = "Is Part Of",
+			ProfileType = typeof( JsonLDIdentifier )
+		};
 		public PropertyData IsPreparationFor = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:isPreparationFor", Source = "IsPreparationFor", Label = "Is Preparation For", ProfileType = typeof( ConditionProfile ) };
 		public PropertyData IsRecommendedFor = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:isRecommendedFor", Source = "IsRecommendedFor", Label = "Is Recommended For", ProfileType = typeof( ConditionProfile ) };
 		public PropertyData IsRequiredFor = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:isRequiredFor", Source = "IsRequiredFor", Label = "Is Required For", ProfileType = typeof( ConditionProfile ) };
@@ -309,15 +351,50 @@ namespace Models.JsonV2
 		public PropertyData Name = new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ceterms:name", Source = "Name", Label = "Name" };
 		public PropertyData NarrowAlignment = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:narrowAlignment", Source = "NarrowAlignment", Label = "Narrow Alignment", ProfileType = typeof( JsonLDIdentifier ) };
 		public PropertyData Object = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:object", Source = "Object", Label = "Object", ProfileType = typeof( JsonLDIdentifier ) };
-		public PropertyData OccupationType = new PropertyData() { Type = PropertyType.ENUMERATION_ALIGNMENTOBJECT_LIST, SchemaName = "ceterms:occupationType", Source = "OccupationType", Label = "Occupation Type" };
-		public PropertyData OfferedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ceterms:offeredBy", Source = "OrganizationRole", Label = "Offered By" };
+		public PropertyData OccupationType = new PropertyData()
+			{
+				Type = PropertyType.ENUMERATION_CODED_ALIGNMENTOBJECT_LIST,
+				SchemaName = "ceterms:occupationType",
+				Source = "OccupationType",
+				Label = "Occupation Type"
+			};
+		public PropertyData OfferedByOLD = new PropertyData()
+		{
+			Type = PropertyType.ROLE,
+			SchemaName = "ceterms:offeredBy",
+			Source = "OrganizationRole",
+			Label = "Offered By"
+		};
+		public PropertyData OfferedBy = new PropertyData()
+		{
+			Type = PropertyType.URL,
+			SchemaName = "ceterms:offeredBy",
+			Source = "Auto_OfferedBy",
+			Label = "Offered By",
+			ProfileType = typeof( JsonLDIdentifier ),
+			SourceType = SourceType.FROM_OBJECT_LIST,
+			InnerSource = "TextValue"
+		};
 		public PropertyData OfferedIn = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:offeredIn", Source = "OfferedIn", Label = "Offered In", ProfileType = typeof( JurisdictionProfile ) };
 		public PropertyData Offers = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:offers", Source = "Offers", Label = "Offers", ProfileType = typeof( JsonLDIdentifier ) };
 		public PropertyData OPEID = new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ceterms:opeID", Source = "ID_OPEID", Label = "OPE ID" };
 
-		public PropertyData OwnedBy = new PropertyData() { Type = PropertyType.ROLE, SchemaName = "ceterms:ownedBy", Source = "OrganizationRole", Label = "Owned By" };
+		public PropertyData OwnedBy = new PropertyData() { Type = PropertyType.ROLE,
+			SchemaName = "ceterms:ownedBy",
+			Source = "OrganizationRole",
+			Label = "Owned By" };
 
-		public PropertyData Owns = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:owns", Source = "Owns", Label = "Owns", ProfileType = typeof( JsonLDIdentifier ) };
+		/// <summary>
+		/// This property should get all types, not just credentials
+		/// </summary>
+		public PropertyData Owns = new PropertyData()
+		{
+			Type = PropertyType.PROFILE_LIST,
+			SchemaName = "ceterms:owns",
+			Source = "Owns",
+			Label = "Owns",
+			ProfileType = typeof( JsonLDIdentifier )
+		};
 		public PropertyData ParentOrganization = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:parentOrganization", Source = "ParentOrganization", Label = "Parent Organization", ProfileType = typeof( JsonLDIdentifier ) };
 		public PropertyData Participant = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:participant", Source = "Participant", Label = "Participant", ProfileType = typeof( JsonLDIdentifier ) };
 		public PropertyData PreparationFrom = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:preparationFrom", Source = "PreparationFrom", Label = "Preparation From", ProfileType = typeof( ConditionProfile ) };
@@ -378,7 +455,14 @@ namespace Models.JsonV2
 			Label = "Target Competency",
 			ProfileType = typeof( CredentialAlignmentObject )
 		};
-
+		public PropertyData AssessesCompetency = new PropertyData()
+		{
+			Type = PropertyType.PROFILE_LIST,
+			SchemaName = "ceterms:assesses",
+			Source = "TargetCompetency",
+			Label = "Target Competency",
+			ProfileType = typeof( CredentialAlignmentObject )
+		};
 		public PropertyData TargetContactPoint = new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:targetContactPoint", Source = "Auto_TargetContactPoint", Label = "Target Contact Point", ProfileType = typeof( ContactPoint ) };
 		public PropertyData TargetCredential = new PropertyData() {
 			Type = PropertyType.PROFILE_LIST,
@@ -412,6 +496,7 @@ namespace Models.JsonV2
 				CommonProperties.AccreditedIn,
 				CommonProperties.AdministrationProcess,
 				CommonProperties.AppealProcess,
+				CommonProperties.CommonCosts,
 				CommonProperties.ComplaintProcess,
 				CommonProperties.ReviewProcess,
 				CommonProperties.RevocationProcess,
@@ -468,10 +553,24 @@ namespace Models.JsonV2
 				CommonProperties.Subject,
 				CommonProperties.SubjectWebpage,
 				CommonProperties.TargetAssessment,
-				CommonProperties.TargetCompetency,
+				CommonProperties.AssessesCompetency,
 				CommonProperties.ValidationMethodDescription,
 				CommonProperties.VersionIdentifier,
-				new PropertyData() { Type = PropertyType.URL, SchemaName = "ceterms:assessmentExample", Source = "AssessmentExample", Label = "Assessment Example" },
+				//new PropertyData()
+				//{
+				//	Type = PropertyType.URL,
+				//	SchemaName = "ceterms:assesses",
+				//	Source = "TargetCompetency",
+				//	Label = "Assesses"
+				//},
+			
+				new PropertyData()
+				{
+					Type = PropertyType.URL,
+					SchemaName = "ceterms:assessmentExample",
+					Source = "AssessmentExample",
+					Label = "Assessment Example"
+				},
 				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ceterms:assessmentExampleDescription", Source = "AssessmentExampleDescription", Label = "Assessment Example Description" },
 				new PropertyData() { Type = PropertyType.ENUMERATION_ALIGNMENTOBJECT_LIST, SchemaName = "ceterms:assessmentMethodType", Source = "AssessmentMethodType", Label = "Assessment Method Type" },
 				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ceterms:assessmentOutput", Source = "AssessmentOutput", Label = "Assessment Output" },
@@ -525,6 +624,7 @@ namespace Models.JsonV2
 				CommonProperties.EstimatedCost,
 				CommonProperties.Jurisdiction,
 				CommonProperties.Name,
+				CommonProperties.SubjectWebpage,
 				CommonProperties.TargetAssessment,
 				CommonProperties.TargetCompetency,
 				CommonProperties.TargetCredential,
@@ -552,7 +652,7 @@ namespace Models.JsonV2
 				CommonProperties.Email,
 				CommonProperties.Name,
 				CommonProperties.SocialMedia,
-				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ceterms:contactOption", Source = "Auto_ContactOption", Label = "Contact Option", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "TextValue" },
+				//new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ceterms:contactOption", Source = "Auto_ContactOption", Label = "Contact Option", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "TextValue" },
 				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ceterms:contactType", Source = "ContactType", Label = "Contact Type" },
 				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ceterms:faxNumber", Source = "Auto_FaxNumber", Label = "Fax Number", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "TextValue" },
 				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ceterms:telephone", Source = "Auto_Telephone", Label = "Telephone", SourceType = SourceType.FROM_OBJECT_LIST, InnerSource = "TextValue" },
@@ -628,6 +728,7 @@ namespace Models.JsonV2
 				CommonProperties.BroadAlignment,
 				CommonProperties.CodedNotation,
 				CommonProperties.CommonConditions,
+				CommonProperties.CommonCosts,
 				CommonProperties.CopyrightHolder,
 				CommonProperties.Corequisite,
 				CommonProperties.CredentialIdentifier,
@@ -1073,6 +1174,7 @@ namespace Models.JsonV2
 				CommonProperties.AvailableAt,
 				CommonProperties.AvailableOnlineAt,
 				CommonProperties.CodedNotation,
+				CommonProperties.CommonCosts,
 				CommonProperties.CommonConditions,
 				CommonProperties.Corequisite,
 				CommonProperties.CreditHourType,
@@ -1167,7 +1269,13 @@ namespace Models.JsonV2
 					Source = "ExternalInputType",
 					Label = "External Input Type" },
 				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ceterms:processFrequency", Source = "ProcessFrequency", Label = "Process Frequency" },
-				new PropertyData() { Type = PropertyType.PROFILE_LIST, SchemaName = "ceterms:processingAgent", Source = "ProcessingAgent", Label = "Processing Agent", ProfileType = typeof( JsonLDIdentifier ) },
+				new PropertyData() {
+					Type = PropertyType.PROFILE_EXTERNAL_LIST,
+					SchemaName = "ceterms:processingAgent",
+					Source = "ProcessingAgent",
+					Label = "Processing Agent",
+					SourceType = SourceType.FROM_OBJECT
+				},
 				new PropertyData() { Type = PropertyType.URL, SchemaName = "ceterms:processMethod", Source = "ProcessMethod", Label = "ProcessMethod" },
 				new PropertyData() { Type = PropertyType.TEXT, SchemaName = "ceterms:processMethodDescription", Source = "ProcessMethodDescription", Label = "Process Method Description" },
 				new PropertyData() { Type = PropertyType.ENUMERATION_ALIGNMENTOBJECT_LIST, SchemaName = "ceterms:processMethodType", Source = "ProcessMethodType", Label = "Process Method Type" },

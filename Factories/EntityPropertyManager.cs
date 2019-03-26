@@ -5,7 +5,7 @@ using System.Linq;
 using Models.Common;
 using EM = Data;
 using Utilities;
-using DBentity = Data.Entity_Property;
+using DBEntity = Data.Entity_Property;
 using ThisEntity = Models.Common.Enumeration;
 
 using Data.Views;
@@ -32,7 +32,8 @@ namespace Factories
 		{
 			bool isAllValid = true;
 			int updatedCount = 0;
-			int count = 0;
+            int deletedCount = 0;
+            int count = 0;
 
 			if ( !IsGuidValid(parentUid) )
 			{
@@ -62,7 +63,7 @@ namespace Factories
 			//==> then interface would have to always return everything
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity op = new DBentity();
+				DBEntity op = new DBEntity();
 
 				//get all existing for the category
 				var results = context.Entity_Property
@@ -83,8 +84,10 @@ namespace Factories
 				{
 					if ( v.ItemId == 0 )
 					{
-						//delete item
-						PropertyRemove( context, v.DeleteId, ref messages );
+                        //delete item
+                        deletedCount++;
+
+                        PropertyRemove( context, v.DeleteId, ref messages );
 					}
 				}
 				#endregion
@@ -95,14 +98,14 @@ namespace Factories
 							  join existing in results
 									on item.Id equals existing.PropertyValueId
 									into joinTable
-							  from addList in joinTable.DefaultIfEmpty( new DBentity { Id = 0, PropertyValueId = 0 } )
+							  from addList in joinTable.DefaultIfEmpty( new DBEntity { Id = 0, PropertyValueId = 0 } )
 							  select new { AddId = item.Id, ExistingId = addList.PropertyValueId };
 
 				foreach ( var v in newList )
 				{
 					if ( v.ExistingId == 0 && v.AddId > 0)
 					{
-						op = new DBentity();
+						op = new DBEntity();
 						//TODO switch to all EntityId
 						op.EntityId = parent.Id;
 
@@ -131,6 +134,10 @@ namespace Factories
 				#endregion
 			}
 
+            if ( deletedCount > 0 || updatedCount > 0)
+            {
+                new EntityManager().UpdateTopLevelEntityLastUpdateDate( parent.Id, string.Format( "Entity Update triggered by userId: {0} adding ({1})/removing ({2}) properties to/from EntityType: {3}, BaseId: {4}", userId, updatedCount, deletedCount, parent.EntityType, parent.EntityBaseId ), userId );
+            }
 			
 
 			//check for other checked && entity.ShowOtherValue == true
@@ -164,13 +171,13 @@ namespace Factories
 			//Utilities.EmailManager.NotifyAdmin( "New Other Value has been created", message );
 		}
 
-		public bool PropertyDelete( int recordId, ref string statusMessage )
+		public bool Delete( int recordId, ref string statusMessage )
 		{
 			bool isOK = true;
 			using ( var context = new Data.CTIEntities() )
 			{
 				//delete item
-				DBentity p = context.Entity_Property.FirstOrDefault( s => s.Id == recordId );
+				DBEntity p = context.Entity_Property.FirstOrDefault( s => s.Id == recordId );
 				if ( p != null && p.Id > 0 )
 				{
 					context.Entity_Property.Remove( p );
@@ -191,7 +198,7 @@ namespace Factories
 		/// <param name="parentUid"></param>
 		/// <param name="statusMessage"></param>
 		/// <returns></returns>
-		public bool Property_DeleteAll( Guid parentUid, ref string statusMessage )
+		public bool DeleteAll( Guid parentUid, ref string statusMessage )
 		{
 			bool isValid = false;
 
@@ -215,26 +222,63 @@ namespace Factories
 
 			return isValid;
 		}
-		private bool PropertyRemove( Data.CTIEntities context, int recordId, ref List<string> messages )
+
+        /// <summary>
+        /// Remove all properties for a particular category
+        /// </summary>
+        /// <param name="parentUid"></param>
+        /// <param name="categoryId"></param>
+        /// <param name="statusMessage"></param>
+        /// <returns></returns>
+        public bool DeleteAll( Guid parentUid, int categoryId, ref string statusMessage )
+        {
+            bool isValid = false;
+
+            using ( var context = new Data.CTIEntities() )
+            {
+                if ( !IsValidGuid( parentUid ))
+                {
+                    statusMessage = "Error - missing an identifier for the Parent Entity";
+                    return false;
+                }
+
+                context.Entity_Property.RemoveRange( 
+                    context.Entity_Property
+                    .Where( s => s.Entity.EntityUid == parentUid 
+                        && s.Codes_PropertyValue.CategoryId == categoryId) );
+                int count = context.SaveChanges();
+                if ( count > 0 )
+                {
+                    isValid = true;
+                }
+            }
+
+            return isValid;
+        }
+        private bool PropertyRemove( Data.CTIEntities context, int recordId, ref List<string> messages )
 		{
 			bool isOK = true;
 			//delete item
-			DBentity p = context.Entity_Property.FirstOrDefault( s => s.Id == recordId );
-			if ( p != null && p.Id > 0 )
-			{
-				context.Entity_Property.Remove( p );
-				int count = context.SaveChanges();
-			}
-			else
-			{
-				messages.Add(string.Format( "Property record was not found: {0}", recordId ));
-				isOK = false;
-			}
+			DBEntity p = context.Entity_Property.FirstOrDefault( s => s.Id == recordId );
+            if ( p != null && p.Id > 0 )
+            {
+                context.Entity_Property.Remove( p );
+                if ( context.SaveChanges() > 0 )
+                {
+
+                }
+            }
+            else
+            {
+                messages.Add( string.Format( "Property record was not found: {0}", recordId ) );
+                isOK = false;
+            }
 
 			return isOK;
 
 		}
 		#endregion
+
 		#region Entity property read ===================
 		public static Enumeration FillEnumeration( Guid parentUid, int categoryId )
 		{
@@ -260,7 +304,7 @@ namespace Factories
 						item = new EnumeratedItem();
 						item.Id = prop.PropertyValueId;
 						item.Value = prop.PropertyValueId.ToString();
-						item.Selected = true;
+						//item.Selected = true;
 
 						item.Name = prop.Property;
 						item.SchemaName = prop.PropertySchemaName;

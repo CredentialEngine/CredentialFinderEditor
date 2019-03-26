@@ -26,7 +26,6 @@ namespace Data
         public string Name { get; set; }
         public string Description { get; set; }
         public Nullable<int> StatusId { get; set; }
-        public Nullable<int> ManagingOrgId { get; set; }
         public Nullable<System.DateTime> Created { get; set; }
         public Nullable<int> CreatedById { get; set; }
         public Nullable<System.DateTime> LastUpdated { get; set; }
@@ -35,5 +34,8 @@ namespace Data
         public string Url { get; set; }
         public string CTID { get; set; }
         public string ImageUrl { get; set; }
+        public Nullable<int> OwningOrgId { get; set; }
+        public string IsPublished { get; set; }
+        public string HasApproval { get; set; }
     }
 }

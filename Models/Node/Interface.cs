@@ -118,7 +118,8 @@ namespace Models.Node.Interface
 
 		public InterfaceType Type { get; set; }
 		public bool HasOtherBox { get; set; }
-		public List<CodeItem> CodeItems { get; set; }
+        public bool MultiSelect { get; set; }
+        public List<CodeItem> CodeItems { get; set; }
 		public List<EnumeratedItem> EnumItems { get; set; }
 		public Dictionary<string, string> StringItems { get; set; }
 		public Dictionary<string, string> Attributes { get; set; }
@@ -172,7 +173,8 @@ namespace Models.Node.Interface
 		public MicroSearchSettings()
 		{
 			AllowingSearch = true;
-			AllowingStarterCreate = true;
+			AllowingStarterCreate = false;
+			AllowingEntityReferenceCreate = false;
 			AllowingPopupCreate = true;
 			PageSize = 10;
 			PageNumber = 1;
@@ -190,6 +192,7 @@ namespace Models.Node.Interface
 			CreateProfileTitle = "Item";
 			ProfileType = "";
 			AutoPropertyRefresh = new List<string>();
+
 		}
 
 		/// <summary>
@@ -197,6 +200,7 @@ namespace Models.Node.Interface
 		/// There may be conditions, where we want to just add entities, and show the saved list
 		/// </summary>
 		public bool AllowingSearch { get; set; }
+		public bool AllowingEntityReferenceCreate { get; set; }
 		public bool AllowingStarterCreate { get; set; }
 		public bool AllowingPopupCreate { get; set; }
 		public bool AllowingAddProfileOption { get; set; }
@@ -320,7 +324,8 @@ namespace Models.Node.Interface
 		public List<EnumeratedItem> EnumItems { get; set; }
 		public bool HasSelector { get; set; }
 		public bool HasOther { get; set; }
-		public TextInputSettings.InputType ValueType { get; set; }
+        //public bool HasValue { get; set; }
+        public TextInputSettings.InputType ValueType { get; set; }
 		public string ValuePlaceholder { get; set; }
 		public string OtherPlaceholder { get; set; }
 		public bool RequireOther { get; set; }

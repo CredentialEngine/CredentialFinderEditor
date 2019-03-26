@@ -14,6 +14,8 @@ using System.Web.SessionState;
 using System.Web.UI;
 using System.Web.UI.WebControls;
 
+using Models.Common;
+
 namespace Utilities
 {
     public class UtilityManager
@@ -143,7 +145,8 @@ namespace Utilities
             catch
             {
                 appValue = defaultValue;
-                LoggingHelper.LogError( string.Format( "@@@@ Error on appKey: {0},  using default of: {1}", keyName, defaultValue ) );
+				if ( HasMessageBeenPreviouslySent( keyName ) == false )
+					LoggingHelper.LogError( string.Format( "@@@@ Error on appKey: {0},  using default of: {1}", keyName, defaultValue ) );
             }
 
             return appValue;
@@ -161,7 +164,8 @@ namespace Utilities
             catch
             {
                 appValue = defaultValue;
-                LoggingHelper.LogError( string.Format( "@@@@ Error on appKey: {0},  using default of: {1}", keyName, defaultValue ) );
+				if ( HasMessageBeenPreviouslySent( keyName ) == false )
+					LoggingHelper.LogError( string.Format( "@@@@ Error on appKey: {0},  using default of: {1}", keyName, defaultValue ) );
             }
 
             return appValue;
@@ -177,22 +181,41 @@ namespace Utilities
             catch (Exception ex)
             {
                 appValue = defaultValue;
-                LoggingHelper.LogError( string.Format( "@@@@ Error on appKey: {0},  using default of: {1}", keyName, defaultValue ) );
+				if ( HasMessageBeenPreviouslySent( keyName ) == false )
+					 LoggingHelper.LogError( string.Format( "@@@@ Error on appKey: {0},  using default of: {1}", keyName, defaultValue ) );
             }
 
             return appValue;
         } //
-        #endregion
 
-        #region === Security related Methods ===
+		public static bool HasMessageBeenPreviouslySent( string keyName )
+		{
 
-        /// <summary>
-        /// Encrypt the text using MD5 crypto service
-        /// This is used for one way encryption of a user password - it can't be decrypted
-        /// </summary>
-        /// <param name="data"></param>
-        /// <returns></returns>
-        public static string Encrypt( string data )
+			string key = "appkey_" + keyName;
+			//check cache for keyName
+			if ( HttpRuntime.Cache[ key ] != null )
+			{
+				return true;
+			}
+			else
+			{
+				//not really much to store
+				HttpRuntime.Cache.Insert( key, keyName );
+			}
+
+			return false;
+		}
+		#endregion
+
+		#region === Security related Methods ===
+
+		/// <summary>
+		/// Encrypt the text using MD5 crypto service
+		/// This is used for one way encryption of a user password - it can't be decrypted
+		/// </summary>
+		/// <param name="data"></param>
+		/// <returns></returns>
+		public static string Encrypt( string data )
         {
             byte[] byDataToHash = ( new UnicodeEncoding() ).GetBytes( data );
             byte[] bytHashValue = new MD5CryptoServiceProvider().ComputeHash( byDataToHash );
@@ -305,74 +328,67 @@ namespace Utilities
             return encodedUrl;
         }
 
-        #endregion
+		/// <summary>
+		/// Generate an MD5 hash of a string
+		/// </summary>
+		/// <param name="input"></param>
+		/// <returns></returns>
+		public static string GenerationMD5String( string input, bool returnAsLowerCase = true )
+		{
+			// Use input string to calculate MD5 hash
+			using ( System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create() )
+			{
+				byte[] inputBytes = System.Text.Encoding.ASCII.GetBytes( input );
+				byte[] hashBytes = md5.ComputeHash( inputBytes );
 
-        #region === Path related Methods ===
-        /// <summary>
-        /// Return the code language in use from the CMS HTTP Context
-        /// </summary>
-        /// <returns></returns>
-        public static string getLanguage()
-        {
-            string language = "en";
-            //try
-            //{
-            //    string url = CmsHttpContext.Current.Channel.Path;
-            //    string[] dirArray = url.Split('/');
+				// Convert the byte array to hexadecimal string
+				StringBuilder sb = new StringBuilder();
+				for ( int i = 0; i < hashBytes.Length; i++ )
+				{
+					sb.Append( hashBytes[ i ].ToString( "X2" ) );
+				}
+                if ( returnAsLowerCase )
+                    return sb.ToString().ToLower();
+                else
+                    return sb.ToString();
+            }
+		}
+		#endregion
 
-            //    if (dirArray.Length > 3)
-            //    {
-            //        language = url.Split('/')[4];
-            //        if (language == "misc") language = "en";
-            //    }
-            //    if (language.Length != 2) language = "en";
-            //}
-            //catch (Exception e)
-            //{
-            //    //LoggingHelper.LogError("UtilityManager.getLanguage: " + e.ToString(),false);
-            //    language = "en";
-            //}
-            return language;
-        }
-        /// <summary>
-        /// Return the code language in use from the passed string
-        /// </summary>
-        /// <returns></returns>
-        public static string getLanguage( string url )
-        {
-            string language = "en";
+		#region === Path related Methods ===
+		/// <summary>
+		/// FormatAbsoluteUrl an absolute URL - equivalent to Url.Content()
+		/// </summary>
+		/// <param name="path"></param>
+		/// <param name="uriScheme"></param>
+		/// <returns></returns>
+		public static string FormatAbsoluteUrl( string path, string uriScheme = null )
+		{
+			uriScheme = uriScheme ?? HttpContext.Current.Request.Url.Scheme; //allow overriding http or https
 
-            //try
-            //{
-            //    string[] dirArray = url.Split('/');
-            //    if (dirArray.Length > 3)
-            //    {
-            //        language = url.Split('/')[3];
-            //        if (language.Length != 2) language = "en";
-            //    }
+			var environment = System.Configuration.ConfigurationManager.AppSettings[ "envType" ]; //Use port number only on localhost because https redirecting to a port on production screws this up
+			var host = environment == "development" ? HttpContext.Current.Request.Url.Authority : HttpContext.Current.Request.Url.Host;
 
-            //}
-            //catch (Exception e)
-            //{
-            //    //LoggingHelper.LogError("UtilityManager.getLanguage(string url): " + e.ToString(),false);
-            //    language = "en";
-            //}
-            return language;
-        }
-        /// <summary>
-        /// Format a relative, internal URL as a full URL, with http or https depending on the environment. 
-        /// Determines the current host and then calls overloaded method to complete the formatting
-        /// </summary>
-        /// <param name="relativeUrl">Internal URL, usually beginning with /vos_portal/</param>
-        /// <param name="isSecure">If the URL is to be formatted as a secure URL, set this value to true.</param>
-        /// <returns>Formatted URL</returns>
-        public static string FormatAbsoluteUrl( string relativeUrl, bool isSecure )
+			return uriScheme + "://" +
+				( host + "/" + HttpContext.Current.Request.ApplicationPath + path.Replace( "~/", "/" ) )
+				.Replace( "///", "/" )
+				.Replace( "//", "/" );
+		}
+		//
+		/// <summary>
+		/// Format a relative, internal URL as a full URL, with http or https depending on the environment. 
+		/// Determines the current host and then calls overloaded method to complete the formatting
+		/// </summary>
+		/// <param name="relativeUrl">Internal URL, usually beginning with /vos_portal/</param>
+		/// <param name="isSecure">If the URL is to be formatted as a secure URL, set this value to true.</param>
+		/// <returns>Formatted URL</returns>
+		public static string FormatAbsoluteUrl( string relativeUrl, bool isSecure )
         {
             string host = "";
             try
             {
                 //14-10-10 mp - change to explicit value from web.config
-                host = GetAppKeyValue( "siteHostName" );
+                host = GetAppKeyValue( "domainName" );
                 if ( host == "" )
                 {
                     // doing it this way so as to not break anything - HttpContext doesn't exist in a WCF web service
@@ -432,8 +448,6 @@ namespace Utilities
         public static string GetCurrentUrl()
         {
             string url = GetPublicUrl( HttpContext.Current.Request.QueryString.ToString() );
-
-            //url = "http://" + HttpContext.Current.Request.ServerVariables[ "HTTP_HOST" ] +  url ;
 
             url = HttpUtility.UrlDecode( url );
 
@@ -516,209 +530,6 @@ namespace Utilities
         }//
 
         /// <summary>
-        /// Gets the path title from the URL and translates as necessary(for ex Residents to Individuals)
-        /// sets to proper case (up to caller to set to lower case if needed
-        /// </summary>
-        /// <returns></returns>
-        public static string GetPathTitle()
-        {
-            string url = GetPublicUrl( HttpContext.Current.Request.QueryString.ToString() );
-            //string url = CmsHttpContext.Current.Channel.Path;
-
-            return GetPathTitle( url );
-        }//
-
-
-        /// <summary>
-        /// Gets the path title from the URL and translates as necessary(for ex Residents to Individuals)
-        /// sets to proper case (up to caller to set to lower case if needed
-        /// </summary>
-        /// <param name="url">A web/MCMS url (http:// must be removed from url for proper results 
-        ///			(Hint use the LocalPath proprty from the Request object)</param>
-        /// <returns></returns>
-        public static string GetPathTitle( string url )
-        {
-            if ( url.IndexOf( "http" ) > -1 )
-            {
-                Uri path = new Uri( url );
-                url = path.LocalPath;
-            }
-            string sectionTitle = getPathType( url ).ToLower();
-            if ( sectionTitle == "residents" )
-            {
-                sectionTitle = "Individuals";
-            }
-            return sectionTitle;
-        }//
-
-        /// <summary>
-        /// Gets the user type path from the URL (Residents or Business)
-        /// </summary>
-        /// <returns></returns>
-        public static string getPathType()
-        {
-
-            try
-            {
-                //string url = CmsHttpContext.Current.Channel.Path;
-                string url = GetPublicUrl( HttpContext.Current.Request.QueryString.ToString() );
-                return getPathType( url );
-            }
-            catch ( System.NullReferenceException nex )
-            {
-                //ignore 
-                return "residents";
-
-            }
-            catch ( Exception ex )
-            {
-                //log error but don't notify, probably just on a page without context
-                LoggingHelper.LogError( ex, "UtilityManager.getPathType() " );
-                //default value
-                return "residents";
-            }
-        }//
-
-        /// <summary>
-        /// Gets the user type path from the URL (Residents or Business)
-        /// </summary>
-        /// <returns></returns>
-        public static string getPathType( string url )
-        {
-            try
-            {
-                string[] parts = url.Split( '/' );
-                if ( parts.Length > 3 )
-                {
-                    string pathType = parts[ 3 ];
-                    if ( pathType == "" ) pathType = "residents";
-
-                    return pathType.ToLower();
-                }
-                else
-                {
-                    return "residents";
-                }
-
-            }
-            catch ( System.NullReferenceException nex )
-            {
-                //ignore - probably none MCMS page
-                return "residents";
-
-            }
-            catch ( Exception e )
-            {
-                //log error but don't notify, probably just on a page without context
-                LoggingHelper.LogError( "UtilityManager.getPathType: " + e.ToString(), false );
-                //default value
-                return "residents";
-            }
-        }//
-
-        /// <summary>
-        /// Gets the main channel from the CMS path
-        /// </summary>
-        /// <returns></returns>
-        public static string getPathChannel()
-        {
-
-            string url = "";
-            try
-            {
-                url = GetPublicUrl( HttpContext.Current.Request.QueryString.ToString() );
-                //url = CmsHttpContext.Current.Channel.Path;
-                return getPathChannel( url, 5 );
-
-            }
-            catch ( Exception e )
-            {
-                if ( url.ToLower().IndexOf( "vos_portal/business" ) > -1 )
-                    return "";
-                else if ( url.ToLower().IndexOf( "vos_portal/residents" ) > -1 )
-                    return "";
-                else
-                {
-                    LoggingHelper.LogError( "UtilityManager.getPathChannel (url = " + url + "): " + e.ToString() );
-                    //default value
-                    return "";
-                }
-            }
-
-        } //
-
-        /// <summary>
-        /// Gets the main channel from the passed path
-        /// </summary>
-        /// <returns></returns>
-        public static string getPathChannel( string url, int requestedPart )
-        {
-            string pathChannel = "";
-
-            try
-            {
-
-                string[] dirArray = url.Split( '/' );
-
-                if ( dirArray.Length > requestedPart )
-                {
-                    pathChannel = url.Split( '/' )[ requestedPart ];
-                    if ( pathChannel.IndexOf( "_" ) > 0 ) pathChannel = pathChannel.Replace( "_", " " );
-                    //= May need to translate the channel
-
-                }
-                return pathChannel;
-
-            }
-            catch ( Exception e )
-            {
-                if ( url.ToLower().IndexOf( "vos_portal/business" ) > -1 )
-                    return "";
-                else if ( url.ToLower().IndexOf( "vos_portal/residents" ) > -1 )
-                    return "";
-                else
-                {
-                    LoggingHelper.LogError( "UtilityManager.getPathChannel (url = " + url + "): " + e.ToString() );
-                    //default value
-                    return "";
-                }
-            }
-
-        } //
-
-        /// <summary>
-        /// Gets the main subchannel from the CMS path, that is the channel under the main channel (ex. Prepare under Jobs)
-        /// </summary>
-        /// <returns>string SubChannel name</returns>
-        public static string GetPathSubChannel()
-        {
-            string pathChannel = "";
-            string url = "";
-            try
-            {
-                url = GetPublicUrl( HttpContext.Current.Request.QueryString.ToString() );
-                //url = CmsHttpContext.Current.Channel.Path;
-                string[] dirArray = url.Split( '/' );
-
-                if ( dirArray.Length > 6 )
-                {
-                    pathChannel = url.Split( '/' )[ 6 ];
-                    if ( pathChannel.IndexOf( "_" ) > 0 ) pathChannel = pathChannel.Replace( "_", " " );
-                    //= May need to translate the channel
-                }
-                return pathChannel;
-
-            }
-            catch ( Exception e )
-            {
-                LoggingHelper.LogError( "UtilityManager.GetPathSubChannel (url = " + url + "): " + e.ToString() );
-                //default value
-                return "";
-            }
-
-        } //
-
-        /// <summary>
         /// Gets the last section (subchannel) of passed url
         /// Note downside is we are working with physical url which may not be meaningfull (esp for business main channels)
         /// </summary>
@@ -744,67 +555,7 @@ namespace Utilities
             return section;
         }//
 
-        /// <summary>
-        /// This function returns the default vos_user_role for the current path
-        /// </summary>
-        /// <returns></returns>
-        public static int GetPathDefaultRole()
-        {
-            int defaultRole = 1;
 
-            try
-            {
-                string lPathType = getPathType();
-                if ( lPathType == "residents" )
-                {
-                    defaultRole = 1;
-
-                }
-                else if ( lPathType == "advisors" )
-                {
-                    defaultRole = 2;
-
-                }
-                else if ( lPathType == "business" )
-                {
-                    defaultRole = 4;
-
-                }
-
-
-                return defaultRole;
-            }
-            catch ( Exception e )
-            {
-                LoggingHelper.LogError( e, "UtilityManager.GetPathDefaultRole exception" );
-
-                return defaultRole;
-            }
-        } //
-
-
-        /// <summary>
-        /// Get internal link snippet - img tag for an internal link
-        /// </summary>
-        /// <param name="rm"></param>
-        /// <returns></returns>
-        public static string GetInternalLink()
-        {
-            //get internal link snippet using default from web.config (or other way around??)
-            string link = GetAppKeyValue( "internalLinkImg", "" );
-            return link;
-        } //
-        /// <summary>
-        /// Get external link snippet - img tag for an external link
-        /// </summary>
-        /// <param name="rm"></param>
-        /// <returns></returns>
-        public static string GetExternalLink()
-        {
-            //get external link snippet using default from web.config (or other way around??)
-            string link = GetAppKeyValue( "externalLinkImg", "" );
-            return link;
-        } //
 
         /// <summary>
         /// Insert soft breaks into long URLs or email addresses in text string
@@ -981,127 +732,8 @@ namespace Utilities
         /// </summary>
         /// <param name="insideTag">Destination URL</param>
         /// <returns></returns>
-        private static string InsertOpenNewPage( string insideTag )
-        {
-            const string target = " target=\"_blank\"";
-            string newTag;
-            newTag = insideTag.Trim();
 
-            if ( newTag.EndsWith( ">" ) )
-                newTag = newTag.Replace( ">", target ) + ">";
-            else
-                newTag = insideTag + target;
-
-            return newTag;
-        }
-
-        /// <summary>
-        /// Determine if the passed link is a for a popup window
-        /// </summary>
-        /// <returns>True if a popup</returns>
-        public static bool IsLinkPopup( string path )
-        {
-            string newWindowTag = "_blank";
-            string newWindowTag2 = "'blank'";
-            string targetTag = " target=";
-
-            string javascriptNavTag = "javascript:parentnav";
-            string javascriptPopTag = "javascript:poptour";
-            string javascriptPopLanding = "javascript:poplanding";
-            string javascriptfnOpenWindowX = "fnopenwindowx(";
-
-            //
-            try
-            {
-                if ( path.ToLower().IndexOf( newWindowTag ) > 0
-                    || path.ToLower().IndexOf( newWindowTag2 ) > 0
-                    || path.ToLower().IndexOf( javascriptNavTag ) > 0
-                    || path.ToLower().IndexOf( javascriptPopLanding ) > 0
-                    || path.ToLower().IndexOf( javascriptfnOpenWindowX ) > 0
-                    || path.ToLower().IndexOf( javascriptPopTag ) > 0
-                    || path.ToLower().IndexOf( targetTag ) > 0
-                    )
-                {
-                    return true;
-                }
-                else
-                    return false;
-
-
-            }
-            catch ( Exception e )
-            {
-                LoggingHelper.LogError( "UtilityManager.IsLinkPopup: " + e.ToString() );
-                //default value
-                return false;
-            }
-        }
-
-
-        /// <summary>
-        /// Determine if the passed url is to the internal site or an external site
-        /// </summary>
-        /// <param name="path">URL to inspect</param>
-        /// <returns>true if path is internal, otherwise false</returns>
-		//public static bool IsPathInternal( string path )
-		//{
-		//	string defaultPage = GetAppKeyValue( "defaultPage", "/vos_portal/" );
-		//	string landingPage = GetAppKeyValue( "landingPage", "landing.htm" );
-		//	string host = HttpContext.Current.Request.ServerVariables[ "HTTP_HOST" ];
-
-		//	bool action = true;
-
-		//	try
-		//	{
-
-		//		if ( path.ToLower().IndexOf( defaultPage ) > -1
-		//			|| path.ToLower().IndexOf( "/nr/exeres/" ) > -1
-		//			|| path.ToLower().IndexOf( "/nr/rdonlyres/" ) > -1
-		//			|| path.ToLower().IndexOf( "#" ) > -1
-		//			|| !path.ToLower().StartsWith( "http" )
-		//			)
-		//		{
-		//			action = true;
-		//		}
-		//		else
-		//		{
-		//			action = false;
-		//		}
-
-		//		if ( path.ToLower().IndexOf( landingPage ) > 0 )
-		//		{
-		//			//landing page in path, assume external
-		//			action = false;
-
-		//			//check for hard coded prod path - as will be used in newsletters when on web
-		//		}
-		//		else if ( path.ToLower().IndexOf( "http://www.illinoisworknet.com" ) > 0
-		//		  || path.ToLower().IndexOf( "https://www.illinoisworknet.com" ) > 0
-		//		  || path.ToLower().IndexOf( host ) > 0
-		//		  )
-		//		{
-		//			action = true;
-
-		//		}
-		//		else if ( path.ToLower().IndexOf( "http://" ) > 0
-		//		  || path.ToLower().IndexOf( "http%3a" ) > 0
-		//		  || path.ToLower().IndexOf( "https://" ) > 0
-		//		  || path.ToLower().IndexOf( "https%3a" ) > 0
-		//		  )
-		//		{
-		//			action = false;
-		//		}
-
-		//		return action;
-
-		//	}
-		//	catch ( Exception e )
-		//	{
-		//		LoggingHelper.LogError( "UtilityManager.IsPathInternal: " + e.ToString() );
-		//		//default value
-		//		return false;
-		//	}
-		//}
+ 
         #endregion
 
         /// <summary>
@@ -1145,7 +777,7 @@ namespace Utilities
             return encodedTitle;
         } //
 
-
+		#region string helpers
         /// <summary>
         /// Retrieve a string item from the current cache
         /// - assumes a default value of blank
@@ -1190,16 +822,63 @@ namespace Utilities
             return cacheItem;
         }//
 
+		/// <summary>
+		/// extract value of a particular named parameter from passed string (Assumes and equal sign is used)
+		/// ex: for string:		
+		///			string searchString = "key1=value1;key2=value2;key3=value3;";
+		/// To retrieve the value for key2 use:
+		///			value = ExtractNameValue( searchString, "key2", ";");
+		/// </summary>
+		/// <param name="sourceString">String to search</param>
+		/// <param name="name">Name of "parameter" in string</param>
+		/// <param name="endDelimiter">End Delimeter. A character used to indicate the end of value in the string (often a semi-colon)</param>
+		/// <returns>The value associated with the passed name</returns>
+		public static string ExtractNameValue( string sourceString, string name, string endDelimiter )
+		{
+			string assignDelimiter = "=";
 
-        #region === Miscellaneous helper methods: defaults, IsDatatype, etc. ===
-        /// <summary>
-        /// Returns passed string as an integer, if is an integer and not null/empty. 
-        /// Otherwise returns the passed default value
-        /// </summary>
-        /// <param name="stringToTest"></param>
-        /// <param name="defaultValue"></param>
-        /// <returns>The string parameter as an int or the default value if the parameter is not a vlid integer</returns>
-        public static int AssignWithDefault( string stringToTest, int defaultValue )
+			return ExtractNameValue( sourceString, name, assignDelimiter, endDelimiter );
+		}//
+
+		/// <summary>
+		/// extract value of a particular named parameter from passed string. The assign delimiter
+		/// ex: for string:		
+		///			string radioButtonId = "Radio_q_4_c_15_";
+		/// To retrieve the value for question # use:
+		///			qNbr = ExtractNameValue( radioButtonId, "q", "_", "_");
+		/// To retrieve the value for choiceId use:
+		///			choiceId = ExtractNameValue( radioButtonId, "c", "_", "_");
+		/// </summary>
+		/// <param name="sourceString">String to search</param>
+		/// <param name="name">Name of "parameter" in string</param>
+		/// <param name="assignDelimiter">Assigned delimiter. Typically an equal sign (=), but could be any defining character</param>
+		/// <param name="endDelimiter">End Delimeter. A character used to indicate the end of value in the string (often a semi-colon)</param>
+		/// <returns></returns>
+		public static string ExtractNameValue( string sourceString, string name, string assignDelimiter, string endDelimiter )
+		{
+			int pos = sourceString.IndexOf( name + assignDelimiter );
+
+			if ( pos == -1 )
+				return "";
+
+			string value = sourceString.Substring( pos + name.Length + 1 );
+			int pos2 = value.IndexOf( endDelimiter );
+			if ( pos2 > -1 )
+				value = value.Substring( 0, pos2 );
+
+			return value;
+		}//
+
+		#endregion
+		#region === Miscellaneous helper methods: defaults, IsDatatype, etc. ===
+		/// <summary>
+		/// Returns passed string as an integer, if is an integer and not null/empty. 
+		/// Otherwise returns the passed default value
+		/// </summary>
+		/// <param name="stringToTest"></param>
+		/// <param name="defaultValue"></param>
+		/// <returns>The string parameter as an int or the default value if the parameter is not a vlid integer</returns>
+		public static int AssignWithDefault( string stringToTest, int defaultValue )
         {
             int newVal;
 
@@ -1427,5 +1106,69 @@ namespace Utilities
             return retVal;
         }
 
-    }
+		//Auto-convert one class to another based on matching properties by name and type
+		public static T SimpleMap<T>( object input ) where T : new()
+		{
+			if( input == null )
+			{
+				return default( T );
+			}
+
+			var result = new T();
+			SimpleUpdate( input, result, true );
+
+			return result;
+		}
+		//
+
+		//Auto-map properties whose name and type matches
+		//Useful for converting between database models and project models
+		public static void SimpleUpdate( object source, object destination, bool allowOverwritingSkippableValues = false )
+		{
+			if( source == null || destination == null )
+			{
+				return;
+			}
+
+			//Get the properties, and any skippable properties
+			var sourceProperties = source.GetType().GetProperties();
+			var destinationProperties = destination.GetType().GetProperties();
+			var skippableSourceProperties = CoreObject.GetSkippableProperties( source );
+
+			//Do the mapping
+			foreach( var prop in destinationProperties )
+			{
+				try
+				{
+					//Find the matching source property
+					var match = sourceProperties.FirstOrDefault( m => m.Name.ToLower() == prop.Name.ToLower() );
+					if ( match != null )
+					{
+						//If we aren't allowing skippable values (e.g. Id, RowId, Created, etc.) to be overwritten on update, and
+						//if the source property has an UpdateAttribute with a SkipPropertyOnUpdateValue of "true", skip the property
+						if ( !allowOverwritingSkippableValues && skippableSourceProperties.Contains( match ) )
+						{
+							continue;
+						}
+
+						//Attempt to map embedded objects if they can't be directly mapped...
+						if ( prop.PropertyType.IsClass && prop.PropertyType != match.PropertyType )
+						{
+							var item = match.GetValue( source );
+							var holder = prop.GetValue( destination );
+							SimpleUpdate( item, holder );
+						}
+						//Otherwise, attempt to map property directly
+						else
+						{
+							prop.SetValue( destination, match.GetValue( source, null ), null );
+						}
+					}
+				}
+				catch(Exception ex) { }
+			}
+		}
+		//
+
+	}
 }

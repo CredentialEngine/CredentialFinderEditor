@@ -15,201 +15,250 @@ namespace CTI.Directory.Controllers
 {
 	public class DetailController : BaseController
     {
-		AppUser user = new AppUser();
+		AppUser user = AccountServices.GetCurrentUser();
 		string status = "";
 		//string notAuthMessage = "You are not authorized to view this page. <p>During the Beta period, only authorized people may view private data.</p>";
-		SiteMessage msg = new SiteMessage() { Title = "<h2>Unauthorized Action</h2>", Message = "<p>You are not authorized to view this page.</p> <p>During the Beta period, only authorized people may view private data.</p>" };
+		SiteMessage msg = new SiteMessage() { Title = "<h2>Unauthorized Action</h2>", Message = "<p>You are not authorized to view this page.</p> <p>Only authorized people may view private data.</p>" };
 		SiteMessage notFoundMsg = new SiteMessage() { Title = "<h2>Not Found</h2>", Message = "<p>The requested record does not exist. Please use the search to locate the correct record.</p>" };
 
-		public ActionResult Credential( int id, string name = "" )
+		public ActionResult Print()
 		{
-			if ( User.Identity.IsAuthenticated )
-				user = AccountServices.GetCurrentUser( User.Identity.Name );
+			return View( "~/Views/V2/DetailV4/PrintDetail.cshtml" );
+		}
 
-			Credential entity = new Credential();
-			if ( !CredentialServices.CanUserViewCredential( id, user, ref entity ) )
+		public ActionResult Credential( string id, string name = "" )
+		{
+			//if ( User.Identity.IsAuthenticated )
+			//	user = AccountServices.GetCurrentUser( User.Identity.Name );
+
+			//Credential entity = new Credential();
+			if ( !AccountServices.IsUserAuthenticated() )
 			{
-				if ( entity.Id > 0 )
-					Session[ "SystemMessage" ] = msg;
-				else
-					Session[ "SystemMessage" ] = notFoundMsg;
-				return RedirectToAction( "Index", "Message" );
+				string nextUrl = string.Format( "/credential/{0}/{0}",  id, name );
+				return RedirectToAction( "CE_LoginRedirect", "Account", new { nextUrl = nextUrl } );
 			}
 			//HttpContext.Server.ScriptTimeout = 300;
 			string refresh = Request.Params[ "refresh" ];
 			bool skippingCache = FormHelper.GetRequestKeyValue( "skipCache", false );
+            List<string> messages = new List<string>();;
+            int credId = 0;
+            var entity = new Credential();
+            if ( int.TryParse( id, out credId ) )
+            {
+                if ( !CredentialServices.CanUserViewCredential( credId, user, ref entity ) )
+                {
+                    if ( entity.Id > 0 )
+                        Session[ "SystemMessage" ] = msg;
+                    else
+                        Session[ "SystemMessage" ] = notFoundMsg;
+                    return RedirectToAction( "Index", "Message" );
+                }
 
-			var vm = CredentialServices.GetCredentialDetail( id, user, skippingCache );
+                entity = CredentialServices.GetCredentialDetail( credId, user, skippingCache );
+            }
+            else if ( ServiceHelper.IsValidCtid( id, ref messages ) )
+            {
+                entity = CredentialServices.GetDetailByCtid( id,user, skippingCache );
+            }
 
-			if ( id > 0 && vm.Id == 0 )
+            if ( entity.Id == 0 )
 			{
-				SetPopupErrorMessage( "ERROR - the requested Credential record was not found " );
+				SetPopupErrorMessage( "ERROR - A valid Credential identifier was not provided." );
 				return RedirectToAction( "Index", "Home" );
 			}
 
-			if ( Request.Params[ "v2" ] == "true" )
+			if ( entity.IsReferenceVersion )
 			{
-				return View( "~/Views/V2/Detail/Index.cshtml", vm );
-			}
-
-			if(Request.Params["v3"] == "true" )
-			{
-				return View( "~/Views/V2/DetailV3/Detail.cshtml", vm );
-			}
-
-			return View( "~/Views/V2/DetailV4/Detail.cshtml", vm );
-
-		}
-		//
-
-		public ActionResult Organization( int id, string name = "" )
-		{
-			if ( User.Identity.IsAuthenticated )
-				user = AccountServices.GetCurrentUser( User.Identity.Name );
-
-			Organization vm = new Organization();
-			//check if can view the org
-			//method returns the org as well
-			if ( !OrganizationServices.CanUserViewOrganization( id, user, ref vm ) )
-			{
-				//ConsoleMessageHelper.SetConsoleErrorMessage( notAuthMessage, "", false );
-				if (vm.Id > 0)
-					Session[ "SystemMessage" ] = msg;
-				else
-					Session[ "SystemMessage" ] = notFoundMsg;
+				Session[ "siteMessage" ] = "The selected record is a Reference only, there is no detail to display";
 				return RedirectToAction( "Index", "Message" );
 			}
+            new ActivityServices().AddActivity( new SiteActivity()
+            {
+                ActivityType = "Credential",
+                Activity = "Detail",
+                Event = "View",
+                Comment = string.Format( "User viewed Credential: {0} ({1})", entity.Name, entity.Id ),
+                ActivityObjectId = credId,
+                ActionByUserId = user.Id,
+                ActivityObjectParentEntityUid = entity.RowId
+            } );
 
-			vm = OrganizationServices.GetOrganizationDetail( id, user );
+            return View( "~/Views/V2/DetailV4/Detail.cshtml", entity );
 
-			if ( id > 0 && vm.Id == 0 )
-			{
-				SetPopupErrorMessage ("ERROR - the requested organization record was not found ");
-				return RedirectToAction( "Index", "Home" );
-			}
-
-			if ( Request.Params[ "v2" ] == "true" )
-			{
-				return View( "~/Views/V2/Detail/Index.cshtml", vm );
-			}
-
-			if ( Request.Params[ "v3" ] == "true" )
-			{
-				return View( "~/Views/V2/DetailV3/Detail.cshtml", vm );
-			}
-
-			return View( "~/Views/V2/DetailV4/Detail.cshtml", vm );
 		}
 		//
-		public ActionResult QAOrganization( int id, string name = "" )
+
+		public ActionResult Organization( string id, string name = "" )
+		{
+			//if ( !User.Identity.IsAuthenticated )
+			//	user = AccountServices.GetCurrentUser( User.Identity.Name );
+
+			//Organization entity = new Organization();
+            string refresh = Request.Params[ "refresh" ];
+            bool skippingCache = FormHelper.GetRequestKeyValue( "skipCache", false );
+            List<string> messages = new List<string>();;
+            int orgId = 0;
+            var entity = new Organization();
+
+            if ( int.TryParse( id, out orgId ) )
+            {
+                if ( !OrganizationServices.CanUserViewOrganization( orgId, user, ref entity ) )
+                {
+                    if ( entity.Id > 0 )
+                        Session[ "SystemMessage" ] = msg;
+                    else
+                        Session[ "SystemMessage" ] = notFoundMsg;
+                    return RedirectToAction( "Index", "Message" );
+                }
+
+                entity = OrganizationServices.GetOrganizationDetail( orgId, user, skippingCache );
+            }
+            else if ( ServiceHelper.IsValidCtid( id, ref messages ) )
+            {
+                entity = OrganizationServices.GetDetailByCtid( id, user, skippingCache );
+            }
+
+            if ( entity.Id == 0 )
+            {
+                SetPopupErrorMessage( "Error: A valid Organization identifier was not provided." );
+                return RedirectToAction( "Index", "Home" );
+            }
+
+            if ( entity.IsReferenceVersion )
+            {
+                Session[ "siteMessage" ] = "The selected record is a Reference only, there is no detail to display";
+                return RedirectToAction( "Index", "Message" );
+            }
+            new ActivityServices().AddActivity( new SiteActivity()
+            {
+                ActivityType = "Organization",
+                Activity = "Detail",
+                Event = "View",
+                Comment = string.Format( "User viewed Organization: {0} ({1})", entity.Name, entity.Id ),
+                ActivityObjectId = orgId,
+                ActionByUserId = user.Id,
+                ActivityObjectParentEntityUid = entity.RowId
+            } );
+
+            return View( "~/Views/V2/DetailV4/Detail.cshtml", entity );
+
+        }
+        //
+        public ActionResult QAOrganization(string id, string name = "" )
 		{
 			return Organization( id, name );
-			/*
-			if ( User.Identity.IsAuthenticated )
-				user = AccountServices.GetCurrentUser( User.Identity.Name );
+		
+		}
+        //
+        public ActionResult AssessmentProfile( string id, string name = "" )
+        {
+            return Assessment( id, name );
 
-			Organization vm = new Organization();
-			//check if can view the org
-			//method returns the org as well
-			//17-03-08 mp - so far no difference in call for a QA org. Appropriate data will be returned for view to handle
-			if ( !OrganizationServices.CanUserViewQAOrganization( id, user, ref vm ) )
-			{
-				if ( vm.Id > 0 )
-					Session[ "SystemMessage" ] = msg;
-				else
-					Session[ "SystemMessage" ] = notFoundMsg;
-				return RedirectToAction( "Index", "Message" );
-			}
+        }
+        public ActionResult Assessment( string id, string name = "" )
+		{
+            //if ( User.Identity.IsAuthenticated )
+            //	user = AccountServices.GetCurrentUser( User.Identity.Name );
+            AssessmentProfile entity = new AssessmentProfile();
+            string refresh = Request.Params[ "refresh" ];
+            bool skippingCache = FormHelper.GetRequestKeyValue( "skipCache", false );
+            List<string> messages = new List<string>();;
+            int assmid = 0;
+           
 
-			//var vm = OrganizationServices.GetOrganizationDetail( id, user );
+            if ( int.TryParse( id, out assmid ) )
+            {
+                entity = AssessmentServices.GetDetail( assmid, user );
+                if ( !AssessmentServices.CanUserViewAssessment( entity, user, ref status ) )               {
+                    if ( entity.Id > 0 )
+                        Session[ "SystemMessage" ] = msg;
+                    else
+                        Session[ "SystemMessage" ] = notFoundMsg;
+                    return RedirectToAction( "Index", "Message" );
+                }               
+            }
+            else if ( ServiceHelper.IsValidCtid( id, ref messages ) )
+            {
+                entity = AssessmentServices.GetDetailByCtid( id, user );               
+            }
 
-			if ( id > 0 && vm.Id == 0 )
-			{
-				SetPopupErrorMessage( "ERROR - the requested organization record was not found " );
-				return RedirectToAction( "Index", "Home" );
-			}
+            if ( entity.Id == 0 )
+            {
+                SetPopupErrorMessage( "Error: A valid Assessment identifier was not provided." );
+                return RedirectToAction( "Index", "Home" );
+            }
 
-			if ( Request.Params[ "v2" ] == "true" )
-			{
-				return View( "~/Views/V2/Detail/Index.cshtml", vm );
-			}
+            if ( entity.IsReferenceVersion )
+            {
+                Session[ "siteMessage" ] = "The selected record is a Reference only, there is no detail to display";
+                return RedirectToAction( "Index", "Message" );
+            }
+            new ActivityServices().AddActivity( new SiteActivity()
+            {
+                ActivityType = SiteActivity.AssessmentType,
+                Activity = "Detail",
+                Event = "View",
+                Comment = string.Format( "User viewed Assessment: {0} ({1})", entity.Name, entity.Id ),
+                ActivityObjectId = assmid,
+                ActionByUserId = user.Id,
+                ActivityObjectParentEntityUid = entity.RowId
+            } );
 
-			if ( Request.Params[ "v3" ] == "true" )
-			{
-				return View( "~/Views/V2/DetailV3/Detail.cshtml", vm );
-			}
+            return View( "~/Views/V2/DetailV4/Detail.cshtml", entity );
 
-			return View( "~/Views/V2/DetailV4/Detail.cshtml", vm );
-			*/
+            
 		}
 		//
 
-		public ActionResult Assessment( int id, string name = "" )
+		public ActionResult LearningOpportunity( string id, string name = "" )
 		{
-			if ( User.Identity.IsAuthenticated )
-				user = AccountServices.GetCurrentUser( User.Identity.Name );
+            //if ( User.Identity.IsAuthenticated )
+            //	user = AccountServices.GetCurrentUser( User.Identity.Name );
+            LearningOpportunityProfile entity = new LearningOpportunityProfile();
+            string refresh = Request.Params[ "refresh" ];
+            bool skippingCache = FormHelper.GetRequestKeyValue( "skipCache", false );
+            List<string> messages = new List<string>();;
+            int loppid = 0;
 
-			AssessmentProfile vm = AssessmentServices.GetDetail( id, user );
-			if ( !AssessmentServices.CanUserViewAssessment( vm, user, ref status ) )
-			{
-				if ( vm.Id > 0 )
-					Session[ "SystemMessage" ] = msg;
-				else
-					Session[ "SystemMessage" ] = notFoundMsg;
-				return RedirectToAction( "Index", "Message" );
-			}
+            if ( int.TryParse( id, out loppid ) )
+            {
+                entity = LearningOpportunityServices.GetForDetail( loppid, user );
+                if ( !LearningOpportunityServices.CanUserViewLearningOpportunity(  entity, user, ref status ) )
+                {
+                    if ( entity.Id > 0 )
+                        Session[ "SystemMessage" ] = msg;
+                    else
+                        Session[ "SystemMessage" ] = notFoundMsg;
+                    return RedirectToAction( "Index", "Message" );
+                }
+            }
+            else if ( ServiceHelper.IsValidCtid( id, ref messages ) )
+            {
+                entity = LearningOpportunityServices.GetDetailByCtid( id, user );
+            }
+            if ( loppid > 0 && entity.Id == 0 )
+            {
+                SetPopupErrorMessage( "Error: A valid Learning Opportunity identifier was not provided." );
+                return RedirectToAction( "Index", "Home" );
+            }
+            if ( entity.IsReferenceVersion )
+            {
+                Session[ "siteMessage" ] = "The selected record is a Reference only, there is no detail to display";
+                return RedirectToAction( "Index", "Message" );
+            }
+            new ActivityServices().AddActivity( new SiteActivity()
+            {
+                ActivityType = SiteActivity.AssessmentType,
+                Activity = "Detail",
+                Event = "View",
+                Comment = string.Format( "User viewed LearningOpportunity: {0} ({1})", entity.Name, entity.Id ),
+                ActivityObjectId = loppid,
+                ActionByUserId = user.Id,
+                ActivityObjectParentEntityUid = entity.RowId
+            } );
+            return View( "~/Views/V2/DetailV4/Detail.cshtml", entity );
 
-			if ( id > 0 && vm.Id == 0 )
-			{
-				SetPopupErrorMessage( "ERROR - the requested Assessment record was not found " );
-				return RedirectToAction( "Index", "Home" );
-			}
-
-			if ( Request.Params[ "v2" ] == "true" )
-			{
-				return View( "~/Views/V2/Detail/Index.cshtml", vm );
-			}
-
-			if ( Request.Params[ "v3" ] == "true" )
-			{
-				return View( "~/Views/V2/DetailV3/Detail.cshtml", vm );
-			}
-
-			return View( "~/Views/V2/DetailV4/Detail.cshtml", vm );
-		}
-		//
-
-		public ActionResult LearningOpportunity( int id, string name = "" )
-		{
-			if ( User.Identity.IsAuthenticated )
-				user = AccountServices.GetCurrentUser( User.Identity.Name );
-
-			var vm = LearningOpportunityServices.GetForDetail( id, user );
-			if ( !LearningOpportunityServices.CanUserViewLearningOpportunity( vm,  user,  ref status ) )
-			{
-				//ConsoleMessageHelper.SetConsoleErrorMessage( notAuthMessage, "", false );
-				Session[ "SystemMessage" ] = msg;
-				return RedirectToAction( "Index", "Message" );
-			}
-			
-
-			if ( id > 0 && vm.Id == 0 )
-			{
-				SetPopupErrorMessage( "ERROR - the requested Learning Opportunity record was not found " );
-				return RedirectToAction( "Index", "Home" );
-			}
-
-			if ( Request.Params[ "v2" ] == "true" )
-			{
-				return View( "~/Views/V2/Detail/Index.cshtml", vm );
-			}
-
-			if ( Request.Params[ "v3" ] == "true" )
-			{
-				return View( "~/Views/V2/DetailV3/Detail.cshtml", vm );
-			}
-
-			return View( "~/Views/V2/DetailV4/Detail.cshtml", vm );
+           
 		}
 		//
 

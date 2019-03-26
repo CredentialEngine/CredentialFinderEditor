@@ -14,7 +14,18 @@ namespace Models.Helpers.Reports
 		{
 			IsSearchabilityAllowed = true;
 		}
-		public Statistic( string title, string description, int value, string id, List<string> tags = null, string categoryID = "", string codeID = "", bool searchable = true )
+        public Statistic(string title, string description, int value, string id, List<string> tags = null)
+        {
+            Title = title;
+            Description = description;
+            Value = value;
+            Id = id;
+            Tags = (tags ?? new List<string>());
+            CategoryId =  "";
+            CodeId = "";
+            IsSearchabilityAllowed = true;
+        }
+        public Statistic( string title, string description, int value, string id, List<string> tags = null, string categoryID = "", string codeID = "", bool searchable = true )
 		{
 			Title = title;
 			Description = description;
@@ -25,9 +36,22 @@ namespace Models.Helpers.Reports
 			CodeId = codeID ?? "";
 			IsSearchabilityAllowed = searchable;
 		}
-		public string Title { get; set; }
+        public Statistic(string title, string description, int value, string id, List<string> tags = null, string categoryID = "", int primarySortOrder = 0, string codeID = "", bool searchable = true)
+        {
+            Title = title;
+            Description = description;
+            Value = value;
+            Id = id;
+            Tags = (tags ?? new List<string>());
+            CategoryId = categoryID ?? "";
+            PrimarySortOrder = primarySortOrder;
+            CodeId = codeID ?? "";
+            IsSearchabilityAllowed = searchable;
+        }
+        public string Title { get; set; }
 		public string Description { get; set; }
-		public int Value { get; set; }
+        public int PrimarySortOrder { get; set; } = 0;
+        public int Value { get; set; }
 		public string Id { get; set; }
 		public List<string> Tags { get; set; } = new List<string>();
 		public string CategoryId { get; set; } //Category ID to be fed to the search as a filter
@@ -107,21 +131,28 @@ namespace Models.Helpers.Reports
 				.ToList();
 		}
 
-		/// <summary>
-		/// first try to use GetStatistics
-		/// </summary>
-		/// <param name="categorySchema"></param>
-		/// <param name="idPrefix"></param>
-		/// <param name="tags"></param>
-		/// <param name="includeEmpty"></param>
-		/// <param name="allowSearchability"></param>
-		/// <returns></returns>
-		//public List<Statistic> GetStatisticsBySocGroup( string categorySchema, string idPrefix, List<string> tags, bool includeEmpty = false, bool allowSearchability = true )
-		//{
-		//	return GetVocabularyItems( "ctdl:SocGroup", includeEmpty )
-		//		.ConvertAll( m => new Statistic( m.Name, m.Description, m.Totals, idPrefix + "_" + ( m.SchemaName ?? "" ).Replace( ":", "_" ), tags, m.CategoryId.ToString(), m.Id.ToString(), allowSearchability ) )
-		//		.ToList();
-		//}
+        /// <summary>
+        /// first try to use GetStatistics
+        /// </summary>
+        /// <param name="categorySchema"></param>
+        /// <param name="idPrefix"></param>
+        /// <param name="tags"></param>
+        /// <param name="includeEmpty"></param>
+        /// <param name="allowSearchability"></param>
+        /// <returns></returns>
+        //public List<Statistic> GetStatisticsBySocGroup( string categorySchema, string idPrefix, List<string> tags, bool includeEmpty = false, bool allowSearchability = true )
+        //{
+        //	return GetVocabularyItems( "ctdl:SocGroup", includeEmpty )
+        //		.ConvertAll( m => new Statistic( m.Name, m.Description, m.Totals, idPrefix + "_" + ( m.SchemaName ?? "" ).Replace( ":", "_" ), tags, m.CategoryId.ToString(), m.Id.ToString(), allowSearchability ) )
+        //		.ToList();
+        //}
+
+		public List<Statistic> GetStatisticsByEntity( int entityTypeId, string categorySchema, string idPrefix, List<string> tags, bool includeEmpty = true, bool allowSearchability = true )
+		{
+			var list = PropertiesTotalsByEntity.Where( m => m.EntityTypeId == entityTypeId && m.CategorySchema == categorySchema && m.Totals > ( includeEmpty ? -1 : 0 ) ).ToList();
+			return list.ConvertAll( m => new Statistic( m.Name, m.Description, m.Totals, idPrefix + "_" + ( m.SchemaName ?? "" ).Replace( ":", "_" ), tags, m.CategoryId.ToString(), m.Id.ToString(), allowSearchability ) )
+				.ToList();
+		}
 
 		public List<Statistic> GetStatisticsByEntity( string entityType, string categorySchema, string idPrefix, List<string> tags, bool includeEmpty = false, bool allowSearchability = true )
 		{
@@ -130,21 +161,58 @@ namespace Models.Helpers.Reports
 				.ToList();
 		}
 
-		public Statistic GetSingleStatistic( string schemaName, string idPrefix, List<string> tags, bool allowSearchability, string title ="", string description = "" )
+		public Statistic GetSingleStatistic( string schemaName, string idPrefix, List<string> tags, bool allowSearchability, string title ="", string description = "" , bool includeEmpty = false )
 		{
 			return ( PropertiesTotals.Concat( PropertiesTotalsByEntity ) ).Where( m => m.SchemaName == schemaName ).ToList()
 				.ConvertAll( m => new Statistic( 
-					string.IsNullOrWhiteSpace(title) ? m.Name : title, 
+                    string.IsNullOrWhiteSpace(title) ? m.Name : title, 
 					string.IsNullOrWhiteSpace(description) ? m.Description : description, 
 					m.Totals, 
 					idPrefix + "_" + (m.SchemaName ?? "").Replace( ":", "_" ), 
 					tags, 
 					m.CategoryId.ToString(), 
+                    m.SortOrder,
 					m.Id.ToString(), 
 					allowSearchability 
 				) )
 				.FirstOrDefault() ?? new Statistic();
 		}
+        //public Statistic GetSingleStatisticViaParentSchema(string schemaName, string idPrefix, List<string> tags, bool allowSearchability, string title = "", string description = "")
+        //{
+        //    return (PropertiesTotals.Concat(PropertiesTotalsByEntity)).Where(m => m.ParentSchemaName == schemaName).ToList()
+        //        .ConvertAll(m => new Statistic(
+        //           string.IsNullOrWhiteSpace(title) ? m.Name : title,
+        //           string.IsNullOrWhiteSpace(description) ? m.Description : description,
+        //           m.Totals,
+        //           idPrefix + "_" + (m.SchemaName ?? "").Replace(":", "_"),
+        //           tags,
+        //           m.CategoryId.ToString(),
+        //           m.Id.ToString(),
+        //           allowSearchability
+        //       ))
+        //        .FirstOrDefault() ?? new Statistic();
+        //}
+
+    }
+
+	//Intended for use as a structure to send data to the accounts system for search and reporting on the admin page there
+	public class OrganizationStatistics
+	{
+		public OrganizationStatistics()
+		{
+			Credential = new OrganizationDataStatistic();
+			Assessment = new OrganizationDataStatistic();
+			LearningOpportunity = new OrganizationDataStatistic();
+		}
+		public OrganizationDataStatistic Credential { get; set; }
+		public OrganizationDataStatistic Assessment { get; set; }
+		public OrganizationDataStatistic LearningOpportunity { get; set; }
+	}
+	public class OrganizationDataStatistic
+	{
+		public int TotalCurrent { get; set; }
+		public int TotalApproved { get; set; }
+		public int TotalPublished { get; set; }
 	}
 
 }

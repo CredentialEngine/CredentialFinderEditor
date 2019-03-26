@@ -44,7 +44,9 @@ namespace Data
             this.Entity_CommonCost = new HashSet<Entity_CommonCost>();
             this.Entity_CostManifest = new HashSet<Entity_CostManifest>();
             this.Entity_Competency = new HashSet<Entity_Competency>();
-            this.Entity_EducationFramework = new HashSet<Entity_EducationFramework>();
+            this.Entity_Language = new HashSet<Entity_Language>();
+            this.Entity_Approval = new HashSet<Entity_Approval>();
+            this.Entity_Assertion = new HashSet<Entity_Assertion>();
         }
     
         public int Id { get; set; }
@@ -84,6 +86,8 @@ namespace Data
         public virtual ICollection<Entity_CommonCost> Entity_CommonCost { get; set; }
         public virtual ICollection<Entity_CostManifest> Entity_CostManifest { get; set; }
         public virtual ICollection<Entity_Competency> Entity_Competency { get; set; }
-        public virtual ICollection<Entity_EducationFramework> Entity_EducationFramework { get; set; }
+        public virtual ICollection<Entity_Language> Entity_Language { get; set; }
+        public virtual ICollection<Entity_Approval> Entity_Approval { get; set; }
+        public virtual ICollection<Entity_Assertion> Entity_Assertion { get; set; }
     }
 }

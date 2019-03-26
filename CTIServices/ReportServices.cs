@@ -7,6 +7,9 @@ using System.Threading.Tasks;
 using Factories;
 using Models;
 using Models.Helpers.Reports;
+using System.Net.Http;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace CTIServices
 {
@@ -58,5 +61,35 @@ namespace CTIServices
 
 			return list;
 		}
+
+		/// <summary>
+		/// Get totals for a single organization - used by the accounts system for reports
+		/// </summary>
+		/// <param name="organizationCTID"></param>
+		/// <returns></returns>
+		public static OrganizationStatistics GetOrganizationStatistics( string organizationCTID )
+		{
+			var result = new OrganizationStatistics();
+
+			//TODO: Get the data
+
+			return result;
+		}
+		//
+
+		public static bool UpdateOrganizationStatisticsInAccountsSystem( string organizationCTID )
+		{
+			var data = GetOrganizationStatistics( organizationCTID );
+			var password = Utilities.ConfigHelper.GetConfigValue( "CEAccountSystemStaticPassword", "" );
+			var url = Utilities.ConfigHelper.GetConfigValue( "CEAccountOrganizationStatisticsUpdateApi", "" );
+			var client = new HttpClient();
+			var wrapper = new { password = password, data = data };
+			var requestContent = new StringContent( JsonConvert.SerializeObject( wrapper ), Encoding.UTF8, "application/json" );
+			var result = client.PostAsync( url, requestContent ).Result;
+			var body = result.Content.ReadAsStringAsync().Result; //Should be the standard JsonResponse structure (data, valid, status, extra)
+			var response = JObject.Parse( body ); //May want to return the whole response for error messages?
+			return (bool) response[ "valid" ];
+		}
+		//
 	}
 }

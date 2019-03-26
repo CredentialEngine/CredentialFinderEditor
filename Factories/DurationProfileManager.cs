@@ -18,28 +18,19 @@ namespace Factories
 		#region persistance ==================
 
 
-		public bool DurationProfileUpdate( DurationProfile profile, int userId, ref List<string> messages )
+		public bool Save( DurationProfile profile, int userId, ref List<string> messages )
 		{
 			bool isValid = true;
 			if ( profile == null || profile.EntityId == 0 )
 			{
 				messages.Add( "Error: the parent identifier was not provided." );
-			}
-
-			if ( messages.Count > 0 )
-				return false;
+                return false;
+            }
 
 			int count = 0;
-			//LoggingHelper.DoTrace( 2, string.Format( "DurationProfileManager.DurationProfile_Update. EntityId: {0} userId: {1} ", profile.EntityId, userId ) );
 
 			EM.Entity_DurationProfile efEntity = new EM.Entity_DurationProfile();
-			//entityId will be in the passed entity
-			//Entity parent = EntityManager.GetEntity( profile.ParentUid );
-			//if ( parent == null || parent.Id == 0 )
-			//{
-			//	messages.Add( "Error - the parent entity was not found." );
-			//	return false;
-			//}
+
 			using ( var context = new Data.CTIEntities() )
 			{
 				//check add/updates first
@@ -61,10 +52,10 @@ namespace Factories
 
 				if ( profile.Id == 0 )
 				{
-					//LoggingHelper.DoTrace( 2, string.Format( "DurationProfileManager.DurationProfile_Update. EntityId: {0} DONG ADD - fromMap: ", profile.EntityId ) );
+					//How to check if already exists for parent?
 					//add
 					efEntity = new EM.Entity_DurationProfile();
-					FromMap( profile, efEntity );
+					MapToDB( profile, efEntity );
 					efEntity.EntityId = profile.EntityId;
 					efEntity.Created = efEntity.LastUpdated = DateTime.Now;
 					efEntity.CreatedById = efEntity.LastUpdatedById = userId;
@@ -88,7 +79,7 @@ namespace Factories
 					if ( efEntity != null && efEntity.Id > 0 )
 					{
 						//update
-						FromMap( profile, efEntity );
+						MapToDB( profile, efEntity );
 						//has changed?
 						if ( HasStateChanged( context ) )
 						{
@@ -129,7 +120,40 @@ namespace Factories
 			return isOK;
 
 		}
-		private void FromMap( DurationProfile from, EM.Entity_DurationProfile to )
+        public bool DeleteAll( Guid parentUid, int typeId, ref List<string> messages )
+        {
+            bool isValid = true;
+            Entity parent = EntityManager.GetEntity( parentUid );
+            if ( parent == null || parent.Id == 0 )
+            {
+                messages.Add( "Error - the provided target parent entity was not found." );
+                return false;
+            }
+            using ( var context = new EM.CTIEntities() )
+            {
+                if ( typeId == 3 ) //renewal frequency only
+                {
+                    context.Entity_DurationProfile.RemoveRange( context.Entity_DurationProfile
+                        .Where( s => s.EntityId == parent.Id
+                        && s.TypeId == typeId ) );
+                }
+                else
+                {
+                    context.Entity_DurationProfile.RemoveRange( context.Entity_DurationProfile
+                        .Where( s => s.EntityId == parent.Id
+                        && s.TypeId < 3 ) );
+                }
+                int count = context.SaveChanges();
+                if ( count > 0 )
+                {
+                    isValid = true;
+                }
+            }
+
+            return isValid;
+        }
+        /// <summary>
+		private void MapToDB( DurationProfile from, EM.Entity_DurationProfile to )
 		{
 			int totalMinutes = 0;
 			to.Id = from.Id;
@@ -145,7 +169,7 @@ namespace Factories
 
 			//TODO - remove profileName
 			to.ProfileName = from.ProfileName ?? "";
-			to.DurationComment = from.Conditions;
+			to.DurationComment = from.Description;
 
 			bool hasExactDuration = false;
 			bool hasRangeDuration = false;
@@ -171,8 +195,9 @@ namespace Factories
 
 				to.FromMinutes  = from.ExactDuration.Minutes;
 				to.FromDuration = AsSchemaDuration( from.ExactDuration, ref totalMinutes );
+                to.AverageMinutes = totalMinutes;
 
-				to.TypeId = 1;
+				to.TypeId = from.DurationProfileTypeId == 3 ? from.DurationProfileTypeId : 1 ;
 				//reset any to max duration values
 				to.ToYears = null;
 				to.ToMonths = null;
@@ -189,9 +214,9 @@ namespace Factories
 				to.FromWeeks = from.MinimumDuration.Weeks;
 				to.FromDays = from.MinimumDuration.Days;
 				to.FromHours = from.MinimumDuration.Hours;
-				to.FromMinutes = from.ExactDuration.Minutes;
+				to.FromMinutes = from.MinimumDuration.Minutes;
 				to.FromDuration = AsSchemaDuration( from.MinimumDuration, ref totalMinutes );
-
+                int fromMin = totalMinutes;
 				to.ToYears = from.MaximumDuration.Years;
 				to.ToMonths = from.MaximumDuration.Months;
 				to.ToWeeks = from.MaximumDuration.Weeks;
@@ -200,11 +225,12 @@ namespace Factories
 				to.ToMinutes = from.MaximumDuration.Minutes;
 				to.ToDuration = AsSchemaDuration( from.MaximumDuration, ref totalMinutes );
 				to.TypeId = 2;
+                to.AverageMinutes = ( fromMin + totalMinutes ) / 2;
 			}
 
 		}
 
-		private static void ToMap( EM.Entity_DurationProfile from, DurationProfile to )
+		private static void MapFromDB( EM.Entity_DurationProfile from, DurationProfile to )
 		{
 			DurationItem duration = new DurationItem();
 			int totalMinutes = 0;
@@ -268,7 +294,7 @@ namespace Factories
 		/// Retrieve and fill duration profiles for parent entity
 		/// </summary>
 		/// <param name="parentUid"></param>
-		public static List<DurationProfile> GetAll( Guid parentUid )
+		public static List<DurationProfile> GetAll( Guid parentUid, int typeId = 0 )
 		{
 			DurationProfile row = new DurationProfile();
 			DurationItem duration = new DurationItem();
@@ -282,7 +308,9 @@ namespace Factories
 			using ( var context = new Data.CTIEntities() )
 			{
 				List<EM.Entity_DurationProfile> results = context.Entity_DurationProfile
-						.Where( s => s.EntityId == parent.Id )
+						.Where( s => s.EntityId == parent.Id 
+							&& (( typeId == 0 && s.TypeId < 3 ) || s.TypeId == typeId)
+							)
 						.OrderBy( s => s.Id )
 						.ToList();
 
@@ -291,7 +319,7 @@ namespace Factories
 					foreach ( EM.Entity_DurationProfile item in results )
 					{
 						row = new DurationProfile();
-						ToMap( item, row );
+						MapFromDB( item, row );
 						profiles.Add( row );
 					}
 				}
@@ -314,7 +342,7 @@ namespace Factories
 
 				if ( item != null && item.Id > 0 )
 				{
-					ToMap( item, entity );
+					MapFromDB( item, entity );
 				}
 			}
 
@@ -357,14 +385,25 @@ namespace Factories
 				isValid = false;
 				isEmpty = true;
 			}
-			//if ( !string.IsNullOrWhiteSpace( profile.ProfileName ) && profile.ProfileName.Length > 200 )
-			//{
-			//	//nothing, 
-			//	messages.Add( "Error - the profile name is too long, the maximum length is 200 characters.<br/>" );
-			//	isValid = false;
-			//	isEmpty = false;
-			//}
-			if ( !string.IsNullOrWhiteSpace( profile.Conditions ) && profile.Conditions.Length > 999 )
+            else if ( hasRangeDuration )
+            {
+                var minDuration = profile.MinimumDuration.TotalMinutes();
+                var maxDuration = profile.MaximumDuration.TotalMinutes();
+                if ( minDuration > maxDuration )
+                {
+                    messages.Add( "Error - Minimum Duration should be less than Maximum Duration.<br/>" );
+                    isValid = false;
+                }
+            }
+
+            //if ( !string.IsNullOrWhiteSpace( profile.ProfileName ) && profile.ProfileName.Length > 200 )
+            //{
+            //	//nothing, 
+            //	messages.Add( "Error - the profile name is too long, the maximum length is 200 characters.<br/>" );
+            //	isValid = false;
+            //	isEmpty = false;
+            //}
+            if ( !string.IsNullOrWhiteSpace( profile.Conditions ) && profile.Conditions.Length > 999 )
 			{
 				//nothing, 
 				messages.Add( "Error - the description is too long, the maximum length is 1000 characters.<br/>" );

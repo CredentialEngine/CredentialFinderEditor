@@ -27,6 +27,13 @@ namespace Models.ProfileModels
 		public int ParentTypeId { get; set; }
 		public string ParentType { get; set; }
 		public string Conditions { get { return Description; } set { Description = value; } }
+
+		/// <summary>
+		/// 1 - Exact Estimated Duration
+		/// 2 - Range Estimated Duration
+		/// 3 - Renewal frequency
+		/// </summary>
+		public int DurationProfileTypeId { get; set; }
 		public DurationItem MinimumDuration { get; set; }
 		public DurationItem MaximumDuration { get; set; }
 		public DurationItem ExactDuration { get; set; }
@@ -69,7 +76,23 @@ namespace Models.ProfileModels
 
 			return string.Join( ", ", parts );
 		}
-	}
-	//
+        public int TotalMinutes()
+        {
+            var totalMinutes = 0;
+            if ( Years > 0 ) totalMinutes += Years * 365 * 24 * 3600;
+
+            if ( Months > 0 ) totalMinutes += Months * 30 * 24 * 3600;
+
+            if ( Weeks > 0 ) totalMinutes += Weeks * 5 * 24 * 3600;
+
+            if ( Days > 0 ) totalMinutes += Days * 24 * 3600;
+
+            if ( Hours > 0 ) totalMinutes += Hours * 3600;
+
+            if ( Minutes > 0 ) totalMinutes += Minutes;
+
+            return totalMinutes;
+        }
+    }
 
 }

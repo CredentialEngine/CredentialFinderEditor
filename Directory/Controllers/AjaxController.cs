@@ -82,10 +82,10 @@ namespace CTI.Directory.Controllers
 				var result = new ToolTipData()
 				{
 					Term = data.id,
-					Name = data.rdfs_label,
-					Definition = ( data.rdfs_comment ?? "" ),
-					UsageNote = ( data.skos_scopeNote.FirstOrDefault() ?? "" ),
-					Comment = string.IsNullOrWhiteSpace(data.dcterms_description) ? "" : data.dcterms_description
+					Name = data.rdfs_label.enUS,
+					Definition = ( data.rdfs_comment.enUS ?? "" ),
+					UsageNote = ( data.skos_scopeNote.enUS ?? "" ),
+					Comment = string.IsNullOrWhiteSpace(data.dcterms_description.enUS ) ? "" : data.dcterms_description.enUS
 				};
 
 				return Utilities.JsonHelper.GetJsonWithWrapper( result, true, "okay", term );
@@ -150,10 +150,10 @@ namespace CTI.Directory.Controllers
 				var result = new ToolTipData()
 				{
 					Term = data.id,
-					Name = data.skos_prefLabel,
-					Definition = (data.skos_definition ?? ""),
-					UsageNote = ( data.skos_scopeNote.FirstOrDefault() ?? "" ),
-					Comment = string.IsNullOrWhiteSpace( data.dcterms_description ) ? "" : data.dcterms_description
+					Name = data.skos_prefLabel.enUS,
+					Definition = (data.skos_definition.enUS ?? ""),
+					UsageNote = ( data.skos_scopeNote.enUS ?? "" ),
+					Comment = string.IsNullOrWhiteSpace( data.dcterms_description.enUS ) ? "" : data.dcterms_description.enUS
 				};
 
 				return Utilities.JsonHelper.GetJsonWithWrapper( result, true, "okay", term );
@@ -260,74 +260,74 @@ namespace CTI.Directory.Controllers
 			}
 		}
 		//
-
+		#region CaSS search prototype - obsolete
 		//Do a CASS search - uses vanilla serialization since we don't want the CASS property names when this data gets returned to the client
 		//TODO - sanitize user input
-		public JsonResult CassSearch( string keyword, string type, string inFramework, int start = 1, int size = 10 )
-		{
-			keyword = keyword.Replace( "(", "" ).Replace( ")", "" ).Trim();
-			if ( !string.IsNullOrWhiteSpace( keyword ) )
-			{
-				switch ( type )
-				{
-					case "framework":
-						{
-							//var typeFilter = "(@type:\"http://schema.eduworks.com/cass/0.1/framework\")"; //Should get this from web.config. use for sandbox
-							var typeFilter = "(@type:\"framework\")"; //Should get this from web.config
-							var query = typeFilter + " AND (" + keyword + ")";
-							var results = ThirdPartyApiServices.DoCassSearch<CassFramework>( query );
-							//Don't send tons of extra data back to the client
-							foreach( var result in results )
-							{
-								result.UtilityData.Add( "TotalCompetencies", result.CompetencyUris.Count() );
-								result.UtilityData.Add( "TotalRelations", result.RelationUris.Count() );
-								result.CompetencyUris = new List<string>();
-								result.RelationUris = new List<string>();
-							}
-							return Utilities.JsonHelper.GetJsonWithWrapper( results, true, "", null );
-						}
-					case "competency":
-						{
-							//var typeFilter = "(@type:\"http://schema.eduworks.com/cass/0.1/competency\")"; //Should get this from web.config. use for sandbox
-							var typeFilter = "(@type:\"competency\")"; //Should get this from web.config
-							var query = typeFilter + " AND (" + keyword + ")";
-							var results = ThirdPartyApiServices.DoCassSearch<CassCompetency>( query );
-							return Utilities.JsonHelper.GetJsonWithWrapper( results, true, "", null );
-						}
-					default:
-						{
-							return Utilities.JsonHelper.GetJsonWithWrapper( null, false, "Unable to determine search type", null );
-						}
-				}
-			}
-			return Utilities.JsonHelper.GetJsonWithWrapper( null, false, "No text entered", null );
-		}
-		//
+		//public JsonResult CassSearch( string keyword, string type, string inFramework, int start = 1, int size = 10 )
+		//{
+		//	keyword = keyword.Replace( "(", "" ).Replace( ")", "" ).Trim();
+		//	if ( !string.IsNullOrWhiteSpace( keyword ) )
+		//	{
+		//		switch ( type )
+		//		{
+		//			case "framework":
+		//				{
+		//					//var typeFilter = "(@type:\"http://schema.eduworks.com/cass/0.1/framework\")"; //Should get this from web.config. use for sandbox
+		//					var typeFilter = "(@type:\"framework\")"; //Should get this from web.config
+		//					var query = typeFilter + " AND (" + keyword + ")";
+		//					var results = ThirdPartyApiServices.DoCassSearch<CassFramework>( query );
+		//					//Don't send tons of extra data back to the client
+		//					foreach( var result in results )
+		//					{
+		//						result.UtilityData.Add( "TotalCompetencies", result.CompetencyUris.Count() );
+		//						result.UtilityData.Add( "TotalRelations", result.RelationUris.Count() );
+		//						result.CompetencyUris = new List<string>();
+		//						result.RelationUris = new List<string>();
+		//					}
+		//					return Utilities.JsonHelper.GetJsonWithWrapper( results, true, "", null );
+		//				}
+		//			case "competency":
+		//				{
+		//					//var typeFilter = "(@type:\"http://schema.eduworks.com/cass/0.1/competency\")"; //Should get this from web.config. use for sandbox
+		//					var typeFilter = "(@type:\"competency\")"; //Should get this from web.config
+		//					var query = typeFilter + " AND (" + keyword + ")";
+		//					var results = ThirdPartyApiServices.DoCassSearch<CassCompetency>( query );
+		//					return Utilities.JsonHelper.GetJsonWithWrapper( results, true, "", null );
+		//				}
+		//			default:
+		//				{
+		//					return Utilities.JsonHelper.GetJsonWithWrapper( null, false, "Unable to determine search type", null );
+		//				}
+		//		}
+		//	}
+		//	return Utilities.JsonHelper.GetJsonWithWrapper( null, false, "No text entered", null );
+		//}
+		////
 
-		//Get a CASS object
-		public JsonResult CassGetObject( string uri, string type )
-		{
-			switch ( type )
-			{
-				case "framework":
-					{
-						var data = ThirdPartyApiServices.GetCassObject<CassFramework>( uri );
-						ThirdPartyApiServices.AssembleCassFramework( data );
-						return Utilities.JsonHelper.GetJsonWithWrapper( data, true, "", null );
-					}
-				case "competency":
-					{
-						var data = ThirdPartyApiServices.GetCassObject<CassCompetency>( uri );
-						return Utilities.JsonHelper.GetJsonWithWrapper( data, true, "", null );
-					}
-				default:
-					{
-						return Utilities.JsonHelper.GetJsonWithWrapper( null, false, "Unable to determine object type", null );
-					}
-			}
-		}
+		////Get a CASS object
+		//public JsonResult CassGetObject( string uri, string type )
+		//{
+		//	switch ( type )
+		//	{
+		//		case "framework":
+		//			{
+		//				var data = ThirdPartyApiServices.GetCassObject<CassFramework>( uri );
+		//				ThirdPartyApiServices.AssembleCassFramework( data );
+		//				return Utilities.JsonHelper.GetJsonWithWrapper( data, true, "", null );
+		//			}
+		//		case "competency":
+		//			{
+		//				var data = ThirdPartyApiServices.GetCassObject<CassCompetency>( uri );
+		//				return Utilities.JsonHelper.GetJsonWithWrapper( data, true, "", null );
+		//			}
+		//		default:
+		//			{
+		//				return Utilities.JsonHelper.GetJsonWithWrapper( null, false, "Unable to determine object type", null );
+		//			}
+		//	}
+		//}
+		#endregion
 
-		
 		public class ApiTermResult
 		{
 			public ApiTermResult()
@@ -342,26 +342,38 @@ namespace CTI.Directory.Controllers
 			public ApiTerm()
 			{
 				targetConceptScheme = new JsonLDUri();
-				skos_scopeNote = new List<string>();
+				foreach ( var property in this.GetType().GetProperties().Where(m => m.PropertyType == typeof( LanguageMap ) ) )
+				{
+					property.SetValue( this, new LanguageMap() );
+				}
 			}
 			[JsonProperty( "@id" )]
 			public string id { get; set; } //The @id field contains the term with prefix
 			[JsonProperty( "@type" )]
 			public string type { get; set; }
 			[JsonProperty("rdfs:label")]
-			public string rdfs_label { get; set; } //Name
+			public LanguageMap rdfs_label { get; set; } //Name
 			[JsonProperty( "rdfs:comment" )]
-			public string rdfs_comment { get; set; } //Definition
+			public LanguageMap rdfs_comment { get; set; } //Definition
 			[JsonProperty( "vann:usageNote" )]
-			public List<string> skos_scopeNote { get; set; } //Usage Note
+			public LanguageMap skos_scopeNote { get; set; } //Usage Note
 			[JsonProperty( "dcterms:description" )]
-			public string dcterms_description { get; set; } //Comment
+			public LanguageMap dcterms_description { get; set; } //Comment
 			[JsonProperty( "skos:prefLabel" )]
-			public string skos_prefLabel { get; set; } //Name (vocab term)
+			public LanguageMap skos_prefLabel { get; set; } //Name (vocab term)
 			[JsonProperty( "skos:definition" )]
-			public string skos_definition { get; set; } //Definition (vocab term)
+			public LanguageMap skos_definition { get; set; } //Definition (vocab term)
 			[JsonProperty( "meta:targetConceptScheme" )]
 			public JsonLDUri targetConceptScheme { get; set; } //Used by terms that point to vocabularies
+		}
+		public class LanguageMap
+		{
+			//Enable compatibility with pending changes to the credreg.net output
+			public string enUS { get { return string.IsNullOrWhiteSpace( englishUpper ) ? englishLower : englishUpper; } }
+			[JsonProperty("en-US")]
+			public string englishUpper { get; set; }
+			[JsonProperty( "en-us" )]
+			public string englishLower { get; set; }
 		}
 		public class LanguageString
 		{
@@ -443,5 +455,11 @@ namespace CTI.Directory.Controllers
 		//}
 		//
 
+		//Use in razor views that can't reference System.Net.Http.HttpClient directly because something is broken with the references
+		public static string MakeHttpGet( string url )
+		{
+			return new HttpClient().GetAsync( url ).Result.Content.ReadAsStringAsync().Result;
+		}
+		//
 	}
 }

@@ -45,22 +45,20 @@ namespace CTIServices
 
 			return profile;
 		}
-		//public static ConditionProfile ConditionProfile_Get( int profileId )
-		//{
-		//	bool includeProperties = true;
-		//	bool incudingResources = false;
-		//	bool forEditView = false;
-		//	ConditionProfile profile = ConditionMgr.Get( profileId, includeProperties, incudingResources, forEditView );
+        public static ConditionProfile GetBasic( int profileId )
+        {
 
-		//	return profile;
-		//}
+            ConditionProfile profile = ConditionMgr.GetBasic( profileId );
 
-		/// <summary>
-		/// Get condition profile in order to get the owning org of the parent credential
-		/// </summary>
-		/// <param name="rowId"></param>
-		/// <returns></returns>
-		public static MN.ProfileLink GetAsProfileLink( Guid rowId )
+            return profile;
+        }
+
+        /// <summary>
+        /// Get condition profile in order to get the owning org of the parent credential
+        /// </summary>
+        /// <param name="rowId"></param>
+        /// <returns></returns>
+        public static MN.ProfileLink GetAsProfileLink( Guid rowId )
 		{
 			return ConditionMgr.GetProfileLink( rowId );
 
@@ -121,8 +119,10 @@ namespace CTIServices
 					else
 					{
 						status = "Successfully Saved Condition Profile";
-						activityMgr.AddActivity( "Condition Profile", action, string.Format( "{0} saved condition profile: {1} for {2}", user.FullName(), entity.ProfileName, parent.EntityType ), user.Id, 0, entity.Id );
-					}
+						activityMgr.AddEditorActivity( "Condition Profile", action, string.Format( "{0} saved condition profile: {1} for {2}", user.FullName(), entity.ProfileName, parent.EntityType ), user.Id, entity.Id, parentUid);
+
+                        new ProfileServices().UpdateTopLevelEntityLastUpdateDate(parent.Id, string.Format("Entity Update triggered by {0} saving a condition profile for : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId));
+                    }
 				}
 				else
 				{
@@ -169,9 +169,10 @@ namespace CTIServices
 				if ( valid )
 				{
 					//if valid, status contains the cred id, category, and codeId
-					activityMgr.AddActivity( "Condition Profile", "Delete", string.Format( "{0} deleted Condition Profile {1} from {2} -  {3}", user.FullName(), profileId, parent.EntityType, parent.EntityBaseId ), user.Id, 0, profileId, parent.EntityBaseId );
+					activityMgr.AddEditorActivity( "Condition Profile", "Delete", string.Format( "{0} deleted Condition Profile {1} from {2} -  {3}", user.FullName(), profileId, parent.EntityType, parent.EntityBaseId ), user.Id, 0, profileId, parent.EntityBaseId );
 					status = "";
-				}
+                    new ProfileServices().UpdateTopLevelEntityLastUpdateDate(parent.Id, string.Format("Entity Update triggered by {0} deleting a condition profile for : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId));
+                }
 			}
 			catch ( Exception ex )
 			{
@@ -207,12 +208,19 @@ namespace CTIServices
 				Credential cred = CredentialManager.GetBasicWithConditions( credentialUid );
 				if (cred.Requires.Count > 0  )
 				{
-					//user has to handle - send message
-					status = "Multiple condition profiles already exist. You must manually add this learning opportunity to the correct one.";
-					string statusMsg = "";
-					new MessageServices().Add( new Data.Message() { SenderId = 1, ReceiverId = user.Id, DeliveryMethod = 1, Content = status }, ref statusMsg );
+                    //just add to first
+                    ConditionProfile cp = cred.Requires[0];
+                    var newId = new ProfileServices().LearningOpportunity_Add( cp.RowId, credentialUid, learningOppId, user, ref isValid, ref status, true );
+                    status = string.Format("Added learning opportunity to existing condition profile: {0} for this credential.", cp.Name);
+                    string statusMsg = "";
+                    new MessageServices().Add( new Data.Message() { SenderId = 1, ReceiverId = user.Id, DeliveryMethod = 1, Content = status }, ref statusMsg );
+                    return true;
+                    //user has to handle - send message
+                    //status = "Multiple condition profiles already exist. You must manually add this learning opportunity to the correct one.";
+					//string statusMsg = "";
+					//new MessageServices().Add( new Data.Message() { SenderId = 1, ReceiverId = user.Id, DeliveryMethod = 1, Content = status }, ref statusMsg );
 
-					return false;
+					//return false;
 				}
 
 				ConditionProfile entity = new ConditionProfile();
@@ -221,8 +229,8 @@ namespace CTIServices
 				entity.IsStarterProfile = true;
 				entity.AssertedByAgentUid = cred.OwningAgentUid;
 				LearningOpportunityProfile lopp = LearningOpportunityServices.Get( learningOppId, false );
-				entity.ProfileName = "Auto-created for new Learning Opportunity";
-				entity.Description = "Added a learning opportunity condition";
+				entity.ProfileName = "Requirements for " + cred.Name;
+				entity.Description = "To earn this credential, candidates must complete the learning opportunity: " + lopp.Name;
 
 				//set the ParentId which is the EntityId
 				entity.ParentId = parent.Id;
@@ -232,10 +240,13 @@ namespace CTIServices
 				if ( new ConditionMgr().Save( entity, credentialUid, user.Id, ref messages ) )
 				{
 					status = "Successfully Saved Condition Profile";
-						activityMgr.AddActivity( "Condition Profile", "Auto create for learning opportunity", string.Format( "{0} saved condition profile: {1} for {2}", user.FullName(), entity.ProfileName, parent.EntityType ), user.Id, 0, entity.Id );
+						activityMgr.AddEditorActivity( "Condition Profile", "Auto create for learning opportunity", string.Format( "{0} saved condition profile: {1} for {2}", user.FullName(), entity.ProfileName, parent.EntityType ), user.Id, 0, entity.Id );
 
-					//now all lopp to the latter
-					var newId = new ProfileServices().LearningOpportunity_Add( entity.RowId, learningOppId, user, ref isValid, ref status, true );
+                    //only need this for the first event
+                    new ProfileServices().UpdateTopLevelEntityLastUpdateDate(parent.Id, string.Format("Entity Update triggered by {0} doing an UpsertConditionProfileForLearningOpp for : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId));
+
+                    //now add lopp to the latter
+                    var newId = new ProfileServices().LearningOpportunity_Add( entity.RowId, credentialUid, learningOppId, user, ref isValid, ref status, true );
 
 					string msg2 = "A condition profile has been automatically created for this new Learning Opportunity";
 					string statusMsg = "";
@@ -270,8 +281,8 @@ namespace CTIServices
 			}
 
 			//check if credential has condition profiles (type 1 or 2)
-			//if not create a new one and attach the learning opp
-			//if not, hmmm, notify user to add to the lopp?
+			//if not create a new one and attach the assessment
+			//if not, hmmm, notify user to add assessment to condition?
 			//could send an email?
 			//value of some system messages!!!
 
@@ -281,13 +292,21 @@ namespace CTIServices
 				Credential cred = CredentialManager.GetBasicWithConditions( credentialUid );
 				if ( cred.Requires.Count > 0  )
 				{
-					//user has to handle - send message
-					status = "Multiple condition profiles already exist. You must manually add this Assessment to the correct one.";
-					string statusMsg = "";
-					new MessageServices().Add( new Data.Message() { SenderId = 1, ReceiverId = user.Id, DeliveryMethod = 1, Content = status }, ref statusMsg );
+                    //just add to first
+                    ConditionProfile cp = cred.Requires[0];
+                    var newId = new ProfileServices().Assessment_Add( cp.RowId, credentialUid, asmtId, user, ref isValid, ref status, true );
+                    status = string.Format( "Added Assessment to existing condition profile: {0} for this credential.", cp.Name );
+                    string statusMsg = "";
+                    new MessageServices().Add( new Data.Message() { SenderId = 1, ReceiverId = user.Id, DeliveryMethod = 1, Content = status }, ref statusMsg );
+                    return true;
 
-					return false;
-				}
+                    //user has to handle - send message
+                    //status = "Multiple condition profiles already exist. You must manually add this Assessment to the correct one.";
+                    //string statusMsg = "";
+                    //new MessageServices().Add( new Data.Message() { SenderId = 1, ReceiverId = user.Id, DeliveryMethod = 1, Content = status }, ref statusMsg );
+
+                    //return false;
+                }
 
 				ConditionProfile entity = new ConditionProfile();
 				entity.ConnectionProfileTypeId = 1;
@@ -295,22 +314,24 @@ namespace CTIServices
 				entity.IsStarterProfile = true;
 				entity.AssertedByAgentUid = cred.OwningAgentUid;
 
-				AssessmentProfile profile = AssessmentServices.GetBasic( asmtId );
-				entity.ProfileName = "Auto-created for new assessment";
-				entity.Description = "Added an Assessment condition";
+                AssessmentProfile profile = AssessmentServices.GetBasic( asmtId );
+                entity.ProfileName = "Requirements for " + cred.Name;
+                entity.Description = "To earn this credential, candidates must complete the Assessment: " + profile.Name;
 
-				//set the ParentId which is the EntityId
-				entity.ParentId = parent.Id;
+                //set the ParentId which is the EntityId
+                entity.ParentId = parent.Id;
 				//if sure this is always provided, don't need userId in methods
 				entity.CreatedById = entity.LastUpdatedById = user.Id;
 
 				if ( new ConditionMgr().Save( entity, credentialUid, user.Id, ref messages ) )
 				{
 					status = "Successfully Saved Condition Profile";
-					activityMgr.AddActivity( "Condition Profile", "Auto create for Assessment", string.Format( "{0} saved condition profile: {1} for {2}", user.FullName(), entity.ProfileName, parent.EntityType ), user.Id, 0, entity.Id );
+					activityMgr.AddEditorActivity( "Condition Profile", "Auto create for Assessment", string.Format( "{0} saved condition profile: {1} for {2}", user.FullName(), entity.ProfileName, parent.EntityType ), user.Id, 0, entity.Id );
 
-					//now add asmt to the latter
-					var newId = new ProfileServices().Assessment_Add( entity.RowId, asmtId, user, ref isValid, ref status, true );
+                    new ProfileServices().UpdateTopLevelEntityLastUpdateDate(parent.Id, string.Format("Entity Update triggered by {0} doing an UpsertConditionProfileForAssessment for : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId));
+
+                    //now add asmt to the latter
+                    var newId = new ProfileServices().Assessment_Add( entity.RowId, credentialUid, asmtId, user, ref isValid, ref status, true );
 
 					string msg2 = "A condition profile has been automatically created for this new Assessment";
 					string statusMsg = "";

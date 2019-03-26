@@ -11,7 +11,7 @@ using CM = Models.Common;
 using Models.ProfileModels;
 using EM = Data;
 using Utilities;
-using DBentity = Data.CostManifest;
+using DBEntity = Data.CostManifest;
 using ThisEntity = Models.Common.CostManifest;
 
 namespace Factories
@@ -47,9 +47,9 @@ namespace Factories
 
 			int count = 0;
 
-			DBentity efEntity = new DBentity();
+			DBEntity efEntity = new DBEntity();
 			int parentOrgId = 0;
-			Guid commonCostParentUid = new Guid();
+
 			Guid condtionManifestParentUid = new Guid();
 			CM.Entity parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
@@ -82,31 +82,30 @@ namespace Factories
 			{
 				try
 				{
-					bool isEmpty = false;
+					entity.ParentId = parentOrgId;
+					entity.OwningAgentUid = parent.EntityUid;
 
-					if ( ValidateProfile( entity, ref isEmpty, ref messages ) == false )
+					if ( ValidateProfile( entity, ref messages ) == false )
 					{
-						return false;
-					}
-					if ( isEmpty )
-					{
-						messages.Add( "The Cost Manifest Profile is empty. " );
 						return false;
 					}
 
 					if ( entity.Id == 0 )
 					{
 						//add
-						efEntity = new DBentity();
+						efEntity = new DBEntity();
 						FromMap( entity, efEntity );
 						efEntity.OrganizationId = parentOrgId;
 
 						efEntity.Created = efEntity.LastUpdated = DateTime.Now;
 						efEntity.CreatedById = efEntity.LastUpdatedById = userId;
 						efEntity.RowId = Guid.NewGuid();
-						efEntity.CTID = "ce-" + efEntity.RowId.ToString();
+                        if ( !string.IsNullOrWhiteSpace( entity.CTID ) && entity.CTID.Length == 39 )
+                            efEntity.CTID = entity.CTID.ToLower();
+                        else
+                            efEntity.CTID = "ce-" + efEntity.RowId.ToString().ToLower();
 
-						context.CostManifest.Add( efEntity );
+                        context.CostManifest.Add( efEntity );
 						count = context.SaveChanges();
 
 						entity.Id = efEntity.Id;
@@ -177,12 +176,12 @@ namespace Factories
 		/// <summary>
 		/// Update credential registry id, and set status published
 		/// </summary>
-		/// <param name="CostManifestId"></param>
+		/// <param name="costManifestId"></param>
 		/// <param name="envelopeId"></param>
 		/// <param name="userId"></param>
 		/// <param name="statusMessage"></param>
 		/// <returns></returns>
-		public bool UpdateEnvelopeId( int CostManifestId, string envelopeId, int userId, ref string statusMessage )
+		public bool UpdateEnvelopeId( int costManifestId, string envelopeId, int userId, ref string statusMessage )
 		{
 			bool isValid = false;
 			int count = 0;
@@ -194,7 +193,7 @@ namespace Factories
 					context.Configuration.LazyLoadingEnabled = false;
 
 					EM.CostManifest efEntity = context.CostManifest
-									.SingleOrDefault( s => s.Id == CostManifestId );
+									.SingleOrDefault( s => s.Id == costManifestId );
 
 					if ( efEntity != null && efEntity.Id > 0 )
 					{
@@ -202,8 +201,9 @@ namespace Factories
 
 						if ( HasStateChanged( context ) )
 						{
-							efEntity.LastUpdated = System.DateTime.Now;
-							efEntity.LastUpdatedById = userId;
+							//don't set updated for this action
+							//efEntity.LastUpdated = System.DateTime.Now;
+							//efEntity.LastUpdatedById = userId;
 
 							count = context.SaveChanges();
 							//can be zero if no data changed
@@ -215,7 +215,7 @@ namespace Factories
 							{
 								//?no info on error
 								statusMessage = "Error - the update was not successful. ";
-								string message = string.Format( thisClassName + ". UpdateEnvelopeId Failed", "Attempted to update an EnvelopeId. The process appeared to not work, but was not an exception, so we have no message, or no clue. CostManifest: {0}, envelopeId: {1}, updatedById: {2}", CostManifestId, envelopeId, userId );
+								string message = string.Format( thisClassName + ". UpdateEnvelopeId Failed", "Attempted to update an EnvelopeId. The process appeared to not work, but was not an exception, so we have no message, or no clue. CostManifest: {0}, envelopeId: {1}, updatedById: {2}", costManifestId, envelopeId, userId );
 								EmailManager.NotifyAdmin( thisClassName + ".UpdateEnvelopeId Failed", message );
 							}
 						}
@@ -230,7 +230,7 @@ namespace Factories
 				catch ( Exception ex )
 				{
 					statusMessage = FormatExceptions( ex );
-					LoggingHelper.LogError( ex, thisClassName + string.Format( ".UpdateEnvelopeId(), CostManifest: {0}, envelopeId: {1}, updatedById: {2}", CostManifestId, envelopeId, userId ) );
+					LoggingHelper.LogError( ex, thisClassName + string.Format( ".UpdateEnvelopeId(), CostManifest: {0}, envelopeId: {1}, updatedById: {2}", costManifestId, envelopeId, userId ) );
 					
 				}
 			}
@@ -315,7 +315,7 @@ namespace Factories
 			{
 				try
 				{
-					DBentity efEntity = context.CostManifest
+					DBEntity efEntity = context.CostManifest
 								.SingleOrDefault( s => s.Id == Id );
 
 					if ( efEntity != null && efEntity.Id > 0 )
@@ -352,24 +352,13 @@ namespace Factories
 		}
 
 
-		public bool ValidateProfile( ThisEntity profile, ref bool isEmpty, ref List<string> messages )
+		public static bool ValidateProfile( ThisEntity profile, ref List<string> messages, bool validatingUrls = true )
 		{
 			bool isValid = true;
 			int count = messages.Count;
 			if ( profile.IsStarterProfile )
 				return true;
 
-			isEmpty = false;
-			//check if empty
-			if ( string.IsNullOrWhiteSpace( profile.ProfileName )
-				&& string.IsNullOrWhiteSpace( profile.Description )
-				&& string.IsNullOrWhiteSpace( profile.CostDetails)
-
-				)
-			{
-				//isEmpty = true;
-				//return isValid;
-			}
 			//&& ( profile.EstimatedCost == null || profile.EstimatedCost.Count == 0 )
 			if ( string.IsNullOrWhiteSpace( profile.ProfileName ) )
 			{
@@ -379,9 +368,25 @@ namespace Factories
 			{
 				messages.Add( "A Cost Manifest Description must be entered" );
 			}
+			else if ( FormHelper.HasHtmlTags( profile.Description ) )
+			{
+				messages.Add( "HTML or Script Tags are not allowed in the description" );
+			}
+			else if ( profile.Description.Length < MinimumDescriptionLength && !IsDevEnv() )
+			{
+				messages.Add( string.Format( "The Cost Manifest description must be at least {0} characters in length.", MinimumDescriptionLength ) );
+			}
+			//added for use from publishing and check for minimum values
+			if ( !IsGuidValid( profile.OwningAgentUid ) )
+			{
+				messages.Add( "An owning organization must be selected" );
+			}
 
 
-			if ( !IsUrlValid( profile.CostDetails, ref commonStatusMessage ) )
+			if ( string.IsNullOrWhiteSpace( profile.CostDetails ) )
+				messages.Add( "A Cost Details Url must be entered" );
+
+			else if ( validatingUrls && !IsUrlValid( profile.CostDetails, ref commonStatusMessage ) )
 			{
 				messages.Add( "The Cost Detail Url is invalid " + commonStatusMessage );
 			}
@@ -429,12 +434,12 @@ namespace Factories
 
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity item = context.CostManifest
+				DBEntity item = context.CostManifest
 						.SingleOrDefault( s => s.Id == id );
 
 				if ( item != null && item.Id > 0 )
 				{
-					ToMap( item, entity,
+					MapFromDB( item, entity,
 						true, //includingProperties
 						includingProfiles,
 						forEditView );
@@ -458,7 +463,7 @@ namespace Factories
 				//want to get org, deal with others
 				//context.Configuration.LazyLoadingEnabled = false;
 
-				DBentity item = context.CostManifest
+				DBEntity item = context.CostManifest
 						.SingleOrDefault( s => s.Id == id );
 
 				if ( item != null && item.Id > 0 )
@@ -466,9 +471,11 @@ namespace Factories
 					entity.Id = item.Id;
 					entity.RowId = item.RowId;
 					entity.Name = item.Name;
+                    entity.CTID = item.CTID;
 					entity.Description = item.Description;
 					entity.CostDetails = item.CostDetails;
-					entity.OrganizationId = item.OrganizationId;
+                    entity.CredentialRegistryId = item.CredentialRegistryId;
+                    entity.OrganizationId = item.OrganizationId;
 					entity.OwningOrganization = new CM.Organization();
 					if ( item.OrganizationId > 0 )
 					{
@@ -478,12 +485,14 @@ namespace Factories
 							entity.OwningOrganization.Name = item.Organization.Name;
 							entity.OwningOrganization.RowId = item.Organization.RowId;
 							entity.OwningOrganization.SubjectWebpage = item.Organization.URL;
-						}
+							entity.OwningOrganization.CTID = item.CTID;
+                        }
 						else
 						{
 							entity.OwningOrganization = OrganizationManager.GetForSummary( entity.OrganizationId );
 							entity.OwningAgentUid = entity.OwningOrganization.RowId;
 						}
+
 						entity.OrganizationName = entity.OwningOrganization.Name;
 						entity.OwningAgentUid = entity.OwningOrganization.RowId;
 					}
@@ -492,14 +501,28 @@ namespace Factories
 
 			return entity;
 		}
+		public static ThisEntity GetBasic( Guid rowID )
+		{
+			using ( var context = new Data.CTIEntities() )
+			{
+				var match = context.CostManifest.FirstOrDefault( m => m.RowId == rowID );
+				return match == null ? null : GetBasic( match.Id );
+			}
+		}
 
+        public static ThisEntity GetForApproval( int id, ref List<string> messages )
+        {
+            ThisEntity entity = GetBasic(id);
+            ValidateProfile( entity, ref messages );
 
-		/// <summary>
-		/// Get all the Cost manifests for the parent organization
-		/// </summary>
-		/// <param name="orgId"></param>
-		/// <returns></returns>
-		public static List<ThisEntity> GetAll( int orgId, bool isForLinks )
+            return entity;
+        }
+        /// <summary>
+        /// Get all the Cost manifests for the parent organization
+        /// </summary>
+        /// <param name="orgId"></param>
+        /// <returns></returns>
+        public static List<ThisEntity> GetAll( int orgId, bool isForLinks )
 		{
 			ThisEntity to = new ThisEntity();
 			List<ThisEntity> list = new List<ThisEntity>();
@@ -527,15 +550,15 @@ namespace Factories
 							{
 								to.Id = from.CostManifestId;
 								to.RowId = from.CostManifest.RowId;
-
-								to.OrganizationId = ( int ) from.Entity.EntityBaseId;
+                                to.CTID = from.CostManifest.CTID;
+                                to.OrganizationId = ( int ) from.Entity.EntityBaseId;
 								to.OwningAgentUid = from.Entity.EntityUid;
 								//
-								to.ProfileName = from.CostManifest.Name;
-							}
+								to.ProfileName = from.CostManifest.Name + " ( " + from.CostManifest.CTID + " )";
+                            }
 							else
 							{
-								ToMap( from.CostManifest, to, true, true, false );
+								MapFromDB( from.CostManifest, to, true, true, false );
 							}
 							list.Add( to );
 						}
@@ -581,7 +604,7 @@ namespace Factories
 							to = new ThisEntity();
 							if ( isForLinks )
 							{
-								to.Id = from.Id;
+								to.Id = from.CostManifest.Id;
 								to.RowId = from.CostManifest.RowId;
 
 								to.OrganizationId = ( int ) from.Entity.EntityBaseId;
@@ -590,7 +613,7 @@ namespace Factories
 							}
 							else
 							{
-								ToMap( from.CostManifest, to, true, true, false );
+								MapFromDB( from.CostManifest, to, true, true, false );
 							}
 							list.Add( to );
 						}
@@ -665,9 +688,6 @@ namespace Factories
 			ThisEntity item = new ThisEntity();
 			List<ThisEntity> list = new List<ThisEntity>();
 			var result = new DataTable();
-			string temp = "";
-			string org = "";
-			int orgId = 0;
 
 			using ( SqlConnection c = new SqlConnection( connectionString ) )
 			{
@@ -690,20 +710,29 @@ namespace Factories
 					totalRows.Direction = ParameterDirection.Output;
 					command.Parameters.Add( totalRows );
 
-					using ( SqlDataAdapter adapter = new SqlDataAdapter() )
+                    try
+                    {
+                        using ( SqlDataAdapter adapter = new SqlDataAdapter() )
 					{
 						adapter.SelectCommand = command;
 						adapter.Fill( result );
 					}
 					string rows = command.Parameters[ 4 ].Value.ToString();
-					try
-					{
+					
 						pTotalRows = Int32.Parse( rows );
 					}
-					catch
-					{
+                    catch ( Exception ex )
+                    {
 						pTotalRows = 0;
-					}
+                        LoggingHelper.LogError( ex, thisClassName + string.Format( ".MainSearch() - Execute proc, Message: {0} \r\n Filter: {1} \r\n", ex.Message, pFilter ) );
+
+                        item = new ThisEntity();
+                        item.Name = "Unexpected error encountered. System administration has been notified. Please try again later. ";
+                        item.Description = ex.Message;
+
+                        list.Add( item );
+                        return list;
+                    }
 				}
 
 				foreach ( DataRow dr in result.Rows )
@@ -718,10 +747,30 @@ namespace Factories
 					string rowId = GetRowColumn( dr, "RowId" );
 					item.RowId = new Guid( rowId );
 					item.CTID = GetRowColumn( dr, "CTID" );
-					item.CostDetails = GetRowColumn( dr, "URL", "" );
+					item.CostDetails = GetRowColumn( dr, "CostDetails", "" );
+                    item.EntityLastUpdated = GetRowColumn( dr, "EntityLastUpdated", System.DateTime.Now );
 
+                    //published ==========================
+                    string date = GetRowPossibleColumn( dr, "LastPublishDate", "" );
+                    DateTime testdate;
+                    if ( DateTime.TryParse( date, out testdate ) )
+                    {
+                        //item.IsPublished = true;
+                        item.LastPublished = testdate;
+                    }
+                    //approvals ==========================
+                    date = GetRowPossibleColumn( dr, "LastApprovalDate", "" );
+                    if ( DateTime.TryParse( date, out testdate ) )
+                    {
+                        //item.IsApproved = true;
+                        item.LastApproved = testdate;
+                    }
+                    //item.ContentApprovedBy = GetRowPossibleColumn( dr, "ContentApprovedBy" );
+                    //item.ContentApprovedById = GetRowPossibleColumn( dr, "ContentApprovedById", 0 );
+                    //if ( item.ContentApprovedById > 0 )
+                    //    item.IsApproved = true;
 
-					list.Add( item );
+                    list.Add( item );
 				}
 
 				return list;
@@ -729,7 +778,7 @@ namespace Factories
 			}
 		} //
 
-		public static void FromMap( ThisEntity from, DBentity to )
+		public static void FromMap( ThisEntity from, DBEntity to )
 		{
 
 			//want to ensure fields from create are not wiped
@@ -745,7 +794,7 @@ namespace Factories
 			//to.OrganizationId = from.OrganizationId;
 			to.Name = GetData( from.Name );
 			to.Description = GetData( from.Description );
-			to.CostDetails = GetUrlData( from.CostDetails, null );
+			to.CostDetails = NormalizeUrlData( from.CostDetails, null );
 			if ( IsValidDate( from.StartDate ) )
 				to.StartDate = DateTime.Parse( from.StartDate );
 			else
@@ -758,7 +807,7 @@ namespace Factories
 
 
 		}
-		public static void ToMap( DBentity from, ThisEntity to,
+		public static void MapFromDB( DBEntity from, ThisEntity to,
 				bool includingProperties = false,
 				bool includingProfiles = true,
 				bool forEditView = true )
@@ -773,7 +822,13 @@ namespace Factories
 				if ( from.Organization != null && from.Organization.Id > 0 )
 				{
 					//ensure there is no infinite loop
-					OrganizationManager.ToMapCommon( from.Organization, to.OwningOrganization, false, false, false, false, false );
+					//the following results in an infinite loop
+					//OrganizationManager.ToMapCommon( from.Organization, to.OwningOrganization, false, false, false, false, false );
+					//maybe: ToMapForSummary
+					//OrganizationManager.ToMapForSummary( from.Organization, to.OwningOrganization );
+
+					to.OwningOrganization = OrganizationManager.GetForSummary( to.OrganizationId );
+					to.OwningAgentUid = to.OwningOrganization.RowId;
 				}
 				else
 				{
@@ -790,8 +845,15 @@ namespace Factories
 
 			to.CTID = from.CTID;
 			to.CredentialRegistryId = from.CredentialRegistryId;
+			to.EntityApproval = Entity_ApprovalManager.GetByParent( to.RowId );
+            if ( to.EntityApproval != null && to.EntityApproval.Id > 0 )
+                to.LastApproved = to.EntityApproval.Created;
 
-			to.CostDetails = from.CostDetails;
+            to.RelatedEntity = EntityManager.GetEntity( to.RowId, false );
+            if ( to.RelatedEntity != null && to.RelatedEntity.Id > 0 )
+                to.EntityLastUpdated = to.RelatedEntity.LastUpdated;
+
+            to.CostDetails = from.CostDetails;
 
 			if ( IsValidDate( from.Created ) )
 				to.Created = ( DateTime ) from.Created;
@@ -820,15 +882,10 @@ namespace Factories
 				to.EndDate = ( ( DateTime ) from.EndDate ).ToShortDateString();
 			else
 				to.EndDate = "";
-			//get common Costs
-			//TODO - determine what to return for edit vs non-edit states
-			//if ( forEditView )
-			//	to.CommonCosts = Entity_CommonCostManager.GetAll( to.RowId, forEditView );
-			//else
-			//	to.CommonCosts = Entity_CommonCostManager.GetAll( to.RowId, forEditView );
+			
 
 			//get Costs
-			List<CostProfile> list = new List<CostProfile>();
+			
 			to.EstimatedCosts = CostProfileManager.GetAll( to.RowId, forEditView );
 
 
@@ -1001,51 +1058,51 @@ namespace Factories
 			}
 			return entity;
 		}//
-		public static List<ThisEntity> GetAllManifests( Guid parentUid, bool forEditView )
-		{
-			List<ThisEntity> list = new List<ThisEntity>();
-			ThisEntity entity = new ThisEntity();
-			CM.Entity parent = EntityManager.GetEntity( parentUid );
+		//public static List<ThisEntity> GetAll_EntityCostManifests( Guid parentUid, bool forEditView )
+		//{
+		//	List<ThisEntity> list = new List<ThisEntity>();
+		//	ThisEntity entity = new ThisEntity();
+		//	CM.Entity parent = EntityManager.GetEntity( parentUid );
 
-			try
-			{
-				using ( var context = new Data.CTIEntities() )
-				{
-					List<EM.Entity_CostManifest> results = context.Entity_CostManifest
-							.Where( s => s.EntityId == parent.Id )
-							.OrderBy( s => s.CostManifestId )
-							.ToList();
+		//	try
+		//	{
+		//		using ( var context = new Data.CTIEntities() )
+		//		{
+		//			List<EM.Entity_CostManifest> results = context.Entity_CostManifest
+		//					.Where( s => s.EntityId == parent.Id )
+		//					.OrderBy( s => s.CostManifestId )
+		//					.ToList();
 
-					if ( results != null && results.Count > 0 )
-					{
-						foreach ( EM.Entity_CostManifest item in results )
-						{
-							//TODO - optimize the appropriate ToMap methods
-							entity = new ThisEntity();
-							CostManifestManager.ToMap( item.CostManifest, entity );
-							//if ( forEditView )
-							//	CostManifestManager.ToMap( item.CostManifest, entity,
-							//	true, 
-							//	forEditView
-							//	);
-							//else
-							//	CostManifestManager.ToMap( item.CostManifest, entity,
-							//	true,
-							//	forEditView
-							//	);
+		//			if ( results != null && results.Count > 0 )
+		//			{
+		//				foreach ( EM.Entity_CostManifest item in results )
+		//				{
+		//					//TODO - optimize the appropriate MapFromDB methods
+		//					entity = new ThisEntity();
+		//					CostManifestManager.MapFromDB( item.CostManifest, entity );
+		//					//if ( forEditView )
+		//					//	CostManifestManager.MapFromDB( item.CostManifest, entity,
+		//					//	true, 
+		//					//	forEditView
+		//					//	);
+		//					//else
+		//					//	CostManifestManager.MapFromDB( item.CostManifest, entity,
+		//					//	true,
+		//					//	forEditView
+		//					//	);
 
-							list.Add( entity );
-						}
-					}
-					return list;
-				}
-			}
-			catch ( Exception ex )
-			{
-				LoggingHelper.LogError( ex, thisClassName + ".GetAllManifests" );
-			}
-			return list;
-		}
+		//					list.Add( entity );
+		//				}
+		//			}
+		//			return list;
+		//		}
+		//	}
+		//	catch ( Exception ex )
+		//	{
+		//		LoggingHelper.LogError( ex, thisClassName + ".GetAllManifests" );
+		//	}
+		//	return list;
+		//}
 		#endregion
 
 

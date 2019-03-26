@@ -9,12 +9,13 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>CTIServices</RootNamespace>
     <AssemblyName>CTIServices</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SccProjectName>SAK</SccProjectName>
     <SccLocalPath>SAK</SccLocalPath>
     <SccAuxPath>SAK</SccAuxPath>
     <SccProvider>SAK</SccProvider>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -61,13 +62,8 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="BouncyCastle.Crypto, Version=1.8.1.0, Culture=neutral, PublicKeyToken=0e99375e54769942">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\packages\BouncyCastle.1.8.1\lib\BouncyCastle.Crypto.dll</HintPath>
-    </Reference>
-    <Reference Include="Elasticsearch.Net, Version=2.0.0.0, Culture=neutral, PublicKeyToken=96c599bbe3e70f5d, processorArchitecture=MSIL">
-      <HintPath>..\packages\Elasticsearch.Net.2.4.5\lib\net45\Elasticsearch.Net.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="BouncyCastle.Crypto, Version=1.8.4.0, Culture=neutral, PublicKeyToken=0e99375e54769942">
+      <HintPath>..\packages\BouncyCastle.1.8.4\lib\BouncyCastle.Crypto.dll</HintPath>
     </Reference>
     <Reference Include="EntityFramework, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -75,6 +71,9 @@
     </Reference>
     <Reference Include="EntityFramework.SqlServer">
       <HintPath>..\packages\EntityFramework.6.1.3\lib\net45\EntityFramework.SqlServer.dll</HintPath>
+    </Reference>
+    <Reference Include="LumenWorks.Framework.IO, Version=3.9.1.0, Culture=neutral, PublicKeyToken=5ad3ea2f85776344, processorArchitecture=MSIL">
+      <HintPath>..\packages\LumenWorksCsvReader.3.9.1\lib\net20\LumenWorks.Framework.IO.dll</HintPath>
     </Reference>
     <Reference Include="Nest, Version=2.0.0.0, Culture=neutral, PublicKeyToken=96c599bbe3e70f5d, processorArchitecture=MSIL">
       <HintPath>..\packages\NEST.2.4.5\lib\net45\Nest.dll</HintPath>
@@ -102,18 +101,29 @@
     <Compile Include="ActivityServices.cs" />
     <Compile Include="AssessmentServices.cs" />
     <Compile Include="CassServices.cs" />
+    <Compile Include="CASS_CompetencyFrameworkServices.cs" />
     <Compile Include="CompetencyServices.cs" />
+    <Compile Include="ConceptSchemeServices.cs" />
     <Compile Include="ConditionManifestServices.cs" />
     <Compile Include="ConditionProfileServices.cs" />
     <Compile Include="CostManifestServices.cs" />
     <Compile Include="CredentialServices.cs" />
     <Compile Include="EditorServices.cs" />
+    <Compile Include="EmailServices.cs" />
     <Compile Include="EnumerationServices.cs" />
+    <Compile Include="Import\AssessmentsUpload.cs" />
+    <Compile Include="Import\BaseUpload.cs" />
+    <Compile Include="Import\CredentialsUpload.cs" />
+    <Compile Include="Import\LearningOppsUploads.cs" />
+    <Compile Include="Import\LocationsUpload.cs" />
+    <Compile Include="Import\QAPerformedUpload.cs" />
+    <Compile Include="Import\Utilities.cs" />
     <Compile Include="JsonLDServices.cs" />
     <Compile Include="JurisdictionServices.cs" />
     <Compile Include="LearningOpportunityServices.cs" />
     <Compile Include="MessageServices.cs" />
     <Compile Include="MicroSearchServicesV2.cs" />
+    <Compile Include="NotificationServices.cs" />
     <Compile Include="OrganizationServices.cs" />
     <Compile Include="ProfileServices.cs" />
     <Compile Include="RegistryServices.cs" />
@@ -124,9 +134,9 @@
     <Compile Include="ThirdPartyApiServices.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Common\MetadataRegistry\MetadataRegistry.csproj">
+    <ProjectReference Include="..\Common\MetadataRegistry\CredentialRegistry.csproj">
       <Project>{ec0eb03d-04ff-449a-971b-acc4bbeefb2a}</Project>
-      <Name>MetadataRegistry</Name>
+      <Name>CredentialRegistry</Name>
     </ProjectReference>
     <ProjectReference Include="..\Common\Utilities\Utilities.csproj">
       <Project>{5af99218-bbd8-48c4-bbde-eff5f35b4e05}</Project>
@@ -143,6 +153,10 @@
     <ProjectReference Include="..\Models\Models.csproj">
       <Project>{f8f98544-dde4-4523-a633-3f2a9707e125}</Project>
       <Name>Models</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\RegistryAssistantServices\RegistryAssistantServices.csproj">
+      <Project>{7ead6b3f-6f4a-4cad-b86b-5e4a39528f3b}</Project>
+      <Name>RegistryAssistantServices</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

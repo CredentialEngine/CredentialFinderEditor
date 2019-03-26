@@ -18,15 +18,12 @@ namespace Data
         public int EntityId { get; set; }
         public System.Guid AgentUid { get; set; }
         public int RelationshipTypeId { get; set; }
-        public string URL { get; set; }
-        public string Description { get; set; }
         public Nullable<System.DateTime> Created { get; set; }
         public Nullable<int> CreatedById { get; set; }
         public Nullable<System.DateTime> LastUpdated { get; set; }
         public Nullable<int> LastUpdatedById { get; set; }
         public System.Guid RowId { get; set; }
         public Nullable<bool> IsInverseRole { get; set; }
-        public int ActedUponEntityId { get; set; }
     
         public virtual Codes_CredentialAgentRelationship Codes_CredentialAgentRelationship { get; set; }
         public virtual Entity Entity { get; set; }

@@ -33,6 +33,10 @@ namespace Data
         public Nullable<System.DateTime> Created { get; set; }
         public Nullable<int> Totals { get; set; }
         public string ConditionManifestTitle { get; set; }
+        public Nullable<int> CredentialTotals { get; set; }
+        public Nullable<int> OrganizationTotals { get; set; }
+        public Nullable<int> AssessmentTotals { get; set; }
+        public Nullable<int> LoppTotals { get; set; }
     
         public virtual ICollection<Entity_ConditionProfile> Entity_ConditionProfile { get; set; }
     }

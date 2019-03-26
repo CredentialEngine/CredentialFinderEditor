@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 //using Microsoft.Owin.Security;
 
 using Models;
+using Models.Common;
 using EM = Data;
 using Utilities;
 using Views = Data.Views;
@@ -37,7 +38,7 @@ namespace Factories
 				try
 				{
 
-					AppUser_FromMap( entity, efEntity );
+					AppUser_MapToDB( entity, efEntity );
 					efEntity.RowId = Guid.NewGuid();
 
 					efEntity.Created = System.DateTime.Now;
@@ -97,7 +98,7 @@ namespace Factories
 				{
 					EM.AspNetUsers user = AspNetUser_Get( entity.Email );
 
-					AppUser_FromMap( entity, efEntity );
+					AppUser_MapToDB( entity, efEntity );
 
 					efEntity.RowId = Guid.NewGuid();
 
@@ -160,7 +161,7 @@ namespace Factories
 
 					if ( efEntity != null && efEntity.Id > 0 )
 					{
-						AppUser_FromMap( entity, efEntity );
+						AppUser_MapToDB( entity, efEntity );
 						context.Entry( efEntity ).State = System.Data.Entity.EntityState.Modified;
 
 						if ( HasStateChanged( context ) )
@@ -227,11 +228,78 @@ namespace Factories
 			return false;
 		}
 
-		#endregion
+        #endregion
 
-		#region ====== AspNetUsers ======
 
-		public static bool AspNetUsers_Update( AppUser entity, ref string statusMessage )
+        #region CE accounts integration
+        /// <summary>
+        /// Add accounts sync'd from CE_Accounts to related orgs
+        /// - called on login
+        /// </summary>
+        public void ImportCEOrganizationMembers()
+        {
+            string connectionString = MainConnection();
+            try
+            {
+                using (SqlConnection c = new SqlConnection( connectionString ))
+                {
+                    c.Open();
+
+                    using (SqlCommand command = new SqlCommand( "[ImportCEOrganizationMembers]", c ))
+                    {
+                        command.CommandType = CommandType.StoredProcedure;
+
+                        command.ExecuteNonQuery();
+                        command.Dispose();
+                        c.Close();
+
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LoggingHelper.LogError( ex, "ImportCEOrganizationMembers", false );
+
+            }
+
+        }
+
+
+        /// <summary>
+        /// Call import proc on demand - may only do for new users. Don't want to do aon every login
+        /// </summary>
+        public void ImportCEApprovedOrganizations()
+        {
+            string connectionString = MainConnection();
+            try
+            {
+                using (SqlConnection c = new SqlConnection( connectionString ))
+                {
+                    c.Open();
+
+                    using (SqlCommand command = new SqlCommand( "[ImportCEApprovedOrganizations]", c ))
+                    {
+                        command.CommandType = CommandType.StoredProcedure;
+
+                        command.ExecuteNonQuery();
+                        command.Dispose();
+                        c.Close();
+
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LoggingHelper.LogError( ex, "ImportCEApprovedOrganizations", false );
+
+            }
+
+        }
+        #endregion 
+
+        #region ====== AspNetUsers ======
+
+        public static bool AspNetUsers_Update( AppUser entity, ref string statusMessage )
 		{
 			using ( var context = new EM.CTIEntities() )
 			{
@@ -439,7 +507,7 @@ namespace Factories
 
 				if ( item != null && item.Id > 0 )
 				{
-					ToMap( item, entity );
+					MapFromDB( item, entity );
 				}
 			}
 
@@ -456,7 +524,7 @@ namespace Factories
 
 				if ( item != null && item.Id > 0 )
 				{
-					ToMap( item, entity );
+					MapFromDB( item, entity );
 				}
 			}
 
@@ -465,14 +533,48 @@ namespace Factories
 		public static AppUser AppUser_GetByEmail( string email )
 		{
 			AppUser entity = new AppUser();
-			using ( var context = new ViewContext() )
-			{
-				Views.Account_Summary efEntity = context.Account_Summary
+			email = ( email ?? "" ).Trim();
+
+			using (var context = new Data.CTIEntities())
+            {
+				EM.Account efEntity = context.Account
 							.FirstOrDefault( s => s.Email.ToLower() == email.ToLower() );
 
 				if ( efEntity != null && efEntity.Id > 0 )
 				{
-					ToMap( efEntity, entity );
+					MapFromDB( efEntity, entity );
+				}
+			}
+
+			return entity;
+		}
+        public static AppUser AppUser_GetSummaryByEmail( string email )
+        {
+            AppUser entity = new AppUser();
+            using (var context = new ViewContext())
+            {
+                Views.Account_Summary efEntity = context.Account_Summary
+                            .FirstOrDefault( s => s.Email.ToLower() == email.ToLower() );
+
+                if (efEntity != null && efEntity.Id > 0)
+                {
+                    MapFromDB( efEntity, entity );
+                }
+            }
+
+            return entity;
+        }
+        public static AppUser GetUserByCEAccountId( string accountIdentifier )
+		{
+			AppUser entity = new AppUser();
+			using ( var context = new Data.CTIEntities())
+			{
+				EM.Account efEntity = context.Account
+							.FirstOrDefault( s => s.CEAccountIdentifier.ToLower() == accountIdentifier.ToLower() );
+
+				if ( efEntity != null && efEntity.Id > 0 )
+				{
+					MapFromDB( efEntity, entity );
 				}
 			}
 
@@ -481,14 +583,14 @@ namespace Factories
 		public static AppUser GetUserByUserName( string username )
 		{
 			AppUser entity = new AppUser();
-			using ( var context = new ViewContext() )
-			{
-				Views.Account_Summary efEntity = context.Account_Summary
-							.SingleOrDefault( s => s.UserName.ToLower() == username.ToLower() );
+            using (var context = new Data.CTIEntities())
+            {
+                EM.Account efEntity = context.Account
+                            .FirstOrDefault( s => s.UserName.ToLower() == username.ToLower() );
 
 				if ( efEntity != null && efEntity.Id > 0 )
 				{
-					ToMap( efEntity, entity );
+					MapFromDB( efEntity, entity );
 				}
 			}
 
@@ -506,14 +608,14 @@ namespace Factories
 		public static AppUser AppUser_GetByKey( string aspNetId )
 		{
 			AppUser entity = new AppUser();
-			using ( var context = new ViewContext() )
-			{
-				Views.Account_Summary efEntity = context.Account_Summary
-							.SingleOrDefault( s => s.AspNetId == aspNetId );
+            using (var context = new Data.CTIEntities())
+            {
+                EM.Account efEntity = context.Account
+                            .FirstOrDefault( s => s.AspNetId == aspNetId );
 
 				if ( efEntity != null && efEntity.Id > 0 )
 				{
-					ToMap( efEntity, entity );
+					MapFromDB( efEntity, entity );
 				}
 			}
 
@@ -699,16 +801,8 @@ namespace Factories
 			return false;
 		}
 
-		//public void GetAllUsersInRole( string role )
-		//{
-		//	using ( var context = new Data.CTIEntities() )
-		//	{
-		//		var customers = context.AspNetUsers
-		//			  .Where( u => u.AspNetUserRoles.Any( r => r..Name == role )  )
-		//			  .ToList();
-		//	}
-		//}
-		public static void ToMap( Views.Account_Summary fromEntity, AppUser to )
+
+		public static void MapFromDB( Views.Account_Summary fromEntity, AppUser to )
 		{
 			to.Id = fromEntity.Id;
 			//to.RowId = fromEntity.RowId;
@@ -722,6 +816,8 @@ namespace Factories
 			to.SortName = fromEntity.SortName;
 
 			to.Email = fromEntity.Email;
+			to.CEAccountIdentifier = fromEntity.CEAccountIdentifier;
+
 			to.Created = fromEntity.Created;
 			to.LastUpdated = fromEntity.LastUpdated;
 			to.LastUpdatedById = fromEntity.LastUpdatedById == null ? 0 : ( int ) fromEntity.LastUpdatedById;
@@ -741,12 +837,38 @@ namespace Factories
 					to.UserRoles.Add( role );
 				}
 			}
+            if (fromEntity.OrgMbrs != null && fromEntity.OrgMbrs.Count() > 0)
+            {
+                int id = 0;
+                string name = "";
+                string ctid = "";
+                string[] orgs = fromEntity.OrgMbrs.Split( '|' );
+                foreach (var item in orgs)
+                {
+                    string[] parts = item.Split( '~' );
+                    if (parts.Count() > 0)
+                        Int32.TryParse( parts[ 0 ], out id );
+                    if (parts.Count() > 1)
+                        name = parts[ 1 ];
+                    if (parts.Count() > 2)
+                        ctid = parts[ 2 ];
+                    if (id > 0 && !string.IsNullOrWhiteSpace(ctid) )
+                        to.Organizations.Add( new Organization()
+                        {
+                            Id = id,
+                            Name = name,
+                            ctid = ctid
+                        } );
+                }
+                if (to.Organizations.Count > 0)
+                    to.PrimaryOrgId = to.Organizations[ 0 ].Id;
+            }
 
 		} //
-		public static void ToMap( EM.Account fromEntity, AppUser to )
+		public static void MapFromDB( EM.Account fromEntity, AppUser to )
 		{
 			to.Id = fromEntity.Id;
-			//to.RowId = fromEntity.RowId;
+			to.RowId = fromEntity.RowId;
 			to.UserName = fromEntity.UserName;
 
 			to.AspNetUserId = fromEntity.AspNetId;
@@ -756,6 +878,8 @@ namespace Factories
 			to.LastName = fromEntity.LastName;
 
 			to.Email = fromEntity.Email;
+			to.CEAccountIdentifier = fromEntity.CEAccountIdentifier;
+
 			to.Created = fromEntity.Created;
 			to.LastUpdated = fromEntity.LastUpdated;
 			to.LastUpdatedById = fromEntity.LastUpdatedById == null ? 0 : ( int ) fromEntity.LastUpdatedById;
@@ -774,12 +898,18 @@ namespace Factories
 				foreach ( EM.Organization_Member mbrs in fromEntity.Organization_Member )
 				{
 					//just a light version for now
-					to.Organizations.Add( new CodeItem()
+                    if (!string.IsNullOrWhiteSpace(mbrs.Organization.CTID ))					to.Organizations.Add( new Organization()
 					{
 						Id = mbrs.Organization.Id,
-						Name = mbrs.Organization.Name
+						Name = mbrs.Organization.Name,
+                        SubjectWebpage = mbrs.Organization.URL,
+						RowId = mbrs.Organization.RowId,
+						ImageUrl = mbrs.Organization.ImageURL,
+                        ctid = mbrs.Organization.CTID
 					} );
 				}
+				if ( to.Organizations.Count() > 0)
+					to.PrimaryOrgId = to.Organizations[ 0 ].Id;
 			}
 
 		} //
@@ -793,7 +923,7 @@ namespace Factories
 		  //			  .ToList();
 		  //	}
 		  //}
-		private static void AppUser_FromMap( AppUser fromEntity, EM.Account to )
+		private static void AppUser_MapToDB( AppUser fromEntity, EM.Account to )
 		{
 			to.Id = fromEntity.Id;
 			//to.RowId = fromEntity.RowId;
@@ -805,6 +935,8 @@ namespace Factories
 			to.FirstName = fromEntity.FirstName;
 			to.LastName = fromEntity.LastName;
 			to.Email = fromEntity.Email;
+
+			to.CEAccountIdentifier = fromEntity.CEAccountIdentifier;
 
 			to.Created = fromEntity.Created;
 			to.LastUpdated = fromEntity.LastUpdated;

@@ -23,10 +23,13 @@ namespace Models.Node
 		[Property( DBName = "AgentRole", DBType = typeof( Models.Common.Enumeration ) )]
 		public List<int> RoleTypeIds { get; set; }
 	}
-	public class AgentRoleProfile_Recipient : AgentRoleProfile { }
+
+
+    public class AgentRoleProfile_Recipient : AgentRoleProfile { }
 	public class AgentRoleProfile_Actor : AgentRoleProfile { }
 	public class OrganizationRole_Recipient : AgentRoleProfile { }
 	public class AgentRoleProfile_Assets : AgentRoleProfile { }
 	public class AgentRoleProfile_OfferedBy : AgentRoleProfile { }
-	//
+
+   
 }

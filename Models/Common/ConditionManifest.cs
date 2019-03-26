@@ -95,6 +95,7 @@ namespace Models.Common
 			ConditionProfiles = new List<ConditionProfile>();
 
 			Requires = new List<ConditionProfile>();
+            Renewal = new List<ConditionProfile>();
 			Recommends = new List<ConditionProfile>();
 			EntryCondition = new List<ConditionProfile>();
 			Corequisite = new List<ConditionProfile>();
@@ -126,7 +127,9 @@ namespace Models.Common
 		public List<ConditionProfile> ConditionProfiles { get; set; }
 
 		public List<ConditionProfile> Requires { get; set; }
-		public List<ConditionProfile> Recommends { get; set; }
+        public List<ConditionProfile> Renewal { get; set; }
+
+        public List<ConditionProfile> Recommends { get; set; }
 		
 		public List<ConditionProfile> EntryCondition { get; set; }
 		public List<ConditionProfile> Corequisite { get; set; }
@@ -149,7 +152,11 @@ namespace Models.Common
 				}
 			}
 		}
-	}
+
+        public List<string> TargetAssessmentsList { get; set; } = new List<string>();
+        public List<string> TargetLearningOppsList { get; set; } = new List<string>();
+        public List<string> TargetCredentialsList { get; set; } = new List<string>();
+    }
 
 	public class Entity_CommonCondition
 	{

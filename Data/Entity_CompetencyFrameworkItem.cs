@@ -28,6 +28,9 @@ namespace Data
         public Nullable<int> LastUpdatedById { get; set; }
         public System.Guid RowId { get; set; }
         public Nullable<System.DateTime> AlignmentDate { get; set; }
+        public string CTID { get; set; }
+        public Nullable<System.DateTime> ExportDate { get; set; }
+        public string MergedWithFrameworkCtid { get; set; }
     
         public virtual Entity_CompetencyFramework Entity_CompetencyFramework { get; set; }
         public virtual Account Account_Creator { get; set; }

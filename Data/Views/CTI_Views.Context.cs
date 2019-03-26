@@ -70,5 +70,14 @@ namespace Data.Views
         public virtual DbSet<Entity_FrameworkOccupationGroupSummary> Entity_FrameworkOccupationGroupSummary { get; set; }
         public virtual DbSet<Entity_FrameworkCIPCodeSummary> Entity_FrameworkCIPCodeSummary { get; set; }
         public virtual DbSet<Entity_FrameworkIndustryCodeSummary> Entity_FrameworkIndustryCodeSummary { get; set; }
+        public virtual DbSet<Entity_AssertionCSV> Entity_AssertionCSV { get; set; }
+        public virtual DbSet<Entity_Assertion_Summary> Entity_Assertion_Summary { get; set; }
+        public virtual DbSet<Entity_Competencies_ForExport> Entity_Competencies_ForExport { get; set; }
+        public virtual DbSet<Entity_Competencies_Summary> Entity_Competencies_Summary { get; set; }
+        public virtual DbSet<Entity_FrameworkItems_Totals> Entity_FrameworkItems_Totals { get; set; }
+        public virtual DbSet<Entity_Relationship_ToOrgSummary> Entity_Relationship_ToOrgSummary { get; set; }
+        public virtual DbSet<Organization_CombinedQAPerformed> Organization_CombinedQAPerformed { get; set; }
+        public virtual DbSet<OrganizationOwnsEtcRolesSummary> OrganizationOwnsEtcRolesSummary { get; set; }
+        public virtual DbSet<Entity_ConditionProfileCompetencies_Summary> Entity_ConditionProfileCompetencies_Summary { get; set; }
     }
 }

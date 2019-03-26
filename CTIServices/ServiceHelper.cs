@@ -202,7 +202,53 @@ namespace CTIServices
 			return result;
 
 		} //end
-		public static bool IsValidGuid( Guid field )
+          /// <summary>
+          /// Validate CTID
+          /// </summary>
+          /// <param name="ctid"></param>
+          /// <param name="messages"></param>
+          /// <param name="isRequired"></param>
+          /// <param name="skippingErrorMessages">If we just want to check a multi purpose string, then no error messages should be returned</param>
+          /// <returns></returns>
+        public static bool IsValidCtid( string ctid, ref List<string> messages, bool isRequired = false, bool skippingErrorMessages = true )
+        {
+            bool isValid = true;
+
+            if (string.IsNullOrWhiteSpace( ctid ) )
+            {
+                if (isRequired)
+                {
+                    messages.Add( "Error - A valid CTID property must be entered." );
+                }
+                return false;
+            }
+
+            ctid = ctid.ToLower().Trim();
+            if (ctid.Length != 39)
+            {
+                if (!skippingErrorMessages)
+                    messages.Add( "Error - Invalid CTID format. The proper format is ce-UUID. ex. ce-84365AEA-57A5-4B5A-8C1C-EAE95D7A8C9B" );
+                return false;
+            }
+
+            if (!ctid.StartsWith( "ce-" ))
+            {
+                if (!skippingErrorMessages)
+                    messages.Add( "Error - The CTID property must begin with ce-" );
+                return false;
+            }
+            //now we have the proper length and format, the remainder must be a valid guid
+            if (!IsValidGuid( ctid.Substring( 3, 36 ) ))
+            {
+                if (!skippingErrorMessages)
+                    messages.Add( "Error - Invalid CTID format. The proper format is ce-UUID. ex. ce-84365AEA-57A5-4B5A-8C1C-EAE95D7A8C9B" );
+                return false;
+            }
+
+            return isValid;
+        }
+
+        public static bool IsValidGuid( Guid field )
 		{
 			if ( ( field == null || field == Guid.Empty ) )
 				return false;
@@ -896,7 +942,7 @@ namespace CTIServices
 		/// <returns>True id message was sent successfully, otherwise false</returns>
 		//public static bool NotifyAdmin( string subject, string message )
 		//{
-		//	string emailTo = UtilityManager.GetAppKeyValue( "systemAdminEmail", "mparsons@siuccwd.com" );
+		//	string emailTo = UtilityManager.GetAppKeyValue( "systemAdminEmail", "email@email.com" );
 		//	//work on implementing some specific routing based on error type
 
 
@@ -1132,10 +1178,20 @@ namespace CTIServices
 
 			return item;
 
-		}	// End method
+		}   // End method
 
 		#endregion
+		public static string FormatExceptions( Exception ex )
+		{
+			string message = ex.Message;
 
+			if ( ex.InnerException != null )
+			{
+				message += FormatExceptions( ex );
+			}
+
+			return message;
+		}
 
 		#region HttpSessionState Methods
 		public static void SessionSet( string key, System.Object sysObject )

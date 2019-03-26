@@ -51,6 +51,7 @@ namespace Data
         public string MissionAndGoalsStatementDescription { get; set; }
         public Nullable<bool> ISQAOrganization { get; set; }
         public string AlternativeIdentifier { get; set; }
+        public Nullable<bool> IsThirdPartyOrganization { get; set; }
     
         public virtual ICollection<Assessment> Assessment { get; set; }
         public virtual Codes_Status Codes_Status { get; set; }

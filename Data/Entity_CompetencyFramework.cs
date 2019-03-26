@@ -30,6 +30,9 @@ namespace Data
         public Nullable<int> LastUpdatedById { get; set; }
         public System.Guid RowId { get; set; }
         public string AlignmentType { get; set; }
+        public string CTID { get; set; }
+        public Nullable<System.DateTime> ExportDate { get; set; }
+        public string MergedWithFrameworkCtid { get; set; }
     
         public virtual Entity Entity { get; set; }
         public virtual ICollection<Entity_CompetencyFrameworkItem> Entity_CompetencyFrameworkItem { get; set; }

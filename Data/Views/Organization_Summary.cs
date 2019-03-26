@@ -42,5 +42,15 @@ namespace Data.Views
         public int OrgMbrsCount { get; set; }
         public string CTID { get; set; }
         public int EntityId { get; set; }
+        public Nullable<System.DateTime> EntityLastUpdated { get; set; }
+        public Nullable<bool> IsThirdPartyOrganization { get; set; }
+        public string cerEnvelopeUrl { get; set; }
+        public string editUrl { get; set; }
+        public string detailUrl { get; set; }
+        public string LastApprovalDate { get; set; }
+        public string ContentApprovedBy { get; set; }
+        public Nullable<int> ContentApprovedById { get; set; }
+        public string IsPublished { get; set; }
+        public string LastPublishDate { get; set; }
     }
 }

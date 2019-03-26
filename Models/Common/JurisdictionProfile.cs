@@ -50,6 +50,7 @@ namespace Models.Common
 		public List<GeoCoordinates> JurisdictionException { get; set; }
 
 		public Enumeration JurisdictionAssertion { get; set; }
+		public Organization AssertedByOrganization { get; set; }
 		public Guid AssertedBy { get; set; }
 		public List<Models.ProfileModels.TextValueProfile> Auto_AssertedBy
 		{

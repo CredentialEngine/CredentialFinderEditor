@@ -8,7 +8,7 @@ using Models.Common;
 using Models.ProfileModels;
 using EM = Data;
 using Utilities;
-using DBentity = Data.Entity_ContactPoint;
+using DBEntity = Data.Entity_ContactPoint;
 using ThisEntity = Models.Common.ContactPoint;
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
@@ -41,7 +41,7 @@ namespace Factories
 
 			int count = 0;
 
-			DBentity efEntity = new DBentity();
+			DBEntity efEntity = new DBEntity();
 
 			Entity parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
@@ -63,8 +63,8 @@ namespace Factories
 				if ( entity.Id == 0 )
 				{
 					//add
-					efEntity = new DBentity();
-					FromMap( entity, efEntity );
+					efEntity = new DBEntity();
+					MapToDB( entity, efEntity );
 					efEntity.ParentEntityId = parent.Id;
 
 					efEntity.Created = efEntity.LastUpdated = DateTime.Now;
@@ -96,7 +96,7 @@ namespace Factories
 					{
 						entity.RowId = efEntity.RowId;
 						//update
-						FromMap( entity, efEntity );
+						MapToDB( entity, efEntity );
 						//has changed?
 						if ( HasStateChanged( context ) )
 						{
@@ -121,14 +121,14 @@ namespace Factories
 			//EntityPropertyManager mgr = new EntityPropertyManager();
 			Entity_ReferenceManager erm = new Entity_ReferenceManager();
 
-			if ( erm.Entity_Reference_Update( entity.SocialMediaPages, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SOCIAL_MEDIA, true ) == false )
+			if ( erm.Update( entity.SocialMediaPages, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SOCIAL_MEDIA, true ) == false )
 				isAllValid = false;
 
 
-			if ( erm.Entity_Reference_Update( entity.Emails, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_EMAIL_TYPE, true ) == false )
+			if ( erm.Update( entity.Emails, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_EMAIL_TYPE, true ) == false )
 				isAllValid = false;
 
-			if ( erm.Entity_Reference_Update( entity.PhoneNumbers, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_PHONE_TYPE, true ) == false )
+			if ( erm.Update( entity.PhoneNumbers, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_PHONE_TYPE, true ) == false )
 				isAllValid = false;
 
 			return isAllValid;
@@ -139,7 +139,7 @@ namespace Factories
 			bool isOK = true;
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity p = context.Entity_ContactPoint.FirstOrDefault( s => s.Id == recordId );
+				DBEntity p = context.Entity_ContactPoint.FirstOrDefault( s => s.Id == recordId );
 				if ( p != null && p.Id > 0 )
 				{
 					context.Entity_ContactPoint.Remove( p );
@@ -242,17 +242,17 @@ namespace Factories
 			{
 				using ( var context = new Data.CTIEntities() )
 				{
-					List<DBentity> results = context.Entity_ContactPoint
+					List<DBEntity> results = context.Entity_ContactPoint
 							.Where( s => s.ParentEntityId == parent.Id )
 							.OrderBy( s => s.Id )
 							.ToList();
 
 					if ( results != null && results.Count > 0 )
 					{
-						foreach ( DBentity item in results )
+						foreach ( DBEntity item in results )
 						{
 							entity = new ThisEntity();
-							ToMap( item, entity, true );
+							MapFromDB( item, entity, true );
 
 
 							list.Add( entity );
@@ -275,12 +275,12 @@ namespace Factories
 			{
 				using ( var context = new Data.CTIEntities() )
 				{
-					DBentity item = context.Entity_ContactPoint
+					DBEntity item = context.Entity_ContactPoint
 							.SingleOrDefault( s => s.Id == profileId );
 
 					if ( item != null && item.Id > 0 )
 					{
-						ToMap( item, entity, true );
+						MapFromDB( item, entity, true );
 					}
 				}
 			}
@@ -291,7 +291,7 @@ namespace Factories
 			return entity;
 		}//
 
-		public static void FromMap( ThisEntity from, DBentity to )
+		public static void MapToDB( ThisEntity from, DBEntity to )
 		{
 			//want to ensure fields from create are not wiped
 			if ( to.Id == 0 )
@@ -304,7 +304,7 @@ namespace Factories
 			to.Name = from.ProfileName;
 
 			to.ContactType = from.ContactType;
-			to.ContactOption = from.ContactOption;
+			//to.ContactOption = from.ContactOption;
 
 			//to.Email = from.Email;
 			//to.Telephone = from.Telephone;
@@ -313,7 +313,7 @@ namespace Factories
 
 
 		}
-		public static void ToMap( DBentity from, ThisEntity to, bool includingItems = true )
+		public static void MapFromDB( DBEntity from, ThisEntity to, bool includingItems = true )
 		{
 			to.Id = from.Id;
 			to.RowId = from.RowId;
@@ -323,7 +323,7 @@ namespace Factories
 			to.ProfileName = from.Name;
 
 			to.ContactType = from.ContactType;
-			to.ContactOption = from.ContactOption;
+			//to.ContactOption = from.ContactOption;
 
 			//to.Email = from.Email;
 			//to.Telephone = from.Telephone;
@@ -336,9 +336,9 @@ namespace Factories
 
 			if ( includingItems )
 			{
-				to.SocialMediaPages = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SOCIAL_MEDIA );
-				to.PhoneNumbers = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_PHONE_TYPE );
-				to.Emails = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_EMAIL_TYPE );
+				to.SocialMediaPages = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SOCIAL_MEDIA );
+				to.PhoneNumbers = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_PHONE_TYPE );
+				to.Emails = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_EMAIL_TYPE );
 			}
 
 
@@ -361,10 +361,10 @@ namespace Factories
 			{
 				return to.ContactType;
 			}
-			else if ( !string.IsNullOrWhiteSpace( to.ContactOption ) )
-			{
-				return to.ContactOption;
-			}
+			//else if ( !string.IsNullOrWhiteSpace( to.ContactOption ) )
+			//{
+			//	return to.ContactOption;
+			//}
 			//else if ( !string.IsNullOrWhiteSpace( to.Telephone ) )
 			//{
 			//	return "Telephone: " + to.Telephone;

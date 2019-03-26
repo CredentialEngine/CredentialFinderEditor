@@ -33,5 +33,6 @@ namespace Data.Views
         public Nullable<int> LastUpdatedById { get; set; }
         public string LastUpdatedBy { get; set; }
         public Nullable<bool> IsQARole { get; set; }
+        public int CredentialEntityId { get; set; }
     }
 }

@@ -16,6 +16,6 @@ namespace Models.ProfileModels
 
 		public string ProfileSummary { get; set; }
 
-		public AssessmentProfile Assessment { get; set; }
+		public AssessmentProfile Assessment { get; set; } = new AssessmentProfile();
 	}
 }

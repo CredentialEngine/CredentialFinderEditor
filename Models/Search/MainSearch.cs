@@ -78,7 +78,7 @@ namespace Models.Search
 	}
 	//
 
-	public enum MainSearchFilterV2Types { CODE, TEXT, FRAMEWORK, MAP, CUSTOM }
+	public enum MainSearchFilterV2Types { CODE, TEXT, DATE, FRAMEWORK, MAP, CUSTOM }
 	public class MainSearchFilterV2
 	{
 		public MainSearchFilterV2()
@@ -167,7 +167,24 @@ namespace Models.Search
 				return new CodeItem();
 			}
 		}
-		public Models.Common.BoundingBox AsBoundaries()
+
+        public CodeItem AsQaItem()
+        {
+            try
+            {
+                return new CodeItem()
+                {
+                    RelationshipId = GetValueOrDefault( "RelationshipId", 0 ),
+                    Id = GetValueOrDefault( "AgentId", 0 ),
+                };
+            }
+            catch
+            {
+                return new CodeItem();
+            }
+        }
+
+        public Models.Common.BoundingBox AsBoundaries()
 		{
 			try
 			{
@@ -248,6 +265,7 @@ namespace Models.Search
 		{
 			Items = new List<TagItem>();
 			CostItems = new List<CostTagItem>();
+            QAItems = new List<QAPerformedTagItem>();
 		}
 		public string Schema { get; set; } //industry, occupation, etc
 		public string Method { get; set; } //embedded, ajax, link
@@ -255,6 +273,7 @@ namespace Models.Search
 		public int CategoryId { get; set; }
 		public List<TagItem> Items { get; set; }
 		public List<CostTagItem> CostItems { get; set; }
+        public List<QAPerformedTagItem> QAItems { get; set; }
 		public int Count { get; set; }
 	}
 	//
@@ -265,6 +284,7 @@ namespace Models.Search
 		public string Schema { get; set; }  //Used when CodeId is not viable
 		public string Label { get; set; } //Used when all else fails
 		public string Description { get; set; }
+		//public string Title { get; set; }
 	}
 	//
 	public class CostTagItem
@@ -272,12 +292,22 @@ namespace Models.Search
 		public int CodeId { get; set; } //CostProfileId
 		public decimal Price { get; set; }  
 		public string CostType { get; set; } 
-		public string CurrencySymbol { get; set; }
+		public string CurrencySymbol { get; set; } 
 		public string SourceEntity { get; set; }
 	}
-	//
-	//Used by EnumerationFilter partial
-	public class HtmlEnumerationFilterSettings
+    public class QAPerformedTagItem
+    {
+        public int TargetEntityBaseId { get; set; }
+        public int AssertionTypeId { get; set; }
+        public string AgentToTargetRelationship { get; set; }
+        public string TargetEntityType { get; set; }
+        public string TargetEntityName { get; set; }
+        public string TargetEntitySubjectWebpage { get; set; }
+        public bool IsReference { get; set; }
+    }
+    //
+    //Used by EnumerationFilter partial
+    public class HtmlEnumerationFilterSettings
 	{
 		public HtmlEnumerationFilterSettings()
 		{

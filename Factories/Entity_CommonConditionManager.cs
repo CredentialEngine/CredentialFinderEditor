@@ -1,20 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using Models;
 
 using Models.Common;
-using Models.ProfileModels;
 using EM = Data;
 using Utilities;
-using DBentity = Data.Entity_CommonCondition;
+using DBEntity = Data.Entity_CommonCondition;
 using ThisEntity = Models.Common.Entity_CommonCondition;
-
-using Views = Data.Views;
-using ViewContext = Data.Views.CTIEntities1;
 
 namespace Factories
 {
@@ -35,16 +27,16 @@ namespace Factories
 		public int Add( Guid parentUid,
 					int profileId,
 					int userId,
-					ref List<string> messages )
+					ref List<string> messages,
+                    bool hideDuplicatesError = false )
 		{
 			int id = 0;
 			int count = messages.Count();
-			if ( profileId == 0 )
+			if ( profileId < 1 )
 			{
 				messages.Add( string.Format( "A valid ConditionManifest identifier was not provided to the {0}.Add method.", thisClassName ) );
-			}
-			if ( messages.Count > count )
-				return 0;
+                return 0;
+            }
 
 			Entity parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
@@ -62,21 +54,25 @@ namespace Factories
 			}
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity efEntity = new DBentity();
+				DBEntity efEntity = new DBEntity();
 				try
 				{
 					//first check for duplicates
 					efEntity = context.Entity_CommonCondition
 							.SingleOrDefault( s => s.EntityId == parent.Id
 							&& s.ConditionManifestId == profileId );
+                    if ( efEntity != null && efEntity.Id > 0 )
+                    {
+                        if ( hideDuplicatesError )
+                            return efEntity.Id;
+                        else
+                        {
+                            messages.Add( string.Format( "Error - this ConditionManifest has already been added to this profile.", thisClassName ) );
+                            return 0;
+                        }
+                    }
 
-					if ( efEntity != null && efEntity.Id > 0 )
-					{
-						messages.Add( string.Format( "Error - this ConditionManifest has already been added to this profile.", thisClassName ) );
-						return 0;
-					}
-
-					efEntity = new DBentity();
+                    efEntity = new DBEntity();
 					efEntity.EntityId = parent.Id;
 					efEntity.ConditionManifestId = profileId;
 
@@ -134,25 +130,25 @@ namespace Factories
 
 			return isOK;
 		}
-		public bool Delete( Guid parentUid, int profileId, ref string statusMessage )
+		public bool Delete( Guid parentUid, int profileId, ref List<string> messages )
 		{
 			bool isValid = false;
 			if ( profileId == 0 )
 			{
-				statusMessage = "Error - missing an identifier for the Assessment to remove";
+                messages.Add( "Error - missing an identifier for the Assessment to remove");
 				return false;
 			}
 			//need to get Entity.Id 
 			Entity parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
 			{
-				statusMessage = "Error - the parent entity was not found.";
+                messages.Add( "Error - the parent entity was not found.");
 				return false;
 			}
 
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity efEntity = context.Entity_CommonCondition
+				DBEntity efEntity = context.Entity_CommonCondition
 								.SingleOrDefault( s => s.EntityId == parent.Id && s.ConditionManifestId == profileId );
 
 				if ( efEntity != null && efEntity.Id > 0 )
@@ -166,7 +162,7 @@ namespace Factories
 				}
 				else
 				{
-					statusMessage = "Warning - the record was not found - probably because the target had been previously deleted";
+                    messages.Add( "Warning - the record was not found - probably because the target had been previously deleted");
 					isValid = true;
 				}
 			}
@@ -194,64 +190,32 @@ namespace Factories
 			//}
 
 			Entity parent = EntityManager.GetEntity( parentUid );
-			LoggingHelper.DoTrace( 5, string.Format( "Entity_CommonConditionManager_GetAll: parentUid:{0} entityId:{1}, e.EntityTypeId:{2}", parentUid, parent.Id, parent.EntityTypeId ) );
+			LoggingHelper.DoTrace( 7, string.Format( "Entity_CommonConditionManager_GetAll: parentUid:{0} entityId:{1}, e.EntityTypeId:{2}", parentUid, parent.Id, parent.EntityTypeId ) );
 
 			try
 			{
 				using ( var context = new Data.CTIEntities() )
 				{
-					List<DBentity> results = context.Entity_CommonCondition
+					List<DBEntity> results = context.Entity_CommonCondition
 							.Where( s => s.EntityId == parent.Id )
 							.OrderBy( s => s.ConditionManifestId )
 							.ToList();
 
 					if ( results != null && results.Count > 0 )
 					{
-						foreach ( DBentity item in results )
+						foreach ( DBEntity item in results )
 						{
 							entity = new ConditionManifest();
 							//
 							//Need all the data for detail page - NA 6/2/2017
-							
-							if ( forEditView )
-								entity = ConditionManifestManager.GetBasic( item.ConditionManifestId );
-							else
-								entity = ConditionManifestManager.Get( item.ConditionManifestId, forEditView );
-
-							list.Add( entity );
-						}
-					}
-					return list;
-				}
-			}
-			catch ( Exception ex )
-			{
-				LoggingHelper.LogError( ex, thisClassName + ".GetAll" );
-			}
-			return list;
-		}
-
-		public static List<ConditionManifest> GetAllManifestInCommonConditionsFor( int conditionManifestId, int conditionManifestBeingCheckedId )
-		{
-			List<ConditionManifest> list = new List<ConditionManifest>();
-			
-
-			try
-			{
-				using ( var context = new Data.CTIEntities() )
-				{
-					List<DBentity> results = context.Entity_CommonCondition
-							.Where( s => s.ConditionManifestId == conditionManifestId )
-							.OrderBy( s => s.EntityId )
-							.ToList();
-
-					if ( results != null && results.Count > 0 )
-					{
-						foreach ( DBentity item in results )
-						{
-							if (item.Entity.EntityBaseId == conditionManifestBeingCheckedId )
+							if ( item.ConditionManifest != null )
 							{
+								if ( forEditView )
+									entity = ConditionManifestManager.GetBasic( item.ConditionManifestId );
+								else
+									entity = ConditionManifestManager.Get( item.ConditionManifestId, forEditView );
 
+								list.Add( entity );
 							}
 						}
 					}
@@ -264,6 +228,40 @@ namespace Factories
 			}
 			return list;
 		}
+
+		//public static List<ConditionManifest> GetAllManifestInCommonConditionsFor( int conditionManifestId, int conditionManifestBeingCheckedId )
+		//{
+		//	List<ConditionManifest> list = new List<ConditionManifest>();
+			
+
+		//	try
+		//	{
+		//		using ( var context = new Data.CTIEntities() )
+		//		{
+		//			List<DBEntity> results = context.Entity_CommonCondition
+		//					.Where( s => s.ConditionManifestId == conditionManifestId )
+		//					.OrderBy( s => s.EntityId )
+		//					.ToList();
+
+		//			if ( results != null && results.Count > 0 )
+		//			{
+		//				foreach ( DBEntity item in results )
+		//				{
+		//					if (item.Entity.EntityBaseId == conditionManifestBeingCheckedId )
+		//					{
+
+		//					}
+		//				}
+		//			}
+		//			return list;
+		//		}
+		//	}
+		//	catch ( Exception ex )
+		//	{
+		//		LoggingHelper.LogError( ex, thisClassName + ".GetAll" );
+		//	}
+		//	return list;
+		//}
 		/// <summary>
 		/// Get - NOTE currently only for verifying before a delete
 		/// </summary>

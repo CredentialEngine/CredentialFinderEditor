@@ -31,5 +31,8 @@ namespace Data.Views
         public string URL { get; set; }
         public string ImageURL { get; set; }
         public string CTID { get; set; }
+        public Nullable<bool> ISQAOrganization { get; set; }
+        public string AgentReferenceName { get; set; }
+        public Nullable<bool> IsThirdPartyOrganization { get; set; }
     }
 }

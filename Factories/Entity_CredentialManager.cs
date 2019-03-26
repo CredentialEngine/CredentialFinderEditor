@@ -8,7 +8,7 @@ using Models.Common;
 using Models.ProfileModels;
 using EM = Data;
 using Utilities;
-using DBentity = Data.Entity_Credential;
+using DBEntity = Data.Entity_Credential;
 using ThisEntity = Models.ProfileModels.Entity_Credential;
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
@@ -17,7 +17,19 @@ namespace Factories
 	public class Entity_CredentialManager : BaseFactory
 	{
 		static string thisClassName = "Entity_CredentialManager";
-		
+		/// <summary>
+		/// if true, return an error message if the credential is already associated with the parent
+		/// </summary>
+		private bool ReturningErrorOnDuplicate { get; set; }
+		public Entity_CredentialManager()
+		{
+			ReturningErrorOnDuplicate = false;
+		}
+		public Entity_CredentialManager( bool returnErrorOnDuplicate )
+		{
+			ReturningErrorOnDuplicate = returnErrorOnDuplicate;
+		}
+
 		#region Entity Persistance ===================
 		/// <summary>
 		/// Persist Entity Credential
@@ -28,12 +40,11 @@ namespace Factories
 		/// <param name="newId">Return record id of the new record</param>
 		/// <param name="messages"></param>
 		/// <returns></returns>
-		public bool Add( int credentialId, Guid parentUid, int userId, 
+		public int Add( int credentialId, Guid parentUid, int userId, 
 			bool allowMultiples, 
 			ref int newId, 
 			ref List<string> messages )
 		{
-			bool isValid = true;
 			int count = 0;
 			newId = 0;
 			int intialCount = messages.Count;
@@ -48,14 +59,14 @@ namespace Factories
 				messages.Add( "Error: a valid credential was not provided." );
 			}
 			if ( messages.Count > intialCount )
-				return false;
+				return 0;
 
-			DBentity efEntity = new DBentity();
+			DBEntity efEntity = new DBEntity();
 			Entity parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
 			{
 				messages.Add( "Error - the parent entity was not found." );
-				return false;
+				return 0;
 			}
 
 			using ( var context = new Data.CTIEntities() )
@@ -65,8 +76,11 @@ namespace Factories
 						.SingleOrDefault( s => s.EntityId == parent.Id && s.CredentialId == credentialId );
 				if ( efEntity != null && efEntity.Id > 0 )
 				{
-					messages.Add( "Error - the credential is already part of this profile." );
-					return false;
+					if ( ReturningErrorOnDuplicate )
+					{
+						messages.Add( "Error - the credential is already part of this profile." );
+					}
+					return efEntity.Id;
 				}
 
 				if ( allowMultiples == false )
@@ -80,14 +94,14 @@ namespace Factories
 
 						count = context.SaveChanges();
 
-						return true;
+						return efEntity.Id;
 					}
 				}
 
 				//if ( entity.Id == 0 )
 				//{	}
 					//add
-					efEntity = new DBentity();
+					efEntity = new DBEntity();
 					efEntity.CredentialId = credentialId;
 					efEntity.EntityId = parent.Id;
 
@@ -102,12 +116,11 @@ namespace Factories
 					if ( count == 0 )
 					{
 						messages.Add( string.Format( " Unable to add the related credential: {0}  ", credentialId ) );
-						isValid = false;
 					}
 
 			}
 
-			return isValid;
+			return newId;
 		}
 
 		/// <summary>
@@ -122,7 +135,7 @@ namespace Factories
 			bool isOK = true;
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity p = context.Entity_Credential.FirstOrDefault( s => s.EntityId == parentId && s.CredentialId == credentialId );
+				DBEntity p = context.Entity_Credential.FirstOrDefault( s => s.EntityId == parentId && s.CredentialId == credentialId );
 				if ( p != null && p.Id > 0 )
 				{
 					context.Entity_Credential.Remove( p );
@@ -130,31 +143,73 @@ namespace Factories
 				}
 				else
 				{
-					statusMessage = string.Format( "Requested record was not found: {0}", credentialId );
+					statusMessage = string.Format( thisClassName + ".Delete() Requested record was not found. parentId: {0}, credentialId: {1}", parentId, credentialId );
 					isOK = false;
 				}
 			}
 			return isOK;
 
 		}
-		public bool Delete( int recordId, ref string statusMessage )
+		public bool DeleteAll( Guid parentUid, ref List<string> messages )
 		{
-			bool isOK = true;
+			bool isValid = true;
+			Entity parent = EntityManager.GetEntity( parentUid );
+			if ( parent == null || parent.Id == 0 )
+			{
+				messages.Add( thisClassName + ".DeleteAll() Error - the parent entity was not found." );
+				return false;
+			}
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity p = context.Entity_Credential.FirstOrDefault( s => s.Id == recordId );
-				if ( p != null && p.Id > 0 )
+				context.Entity_Credential.RemoveRange( context.Entity_Credential.Where( s => s.EntityId == parent.Id ) );
+				int count = context.SaveChanges();
+				if ( count > 0 )
 				{
-					context.Entity_Credential.Remove( p );
-					int count = context.SaveChanges();
-				}
-				else
-				{
-					statusMessage = "Warning - the record was not found - probably because the target had been previously deleted";
-					isOK = true;
+					isValid = true;
+					messages.Add( string.Format( "removed {0} related credentials.", count ) );
 				}
 			}
-			return isOK;
+			return isValid;
+
+		}
+
+		/// <summary>
+		/// Delete all records that are not in the provided list. 
+		/// This method is typically called from bulk upload, and want to remove any records not in the current list to upload.
+		/// </summary>
+		/// <param name="parentUid"></param>
+		/// <param name="list"></param>
+		/// <param name="messages"></param>
+		/// <returns></returns>
+		public bool DeleteNotInList( Guid parentUid, List<Credential> list, ref List<string> messages )
+		{
+			bool isValid = true;
+			if ( !list.Any() )
+			{
+				return true;
+			}
+			Entity parent = EntityManager.GetEntity( parentUid );
+			if ( parent == null || parent.Id == 0 )
+			{
+				messages.Add( thisClassName + string.Format(".DeleteNotInList() Error - the parent entity for [{0}] was not found.", parentUid) );
+				return false;
+			}
+
+			using ( var context = new Data.CTIEntities() )
+			{
+				var existing = context.Entity_Credential.Where( s => s.EntityId == parent.Id ).ToList();
+				var inputIds = list.Select( x => x.Id ).ToList();
+
+				//delete records which are not selected 
+				var notExisting = existing.Where( x => !inputIds.Contains( x.CredentialId ) ).ToList();
+				foreach ( var item in notExisting )
+				{
+					context.Entity_Credential.Remove( item );
+					context.SaveChanges();
+				}
+
+			}
+			return isValid;
 
 		}
 
@@ -200,7 +255,7 @@ namespace Factories
 					//commented out in order to get more data for detail page
 					//context.Configuration.LazyLoadingEnabled = false;
 
-					List<DBentity> results = context.Entity_Credential
+					List<DBEntity> results = context.Entity_Credential
 							.Include( "Credential")
 							.AsNoTracking()
 							.Where( s => s.EntityId == parent.Id)
@@ -209,12 +264,12 @@ namespace Factories
 
 					if ( results != null && results.Count > 0 )
 					{
-						foreach ( DBentity item in results )
+						foreach ( DBEntity item in results )
 						{
 							entity = new ThisEntity();
-							if ( item.Credential != null && item.Credential.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED )
+							if ( item.Credential != null && item.Credential.StatusId <= CodesManager.ENTITY_STATUS_EXTERNAL_REFERENCE )
 							{
-								ToMap( item, entity, isForDetailPageCondition );
+								MapFromDB( item, entity, isForDetailPageCondition );
 
 								list.Add( entity.Credential );
 							}
@@ -240,12 +295,12 @@ namespace Factories
 			{
 				using ( var context = new Data.CTIEntities() )
 				{
-					DBentity item = context.Entity_Credential
+					DBEntity item = context.Entity_Credential
 							.SingleOrDefault( s => s.Id == profileId );
 
 					if ( item != null && item.Id > 0 )
 					{
-						ToMap( item, entity );
+						MapFromDB( item, entity );
 					}
 				}
 			}
@@ -267,12 +322,12 @@ namespace Factories
 			{
 				using ( var context = new Data.CTIEntities() )
 				{
-					DBentity item = context.Entity_Credential
+					DBEntity item = context.Entity_Credential
 							.SingleOrDefault( s => s.CredentialId == credentialId && s.EntityId == parentId);
 
 					if ( item != null && item.Id > 0 )
 					{
-						ToMap( item, entity );
+						MapFromDB( item, entity );
 					}
 				}
 			}
@@ -283,7 +338,7 @@ namespace Factories
 			return entity;
 		}//
 
-		public static void FromMap( ThisEntity from, DBentity to )
+		public static void MapToDB( ThisEntity from, DBEntity to )
 		{
 			//want to ensure fields from create are not wiped
 			if ( to.Id == 0 )
@@ -297,7 +352,7 @@ namespace Factories
 			to.EntityId = from.ParentId;
 			
 		}
-		public static void ToMap( DBentity from, ThisEntity to, bool isForDetailPageCondition = false )
+		public static void MapFromDB( DBEntity from, ThisEntity to, bool isForDetailPageCondition = false )
 		{
 			to.Id = from.Id;
 			to.CredentialId = from.CredentialId;
@@ -307,17 +362,54 @@ namespace Factories
 			//to.Credential = from.Credential;
 			to.Credential = new Credential();
 
-			//actually decided to use the same method, just added the additional props
-			if ( isForDetailPageCondition )
-				CredentialMinimumMap( from.Credential, to.Credential );
-			else
-				CredentialMinimumMap( from.Credential, to.Credential );
+			CredentialMinimumMap( from.Credential, to.Credential );
 
 			if ( IsValidDate( from.Created ) )
 				to.Created = ( DateTime ) from.Created;
 			to.CreatedById = from.CreatedById == null ? 0 : ( int ) from.CreatedById;
 		}
+		public static Credential MapFromDB_FirstCredential( ICollection<EM.Entity_Credential> results )
+		{
+			ThisEntity entity = new ThisEntity();
 
+			if ( results != null && results.Count > 0)
+			{
+				foreach ( EM.Entity_Credential item in results )
+				{
+					entity = new ThisEntity();
+					if ( item.Credential != null && item.Credential.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED )
+					{
+						MapFromDB( item, entity, false );
+
+						return entity.Credential;
+						break;
+					}
+				}
+			}
+			
+
+			return null;
+
+		}
+		public static ThisEntity MapFromDB( DBEntity from )
+		{
+			ThisEntity to = new ThisEntity();
+			to.Id = from.Id;
+			to.CredentialId = from.CredentialId;
+			to.ParentId = from.EntityId;
+
+			to.ProfileSummary = from.Credential.Name;
+			//to.Credential = from.Credential;
+			to.Credential = new Credential();
+
+			CredentialMinimumMap( from.Credential, to.Credential );
+
+			if ( IsValidDate( from.Created ) )
+				to.Created = ( DateTime ) from.Created;
+			to.CreatedById = from.CreatedById == null ? 0 : ( int ) from.CreatedById;
+
+			return to;
+		}
 		public static void CredentialMinimumMap( EM.Credential from, Credential to )
 		{
 			CredentialRequest cr = new CredentialRequest();
@@ -349,14 +441,14 @@ namespace Factories
 			to.AudienceLevelType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_AUDIENCE_LEVEL );
 
 			to.Occupation = Entity_FrameworkItemManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_SOC );
-			to.OtherOccupations = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_SOC );
+			to.AlternativeOccupations = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_SOC );
 
 			to.Industry = Entity_FrameworkItemManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_NAICS );
-			to.OtherIndustries = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_NAICS );
+			to.AlternativeIndustries = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_NAICS );
 
 			to.Subject = Entity_ReferenceManager.GetAllSubjects( to.RowId );
 
-			to.Keyword = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_KEYWORD );
+			to.Keyword = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_KEYWORD );
 
 			//Added these because they were needed on the detail page - NA 6/1/2017
 			to.OwningAgentUid = from.OwningAgentUid ?? Guid.Empty;

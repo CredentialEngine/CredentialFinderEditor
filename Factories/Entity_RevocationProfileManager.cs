@@ -8,7 +8,7 @@ using Models.Common;
 using Models.ProfileModels;
 using EM = Data;
 using Utilities;
-using DBentity = Data.Entity_RevocationProfile;
+using DBEntity = Data.Entity_RevocationProfile;
 using ThisEntity = Models.ProfileModels.RevocationProfile;
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
@@ -42,7 +42,7 @@ namespace Factories
 			
 			int count = 0;
 
-			DBentity efEntity = new DBentity();
+			DBEntity efEntity = new DBEntity();
 
 			//????SHOULD NOT DO THIS HERE??
 			Entity parent = EntityManager.GetEntity( credential.RowId );
@@ -73,7 +73,7 @@ namespace Factories
 				if ( entity.Id == 0 )
 				{
 					//add
-					efEntity = new DBentity();
+					efEntity = new DBEntity();
 					FromMap( entity, efEntity );
 					efEntity.EntityId = parent.Id;
 
@@ -91,10 +91,7 @@ namespace Factories
 					{
 						messages.Add( string.Format( " Unable to add Profile: {0} ", string.IsNullOrWhiteSpace( entity.ProfileName ) ? "no description" : entity.ProfileName ) );
 					}
-					else
-					{
-						UpdateParts( entity, userId, ref messages );
-					}
+					
 				}
 				else
 				{
@@ -114,8 +111,6 @@ namespace Factories
 
 							count = context.SaveChanges();
 						}
-						//always check parts
-						UpdateParts( entity, userId, ref messages );
 					}
 
 				}
@@ -126,31 +121,14 @@ namespace Factories
 
 			return isValid;
 		}
-		private bool UpdateParts( ThisEntity entity, int userId, ref List<string> messages )
-		{
-			bool isAllValid = true;
-			//properties
-			//if ( new EntityPropertyManager().UpdateProperties( entity.RevocationCriteriaType, entity.RowId, CodesManager.ENTITY_TYPE_REVOCATION_PROFILE, CodesManager.PROPERTY_CATEGORY_REVOCATION_CRITERIA_TYPE, userId, ref messages ) == false )
-			//	isAllValid = false;
-
-			//Entity_ReferenceManager erm = new Entity_ReferenceManager();
-
-			//if ( erm.Entity_Reference_Update( entity.RevocationResourceUrl, entity.RowId, CodesManager.ENTITY_TYPE_REVOCATION_PROFILE, userId, ref messages, CodesManager.PROPERTY_CATEGORY_REFERENCE_URLS, false ) == false )
-			//	isAllValid = false;
-			
-			//if ( erm.Entity_Reference_Update( entity.RevocationItems, entity.RowId, CodesManager.ENTITY_TYPE_REVOCATION_PROFILE, userId, ref messages, CodesManager.PROPERTY_CATEGORY_CONDITION_ITEM, false ) == false )
-			//	isAllValid = false;
-
-
-			return isAllValid;
-		}
+		
 
 		public bool Delete( int recordId, ref string statusMessage )
 		{
 			bool isOK = true;
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity p = context.Entity_RevocationProfile.FirstOrDefault( s => s.Id == recordId );
+				DBEntity p = context.Entity_RevocationProfile.FirstOrDefault( s => s.Id == recordId );
 				if ( p != null && p.Id > 0 )
 				{
 					context.Entity_RevocationProfile.Remove( p );
@@ -235,17 +213,17 @@ namespace Factories
 			{
 				using ( var context = new Data.CTIEntities() )
 				{
-					List<DBentity> results = context.Entity_RevocationProfile
+					List<DBEntity> results = context.Entity_RevocationProfile
 							.Where( s => s.EntityId == parent.Id )
 							.OrderBy( s => s.Id )
 							.ToList();
 
 					if ( results != null && results.Count > 0 )
 					{
-						foreach ( DBentity item in results )
+						foreach ( DBEntity item in results )
 						{
 							entity = new ThisEntity();
-							ToMap( item, entity, true );
+							MapFromDB( item, entity, true );
 
 							list.Add( entity );
 						}
@@ -267,12 +245,12 @@ namespace Factories
 			{
 				using ( var context = new Data.CTIEntities() )
 				{
-					DBentity item = context.Entity_RevocationProfile
+					DBEntity item = context.Entity_RevocationProfile
 							.SingleOrDefault( s => s.Id == profileId );
 
 					if ( item != null && item.Id > 0 )
 					{
-						ToMap( item, entity );
+						MapFromDB( item, entity );
 					}
 				}
 
@@ -284,7 +262,7 @@ namespace Factories
 			return entity;
 		}//
 
-		public static void FromMap( ThisEntity from, DBentity to )
+		public static void FromMap( ThisEntity from, DBEntity to )
 		{
 			//want to ensure fields from create are not wiped
 			if ( to.Id == 0 )
@@ -310,7 +288,7 @@ namespace Factories
 			
 
 		}
-		public static void ToMap( DBentity from, ThisEntity to, bool includingItems = true )
+		public static void MapFromDB( DBEntity from, ThisEntity to, bool includingItems = true )
 		{
 			to.Id = from.Id;
 			to.RowId = from.RowId;
@@ -349,7 +327,7 @@ namespace Factories
 
 			if ( includingItems )
 			{
-				to.CredentialProfiled = Entity_CredentialManager.GetAll( to.RowId );
+				//to.CredentialProfiled = Entity_CredentialManager.GetAll( to.RowId );
 				//
 				to.Jurisdiction = Entity_JurisdictionProfileManager.Jurisdiction_GetAll( to.RowId );
 				to.Region = Entity_JurisdictionProfileManager.Jurisdiction_GetAll( to.RowId, Entity_JurisdictionProfileManager.JURISDICTION_PURPOSE_RESIDENT );

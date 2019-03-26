@@ -24,6 +24,13 @@ namespace CTI.Directory.Controllers
 		}
 		//
 
+		public ActionResult CassStyles()
+		{
+			Response.ContentType = "text/css";
+			return View( "~/Views/V2/Style/CassStyles.cshtml" );
+		}
+		//
+
 		public ActionResult AccountBox()
 		{
 			Response.ContentType = "text/css";

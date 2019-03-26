@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 using System.Web.Mvc;
+using System.Web.Helpers;
 using System.Web.Optimization;
 using System.Web.Routing;
 
@@ -22,11 +23,11 @@ namespace CTI.Directory
 			FilterConfig.RegisterGlobalFilters( GlobalFilters.Filters );
 
 			BundleConfig.RegisterBundles( BundleTable.Bundles );
-			
-			//AntiForgeryConfig.SuppressXFrameOptionsHeader = true;
 
+            AntiForgeryConfig.SuppressXFrameOptionsHeader = true;
+            ActivityServices.ApplicationStartActivity();
 
-		}
+        }
 		protected void Application_BeginRequest( object sender, EventArgs e )
 		{
 			//if ( Request.Url.Host.StartsWith( "www" ) && !Request.Url.IsLoopback )
@@ -54,6 +55,7 @@ namespace CTI.Directory
 		private void Application_EndRequest( object sender, EventArgs e )
 		{
 			//Response.Headers[ "X-FRAME-OPTIONS" ] = string.Empty;
+
 		}
 		protected void Application_Error( object sender, EventArgs e )
 		{
@@ -71,7 +73,11 @@ namespace CTI.Directory
 						// page not found
 						routeData.Values.Add( "action", "HttpError404" );
 						break;
-					case 500:
+                    //case 400:
+                    //    // page not found
+                    //    routeData.Values.Add( "action", "HttpError404" );
+                    //    break;
+                    case 500:
 						// server error
 						routeData.Values.Add( "action", "HttpError500" );
 						break;
@@ -83,15 +89,67 @@ namespace CTI.Directory
 				bool loggingError = true;
 				if ( exception.Message.IndexOf( "Server cannot set status after HTTP headers;" ) > -1 )
 					loggingError = false;
-
-				string lRefererPage = GetUserReferrer();
-				if ( loggingError )
-					LoggingHelper.LogError( exception, string.Format("Application_Error. referer: {0}", lRefererPage) );
-
+                string url = "MISSING";
+                try
+                {
+                    HttpContext con = HttpContext.Current;
+                    url= con.Request.Url.ToString();
+                    url = url.Trim();
+                } catch
+                {
+                    //skip
+                }
+                string lRefererPage = GetUserReferrer();
+                var user = AccountServices.GetCurrentUser();
+                string currentUser = "unknown";
+                if (user != null && user.Id > 0 )
+                {
+                    currentUser = string.Format( "User: {0} ({1})", user.FullName(), user.Id );
+                }
+                if ( url.EndsWith( "&" ) || url.EndsWith( ";" ) )
+                {
+                    LoggingHelper.DoTrace( 4, string.Format( "Application_Error. url: {0} referer: {1}, currentUser: {2}, message: {3}", url.Trim(), lRefererPage, currentUser, exception.Message ) );
+                    url = url.TrimEnd( '&' ).Trim();
+                    url = url.TrimEnd( ';' ).Trim();
+                    Response.Redirect( url, true );
+                }
+                else
+                {
+                    if ( loggingError )
+                        LoggingHelper.LogError( exception, string.Format( "Application HttpException. url: {0}, Referer: {1}, currentUser: {2}", url, lRefererPage, currentUser ) );
+                }
 				// clear error on server ==> this would hide the error in dev as well
 				//Server.ClearError();
 
 				// at this point how to properly pass route data to error controller?
+			}
+			else
+			{
+				string url = "MISSING";
+				try
+				{
+					HttpContext con = HttpContext.Current;
+					url = con.Request.Url.ToString();
+					url = url.Trim();
+				}
+				catch
+				{
+					//skip
+				}
+				string lRefererPage = "unknown";
+				try
+				{
+					if ( Request.UrlReferrer != null )
+					{
+						lRefererPage = Request.UrlReferrer.ToString();
+					}
+				}
+				catch ( Exception ex )
+				{
+					//skip
+				}
+				var user = AccountServices.GetUserFromSession();
+				LoggingHelper.LogError( exception, string.Format( "Application Exception. url: {0}, Referer: {1}, currentUser: {2}", url, lRefererPage, user ) );
 			}
 		}
 
@@ -114,16 +172,32 @@ namespace CTI.Directory
 				//check for bots
 				//use common method
 				string agent = GetUserAgent( ref isBot );
-
-				if ( isBot == false )
+                string url = "MISSING";
+                try
+                {
+                    HttpContext con = HttpContext.Current;
+                    url = con.Request.Url.ToString();
+                }
+                catch
+                {
+                    //skip
+                }
+                if ( isBot == false )
 				{
 					AppUser user = new AppUser();
+					//not always helpful
+					if ( User.Identity.IsAuthenticated )
+					{
+						user = AccountServices.GetCurrentUser( User.Identity.Name, true );
+						//If already in session, do we need to do something official
+					} else
+					{
+						//get session?, can't be if a new session
+						//user = AccountServices.GetCurrentUser();
+					}
+					string userState = user.Id > 0 ? string.Format("{0}", user.FullName()) : "none";
 
-					if ( User.Identity.IsAuthenticated ) 
-						user = AccountServices.GetCurrentUser( User.Identity.Name );
-					string userState = user.Id > 0 ? string.Format("User: {0}", user.FullName()) : "none";
-
-					LoggingHelper.DoTrace( 6, string.Format( "Session_Start. referrer: {0}, agent: {1}, IP Address: {2}, User?: {3}", lRefererPage, agent, ipAddress, userState ) );
+					LoggingHelper.DoTrace( 6, string.Format( "Session_Start. referrer: {0}, starting Url: {1} agent: {2}, IP Address: {3}, User?: {4}", lRefererPage, url, agent, ipAddress, userState ) );
 
 					string startMsg = "Session Started. SessionID: " + sessionId;
 					

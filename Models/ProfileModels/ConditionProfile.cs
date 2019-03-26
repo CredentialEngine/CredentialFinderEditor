@@ -92,8 +92,9 @@ namespace Models.ProfileModels
 			}
 			return result;
 		}
-		//
+        //
 
+        public Entity ParentEntity { get; set; } = new Entity();
 
 		#region common properties
 		public string ConnectionProfileType { get; set; }
@@ -111,9 +112,9 @@ namespace Models.ProfileModels
 					|| ( AssertedBy.CTID ?? "" ).Length != 39 )
 					return result;
 
-				if ( !string.IsNullOrWhiteSpace( AssertedBy_GUID ) && AssertedBy_GUID.IndexOf("00000000-") == -1 )
+				if ( !string.IsNullOrWhiteSpace( AssertedBy.CTID ) && AssertedBy.CTID.IndexOf("00000000-") == -1 )
 				{
-					result.Add( new TextValueProfile() { TextValue = Utilities.GetWebConfigValue( "credRegistryResourceUrl" ) + AssertedBy_GUID } );
+					result.Add( new TextValueProfile() { TextValue = Utilities.GetWebConfigValue( "credRegistryResourceUrl" ) + AssertedBy.CTID } );
 				}
 				return result;
 			}
@@ -152,6 +153,7 @@ namespace Models.ProfileModels
 		public List<JurisdictionProfile> ResidentOf { get; set; }
 		#endregion
 
+		#region competencies
 		public List<CredentialAlignmentObjectProfile> TargetCompetency {
 			get { return RequiresCompetencies; }
 			set { RequiresCompetencies = value; }
@@ -161,10 +163,14 @@ namespace Models.ProfileModels
 			get { return CredentialAlignmentObjectFrameworkProfile.FlattenAlignmentObjects( RequiresCompetenciesFrameworks ); } 
 			set { CredentialAlignmentObjectFrameworkProfile.ExpandAlignmentObjects( value, RequiresCompetenciesFrameworks, "requires" ); } 
 		}
+		public List<CredentialAlignmentObjectFrameworkProfile> RequiresCompetenciesFrameworks { get; set; }
+        
+		#endregion
 
 		public List<CostProfile> EstimatedCosts { get; set; }
 		public List<CostProfile> EstimatedCost {  get { return EstimatedCosts; } set { EstimatedCosts = value; } } //Alias
-		public List<CredentialAlignmentObjectFrameworkProfile> RequiresCompetenciesFrameworks { get; set; }
+		public List<CostProfileMerged> EstimatedCost_Merged { get { return CostProfileMerged.FlattenCosts( EstimatedCost ); } set { EstimatedCost = CostProfileMerged.ExpandCosts( value ); } }
+
 
 
 		//public List<TextValueProfile> RequiredCredentialUrl { get; set; }
@@ -228,6 +234,10 @@ namespace Models.ProfileModels
 				{
 					conditionSubType = "Learning Opportunity Connection";
 				}
+				else if ( ConditionSubTypeId == 5 )
+					conditionSubType = "Alternate Condition";
+				else if ( ConditionSubTypeId == 6 )
+					conditionSubType = "Additional Condition";
 				else
 					conditionSubType = "Basic";
 
@@ -256,6 +266,7 @@ namespace Models.ProfileModels
 					MinimumAge > 0 ||
 					!string.IsNullOrWhiteSpace( SubjectWebpage ) ||
 					(Condition != null && Condition.Count() > 0) ||
+					(SubmissionOf != null && SubmissionOf.Count() > 0 ) ||
 					(AudienceLevel != null && AudienceLevel.Items != null && AudienceLevel.Items.Where( m => m != null ).Count() > 0) ||
 					(ApplicableAudienceType != null && ApplicableAudienceType.Items != null && ApplicableAudienceType.Items.Where( m => m != null ).Count() > 0) ||
 					!string.IsNullOrWhiteSpace( CreditHourType ) ||
@@ -264,7 +275,8 @@ namespace Models.ProfileModels
 					!string.IsNullOrWhiteSpace( CreditUnitTypeDescription ) ||
 					CreditUnitValue > 0 ||
 					(ResidentOf != null && ResidentOf.Count() > 0) ||
-					(Jurisdiction != null && Jurisdiction.Count() > 0);// ||
+					(Jurisdiction != null && Jurisdiction.Count() > 0) ||
+					(EstimatedCost != null && EstimatedCost.Count() > 0);// ||
 				//Not sure how to handle these yet
 					//(AlternativeCondition != null && AlternativeCondition.Count() > 0) ||
 					//(AdditionalCondition != null && AdditionalCondition.Count() > 0);

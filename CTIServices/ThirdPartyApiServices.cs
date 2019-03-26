@@ -53,7 +53,7 @@ namespace CTIServices
 			{
 				featureCodes = featureCodes + "&featureCode=" + item;
 			}
-			var username = Utilities.ConfigHelper.GetApiKey( "GeoNamesUserName", "" );
+			var username = Utilities.ConfigHelper.GetApiKey( "GeoNamesUserName", "CTITechPlanning" );
 			var text = HttpUtility.UrlEncode( query );
 			var url = "http://api.geonames.org/searchJSON?q=" + text + "&username=" + username + "&fuzzy=0.7&maxRows=" + pageSize + "&startRow=" + ((pageNumber -1) * pageSize) + "&countryBias=US" + featureCodes + (includeBoundingBox ? "&inclBbox=true" : "");
 
@@ -141,115 +141,122 @@ namespace CTIServices
 
 		#endregion
 
-		#region CASS
-		
-		public static string CurrentCassDomain() //Should get this from web.config
-		{
-			string cassSearchUrl = UtilityManager.GetAppKeyValue( "cassSearchUrl" );
-			return cassSearchUrl;
-			//return "https://dev.cassproject.org";
-			//return "http://sandbox.service.cassproject.org";
-			//return "http://cass.credentialfinder.net";
-		}
+		#region CASS - OBSOLETE
 
-		public static List<T> DoCassSearch<T>( string queryText ) where T : CassObject
-		{
-			var cassSearchURL = CurrentCassDomain() + "/api/custom/sky/repo/search?q=";
-			var results = new HttpClient().GetAsync( cassSearchURL + queryText ).Result.Content.ReadAsStringAsync().Result;
-			return DeserializeCassObjectList<T>( results );
-		}
+		//private static string CurrentCassDomain() //Should get this from web.config
+		//{
+		//	string cassRootUrl = UtilityManager.GetAppKeyValue( "cassRootUrl" );
+		//	return cassRootUrl;
+		//	//return "https://dev.cassproject.org";
+		//	//return "https://sandbox.service.cassproject.org";
+		//	//return "http://cass.credentialfinder.net";
+		//}
 
-		public static T GetCassObject<T>( string url ) where T : CassObject
-		{
-			var results = new HttpClient().GetAsync( url ).Result.Content.ReadAsStringAsync().Result;
-			return DeserializeCassObject<T>( results, url );
-		}
+		///// <summary>
+		///// 
+		///// From Views/V2/CASS/CassSearchWidgetIncludeOnceV1
+		///// </summary>
+		///// <typeparam name="T"></typeparam>
+		///// <param name="queryText"></param>
+		///// <returns></returns>
+		//public static List<T> DoCassSearch<T>( string queryText ) where T : CassObject
+		//{
+		//	var cassSearchURL = CurrentCassDomain() + "/api/custom/sky/repo/search?q=";
+		//	var results = new HttpClient().GetAsync( cassSearchURL + queryText ).Result.Content.ReadAsStringAsync().Result;
+		//	return DeserializeCassObjectList<T>( results );
+		//}
+
+		//public static T GetCassObject<T>( string url ) where T : CassObject
+		//{
+		//	var results = new HttpClient().GetAsync( url ).Result.Content.ReadAsStringAsync().Result;
+		//	return DeserializeCassObject<T>( results, url );
+		//}
+		////
+
+		//private static T DeserializeCassObject<T>( string data, string selfURL = "" ) where T : CassObject
+		//{
+		//	try
+		//	{
+		//		var item = JsonConvert.DeserializeObject<T>( data );
+		//		item.Url = selfURL;
+		//		return item;
+		//	}
+		//	catch
+		//	{
+		//		return default( T );
+		//	}
+		//}
+		////
+
+		//private static List<T> DeserializeCassObjectList<T>( string data ) where T : CassObject
+		//{
+		//	try
+		//	{
+		//		return JsonConvert.DeserializeObject<List<T>>( data );
+		//	}
+		//	catch
+		//	{
+		//		return default( List<T> );
+		//	}
+		//}
+		////
+
+		//public static string SerializeCassObject( CassObject data, bool useJsonProperties = false )
+		//{
+		//	if ( useJsonProperties )
+		//	{
+		//		return JsonConvert.SerializeObject( data );
+		//	}
+		//	else
+		//	{
+		//		return JsonConvert.SerializeObject( data, new JsonSerializerSettings() { ContractResolver = new IgnoreJsonPropertyContractResolver() } );
+		//	}
+		//}
+		////
+
+		//private class IgnoreJsonPropertyContractResolver : DefaultContractResolver
+		//{
+		//	protected override IList<JsonProperty> CreateProperties( Type type, MemberSerialization memberSerialization )
+		//	{
+		//		IList<JsonProperty> list = base.CreateProperties( type, memberSerialization );
+		//		foreach ( JsonProperty prop in list )
+		//		{
+		//			prop.PropertyName = prop.UnderlyingName;
+		//		}
+		//		return list;
+		//	}
+		//}
 		//
 
-		public static T DeserializeCassObject<T>( string data, string selfURL = "" ) where T : CassObject
-		{
-			try
-			{
-				var item = JsonConvert.DeserializeObject<T>( data );
-				item.Url = selfURL;
-				return item;
-			}
-			catch
-			{
-				return default( T );
-			}
-		}
-		//
+		//public static void AssembleCassFramework( CassFramework framework )
+		//{
+		//	//http://cass.credentialfinder.net/api/custom/ce/framework?apiKey=please_input_your_api_key_here&frameworkUrl=https://dev.cassproject.org/api/custom/data/schema.cassproject.org.0.2.Framework/76ffff33-bd15-4bf3-a007-4ce247d2216d
+		//	//Get everything
+		//	var apiKey = "please_input_your_api_key_here";
+		//	var url = CurrentCassDomain() + "/api/custom/ce/framework?";
+		//	var fullURL = url + apiKey + "&frameworkUrl=" + framework.Url;
+		//	var frameworkData = GetCassObject<CassFrameworkMultiGetResult>( fullURL );
 
-		public static List<T> DeserializeCassObjectList<T>( string data ) where T : CassObject
-		{
-			try
-			{
-				return JsonConvert.DeserializeObject<List<T>>( data );
-			}
-			catch
-			{
-				return default( List<T> );
-			}
-		}
-		//
+		//	//Set values
+		//	framework.Competencies = frameworkData.Competencies;
+		//	framework.Relations = frameworkData.Relations;
 
-		public static string SerializeCassObject( CassObject data, bool useJsonProperties = false )
-		{
-			if ( useJsonProperties )
-			{
-				return JsonConvert.SerializeObject( data );
-			}
-			else
-			{
-				return JsonConvert.SerializeObject( data, new JsonSerializerSettings() { ContractResolver = new IgnoreJsonPropertyContractResolver() } );
-			}
-		}
-		//
+		//	//Assemble relationships
+		//	foreach( var competency in framework.Competencies )
+		//	{
+		//		//First, get all the children for the node
+		//		competency.ChildrenUris = framework.Relations.Where( m => m.Target == competency._Id && m.RelationType.ToLower() == "narrows" ).Select( m => m.Source ).ToList();
 
-		public class IgnoreJsonPropertyContractResolver : DefaultContractResolver
-		{
-			protected override IList<JsonProperty> CreateProperties( Type type, MemberSerialization memberSerialization )
-			{
-				IList<JsonProperty> list = base.CreateProperties( type, memberSerialization );
-				foreach ( JsonProperty prop in list )
-				{
-					prop.PropertyName = prop.UnderlyingName;
-				}
-				return list;
-			}
-		}
-		//
+		//		//If the node is not a child of any other node, it is a top level node (there doesn't appear to be a relation that links a framework to its own top level)
+		//		if( framework.Relations.Where(m => m.Source == competency._Id && m.RelationType == "narrows" ).Count() == 0 )
+		//		{
+		//			framework.TopLevelCompetencyUris.Add( competency._Id );
+		//		}
 
-		public static void AssembleCassFramework( CassFramework framework )
-		{
-			//http://cass.credentialfinder.net/api/custom/ce/framework?apiKey=please_input_your_api_key_here&frameworkUrl=https://dev.cassproject.org/api/custom/data/schema.cassproject.org.0.2.Framework/76ffff33-bd15-4bf3-a007-4ce247d2216d
-			//Get everything
-			var apiKey = "please_input_your_api_key_here";
-			var url = CurrentCassDomain() + "/api/custom/ce/framework?";
-			var fullURL = url + apiKey + "&frameworkUrl=" + framework.Url;
-			var frameworkData = GetCassObject<CassFrameworkMultiGetResult>( fullURL );
-
-			//Set values
-			framework.Competencies = frameworkData.Competencies;
-			framework.Relations = frameworkData.Relations;
-
-			//Assemble relationships
-			foreach( var competency in framework.Competencies )
-			{
-				//First, get all the children for the node
-				competency.ChildrenUris = framework.Relations.Where( m => m.Target == competency._Id && m.RelationType.ToLower() == "narrows" ).Select( m => m.Source ).ToList();
-
-				//If the node is not a child of any other node, it is a top level node (there doesn't appear to be a relation that links a framework to its own top level)
-				if( framework.Relations.Where(m => m.Source == competency._Id && m.RelationType == "narrows" ).Count() == 0 )
-				{
-					framework.TopLevelCompetencyUris.Add( competency._Id );
-				}
-
-				//Add a reference back to the framework to aid in later storage and retrieval of data
-				competency.FrameworkUri = framework._Id;
-			}
-		}
+		//		//Add a reference back to the framework to aid in later storage and retrieval of data
+		//		competency.FrameworkUri = framework._Id;
+		//	}
+		//}
 		//
 
 		#endregion

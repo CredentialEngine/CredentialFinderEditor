@@ -61,7 +61,7 @@ namespace Data
             this.Entity_FinancialAlignmentProfile = new HashSet<Entity_FinancialAlignmentProfile>();
             this.EducationFramework_Competency = new HashSet<EducationFramework_Competency>();
             this.EducationFramework = new HashSet<EducationFramework>();
-            this.Entity_EducationFramework = new HashSet<Entity_EducationFramework>();
+            this.Entity_Approval = new HashSet<Entity_Approval>();
         }
     
         public int Id { get; set; }
@@ -76,6 +76,7 @@ namespace Data
         public Nullable<int> LastUpdatedById { get; set; }
         public System.Guid RowId { get; set; }
         public string AspNetId { get; set; }
+        public string CEAccountIdentifier { get; set; }
     
         public virtual AspNetUsers AspNetUsers { get; set; }
         public virtual ICollection<Organization_Member> Organization_Member { get; set; }
@@ -123,6 +124,6 @@ namespace Data
         public virtual ICollection<Entity_FinancialAlignmentProfile> Entity_FinancialAlignmentProfile { get; set; }
         public virtual ICollection<EducationFramework_Competency> EducationFramework_Competency { get; set; }
         public virtual ICollection<EducationFramework> EducationFramework { get; set; }
-        public virtual ICollection<Entity_EducationFramework> Entity_EducationFramework { get; set; }
+        public virtual ICollection<Entity_Approval> Entity_Approval { get; set; }
     }
 }

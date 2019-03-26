@@ -14,20 +14,24 @@ namespace Models.Json
 	{
 		public JsonLDDocument()
 		{
-			context = new Dictionary<string, object>()
-			{
-				{ "schema", "http://schema.org/" },
-				{ "dc", "http://purl.org/dc/elements/1.1/" },
-				{ "dct", "http://dublincore.org/terms/" },
-				{ "rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#" },
-				{ "rdfs", "http://www.w3.org/2000/01/rdf-schema#" },
-				{ "ctdl", "[CTI Namespace Not Determined Yet]" }
-			};
+			Context = "http://credreg.net/ctdl/schema/context/json";
+			//context = new Dictionary<string, object>()
+			//{
+			//	{ "schema", "http://schema.org/" },
+			//	{ "dc", "http://purl.org/dc/elements/1.1/" },
+			//	{ "dct", "http://dublincore.org/terms/" },
+			//	{ "rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#" },
+			//	{ "rdfs", "http://www.w3.org/2000/01/rdf-schema#" },
+			//	{ "ctdl", "[CTI Namespace Not Determined Yet]" }
+			//};
 		}
 
-		[DataMember( Name="@context" )]
-		[JsonProperty(Order=-10)]
-		public Dictionary<string, object> context { get; set; }
+		[JsonProperty( "@context" )]
+		public string Context { get; set; }
+
+		//[DataMember( Name="@context" )]
+		//[JsonProperty(Order=-10)]
+		//public Dictionary<string, object> context { get; set; }
 
 		[DataMember( Name = "@type" )]
 		[JsonProperty( Order = -9 )]

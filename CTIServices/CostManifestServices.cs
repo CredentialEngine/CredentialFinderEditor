@@ -34,6 +34,23 @@ namespace CTIServices
 				profile.CanUserEditEntity = true;
 			return profile;
 		}
+		public static string GetForFormat( int profileId, AppUser user, ref bool isValid, ref List<string> messages, ref bool isApproved, ref DateTime? lastPublishDate, ref DateTime lastUpdatedDate, ref DateTime lastApprovedDate, ref string ctid )
+		{
+			CostManifest entity = CostManifestManager.Get( profileId, false );
+            if (entity == null || entity.Id == 0)
+            {
+                isValid = false;
+                messages.Add( "Error - the requested Cost Manifest was not found." );
+                return "";
+            }
+            isApproved = entity.IsEntityApproved();
+			ctid = entity.CTID;
+			string payload = RegistryAssistantServices.CostManifestMapper.FormatPayload( entity, ref isValid, ref messages );
+			lastUpdatedDate = entity.EntityLastUpdated;
+			lastApprovedDate = entity.EntityApproval.Created;
+            lastPublishDate = ActivityManager.GetLastPublishDateTime( "costmanifest", profileId );
+            return payload;
+		}
 		public static bool CanUserUpdateCostManifest( CostManifest entity, AppUser user, ref string status )
 		{
 			if ( user == null || user.Id == 0 )
@@ -58,6 +75,11 @@ namespace CTIServices
 
 			return profile;
 		}
+		public static CostManifest GetBasic( Guid rowID )
+		{
+			var profile = CostManifestManager.GetBasic( rowID );
+			return profile;
+		}
 		public bool Save( CostManifest entity, Guid parentUid, string action, AppUser user, ref string status, bool isQuickCreate = false )
 		{
 			bool isValid = true;
@@ -71,6 +93,7 @@ namespace CTIServices
 
 			try
 			{
+                //this is the org, based on current editor interface
 				Entity e = EntityManager.GetEntity( parentUid );
 				//remove this if properly passed from client
 				//plus need to migrate to the use of EntityId
@@ -81,10 +104,12 @@ namespace CTIServices
 				{
 
 					//if valid, status contains the cred id, category, and codeId
-					status = "Successfully Saved Cost Manifest";
-					activityMgr.AddActivity( "Cost Manifest", action, string.Format( "{0} added/updated Cost Manifest profile: {1}", user.FullName(), entity.ProfileName ), user.Id, 0, entity.Id );
-
-				}
+					status = "";
+                    //technically the org is not the top parent for activity
+					activityMgr.AddEditorActivity( "Cost Manifest", action, string.Format( "{0} added/updated Cost Manifest profile: {1} for organization: {2}", user.FullName(), entity.ProfileName, e.EntityBaseId ), user.Id, entity.Id, entity.RowId );
+                    //we do want to update the last updated for the org entity to reflect need to republish.
+                    new ProfileServices().UpdateTopLevelEntityLastUpdateDate( e.Id, string.Format( "Entity Update triggered by {0} adding/updating Cost Manifest profile : {1}, for Organization: {2}", user.FullName(), entity.ProfileName, e.EntityBaseId ) );
+                }
 				else
 				{
 					status += string.Join( "<br/>", messages.ToArray() );
@@ -101,8 +126,24 @@ namespace CTIServices
 			return isValid;
 		}
 
+        public static List<CostManifest> GetAllForOwningOrganization( string orgUid, ref int pTotalRows )
+        {
+            List<CostManifest> list = new List<CostManifest>();
+            if ( string.IsNullOrWhiteSpace( orgUid ) )
+                return list;
+            string keywords = "";
+            int pageNumber = 1;
+            int pageSize = 0;
+            string pOrderBy = "";
+            string AND = "";
+            int userId = AccountServices.GetCurrentUserId();
+            string filter = string.Format( " (  org.RowId = '{0}' ) ", orgUid );
 
-		public static List<CostManifest> Search( int orgId, int pageNumber, int pageSize, ref int pTotalRows )
+
+            return CostManifestManager.MainSearch( filter, pOrderBy, pageNumber, pageSize, userId, ref pTotalRows );
+
+        }
+        public static List<CostManifest> Search( int orgId, int pageNumber, int pageSize, ref int pTotalRows )
 		{
 			List<CostManifest> list = CostManifestManager.Search( orgId, pageNumber, pageSize, ref pTotalRows );
 			return list;
@@ -111,20 +152,25 @@ namespace CTIServices
 		public bool Delete( Guid parentUid, int profileId, AppUser user, ref string status )
 		{
 			bool valid = true;
-
-			CostManifestManager mgr = new CostManifestManager();
+            List<SiteActivity> list = new List<SiteActivity>();
+            CostManifestManager mgr = new CostManifestManager();
 			try
 			{
 				//get first to validate (soon)
 				//to do match to the CostProfileId
 				CostManifest profile = CostManifestManager.GetBasic( profileId );
-
-				valid = mgr.Delete( profileId, ref status );
+                if (!string.IsNullOrWhiteSpace(profile.CredentialRegistryId))
+                {
+                    //should be deleting from registry!
+                    //will be change to handling with managed keys
+                    new RegistryServices().Unregister_CostManifest(profileId, user, ref status, ref list);
+                }
+                valid = mgr.Delete( profileId, ref status );
 
 				if ( valid )
 				{
 					//if valid, status contains the cred id, category, and codeId
-					activityMgr.AddActivity( "CostManifest Profile", "Delete Task", string.Format( "{0} deleted CostManifest Profile {1} from OrganizationId:  {2}", user.FullName(), profileId, profile.OrganizationId ), user.Id, 0, profileId );
+					activityMgr.AddEditorActivity( "Cost Manifest", "Delete", string.Format( "{0} deleted CostManifest Profile {1} from OrganizationId:  {2}", user.FullName(), profileId, profile.OrganizationId ), user.Id, 0, profileId );
 					status = "";
 				}
 			}
@@ -162,16 +208,17 @@ namespace CTIServices
 					valid = false;
 					return 0;
 				}
-
-				id = new Entity_CommonCostManager().Add( parentUid, CostManifestId, user.Id, ref messages );
+                bool skipDuplicatesError = false;
+				id = new Entity_CommonCostManager().Add( parentUid, CostManifestId, user.Id, ref messages, skipDuplicatesError );
 
 				if ( id > 0 )
 				{
 					//if valid, status contains the cred id, category, and codeId
-					activityMgr.AddActivity( "Entity_CommonCost", "Add Entity_CommonCost", string.Format( "{0} added Entity_CommonCost {1} to {3} EntityId: {2}", user.FullName(), CostManifestId, parent.Id, parent.EntityType ), user.Id, 0, CostManifestId );
+					activityMgr.AddEditorActivity( "Entity_CommonCost", "Add Entity_CommonCost", string.Format( "{0} added Entity_CommonCost {1} to {3} EntityId: {2}", user.FullName(), CostManifestId, parent.Id, parent.EntityType ), user.Id, CostManifestId, parentUid );
 					status = "";
 
-				}
+                    new ProfileServices().UpdateTopLevelEntityLastUpdateDate(parent.Id, string.Format("Entity Update triggered by {0} adding a common cost to : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId));
+                }
 				else
 				{
 					valid = false;
@@ -208,17 +255,18 @@ namespace CTIServices
 					status = "Error - the requested profile was not found.";
 					return false;
 				}
-				string cmName = profile.CostManifest.Name ?? "no name";
-				valid = mgr.Delete( parentUid, manifestId, ref status );
+				string cmName = profile.ProfileSummary ?? "no name";
+				valid = mgr.Delete( parentUid, manifestId, ref messages );
 
 				//if valid, and no message (assuming related to the targer not being found)
 				if ( valid && status.Length == 0 )
 				{
 					//activity
-					activityMgr.AddActivity( "Entity_CommonCost", "Remove Entity_CommonCost", string.Format( "{0} removed Entity_CommonCost {1} ({2}) from Entity: {3} (4)", user.FullName(), cmName, manifestId, parent.EntityType, parent.EntityBaseId ), user.Id, 0, manifestId, parent.EntityBaseId );
+					activityMgr.AddEditorActivity( "Entity_CommonCost", "Remove Entity_CommonCost", string.Format( "{0} removed Entity_CommonCost {1} ({2}) from Entity: {3} (4)", user.FullName(), cmName, manifestId, parent.EntityType, parent.EntityBaseId ), user.Id, 0, manifestId, parent.EntityBaseId );
 
 					status = "";
-				}
+                    new ProfileServices().UpdateTopLevelEntityLastUpdateDate(parent.Id, string.Format("Entity Update triggered by {0} deleting a common cost from : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId));
+                }
 			}
 			catch ( Exception ex )
 			{

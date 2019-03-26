@@ -1,24 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Web;
-using System.Web.Mvc;
+﻿using System.Web.Mvc;
 
+using Newtonsoft.Json;
+using System.Text;
 
 using CTIServices;
 using Utilities;
 using Models;
-using Models.Common;
-using Models.ProfileModels;
-//using Models.Node;
-//using Models.Node.Interface;
-using Newtonsoft.Json;
-
-using PM = Models.ProfileModels;
 
 namespace CTI.Directory.Controllers
 {
-    public class BaseController : Controller
+	public class BaseController : Controller
     {
 
 		protected bool AuthorizationCheck( string type, string action, int profileID )
@@ -106,5 +97,40 @@ namespace CTI.Directory.Controllers
 			SiteMessage msg = new SiteMessage() { Message = message, MessageType = "error" };
 			Session[ "popupMessage" ] = msg;
 		}
-    }
+        public bool DoesViewExist( string path )
+        {
+            return System.IO.File.Exists( Server.MapPath( path ) );
+        }
+
+        public ActionResult ViewPage( string path, string redirectFallback )
+        {
+            if ( DoesViewExist( path ) )
+            {
+                return View( path );
+            }
+            else
+            {
+                return RedirectToAction( redirectFallback );
+            }
+        }
+        //Common method for JSON
+        public JsonResult JsonResponse( object data, bool valid = true, string status = "", object extra = null )
+		{
+			return JsonHelper.GetJsonWithWrapper( data, valid, status, extra );
+		}
+		//
+
+		public ActionResult BigJsonResponse( object data, bool valid = true, string status = "", object extra = null )
+		{
+			var json = JsonConvert.SerializeObject( new
+			{
+				data = data,
+				valid = valid,
+				status = status,
+				extra = extra
+			} );
+			return new ContentResult() { Content = json, ContentEncoding = Encoding.UTF8, ContentType = "application/json" };
+		}
+		//
+	}
 }

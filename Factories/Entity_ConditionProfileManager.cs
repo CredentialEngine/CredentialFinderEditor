@@ -10,7 +10,7 @@ using Utilities;
 
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
-using DBentity = Data.Entity_ConditionProfile;
+using DBEntity = Data.Entity_ConditionProfile;
 using ThisEntity = Models.ProfileModels.ConditionProfile;
 
 namespace Factories
@@ -39,7 +39,7 @@ namespace Factories
 		#region persistance ==================
 
 		
-		public bool Save( ConditionProfile item, Guid parentUid, int userId, ref List<string> messages )
+		public bool Save( ConditionProfile profile, Guid parentUid, int userId, ref List<string> messages )
 		{
 			bool isValid = true;
 			
@@ -53,89 +53,91 @@ namespace Factories
 				messages.Add( "Error - the parent entity was not found." );
 				return false;
 			}
-			item.ParentId = parent.Id;
+			profile.ParentId = parent.Id;
 
 			int profileTypeId = 0;
-			if ( item.ConnectionProfileTypeId > 0 )
-				profileTypeId = item.ConnectionProfileTypeId;
+			if ( profile.ConnectionProfileTypeId > 0 )
+				profileTypeId = profile.ConnectionProfileTypeId;
 			else
 			{
+				profileTypeId = GetConditionTypeId( profile.ConnectionProfileType );
 				//
-				switch ( item.ConnectionProfileType.ToLower() )
-				{
-					case "requires":
-						profileTypeId = ConnectionProfileType_Requirement;
-						break;
-					case "alternativecondition": //NO - can have different types OR ??
-						profileTypeId = ConnectionProfileType_Requirement;
-						break;
-					case "additionalcondition": //NO - can have different types OR ??
-						profileTypeId = ConnectionProfileType_Requirement;
-						break;
-					case "recommends":
-						profileTypeId = ConnectionProfileType_Recommendation;
-						break;
+				//switch ( profile.ConnectionProfileType.ToLower() )
+				//{
+				//	case "requires":
+				//		profileTypeId = ConnectionProfileType_Requirement;
+				//		break;
+				//	case "alternativecondition": //NO - can have different types OR ??
+				//		profileTypeId = ConnectionProfileType_Requirement;
+				//		break;
+				//	case "additionalcondition": //NO - can have different types OR ??
+				//		profileTypeId = ConnectionProfileType_Requirement;
+				//		break;
+				//	case "recommends":
+				//		profileTypeId = ConnectionProfileType_Recommendation;
+				//		break;
 
-					case "isrequiredfor":
-						profileTypeId = ConnectionProfileType_NextIsRequiredFor;
-						break;
+				//	case "isrequiredfor":
+				//		profileTypeId = ConnectionProfileType_NextIsRequiredFor;
+				//		break;
 
-					case "isrecommendedfor":
-						profileTypeId = ConnectionProfileType_NextIsRecommendedFor;
-						break;
+				//	case "isrecommendedfor":
+				//		profileTypeId = ConnectionProfileType_NextIsRecommendedFor;
+				//		break;
 
-					case "renewal":
-						profileTypeId = ConnectionProfileType_Renewal;
-						break;
-					case "advancedstandingfor":
-						profileTypeId = ConnectionProfileType_AdvancedStandingFor;
-						break;
-					case "advancedstandingfrom":
-						profileTypeId = ConnectionProfileType_AdvancedStandingFrom;
-						break;
-					case "ispreparationfor":
-						profileTypeId = ConnectionProfileType_PreparationFor;
-						break;
-					case "preparationfrom":
-						profileTypeId = ConnectionProfileType_PreparationFrom;
-						break;
-					case "corequisite":
-						profileTypeId = Entity_ConditionProfileManager.ConnectionProfileType_Corequisite;
-						break;
-					case "entrycondition":
-						profileTypeId = Entity_ConditionProfileManager.ConnectionProfileType_EntryCondition;
-						break;
-					//
-					default:
+				//	case "renewal":
+				//		profileTypeId = ConnectionProfileType_Renewal;
+				//		break;
+				//	case "advancedstandingfor":
+				//		profileTypeId = ConnectionProfileType_AdvancedStandingFor;
+				//		break;
+				//	case "advancedstandingfrom":
+				//		profileTypeId = ConnectionProfileType_AdvancedStandingFrom;
+				//		break;
+				//	case "ispreparationfor":
+				//		profileTypeId = ConnectionProfileType_PreparationFor;
+				//		break;
+				//	case "preparationfrom":
+				//		profileTypeId = ConnectionProfileType_PreparationFrom;
+				//		break;
+				//	case "corequisite":
+				//		profileTypeId = ConnectionProfileType_Corequisite;
+				//		break;
+				//	case "entrycondition":
+				//		profileTypeId = ConnectionProfileType_EntryCondition;
+				//		break;
+				//	//
+				//	default:
 						
-						if ( item.IsStarterProfile == false )
-						{
-							profileTypeId = 0;
-							messages.Add( "Error: The Condition Profile type is missing." );
-							return false;
-						}
-						profileTypeId = 1;
-						break;
-				}
+				//		if ( profile.IsStarterProfile == false )
+				//		{
+				//			profileTypeId = 0;
+				//			messages.Add( "Error: The Condition Profile type is missing." );
+				//			return false;
+				//		}
+				//		profileTypeId = 1;
+				//		break;
+				//}
 			}
 
 			using (var context = new Data.CTIEntities())
 			{
-				if (!ValidateProfile(item, ref messages))
+				if (!ValidateProfile(profile, ref messages))
 				{
 					return false;
 				}
 
-				item.CreatedById = item.LastUpdatedById = userId;
-				item.ConnectionProfileTypeId = profileTypeId;
-				if (item.Id > 0)
+				profile.CreatedById = profile.LastUpdatedById = userId;
+				profile.ConnectionProfileTypeId = profileTypeId;
+				if (profile.Id > 0)
 				{
-					DBentity p = context.Entity_ConditionProfile
-							.FirstOrDefault(s => s.Id == item.Id);
+					DBEntity p = context.Entity_ConditionProfile
+							.FirstOrDefault(s => s.Id == profile.Id);
 					if (p != null && p.Id > 0)
 					{
-						item.RowId = p.RowId;
-						FromMap(item, p);
+						profile.RowId = p.RowId;
+						profile.ParentId = p.EntityId;
+						MapToDB(profile, p);
 
 						if (HasStateChanged(context))
 						{
@@ -144,18 +146,18 @@ namespace Factories
 							context.SaveChanges();
 						}
 						//regardless, check parts
-						isValid = UpdateParts( item, ref messages );
+						isValid = UpdateParts( profile, ref messages );
 					}
 					else
 					{
 						//error should have been found
 						isValid = false;
-						messages.Add(string.Format("Error: the requested record was not found: recordId: {0}", item.Id));
+						messages.Add(string.Format("Error: the requested record was not found: recordId: {0}", profile.Id));
 					}
 				}
 				else
 				{
-					int newId = Add( item, userId, ref messages );
+					int newId = Add( profile, userId, ref messages );
 					if ( newId == 0 || messages.Count > 0)
 						isValid = false;
 				}
@@ -163,7 +165,108 @@ namespace Factories
 			return isValid;
 		}
 
+        public static int GetConditionTypeId (string conditionType)
+        {
+            int conditionTypeId = 0;
+            switch ( conditionType.ToLower() )
+            {
+                case "requires":
+                    conditionTypeId = ConnectionProfileType_Requirement;
+                    break;
+                case "alternativecondition": //NO - can have different types OR ??
+                    conditionTypeId = ConnectionProfileType_Requirement;
+                    break;
+                case "additionalcondition": //NO - can have different types OR ??
+                    conditionTypeId = ConnectionProfileType_Requirement;
+                    break;
+                case "recommends":
+                    conditionTypeId = ConnectionProfileType_Recommendation;
+                    break;
 
+                case "isrequiredfor":
+                    conditionTypeId = ConnectionProfileType_NextIsRequiredFor;
+                    break;
+
+                case "isrecommendedfor":
+                    conditionTypeId = ConnectionProfileType_NextIsRecommendedFor;
+                    break;
+
+                case "renewal":
+                    conditionTypeId = ConnectionProfileType_Renewal;
+                    break;
+                case "advancedstandingfor":
+                    conditionTypeId = ConnectionProfileType_AdvancedStandingFor;
+                    break;
+                case "advancedstandingfrom":
+                    conditionTypeId = ConnectionProfileType_AdvancedStandingFrom;
+                    break;
+                case "ispreparationfor":
+                    conditionTypeId = ConnectionProfileType_PreparationFor;
+                    break;
+                case "preparationfrom":
+                    conditionTypeId = ConnectionProfileType_PreparationFrom;
+                    break;
+                case "corequisite":
+                    conditionTypeId = ConnectionProfileType_Corequisite;
+                    break;
+                case "entrycondition":
+                    conditionTypeId = ConnectionProfileType_EntryCondition;
+                    break;
+                //
+                default:
+                    conditionTypeId = 1;
+                    break;
+            }
+
+            return conditionTypeId;
+        }
+
+		public static string GetConditionType( int conditionTypeId )
+		{
+			string conditionType = "";
+			switch ( conditionTypeId )
+			{
+				case 1:
+					conditionType = "Requires";
+					break;
+				case 2:
+					conditionType = "Recommends";
+					break;
+				case 3:
+					conditionType = "Is Required For";
+					break;
+				case 4:
+					conditionType = "Is Recommended For";
+					break;
+				case 5:
+					conditionType = "Renewal";
+					break;
+				case 6:
+					conditionType = "Advanced Standing For";
+					break;
+				case 7:
+					conditionType = "Advanced Standing From";
+					break;
+				case 8:
+					conditionType = "Is Preparation For";
+					break;
+				case 9:
+					conditionType = "Preparation From";
+					break;
+				case 10:
+					conditionType = "Corequisite";
+					break;
+				case 11:
+					conditionType = "Entry Condition";
+					break;
+				//
+				default:
+					conditionType = "unexpected: " + conditionTypeId.ToString();
+					break;
+			}
+
+			return conditionType;
+		}
 		/// <summary>
 		/// add a ConditionProfile
 		/// </summary>
@@ -172,15 +275,19 @@ namespace Factories
 		/// <returns></returns>
 		private int Add(ThisEntity entity, int userId, ref List<String> messages)
 		{
-			DBentity efEntity = new DBentity();
+			DBEntity efEntity = new DBEntity();
 			using (var context = new Data.CTIEntities())
 			{
 				try
 				{
-					FromMap(entity, efEntity);
+					MapToDB(entity, efEntity);
 
 					efEntity.EntityId = entity.ParentId;
-					efEntity.RowId = Guid.NewGuid();
+                    //allow client (initially via bulk upload), to set identifer
+                    if (IsValidGuid(entity.RowId))
+                        efEntity.RowId = entity.RowId;
+                    else
+                        efEntity.RowId = Guid.NewGuid();
 					efEntity.CreatedById = efEntity.LastUpdatedById = userId;
 					efEntity.Created = efEntity.LastUpdated = System.DateTime.Now;
 					
@@ -192,6 +299,7 @@ namespace Factories
 					{
 						entity.Id = efEntity.Id;
 						entity.RowId = efEntity.RowId;
+						//17-11-13 MP - can't depend on the trigger to create the entity, and then have the entity_cache updated in time, so create entity now
 
 						UpdateParts(entity, ref messages);
 
@@ -242,18 +350,21 @@ namespace Factories
 
 			if ( mgr.UpdateProperties( entity.ApplicableAudienceType, entity.RowId, CodesManager.ENTITY_TYPE_CONDITION_PROFILE, CodesManager.PROPERTY_CATEGORY_AUDIENCE_TYPE, entity.LastUpdatedById, ref messages ) == false )
 				isAllValid = false;
+            //done via CreditUnitTypeId
+            //if ( mgr.UpdateProperties( entity.CreditUnitType, entity.RowId, CodesManager.ENTITY_TYPE_CONDITION_PROFILE, CodesManager.PROPERTY_CATEGORY_CREDIT_UNIT_TYPE, entity.LastUpdatedById, ref messages ) == false )
+            //    isAllValid = false;
 
-			//Asmts
-			//N/A AS done immediately
-			Entity_ReferenceManager erm = new Entity_ReferenceManager();
+            //Asmts
+            //N/A AS done immediately
+            Entity_ReferenceManager erm = new Entity_ReferenceManager();
 
 			//if (erm.Entity_Reference_Update(entity.ReferenceUrl, entity.RowId, CodesManager.ENTITY_TYPE_CONDITION_PROFILE, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_REFERENCE_URLS, false) == false)
 			//	isAllValid = false;
 
-			if (erm.Entity_Reference_Update(entity.Condition, entity.RowId, CodesManager.ENTITY_TYPE_CONDITION_PROFILE, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_CONDITION_ITEM, false) == false)
+			if (erm.Update(entity.Condition, entity.RowId, CodesManager.ENTITY_TYPE_CONDITION_PROFILE, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_CONDITION_ITEM, false) == false)
 				isAllValid = false;
 
-			if ( erm.Entity_Reference_Update( entity.SubmissionOf, entity.RowId, CodesManager.ENTITY_TYPE_CONDITION_PROFILE, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_SUBMISSION_ITEM, false ) == false )
+			if ( erm.Update( entity.SubmissionOf, entity.RowId, CodesManager.ENTITY_TYPE_CONDITION_PROFILE, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_SUBMISSION_ITEM, false ) == false )
 				isAllValid = false;
 
 			//
@@ -276,7 +387,7 @@ namespace Factories
 			}
 			using (var context = new Data.CTIEntities())
 			{
-				DBentity efEntity = context.Entity_ConditionProfile
+				DBEntity efEntity = context.Entity_ConditionProfile
 							.SingleOrDefault( s => s.Id == profileId );
 
 				if (efEntity != null && efEntity.Id > 0)
@@ -299,8 +410,41 @@ namespace Factories
 
 			return isValid;
 		}
+		public bool Delete( Guid profileId, ref string statusMessage )
+		{
+			bool isValid = false;
+			if ( !IsValidGuid( profileId ) )
+			{
+				statusMessage = string.Format("Error - A valid identifier must be provided in order to delete a ConditionProfile ({0})", profileId);
+				return false;
+			}
+			using ( var context = new Data.CTIEntities() )
+			{
+				DBEntity efEntity = context.Entity_ConditionProfile
+							.SingleOrDefault( s => s.RowId == profileId );
 
-		private bool ValidateProfile(ConditionProfile item, ref List<string> messages)
+				if ( efEntity != null && efEntity.Id > 0 )
+				{
+					Guid rowId = efEntity.RowId;
+					context.Entity_ConditionProfile.Remove( efEntity );
+					int count = context.SaveChanges();
+					if ( count > 0 )
+					{
+						isValid = true;
+						//16-10-19 mp - create 'After Delete' triggers to delete the Entity
+						//new EntityManager().Delete(rowId, ref statusMessage);
+					}
+				}
+				else
+				{
+					statusMessage = "Error - delete was not possible, as record was not found.";
+				}
+			}
+
+			return isValid;
+		}
+
+		public bool ValidateProfile(ConditionProfile item, ref List<string> messages)
 		{
 			bool isValid = true;
 			bool isNameRequired = true;
@@ -309,42 +453,49 @@ namespace Factories
 
 			if ( item.IsStarterProfile )
 				return true;
-
+            bool isTargetRequiredForConnection = UtilityManager.GetAppKeyValue( "isTargetRequiredForConnection", true );
 			if ( item.ConnectionProfileType == "AssessmentConnections" )
 			{
-				isNameRequired = false;
-				//List<AssessmentProfile> list = Entity_AssessmentManager.GetAll( item.RowId, false );
-				//if ( item.Id > 0 && list.Count == 0 )
-				//{
-				//	messages.Add( "Error: an assessment must be selected" );
-				//	firstEntityName = "Assessment Connection";
-				//}
-				//else
-				//{
-				//	if ( item.Id > 0 )
-				//		firstEntityName = list[ 0 ].Name;
-				//}
-			}
+                //must have one target entity (after initial create of skeleton
+                isNameRequired = false;
+                firstEntityName = item.ConnectionProfileType;
+                //get the entity and check for one of the targets
+                if ( item.Id > 0 )
+                {
+                    firstEntityName = EntityManager.GetDefaultTargetNameForEntity( item.RowId );
+                    //must exist now, in future want to stop doing the pre-save. The latter would be an issue for connections!
+
+                    if ( string.IsNullOrWhiteSpace( firstEntityName ) && isTargetRequiredForConnection )
+                    {
+                        messages.Add( "Error: at least one credential, assessment or learning opportunity must be selected" );
+                        firstEntityName = "Assessment Connection";
+                    }
+                }
+
+                item.ProfileSummary = "Connections for " + firstEntityName;
+            }
 			else if ( item.ConnectionProfileType == "LearningOppConnections" )
 			{
-				isNameRequired = false;
-				//can't fully edit this. On initial create, no lopp, and the TargetLopp is not returned, as these are immediate saves.
-				//would have to determine if not initial, and then do a check for existing (as for to.TargetLearningOpportunity in toMap)
-				//List<LearningOpportunityProfile> list = Entity_LearningOpportunityManager.LearningOpps_GetAll( item.RowId, false, true );
-				//if ( item.Id > 0 && list.Count == 0 )
-				//{
-				//	messages.Add( "Error: a learning opportunity must be selected" );
-				//	firstEntityName = "Learning Opportunity Connection";
-				//}
-				//else
-				//{
-				//	if ( item.Id > 0 )
-				//		firstEntityName = list[ 0 ].Name;
-				//}
-			}
+                //must have one target entity (after initial create of skeleton
+                isNameRequired = false;
+                firstEntityName = item.ConnectionProfileType;
+                //get the entity and check for one of the targets
+                if ( item.Id > 0 )
+                {
+                    firstEntityName = EntityManager.GetDefaultTargetNameForEntity( item.RowId );
+                    //must exist now, in future want to stop doing the pre-save. The latter would be an issue for connections!
+
+                    if ( string.IsNullOrWhiteSpace( firstEntityName ) && isTargetRequiredForConnection )
+                    {
+                        messages.Add( "Error: at least one credential, assessment or learning opportunity must be selected" );
+                        firstEntityName = "Learning Opportunity Connection";
+                    }
+                }
+
+                item.ProfileSummary = "Connections for " + firstEntityName;
+            }
 			else
-			if ( item.ConnectionProfileType == "CredentialConnections" 
-				|| item.ConnectionProfileType == "Corequisite" 
+			if ( item.ConnectionProfileType == "Corequisite" 
 				)
 			{
 				isNameRequired = false;
@@ -362,21 +513,53 @@ namespace Factories
 				}
 				item.ProfileSummary = firstEntityName;
 			}
-
-			//ProfileSummary is used by edit, and should have a value for an update
-			if ( string.IsNullOrWhiteSpace( item.ProfileSummary) )
+			else
+			if ( item.ConnectionProfileType == "CredentialConnections" )
 			{
-				item.ProfileName = firstEntityName;
-			} else
-				item.ProfileName = item.ProfileSummary;
+				//must have one target entity
+				isNameRequired = false;
+				firstEntityName = item.ConnectionProfileType;
+				//get the entity and check for one of the targets
+				if ( item.Id > 0 )
+				{
+					firstEntityName = EntityManager.GetDefaultTargetNameForEntity( item.RowId );
+                    //must exist now, in future want to stop doing the pre-save. The latter would be an issue for connections!
 
-			//if not a starter, then name is required
+                    if ( string.IsNullOrWhiteSpace( firstEntityName ) && isTargetRequiredForConnection )
+                    {
+						messages.Add( "Error: at least one credential, assessment or learning opportunity must be selected" );
+						firstEntityName = "Credential Connection";
+					}
+				}
+					
+				item.ProfileSummary = "Connections for " + firstEntityName;
+			}
+
+            //ProfileSummary is used by edit, and should have a value for an update
+            //however, the upload uses profileName!
+            if ( string.IsNullOrWhiteSpace( item.ProfileName ) )
+            {
+                if ( string.IsNullOrWhiteSpace( item.ProfileSummary ) )
+                {
+                    item.ProfileName = item.ProfileName != null && item.ProfileName.Length > 0 ? item.ProfileName : firstEntityName;
+                }
+                else
+                    item.ProfileName = item.ProfileSummary;
+            }
+
+			//if not a starter, then name is required (connections assign a default!)
 			if ( !item.IsStarterProfile 
 				&& isNameRequired
-				&& string.IsNullOrWhiteSpace( item.ProfileSummary ) )
-			{
+				&& string.IsNullOrWhiteSpace( item.ProfileName ) )
+			{ 
 				//only for a full condition profile!
 				messages.Add( "Enter a meaningful name for this condition." );
+			}
+
+			if ( string.IsNullOrWhiteSpace( item.Description ) || item.Description .Length < 20)
+			{
+				//only for a full condition profile!
+				messages.Add( "Enter a meaningful description for this condition (at least 20 characters)." );
 			}
 			if ( !IsUrlValid( item.SubjectWebpage, ref commonStatusMessage ) )
 			{
@@ -399,10 +582,10 @@ namespace Factories
 				//messages.Add( "Error: At least one Learning Opportunity must be added to this condition profile." );
 			}
 
-			if ( item.CreditHourValue < 0 || item.CreditHourValue > 100 )
+			if ( item.CreditHourValue < 0 || item.CreditHourValue > 10000 )
 				messages.Add( "Error: invalid value for Credit Hour Value. Must be a reasonable decimal value greater than zero." );
 
-			if ( item.CreditUnitValue < 0 || item.CreditUnitValue > 100 )
+			if ( item.CreditUnitValue < 0 || item.CreditUnitValue > 10000 )
 				messages.Add( "Error: invalid value for Credit Unit Value. Must be a reasonable decimal value greater than zero." );
 
 
@@ -442,42 +625,77 @@ namespace Factories
 				//if ( forEditView  == false)
 				//	context.Configuration.LazyLoadingEnabled = false;
 
-				DBentity efEntity = context.Entity_ConditionProfile
-						.SingleOrDefault(s => s.Id == id);
+				DBEntity efEntity = context.Entity_ConditionProfile
+						.FirstOrDefault( s => s.Id == id);
 
 				if (efEntity != null && efEntity.Id > 0)
 				{
-					ToMap(efEntity, entity, true, true, true);
-					//strip off extra
-					//VERIFY - NOT NECESSARY NOW THAT ProfileSummary is used for the edit view name
-					//if ( efEntity.Codes_PropertyValue != null )
-					//{
-					//	string suffix = " ( " + efEntity.Codes_PropertyValue.Title + " )";
-					//	int pos = entity.ProfileName.IndexOf( suffix );
-					//	if ( pos > 1 )
-					//	{
-					//		entity.ProfileName = entity.ProfileName.Substring( 0, pos );
-					//	}
-					//}
-					////check for <span class=
-					//int pos2 = entity.ProfileName.ToLower().IndexOf( "</span>" );
-					//if ( pos2 > -1 )
-					//{
-					//	entity.ProfileName = entity.ProfileName.Substring( pos2 + 7 );
-					//}
+					MapFromDB(efEntity, entity, true, true, true);
 				}
 			}
 
 			return entity;
 		}
 
-		/// <summary>
-		/// Get all condition profiles for parent as minimum for display as links
-		/// For this method, the parent is resonsible for assigning to the proper condition profile types, if more than one expected.
-		/// </summary>
-		/// <param name="parentUid"></param>
-		/// <returns></returns>
-		public static List<ThisEntity> GetAllForLinks( Guid parentUid )
+        public static ThisEntity GetForImport( Guid rowId )
+        {
+            ThisEntity entity = new ThisEntity();
+            using ( var context = new Data.CTIEntities() )
+            {
+
+                DBEntity efEntity = context.Entity_ConditionProfile
+                        .FirstOrDefault( s => s.RowId == rowId );
+
+                if ( efEntity != null && efEntity.Id > 0 )
+                {
+                    MapFromDB( efEntity, entity, true, false, false );
+                }
+            }
+
+            return entity;
+        }
+        public static ThisEntity GetBasic( int id )
+        {
+            ThisEntity entity = new ThisEntity();
+            using ( var context = new Data.CTIEntities() )
+            {
+                
+                DBEntity efEntity = context.Entity_ConditionProfile
+                        .FirstOrDefault( s => s.Id == id );
+
+                if ( efEntity != null && efEntity.Id > 0 )
+                {
+                    MapFromDB_Basics( efEntity, entity, false, false );
+                }
+            }
+
+            return entity;
+        }
+        public static ThisEntity GetBasic( Guid rowId )
+        {
+            ThisEntity entity = new ThisEntity();
+            using ( var context = new Data.CTIEntities() )
+            {
+
+                DBEntity efEntity = context.Entity_ConditionProfile
+                        .FirstOrDefault( s => s.RowId == rowId );
+
+                if ( efEntity != null && efEntity.Id > 0 )
+                {
+                    MapFromDB_Basics( efEntity, entity, false, false );
+                }
+            }
+
+            return entity;
+        }
+        
+        /// <summary>
+         /// Get all condition profiles for parent as minimum for display as links
+         /// For this method, the parent is responsible for assigning to the proper condition profile types, if more than one expected.
+         /// </summary>
+         /// <param name="parentUid"></param>
+         /// <returns></returns>
+        public static List<ThisEntity> GetAllForLinks( Guid parentUid )
 		{
 			ThisEntity to = new ThisEntity();
 			List<ThisEntity> list = new List<ThisEntity>();
@@ -491,7 +709,7 @@ namespace Factories
 			{
 				using ( var context = new Data.CTIEntities() )
 				{
-					List<DBentity> results = context.Entity_ConditionProfile
+					List<DBEntity> results = context.Entity_ConditionProfile
 							.Where( s => s.EntityId == parent.Id )
 							.OrderBy( s => s.ConnectionTypeId )
 							.ThenBy( s => s.Created )
@@ -499,7 +717,7 @@ namespace Factories
 
 					if ( results != null && results.Count > 0 )
 					{
-						foreach ( DBentity from in results )
+						foreach ( DBEntity from in results )
 						{
 							to = new ThisEntity();
 							to.Id = from.Id;
@@ -507,7 +725,7 @@ namespace Factories
 
 							to.ParentId = from.EntityId;
 							to.ConnectionProfileTypeId = ( int ) from.ConnectionTypeId;
-							to.ConditionSubTypeId = ( int ) from.ConditionSubTypeId;
+							to.ConditionSubTypeId = ( int ) (from.ConditionSubTypeId ?? 1);
 
 							string conditionType = "";
 							if ( from.Codes_PropertyValue != null )
@@ -515,7 +733,7 @@ namespace Factories
 							to.ProfileName = (from.Name ?? "").Length > 0 ? from.Name : conditionType;
 							to.ProfileSummary = to.ProfileName;
 							to.Description = from.Description;
-							//ToMap( item, entity, true,true );
+							//MapFromDB( item, entity, true,true );
 
 
 							list.Add( to );
@@ -535,8 +753,12 @@ namespace Factories
 		/// For this method, the parent is resonsible for assigning to the proper condition profile types, if more than one expected.
 		/// </summary>
 		/// <param name="parentUid"></param>
+		/// <param name="subConditionTypeId">If zero ignore, other only get conditions of the provided subConditionTypeId:
+		/// 2 - credentials
+		/// 3 - assessments
+		/// 4 - learning opportunities</param>
 		/// <returns></returns>
-		public static List<ThisEntity> GetAll( Guid parentUid )
+		public static List<ThisEntity> GetAll( Guid parentUid, int subConditionTypeId )
 		{
 			ThisEntity entity = new ThisEntity();
 			List<ThisEntity> list = new List<ThisEntity>();
@@ -545,6 +767,10 @@ namespace Factories
 			{
 				return list;
 			}
+			//if one, set to zero to get all
+			//NO - get all will return connections as well???
+			//if ( subConditionTypeId < 2 )
+			//	subConditionTypeId = 0;
 
 			try
 			{
@@ -552,18 +778,19 @@ namespace Factories
 				{
 					//context.Configuration.LazyLoadingEnabled = false;
 
-					List<DBentity> results = context.Entity_ConditionProfile
-							.Where( s => s.EntityId == parent.Id )
+					List<DBEntity> results = context.Entity_ConditionProfile
+							.Where( s => s.EntityId == parent.Id
+							&& ( subConditionTypeId == 0 || s.ConditionSubTypeId == subConditionTypeId ) )
 							.OrderBy( s => s.ConnectionTypeId )
 							.ThenBy( s => s.Created )
 							.ToList();
 
 					if ( results != null && results.Count > 0 )
 					{
-						foreach ( DBentity item in results )
+						foreach ( DBEntity item in results )
 						{
 							entity = new ThisEntity();
-							ToMap( item, entity, true, true, false );
+							MapFromDB( item, entity, true, true, false );
 
 
 							list.Add( entity );
@@ -579,12 +806,13 @@ namespace Factories
 		}//
 		
 
+
 		public static MN.ProfileLink GetProfileLink( Guid profileRowId )
 		{
 			MN.ProfileLink entity = new MN.ProfileLink();
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity efEntity = context.Entity_ConditionProfile
+				DBEntity efEntity = context.Entity_ConditionProfile
 						.SingleOrDefault( s => s.RowId == profileRowId );
 
 				if ( efEntity != null && efEntity.Id > 0 )
@@ -627,57 +855,87 @@ namespace Factories
 
 			return entity;
 		}
-		public static ThisEntity GetAs_IsPartOf(Guid rowId)
+		public static ThisEntity GetAs_IsPartOf(Guid rowId, bool gettingAllProperties = true)
 		{
 			ThisEntity entity = new ThisEntity();
+            using (var context = new Data.CTIEntities())
+            {
 
-			using ( var context = new ViewContext() )
-			{
-				Views.ConditionProfile_ParentSummary item = context.ConditionProfile_ParentSummary
-						.SingleOrDefault( s => s.RowId == rowId );
+                DBEntity efEntity = context.Entity_ConditionProfile
+                        .FirstOrDefault( s => s.RowId == rowId );
 
-				if ( item != null && item.EntityConditionProfileId > 0 )
-				{
-					entity.Id = item.EntityConditionProfileId;
-					entity.RowId = item.RowId;
-					//not use if we want the baseId or entityId
-					//this method is primarily for display, and so would not be used to edit or delete an item. Although if a link is exposed to the detai l page, then the baseId should be used.
-					entity.ParentId = item.ParentBaseId;
+                if (efEntity != null && efEntity.Id > 0)
+                {
+                    MapFromDB_Basics( efEntity, entity, false, gettingAllProperties);
+                    if (efEntity.Entity.EntityTypeId == CodesManager.ENTITY_TYPE_CREDENTIAL)
+                    {
+                        //entity.ParentCredential = new Credential() { Id = (int)efEntity.Entity.EntityBaseId, Name = efEntity.Entity.EntityBaseName, Description ="", RowId = efEntity.Entity.EntityUid };
+                        entity.ParentCredential = CredentialManager.GetBasic( (int)efEntity.Entity.EntityBaseId );
 
-					if (!string.IsNullOrWhiteSpace(item.Name))
-						entity.ProfileName = item.Name;
-					else
-						entity.ProfileName = item.ParentName + " Condition profile";
+                    }
+                    else if (efEntity.Entity.EntityTypeId == CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE)
+                    {
+                        entity.ParentAssessment = AssessmentManager.GetBasic( ( int ) efEntity.Entity.EntityBaseId );
+                       
+                    } else if (efEntity.Entity.EntityTypeId == CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE)
+                    {
+                        entity.ParentLearningOpportunity = LearningOpportunityManager.GetBasic( ( int ) efEntity.Entity.EntityBaseId );
+                    } else if (efEntity.Entity.EntityTypeId == CodesManager.ENTITY_TYPE_CONDITION_MANIFEST)
+                    {
+                        entity.ParentConditionManifest = ConditionManifestManager.GetBasic( ( int ) efEntity.Entity.EntityBaseId );
+                    }
+                    //generally may not care about targert resources, as getting this because caller is a target resource - could do a duration check and get anyway.
+                    //IncludeTargetResources( efEntity, entity, false, true );
+                }
+            }
 
-					if ( item.ParentEntityTypeId == CodesManager.ENTITY_TYPE_CREDENTIAL )
-					{
-						entity.ParentCredential = new Credential() { Id = item.ParentBaseId, Name = item.ParentName, Description = item.ParentDescription, RowId = item.ParentRowId };
-					}
-					else if ( item.ParentEntityTypeId == CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE )
-					{
-						entity.ParentAssessment = new AssessmentProfile() { Id = item.ParentBaseId, Name = item.ParentName, Description = item.ParentDescription, RowId = item.ParentRowId };
-					}
-					else if ( item.ParentEntityTypeId == CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE )
-					{
-						entity.ParentLearningOpportunity = new LearningOpportunityProfile() { Id = item.ParentBaseId, Name = item.ParentName, Description = item.ParentDescription, RowId = item.ParentRowId };
-					}
-					else if ( item.ParentEntityTypeId == CodesManager.ENTITY_TYPE_CONDITION_MANIFEST )
-					{
-						entity.ParentConditionManifest = new ConditionManifest() { Id = item.ParentBaseId, ProfileName = item.ParentName, Description = item.ParentDescription, RowId = item.ParentRowId };
-					}
-					//else if ( item.ParentEntityTypeId == CodesManager.ENTITY_TYPE_ORGANIZATION )
-					//{
-					//	entity.TargetOrganization = new Organization() { Id = item.ParentBaseId, Name = item.ParentName, Description = item.ParentDescription, RowId = item.ParentRowId };
-					//}
+   //         using ( var context = new ViewContext() )
+			//{
+			//	Views.ConditionProfile_ParentSummary item = context.ConditionProfile_ParentSummary
+			//			.SingleOrDefault( s => s.RowId == rowId );
+
+			//	if ( item != null && item.EntityConditionProfileId > 0 )
+			//	{
+			//		entity.Id = item.EntityConditionProfileId;
+			//		entity.RowId = item.RowId;
+			//		//not sure if we want the baseId or entityId
+			//		//this method is primarily for display, and so would not be used to edit or delete an item. Although if a link is exposed to the detai l page, then the baseId should be used.
+			//		entity.ParentId = item.ParentBaseId;
+
+			//		if (!string.IsNullOrWhiteSpace(item.Name))
+			//			entity.ProfileName = item.Name;
+			//		else
+			//			entity.ProfileName = item.ParentName + " Condition profile";
+
+			//		if ( item.ParentEntityTypeId == CodesManager.ENTITY_TYPE_CREDENTIAL )
+			//		{
+			//			entity.ParentCredential = new Credential() { Id = item.ParentBaseId, Name = item.ParentName, Description = item.ParentDescription, RowId = item.ParentRowId };
+			//		}
+			//		else if ( item.ParentEntityTypeId == CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE )
+			//		{
+			//			entity.ParentAssessment = new AssessmentProfile() { Id = item.ParentBaseId, Name = item.ParentName, Description = item.ParentDescription, RowId = item.ParentRowId };
+			//		}
+			//		else if ( item.ParentEntityTypeId == CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE )
+			//		{
+			//			entity.ParentLearningOpportunity = new LearningOpportunityProfile() { Id = item.ParentBaseId, Name = item.ParentName, Description = item.ParentDescription, RowId = item.ParentRowId };
+			//		}
+			//		else if ( item.ParentEntityTypeId == CodesManager.ENTITY_TYPE_CONDITION_MANIFEST )
+			//		{
+			//			entity.ParentConditionManifest = new ConditionManifest() { Id = item.ParentBaseId, ProfileName = item.ParentName, Description = item.ParentDescription, RowId = item.ParentRowId };
+			//		}
+			//		//else if ( item.ParentEntityTypeId == CodesManager.ENTITY_TYPE_ORGANIZATION )
+			//		//{
+			//		//	entity.TargetOrganization = new Organization() { Id = item.ParentBaseId, Name = item.ParentName, Description = item.ParentDescription, RowId = item.ParentRowId };
+			//		//}
 
 
-					//LoggingHelper.DoTrace(8, thisClassName + ".GetAs_IsPartOf()\r\n" +  JsonConvert.SerializeObject( entity ));
-				}
-			}
+			//		//LoggingHelper.DoTrace(8, thisClassName + ".GetAs_IsPartOf()\r\n" +  JsonConvert.SerializeObject( entity ));
+			//	}
+			//}
 
 			return entity;
 		}
-		private static void FromMap(ThisEntity from, DBentity to)
+		private static void MapToDB(ThisEntity from, DBEntity to)
 		{
 
 			//want to ensure fields from create are not wiped
@@ -691,7 +949,7 @@ namespace Factories
 				}
 				else
 				{
-					if ( to.ConditionSubTypeId == 0 )
+					if ( (to.ConditionSubTypeId ?? 0) == 0 )
 					{
 						if ( from.ConnectionProfileType == "CredentialConnections" )
 							to.ConditionSubTypeId = ConditionSubType_CredentialConnection;
@@ -707,6 +965,8 @@ namespace Factories
 							to.ConditionSubTypeId = 1;
 					}
 				}
+				to.EntityId = from.ParentId;
+
 			} else
 			{
 				if ( from.ConnectionProfileTypeId > 0 )
@@ -719,13 +979,11 @@ namespace Factories
 
 			to.Id = from.Id;
 			
-			
-			//170316 mparsons - ProfileSummary is used in the edit interface for Name
-			if ( string.IsNullOrWhiteSpace( from.ProfileName ) )
-				from.ProfileName = from.ProfileSummary ?? "";
 
-			//strip off extra
-			if ( to.Codes_PropertyValue != null )
+			//170316 mparsons - ProfileSummary is used in the edit interface for Name
+            from.ProfileName = ( from.ProfileName ?? "" ).Trim();
+            //strip off extra
+            if ( to.Codes_PropertyValue != null )
 			{
 				string suffix = " ( " + to.Codes_PropertyValue.Title + " )";
 				int pos = from.ProfileName.IndexOf( suffix );
@@ -751,7 +1009,7 @@ namespace Factories
 
 			to.Name = GetData( from.ProfileName );
 			to.Description = GetData( from.Description );
-			to.EntityId = from.ParentId;
+			
 
 			if (from.AssertedByAgentUid == null || from.AssertedByAgentUid.ToString() == DEFAULT_GUID)
 			{
@@ -765,9 +1023,9 @@ namespace Factories
 			to.Experience = GetData(from.Experience);
 			to.SubjectWebpage = from.SubjectWebpage;
 
-			if (from.ApplicableAudienceType != null)
-				to.OtherAudienceType = from.ApplicableAudienceType.OtherValue ?? "";
-			else
+			//if (from.ApplicableAudienceType != null)
+			//	to.OtherAudienceType = from.ApplicableAudienceType.OtherValue ?? "";
+			//else
 				to.OtherAudienceType = "";
 
 			//if (from.EducationLevel != null)
@@ -800,28 +1058,32 @@ namespace Factories
 
 		}
 
-		public static void ToMap(DBentity from, ThisEntity to
+		public static void MapFromDB(DBEntity from, ThisEntity to
 				, bool includingProperties
 				, bool incudingResources
 				, bool forEditView
 				, bool isForCredentialDetails = false)
 		{
-			ToMapBasics( from, to, forEditView );
+			MapFromDB_Basics( from, to, forEditView );
 
 			//========================================================
 			//TODO - determine what is really needed for the detail page for conditions
-
-			to.Experience = from.Experience;
-			to.MinimumAge = GetField(from.MinimumAge, 0);
-			to.YearsOfExperience = GetField(from.YearsOfExperience, 0m);
-			to.Weight = GetField( from.Weight, 0m );
 
 			to.CreditHourType = from.CreditHourType ?? "";
 			to.CreditHourValue = (from.CreditHourValue ?? 0M);
 			to.CreditUnitTypeId = (from.CreditUnitTypeId ?? 0);
 			to.CreditUnitTypeDescription = from.CreditUnitTypeDescription;
 			to.CreditUnitValue = from.CreditUnitValue ?? 0M;
-
+			// Begin edits - Need these to populate Credit Unit Type -  NA 3/24/2017
+			if ( to.CreditUnitTypeId > 0 )
+			{
+				to.CreditUnitType = new Enumeration();
+				var match = CodesManager.GetEnumeration( "creditUnit" ).Items.FirstOrDefault( m => m.CodeId == to.CreditUnitTypeId );
+				if ( match != null )
+				{
+					to.CreditUnitType.Items.Add( match );
+				}
+			}
 			//to.RequiredCredential = CommaSeparatedListToStringList( from.RequiredCredentials );
 			//to.OtherAudienceType = from.OtherAudienceType;
 			//to.OtherCredentialType = from.OtherCredentialType;
@@ -830,19 +1092,16 @@ namespace Factories
 				to.DateEffective = ((DateTime)from.DateEffective).ToShortDateString();
 			else
 				to.DateEffective = "";
-			
 
-			//will need a category
-			//to.ReferenceUrl = Entity_ReferenceManager.Entity_GetAll(to.RowId, CodesManager.PROPERTY_CATEGORY_REFERENCE_URLS);
 
-			//to.RequiredCredentialUrl = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_CREDENTIAL_URLS );
+            //will need a category
+            //to.ReferenceUrl = Entity_ReferenceManager.Entity_GetAll(to.RowId, CodesManager.PROPERTY_CATEGORY_REFERENCE_URLS);
 
-			to.Condition = Entity_ReferenceManager.Entity_GetAll(to.RowId, CodesManager.PROPERTY_CATEGORY_CONDITION_ITEM);
+            //to.RequiredCredentialUrl = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_CREDENTIAL_URLS );
+          
 
-			to.SubmissionOf = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_SUBMISSION_ITEM );
-			
-			to.RequiresCompetenciesFrameworks = Entity_CompetencyFrameworkManager.GetAll( to.RowId, "requires" );
-			to.EstimatedCosts = CostProfileManager.GetAll( to.RowId, forEditView );
+
+            to.EstimatedCosts = CostProfileManager.GetAll( to.RowId, forEditView );
 
 			if (includingProperties)
 			{
@@ -855,48 +1114,70 @@ namespace Factories
 
 			}
 
-			//alternative/additional conditions
-			//in basics now
-			//PopulateSubconditions( to, forEditView );
-			
+            //alternative/additional conditions
+            //in basics now
+            //PopulateSubconditions( to, forEditView );
+            LoggingHelper.DoTrace(7, thisClassName + string.Format("MapFromDB. Entity_CompetencyManager.GetAll"));
+            //TODO - replace this method handler after cutover
+            to.RequiresCompetenciesFrameworks = Entity_CompetencyManager.GetAll( to.RowId, "requires" );
+            //if ( to.RequiresCompetenciesFrameworks.Count > 0 )
+               // to.HasCompetencies = true; //WARNING - this may need to be different from teaches/assess comps
+            //OLD
+            //         to.RequiresCompetenciesFrameworks = Entity_CompetencyFrameworkManager.GetAll( to.RowId, "requires" );
+            //         //NEW
+            ////alias to RequiresCompetencies
+            //to.RequiresCompetenciesFrameworks = Entity_CompetencyManager.GetAllAsAlignmentObjects( to.RowId, "Requires" );
 
-			if (incudingResources)
+            if ( incudingResources)
 			{
-				//if for the detail page, want to include more info, but not all
-				to.TargetCredential = Entity_CredentialManager.GetAll( to.RowId, isForCredentialDetails );
-
-				//assessment
-				//for entity.condition(ec) - entity = ec.rowId
-				to.TargetAssessment = Entity_AssessmentManager.GetAll(to.RowId, forEditView, isForCredentialDetails );
-				foreach ( AssessmentProfile ap in to.TargetAssessment )
-					
-				{
-					if ( ap.HasCompetencies || ap.ChildHasCompetencies )
-					{
-						to.ChildHasCompetencies = true;
-						break;
-					}
-				}
-				//to.TargetTask = Entity_TaskProfileManager.TaskProfile_GetAll(to.RowId);
-
-				//re: forProfilesList, can just pass forEditView, as only use profile list for edit
-
-				to.TargetLearningOpportunity = Entity_LearningOpportunityManager.LearningOpps_GetAll( to.RowId, forEditView, forEditView, isForCredentialDetails );
-				foreach (LearningOpportunityProfile e in to.TargetLearningOpportunity)
-				{
-					if (e.HasCompetencies || e.ChildHasCompetencies)
-					{
-						to.ChildHasCompetencies = true;
-						break;
-					}
-				}
-				//to.TargetCompetency = Entity_CompetencyManager.Competency_GetAll( to.RowId );
+                IncludeTargetResources( from, to, forEditView, isForCredentialDetails );
+                
 			}
-		}
-		
-		public static void ToMapBasics( DBentity from, ThisEntity to, bool forEditView )
+        }
+
+        public static void IncludeTargetResources( DBEntity from, ThisEntity to, bool forEditView, bool isForCredentialDetails = false )
+        {
+            //if for the detail page, want to include more info, but not all
+            to.TargetCredential = Entity_CredentialManager.GetAll( to.RowId, isForCredentialDetails );
+
+            //assessment
+            //for entity.condition(ec) - entity = ec.rowId
+            if ( forEditView )
+            {
+                //should only need summary???
+                to.TargetAssessment = Entity_AssessmentManager.GetAll(to.RowId, forEditView, isForCredentialDetails, true);
+                to.TargetLearningOpportunity = Entity_LearningOpportunityManager.LearningOpps_GetAll(to.RowId, forEditView, forEditView, isForCredentialDetails, true);
+            }
+            else
+            {
+                to.TargetAssessment = Entity_AssessmentManager.GetAll(to.RowId, forEditView, isForCredentialDetails, true);
+                to.TargetLearningOpportunity = Entity_LearningOpportunityManager.LearningOpps_GetAll(to.RowId, forEditView, forEditView, isForCredentialDetails, true);
+            }
+            foreach (AssessmentProfile ap in to.TargetAssessment)
+            {
+                if (ap.HasCompetencies || ap.ChildHasCompetencies)
+                {
+                    to.ChildHasCompetencies = true;
+                    break;
+                }
+            }
+
+            
+            foreach (LearningOpportunityProfile e in to.TargetLearningOpportunity)
+            {
+                if (e.HasCompetencies || e.ChildHasCompetencies)
+                {
+                    to.ChildHasCompetencies = true;
+                    break;
+                }
+            }
+
+        }   //
+
+        public static void MapFromDB_Basics( DBEntity from, ThisEntity to, bool forEditView, bool gettingAllProperties = true )
 		{
-			to.Id = from.Id;
+            LoggingHelper.DoTrace(7, thisClassName + string.Format("MapFromDB_Basics. "));
+            to.Id = from.Id;
 			to.RowId = from.RowId;
 			to.Description = from.Description;
 			if ( IsValidDate( from.Created ) )
@@ -908,7 +1189,12 @@ namespace Factories
 			to.LastUpdatedBy = SetLastUpdatedBy( to.LastUpdatedById, from.Account_Modifier );
 
 			to.ParentId = from.EntityId;
-			if ( IsGuidValid( from.AgentUid ) )
+            if ( from.Entity != null && from.Entity.Id > 0 )
+            {
+                EntityManager.MapFromDB( from.Entity, to.ParentEntity );
+            }
+
+            if ( IsGuidValid( from.AgentUid ) )
 			{
 				to.AssertedByAgentUid = ( Guid ) from.AgentUid;
 			}
@@ -917,7 +1203,9 @@ namespace Factories
 				//attempt to get from parent?
 				if ( from.Entity != null  )
 				{
-					if ( from.Entity.EntityTypeId == CodesManager.ENTITY_TYPE_CREDENTIAL )
+                    //EntityManager.MapFromDB( from.Entity, to.ParentEntity );
+
+                    if ( from.Entity.EntityTypeId == CodesManager.ENTITY_TYPE_CREDENTIAL )
 					{
 						Credential cred = CredentialManager.GetBasic( from.Entity.EntityUid, false, true );
 						to.AssertedByAgentUid = cred.OwningAgentUid;
@@ -929,12 +1217,12 @@ namespace Factories
 					}
 				}
 			}
-			if ( IsGuidValid( to.AssertedByAgentUid ) )
+			if ( IsGuidValid( to.AssertedByAgentUid ) && gettingAllProperties )
 			{
 				//TODO - get org and then create profile link
 				//to.AssertedByOrgProfileLink = OrganizationManager.Agent_GetProfileLink( to.AssertedByAgentUid );
 
-				to.AssertedBy = OrganizationManager.GetBasics( to.AssertedByAgentUid );
+				to.AssertedBy = OrganizationManager.GetForSummary( to.AssertedByAgentUid );
 
 				to.AssertedByOrgProfileLink = new Models.Node.ProfileLink()
 				{
@@ -949,12 +1237,13 @@ namespace Factories
 			to.ConnectionProfileTypeId = ( int ) from.ConnectionTypeId;
 			to.ConditionSubTypeId = GetField( from.ConditionSubTypeId, 1 );
 			//todo reset to.ConnectionProfileTypeId if after a starter profile
-			if ( to.ConditionSubTypeId == ConditionSubType_CredentialConnection )
+			if ( to.ConditionSubTypeId >= ConditionSubType_CredentialConnection )
 			{
 				if ( to.Created == to.LastUpdated )
 				{
+					//NO- not a good idea, especially with bulk upload
 					//reset as was an auto created, so allow use to set type
-					to.ConnectionProfileTypeId = 0;
+					//to.ConnectionProfileTypeId = 0;
 				}
 			}
 
@@ -964,8 +1253,8 @@ namespace Factories
 			string conditionType = "";
 			if ( from.Entity != null && from.Entity.EntityTypeId == 1 )
 				parentName = from.Entity.EntityBaseName;
-			if ( from.Codes_PropertyValue != null )
-				conditionType = from.Codes_PropertyValue.Title;
+			if ( from.Codes_PropertyValue != null ) //actually points to Codes_ConditionProfileType
+                to.ConnectionProfileType = from.Codes_PropertyValue.Title;
 
 			//TODO - need to have a default for a missing name
 			//17-03-16 mparsons - using ProfileName for the list view, and ProfileSummary for the edit view
@@ -984,34 +1273,46 @@ namespace Factories
 			if (forEditView && from.Codes_PropertyValue != null )
 				to.ProfileName += " ( " + from.Codes_PropertyValue.Title + " )";
 
-			if ( to.ConditionSubTypeId == ConditionSubType_CredentialConnection )
-			{
-				List<Credential> list = Entity_CredentialManager.GetAll( to.RowId );
-				if ( list.Count > 0 )
-				{
-					to.ProfileName = list[ 0 ].Name;
-					if ( list.Count > 1 )
-					{
-						to.ProfileName += string.Format(" [plus {0} other(s)] ", list.Count-1);
-					}
-					if ( to.AssertedByOrgProfileLink != null && !string.IsNullOrWhiteSpace(to.AssertedByOrgProfileLink.Name ) )
-					{
-						to.ProfileName += " ( " + to.AssertedByOrgProfileLink.Name + " ) ";
-					}
-				}
-			}
-
-			if ( to.ConditionSubTypeId == ConditionSubType_Alternative
-				&& forEditView 
-				&& to.ProfileName.ToLower().IndexOf( "<span class=" ) == -1 )
-				to.ProfileName = string.Format( "<span class='alternativeCondition'>ALTERNATIVE&nbsp;</span>{0}", to.ProfileName );
-			else if ( to.ConditionSubTypeId == ConditionSubType_Additional
-				&& forEditView 
-				&& to.ProfileName.ToLower().IndexOf( "<span class=" ) == -1 )
-				to.ProfileName = string.Format( "<span class='additionalCondition'>ADDITIONAL&nbsp;</span>{0}", to.ProfileName );
+            if ( gettingAllProperties )
+            {
 
 
-			PopulateSubconditions( to, forEditView );
+                if ( to.ConditionSubTypeId == ConditionSubType_CredentialConnection )
+                {
+                    List<Credential> list = Entity_CredentialManager.GetAll( to.RowId );
+                    if ( list.Count > 0 )
+                    {
+                        to.ProfileName = "'" + to.ConnectionProfileType + "' - '" + list[ 0 ].Name + "' from " + list[0].OrganizationName ?? "";
+                        if ( list.Count > 1 )
+                        {
+                            to.ProfileName += string.Format( " [plus {0} other(s)] ", list.Count - 1 );
+                        }
+                        if ( to.AssertedByOrgProfileLink != null && !string.IsNullOrWhiteSpace( to.AssertedByOrgProfileLink.Name ) )
+                        {
+                            //to.ProfileName += " ( " + to.AssertedByOrgProfileLink.Name + " ) ";
+                        }
+                    }
+                }
+
+                if ( to.ConditionSubTypeId == ConditionSubType_Alternative
+                    && forEditView
+                    && to.ProfileName.ToLower().IndexOf( "<span class=" ) == -1 )
+                    to.ProfileName = string.Format( "<span class='alternativeCondition'>ALTERNATIVE&nbsp;</span>{0}", to.ProfileName );
+                else if ( to.ConditionSubTypeId == ConditionSubType_Additional
+                    && forEditView
+                    && to.ProfileName.ToLower().IndexOf( "<span class=" ) == -1 )
+                    to.ProfileName = string.Format( "<span class='additionalCondition'>ADDITIONAL&nbsp;</span>{0}", to.ProfileName );
+
+                to.Experience = from.Experience;
+                to.MinimumAge = GetField( from.MinimumAge, 0 );
+                to.YearsOfExperience = GetField( from.YearsOfExperience, 0m );
+                to.Weight = GetField( from.Weight, 0m );
+                to.Condition = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_CONDITION_ITEM );
+
+                to.SubmissionOf = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_SUBMISSION_ITEM );
+
+                PopulateSubconditions( to, forEditView );
+            }
 		} //
 
 		private static void PopulateSubconditions( ThisEntity to, bool forEditView )
@@ -1023,7 +1324,7 @@ namespace Factories
 			if ( forEditView )
 				cpList = Entity_ConditionProfileManager.GetAllForLinks( to.RowId );
 			else
-				cpList = Entity_ConditionProfileManager.GetAll( to.RowId );
+				cpList = Entity_ConditionProfileManager.GetAll( to.RowId, 0 );
 
 			if ( cpList != null && cpList.Count > 0 )
 			{
@@ -1035,8 +1336,12 @@ namespace Factories
 					//	to.AdditionalCondition.Add( item );
 					else
 					{
-						EmailManager.NotifyAdmin( "Unexpected Alternative/Additional Condition Profile for a condition profile", string.Format( "ConditionProfileId: {0}, ConditionProfileTypeId: {1}, ConditionSubTypeId: {2}", to.Id, item.ConnectionProfileTypeId, item.ConditionSubTypeId ) );
+						//add anyway
 						to.AlternativeCondition.Add( item );
+
+						if ( forEditView )
+							EmailManager.NotifyAdmin( "Unexpected Alternative/Additional Condition Profile for a condition profile", string.Format( "ConditionProfileId: {0}, ConditionProfileTypeId: {1}, ConditionSubTypeId: {2}. Adding to AlternativeCondition any way", to.Id, item.ConnectionProfileTypeId, item.ConditionSubTypeId ) );
+						
 					}
 				}
 			}
@@ -1044,79 +1349,16 @@ namespace Factories
 
 
 		/// <summary>
-		/// Get all condition profiles for parent as minimum for display as links
-		/// For this method, the parent is resonsible for assigning to the proper condition profile types, if more than one expected.
-		/// </summary>
-		/// <param name="parentUid"></param>
-		/// <returns></returns>
-		//public static List<ThisEntity> GetAllSubconditonsForLinks( Guid parentUid )
-		//{
-		//	ThisEntity to = new ThisEntity();
-		//	List<ThisEntity> list = new List<ThisEntity>();
-		//	Entity parent = EntityManager.GetEntity( parentUid );
-		//	if ( parent == null || parent.Id == 0 )
-		//	{
-		//		return list;
-		//	}
-
-		//	try
-		//	{
-		//		using ( var context = new Data.CTIEntities() )
-		//		{
-		//			List<DBentity> results = context.Entity_ConditionProfile
-		//					.Where( s => s.EntityId == parent.Id )
-		//					.OrderBy( s => s.ConnectionTypeId )
-		//					.ThenBy( s => s.Created )
-		//					.ToList();
-
-		//			if ( results != null && results.Count > 0 )
-		//			{
-		//				foreach ( DBentity from in results )
-		//				{
-		//					to = new ThisEntity();
-		//					to.Id = from.Id;
-		//					to.RowId = from.RowId;
-
-		//					to.ParentId = from.EntityId;
-		//					to.ConnectionProfileTypeId = ( int ) from.ConnectionTypeId;
-		//					to.ConditionSubTypeId = ( int ) from.ConditionSubTypeId;
-		//					to.ProfileName = from.Name;
-		//					to.ProfileSummary = from.Name;
-		//					if ( IsGuidValid( from.AgentUid ) )
-		//						to.AssertedByAgentUid = ( Guid ) from.AgentUid;
-
-		//					//may want to get alternative and additional conditions???
-
-		//					list.Add( to );
-		//				}
-		//			}
-		//		}
-		//	}
-		//	catch ( Exception ex )
-		//	{
-		//		LoggingHelper.LogError( ex, thisClassName + ".GetAll" );
-		//	}
-		//	return list;
-		//}//
-
-		private static string GetDefaultName( DBentity from, ThisEntity to )
-		{
-			string name = "";
-
-			return name;
-		}
-
-		/// <summary>
 		/// Get all condition profiles for a credential for use on detail page. 
 		/// Will need to ensure any target entities return all the necessary (but pointless) extra data.
 		/// </summary>
 		/// <param name="to"></param>
-		public static void FillConditionProfilesForDetailDisplay( Credential to )
+		public static void FillConditionProfilesForDetailDisplay( Credential to, bool isForPublish )
 		{
 			bool forEditView = false;
-
-			//get entity for credential
-			using ( var context = new Data.CTIEntities() )
+            
+            //get entity for credential
+            using ( var context = new Data.CTIEntities() )
 			{
 				EM.Entity dbEntity = context.Entity
 						.Include( "Entity_ConditionProfile" )
@@ -1128,7 +1370,8 @@ namespace Factories
 					if ( dbEntity.Entity_ConditionProfile != null
 				&& dbEntity.Entity_ConditionProfile.Count > 0 )
 					{
-						ConditionProfile entity = new ConditionProfile();
+                        LoggingHelper.DoTrace(7, thisClassName + string.Format("FillConditionProfilesForDetailDisplay***. Conditions: {0}", dbEntity.Entity_ConditionProfile.Count));
+                        ConditionProfile entity = new ConditionProfile();
 						//could use this, but need to do mapping get related data
 
 
@@ -1138,20 +1381,30 @@ namespace Factories
 
 						var creditUnitTypeCodes = CodesManager.GetEnumeration( "creditUnit" ); //Get code table one time - NA 3/17/2017
 
-						foreach ( EM.Entity_ConditionProfile item in dbEntity.Entity_ConditionProfile )
-						{
+                        //get directly, so can sort
+                        List<EM.Entity_ConditionProfile> list = context.Entity_ConditionProfile
+                                .Where(s => s.EntityId == dbEntity.Id)
+                                .OrderBy(s => s.ConnectionTypeId).ThenBy(s => s.Name).ThenBy(s => s.Created)
+                                .ToList();
+                        //foreach ( EM.Entity_ConditionProfile item in dbEntity.Entity_ConditionProfile )
+                        foreach (EM.Entity_ConditionProfile item in list)
+                        {
 							entity = new ConditionProfile();
-							ToMap( item, entity, true, true, false, true );
+							MapFromDB( item, entity, true, true, false, true );
 
-							//Add the credit unit type enumeration with the selected item, to fix null error in publishing and probably detail - NA 3/17/2017
-							entity.CreditUnitType = new Enumeration()
-							{
-								Items = new List<EnumeratedItem>()
-							};
-							entity.CreditUnitType.Items.Add( creditUnitTypeCodes.Items.FirstOrDefault( m => m.CodeId == entity.CreditUnitTypeId ) );
-							//End edits - NA 3/17/2017
+                            //Add the credit unit type enumeration with the selected item, to fix null error in publishing and probably detail - NA 3/17/2017
+                            //MP 17-10-19 MP moved to MapFromDB
+                            //entity.CreditUnitType = new Enumeration()
+                            //{
+                            //	Items = new List<EnumeratedItem>()
+                            //};
+                            //entity.CreditUnitType.Items.Add( creditUnitTypeCodes.Items.FirstOrDefault( m => m.CodeId == entity.CreditUnitTypeId ) );
+                            //End edits - NA 3/17/2017
 
-							if ( entity.HasCompetencies || entity.ChildHasCompetencies )
+                            if ( entity.RequiresCompetenciesFrameworks.Count > 0 )
+                                to.RequiresCompetenciesFrameworks.AddRange( entity.RequiresCompetenciesFrameworks );
+
+                            if ( entity.HasCompetencies || entity.ChildHasCompetencies )
 								to.ChildHasCompetencies = true;
 							//to.AllConditions = new List<ThisEntity>();
 							//add to allConditions - TODO - replace or review?
@@ -1167,17 +1420,15 @@ namespace Factories
 								//may want to add logging, and notification - but should be covered via conversion
 								if ( entity.ConnectionProfileTypeId == ConnectionProfileType_Requirement )
 								{
-									//to.Requires.Add( entity );
-									to.Requires= HandleSubConditions( to.Requires, entity, forEditView );
+									to.Requires= HandleSubConditions( to.Requires, entity, forEditView, isForPublish );
 								}
 								else if ( entity.ConnectionProfileTypeId == ConnectionProfileType_Recommendation )
 								{ 
-									//to.Recommends.Add( entity );
-									to.Recommends = HandleSubConditions( to.Recommends, entity, forEditView );
+									to.Recommends = HandleSubConditions( to.Recommends, entity, forEditView, isForPublish );
 								}
 								else if ( entity.ConnectionProfileTypeId == ConnectionProfileType_Renewal )
 								{
-									to.Renewal = HandleSubConditions( to.Renewal, entity, forEditView );
+									to.Renewal = HandleSubConditions( to.Renewal, entity, forEditView, isForPublish );
 								}
 								else if ( entity.ConnectionProfileTypeId == ConnectionProfileType_Corequisite )
 								{
@@ -1185,7 +1436,7 @@ namespace Factories
 								}
 								else
 								{
-									EmailManager.NotifyAdmin( thisClassName + ".FillConditionProfiles. Unhandled connection type", string.Format( "Unhandled connection type of {0} was encountered", entity.ConnectionProfileTypeId ) );
+									EmailManager.NotifyAdmin( thisClassName + ".FillConditionProfiles. Unhandled connection type", string.Format( "Unhandled connection type of {0} was encountered for CredentialId: {1}", entity.ConnectionProfileTypeId, to.Id ) );
 								}
 							}
 							
@@ -1214,11 +1465,19 @@ namespace Factories
 					{
 						ConditionProfile entity = new ConditionProfile();
 
-						foreach ( EM.Entity_ConditionProfile item in dbEntity.Entity_ConditionProfile )
+                        //get directly, so can sort
+                        List<EM.Entity_ConditionProfile> list = context.Entity_ConditionProfile
+                                .Where(s => s.EntityId == dbEntity.Id)
+                                .OrderBy(s => s.ConnectionTypeId).ThenBy(s => s.Name).ThenBy(s => s.Created)
+                                .ToList();
+                        //foreach ( EM.Entity_ConditionProfile item in dbEntity.Entity_ConditionProfile )
+                        foreach ( EM.Entity_ConditionProfile item in list )
 						{
 							entity = new ConditionProfile();
 							//this method is called from the edit view of credential, but here we want to set editView to true?
-							ToMapBasics( item, entity, false);						
+							MapFromDB_Basics( item, entity, false);
+                            //add to all
+                            to.AllConditions.Add( entity );
 
 							if ( entity.ConditionSubTypeId == ConditionSubType_CredentialConnection )
 							{
@@ -1232,16 +1491,16 @@ namespace Factories
 								if ( entity.ConnectionProfileTypeId == ConnectionProfileType_Requirement )
 								{
 									//to.Requires.Add( entity );
-									to.Requires= HandleSubConditions( to.Requires, entity, forEditView );
+									to.Requires= HandleSubConditions( to.Requires, entity, forEditView, false );
 								}
 								else if ( entity.ConnectionProfileTypeId == ConnectionProfileType_Recommendation )
 								{
 									//to.Recommends.Add( entity );
-									to.Recommends = HandleSubConditions( to.Recommends, entity, forEditView );
+									to.Recommends = HandleSubConditions( to.Recommends, entity, forEditView, false );
 								}
 								else if ( entity.ConnectionProfileTypeId == ConnectionProfileType_Renewal )
 								{
-									to.Renewal = HandleSubConditions( to.Renewal, entity, forEditView );
+									to.Renewal = HandleSubConditions( to.Renewal, entity, forEditView, false );
 								}
 								else if ( entity.ConnectionProfileTypeId == ConnectionProfileType_Corequisite )
 								{
@@ -1266,8 +1525,9 @@ namespace Factories
 			}
 }//
 
-		private static List<ConditionProfile> HandleSubConditions( List<ConditionProfile> profiles, ThisEntity entity, bool forEditView )
+		private static List<ConditionProfile> HandleSubConditions( List<ConditionProfile> profiles, ThisEntity entity, bool forEditView, bool isForPublish )
 		{
+			//add current conditionProfile list
 			profiles.Add( entity );
 			List<ConditionProfile> list = profiles;
 
@@ -1281,9 +1541,9 @@ namespace Factories
 					item.ProfileName = string.Format( "<span class='alternativeCondition'>ALTERNATIVE&nbsp;</span>{0}", item.ProfileName );
 
 				}
-
-				
-				list.Add( item );
+				//don't want to do this for publishing!!
+				if (!isForPublish )
+					list.Add( item );
 			}
 
 			//foreach ( ConditionProfile item in entity.AdditionalCondition )
@@ -1309,7 +1569,7 @@ namespace Factories
 			using ( var context = new Data.CTIEntities() )
 			{
 
-				DBentity efEntity = context.Entity_ConditionProfile
+				DBEntity efEntity = context.Entity_ConditionProfile
 						.SingleOrDefault( s => s.Id == condProfId );
 
 				if ( efEntity != null && efEntity.Id > 0 && efEntity.Entity != null )

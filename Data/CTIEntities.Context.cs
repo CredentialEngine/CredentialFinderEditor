@@ -102,8 +102,17 @@ namespace Data
         public virtual DbSet<EducationFramework> EducationFramework { get; set; }
         public virtual DbSet<EducationFramework_Competency> EducationFramework_Competency { get; set; }
         public virtual DbSet<Entity_Competency> Entity_Competency { get; set; }
-        public virtual DbSet<Entity_EducationFramework> Entity_EducationFramework { get; set; }
         public virtual DbSet<Credential_SummaryCache> Credential_SummaryCache { get; set; }
+        public virtual DbSet<CASS_CompetencyFramework> CASS_CompetencyFramework { get; set; }
+        public virtual DbSet<Entity_Language> Entity_Language { get; set; }
+        public virtual DbSet<RegistryPublishingHistory> RegistryPublishingHistory { get; set; }
+        public virtual DbSet<SqlQuery> SqlQuery { get; set; }
+        public virtual DbSet<Entity_Approval> Entity_Approval { get; set; }
+        public virtual DbSet<Entity_Assertion> Entity_Assertion { get; set; }
+        public virtual DbSet<Codes_State> Codes_State { get; set; }
+        public virtual DbSet<ConceptScheme> ConceptScheme { get; set; }
+        public virtual DbSet<Notification> Notification { get; set; }
+        public virtual DbSet<Import_IdentifierToObjectXref> Import_IdentifierToObjectXref { get; set; }
     
         public virtual int OrganizationSearch(string filter, string sortOrder, Nullable<int> startPageIndex, Nullable<int> pageSize, Nullable<int> currentUserId, ObjectParameter totalRows)
         {

@@ -12,7 +12,7 @@ using Models.Search;
 using Utilities;
 using CF = Factories;
 using Mgr = Factories.AssessmentManager;
-
+using Factories;
 
 namespace CTIServices
 {
@@ -20,57 +20,103 @@ namespace CTIServices
 	{
 	
 		#region Searches 
-		public static List<CodeItem> SearchAsCodeItem( string keyword, int startingPageNbr, int pageSize, ref int totalRows )
-		{
-			List<AssessmentProfile> list = Search( keyword, startingPageNbr, pageSize, ref totalRows );
-			List<CodeItem> codes = new List<CodeItem>();
-			foreach (AssessmentProfile item in list) 
-			{
-				codes.Add(new CodeItem() {
-					Id = item.Id,
-					Name = item.Name,
-					Description = item.Description
-				});
-			}
-			return codes;
-	}
+	//	public static List<CodeItem> SearchAsCodeItem( string keyword, int startingPageNbr, int pageSize, ref int totalRows )
+	//	{
+	//		List<AssessmentProfile> list = Search( keyword, startingPageNbr, pageSize, ref totalRows );
+	//		List<CodeItem> codes = new List<CodeItem>();
+	//		foreach (AssessmentProfile item in list) 
+	//		{
+	//			codes.Add(new CodeItem() {
+	//				Id = item.Id,
+	//				Name = item.Name,
+	//				Description = item.Description
+	//			});
+	//		}
+	//		return codes;
+	//}
 		public static List<string> Autocomplete( string keyword, int maxTerms = 25 )
 		{
 			//List<string> results = new List<string>();
 			int userId = 0;
-			string where = "";
+			string filter = "";
 			int totalRows = 0;
+            //only target records with a ctid
+            filter = " (len(Isnull(base.Ctid,'')) = 39) ";
 			AppUser user = AccountServices.GetCurrentUser();
 			if ( user != null && user.Id > 0 )
 				userId = user.Id;
-			SetAuthorizationFilter( user, ref where );
+			//SetAuthorizationFilter( user, ref filter );
+            SearchServices.SetAuthorizationFilter( user, "Assessment_Summary", ref filter );
+            //if ( type == "assessment" )
+            //{
+            //nor sure why this was commented out
+            SetKeywordFilter( keyword, true, ref filter );
 
-			//if ( type == "assessment" )
-			//{
-				//SetKeywordFilter( keyword, true, ref where );
-				string keywords = ServiceHelper.HandleApostrophes( keyword );
-				if ( keywords.IndexOf( "%" ) == -1 )
-					keywords = "%" + keywords.Trim() + "%";
-				where = string.Format( " (base.name like '{0}') ", keywords );
-			//}
-			//else if ( type == "subjects" )
-			//	SearchServices.SetSubjectsAutocompleteFilter( keyword, type, ref where );
-			//else if ( type == "competencies" )
-			//	SetCompetenciesAutocompleteFilter( keyword, ref where );
 
-			return Mgr.Autocomplete( where, 1, maxTerms, userId, ref totalRows );
+			return Mgr.Autocomplete( filter, 1, maxTerms, userId, ref totalRows );
 
 		}
-		public static List<AssessmentProfile> Search( string keywords, int startingPageNbr, int pageSize, ref int totalRows )
+		public static List<AssessmentProfile> MicroSearch( string keywords, int pageNumber, int pageSize, ref int totalRows )
 		{
-			MainSearchInput data = new MainSearchInput();
-			data.Keywords = keywords;
-			data.StartPage = startingPageNbr;
-			data.PageSize = pageSize;
+			string pOrderBy = "";
+			string filter = "";
+			int userId = 0;
+            AppUser user = new AppUser();
+            //if we filter by user, then will only get results for member orgs
+            //but if we remove user, then don't get stuff they do own, and is not published
+            user = AccountServices.GetCurrentUser();
+            if ( user != null && user.Id > 0 )
+				userId = user.Id;
 
-			return Search( data, ref totalRows );
+			SetKeywordFilter( keywords, true, ref filter );
+            //18-02-07 will now only get public data
+            //SetAuthorizationFilter( user, ref filter );
+            SearchServices.SetAuthorizationFilter( user, "Assessment_Summary", ref filter, true );
+            BaseSearchModel bsm = new BaseSearchModel()
+            {
+                Filter = filter,
+                OrderBy = pOrderBy,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                UserId = userId, IsMicrosearch = true
+            };
+            return Mgr.Search( bsm, ref totalRows );
 		}
-		public static List<AssessmentProfile> Search( MainSearchInput data, ref int totalRows )
+        public static List<AssessmentProfile> GetAllForOwningOrganization( string orgUid, ref int pTotalRows )
+        {
+            List<AssessmentProfile> list = new List<AssessmentProfile>();
+            if ( string.IsNullOrWhiteSpace( orgUid ) )
+                return list;
+            string keywords = "";
+            int pageNumber = 1;
+            int pageSize = 0;
+            string pOrderBy = "";
+            string AND = "";
+            int userId = AccountServices.GetCurrentUserId();
+            string filter = string.Format( " ( len(Isnull(base.Ctid,'')) = 39 AND  base.OwningAgentUid = '{0}' ) ", orgUid );
+            //string filter = "";
+
+            if ( filter.Length > 0 )
+                AND = " AND ";
+            //no other filters yet. Future:
+            // not approved, need publishing, etc
+            if ( !string.IsNullOrWhiteSpace( keywords ) )
+            {
+                //    keywords = ServiceHelper.HandleApostrophes( keywords );
+                //    if ( keywords.IndexOf( "%" ) == -1 )
+                //        keywords = "%" + keywords.Trim() + "%";
+                //    filter = filter + AND + string.Format( " (base.name like '{0}' OR base.Description like '{0}'  OR base.Url like '{0}' OR CreatorOrgs like '{0}'  OR OwningOrgs like '{0}')", keywords );
+            }
+
+            return Mgr.Search( filter, pOrderBy, pageNumber, pageSize, userId, ref pTotalRows );
+
+        }
+   
+        public static List<Dictionary<string, object>> GetAllForExport_DictionaryList(string owningOrgUid, bool includingConditionProfile = true)
+        {
+            return Mgr.GetAllForExport_DictionaryList(owningOrgUid, includingConditionProfile);
+        }
+        public static List<AssessmentProfile> Search( MainSearchInput data, ref int totalRows )
 		{
 			string where = "";
 			List<string> competencies = new List<string>();
@@ -78,35 +124,74 @@ namespace CTIServices
 			AppUser user = AccountServices.GetCurrentUser();
 			if ( user != null && user.Id > 0 )
 				userId = user.Id;
+			//only target records with a ctid
+			where = " (len(Isnull(base.Ctid,'')) = 39) ";
 
 			SetKeywordFilter( data.Keywords, false, ref where );
-
+			SearchServices.SetLanguageFilter( data, 3, ref where );
 			SearchServices.SetSubjectsFilter( data, CF.CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE, ref where );
-			SetAuthorizationFilter( user, ref where );
+			//SetAuthorizationFilter( user, ref where );
+            SearchServices.SetAuthorizationFilter( user, "Assessment_Summary", ref where );
 
-			SearchServices.HandleCustomFilters( data, 60, ref where );
+            SearchServices.HandleCustomFilters( data, 60, ref where );
+            string messages = "";
+            SearchServices.SetDatesFilter( data, CF.CodesManager.ENTITY_TYPE_ASSESSMENT_PROFILE, ref where, ref messages );
+            SearchServices.HandleApprovalFilters( data, 16, 3, ref where );
 
-			SetPropertiesFilter( data, ref where );
+            SetPropertiesFilter( data, ref where );
 			SearchServices.SetRolesFilter( data, ref where );
 			SearchServices.SetBoundariesFilter( data, ref where );
 			//CIP
-			SetFrameworksFilter( data, ref where );
-			//Competencies
-			SetCompetenciesFilter( data, ref where, ref competencies );
+			SearchServices.SetFrameworksFilter( data, "Assessment", ref where );
+			if ( data.FiltersV2.Any( m => m.Name == "occupations" ) )
+				SearchServices.SetFrameworkTextFilter( data, "Assessment", CodesManager.PROPERTY_CATEGORY_SOC, ref where );
+			if ( data.FiltersV2.Any( m => m.Name == "industries" ) )
+				SearchServices.SetFrameworkTextFilter( data, "Assessment", CodesManager.PROPERTY_CATEGORY_NAICS, ref where );
+			if ( data.FiltersV2.Any( m => m.Name == "instructionalprogramtype" ) )
+				SearchServices.SetFrameworkTextFilter( data, "Assessment", CodesManager.PROPERTY_CATEGORY_CIP, ref where );
+			//SetFrameworksFilter( data, ref where );
+   //         if (data.FiltersV2.Any(m => m.Name == "instructionalprogramtype"))
+   //             SetFrameworkTextFilter(data, ref where);
+            //Competencies
+            SetCompetenciesFilter( data, ref where, ref competencies );
 
-			LoggingHelper.DoTrace( 5, "AssessmentServices.Search(). Filter: " + where );
-			return Mgr.Search( where, data.SortOrder, data.StartPage, data.PageSize, userId, ref totalRows );
+            SetConnectionsFilter( data, ref where );
+            //SearchServices.SetQAbyOrgFilter( data, ref where );
+            LoggingHelper.DoTrace( 5, "AssessmentServices.Search(). Filter: " + where );
+            BaseSearchModel bsm = new BaseSearchModel()
+            {
+                Filter = where,
+                OrderBy = data.SortOrder,
+                PageNumber = data.StartPage,
+                PageSize = data.PageSize,
+                UserId = userId
+            };
+
+            return Mgr.Search( bsm, ref totalRows );
 		}
 		
 		private static void SetKeywordFilter( string keywords, bool isBasic, ref string where )
 		{
-			if ( string.IsNullOrWhiteSpace( keywords ) )
+			if ( string.IsNullOrWhiteSpace( keywords ) || string.IsNullOrWhiteSpace( keywords.Trim() ) )
 				return;
-			string text = " (base.name like '{0}' OR base.Description like '{0}'  OR base.Organization like '{0}'  ) ";
+
+			bool includingFrameworkItemsInKeywordSearch = UtilityManager.GetAppKeyValue( "includingFrameworkItemsInKeywordSearch", true );
+			bool using_EntityIndexSearch = UtilityManager.GetAppKeyValue( "using_EntityIndexSearch", false );
+
+			//trim trailing (org)
+			if ( keywords.IndexOf( "('" ) > 0 )
+				keywords = keywords.Substring( 0, keywords.IndexOf( "('" ) );
+
+			//OR base.Description like '{0}'  
+			string text = " (base.name like '{0}' OR base.Organization like '{0}'  ) ";
+			if ( SearchServices.IncludingDescriptionInKeywordFilter )
+			{
+				text = " (base.name like '{0}' OR base.Organization like '{0}' OR base.Description like '{0}' ) ";
+			}
 
 			bool isCustomSearch = false;
 			//for ctid, needs a valid ctid or guid
-			if ( keywords.IndexOf( "ce-" ) > -1 && keywords.Length == 45 )
+			if ( keywords.IndexOf( "ce-" ) > -1 && keywords.Length == 39 )
 			{
 				text = " ( CTID = '{0}' ) ";
 				isCustomSearch = true;
@@ -116,12 +201,28 @@ namespace CTIServices
 				text = " ( CTID = 'ce-{0}' ) ";
 				isCustomSearch = true;
 			}
+			else if ( ServiceHelper.IsInteger( keywords ) )
+			{
+				text = " ( Id = '{0}' ) ";
+				isCustomSearch = true;
+			}
 			else if ( keywords.ToLower() == "[hascredentialregistryid]" )
 			{
 				text = " ( len(Isnull(CredentialRegistryId,'') ) = 36 ) ";
 				isCustomSearch = true;
 			}
+
+
+			//use Entity.SearchIndex for all
+			string indexFilter = " OR (base.Id in (SELECT c.id FROM [dbo].[Entity.SearchIndex] a inner join Entity b on a.EntityId = b.Id inner join Assessment c on b.EntityUid = c.RowId where (b.EntityTypeId = 3 AND ( a.TextValue like '{0}' OR a.[CodedNotation] like '{0}' ) ))) ";
+
 			string subjectsEtc = " OR (base.Id in (SELECT c.id FROM [dbo].[Entity.Reference] a inner join Entity b on a.EntityId = b.Id inner join Assessment c on b.EntityUid = c.RowId where [CategoryId] in (34 ,35) and a.TextValue like '{0}' )) ";
+
+			string frameworkItems = " OR (RowId in (SELECT EntityUid FROM [dbo].[Entity.FrameworkItemSummary] a where CategoryId= 23 and entityTypeId = 3 AND  a.title like '{0}' ) ) ";
+
+			string otherFrameworkItems = " OR (RowId in (SELECT EntityUid FROM [dbo].[Entity_Reference_Summary] a where  a.TextValue like '{0}' ) ) ";
+
+
 			string AND = "";
 			if ( where.Length > 0 )
 				AND = " AND ";
@@ -138,9 +239,19 @@ namespace CTIServices
 
 			//skip url  OR base.Url like '{0}' 
 			if ( isBasic || isCustomSearch )
-				where = where + AND + string.Format( " ( " + text + " ) ", keywords );
-			else 
-				where = where + AND + string.Format( " ( " + text + subjectsEtc + " ) ", keywords );
+			{
+				if ( !includingFrameworkItemsInKeywordSearch )
+					where = where + AND + string.Format( " ( " + text + " ) ", keywords );
+				else
+					where = where + AND + string.Format( " ( " + text + frameworkItems + " ) ", keywords );
+			}
+			else
+			{
+				if ( using_EntityIndexSearch )
+					where = where + AND + string.Format( " ( " + text + indexFilter + " ) ", keywords );
+				else
+					where = where + AND + string.Format( " ( " + text + subjectsEtc + frameworkItems + otherFrameworkItems + " ) ", keywords );
+			}
 
 		}
 
@@ -164,7 +275,8 @@ namespace CTIServices
 			}
 
 			//can only view where status is published, or associated with 
-			where = where + AND + string.Format( "((base.StatusId = {0}) OR (base.Id in (SELECT cs.Id FROM [dbo].[Organization.Member] om inner join [Assessment_Summary] cs on om.ParentOrgId = cs.ManagingOrgId where userId = {1}) ))", CF.CodesManager.ENTITY_STATUS_PUBLISHED, user.Id );
+			where = where + AND + string.Format( "((base.Id in (SELECT cs.Id FROM [dbo].[Organization.Member] om inner join [Assessment_Summary] cs on om.ParentOrgId = cs.ManagingOrgId where userId = {0}) ))", user.Id );
+			//where = where + AND + string.Format( "((base.StatusId = {0}) OR (base.Id in (SELECT cs.Id FROM [dbo].[Organization.Member] om inner join [Assessment_Summary] cs on om.ParentOrgId = cs.ManagingOrgId where userId = {1}) ))", CF.CodesManager.ENTITY_STATUS_PUBLISHED, user.Id );
 
 		}
 
@@ -182,7 +294,7 @@ namespace CTIServices
 			string AND = "";
 			string OR = "";
 			string keyword = "";
-			string template = " ( base.Id in (SELECT distinct  AssessmentId FROM [dbo].Assessment_Competency_Summary  where AlignmentType = 'assesses' AND ({0}) ) )";
+			string template = " ( base.Id in (SELECT distinct  AssessmentId FROM [dbo].Assessment_Competency_SummaryV2  where AlignmentType = 'assesses' AND ({0}) ) )";
 			string phraseTemplate = " ([Name] like '%{0}%' OR [Description] like '%{0}%') ";
 			//
 
@@ -202,8 +314,11 @@ namespace CTIServices
 						text = text.Substring( text.IndexOf( " -- " ) + 4 );
 					}
 				}
-				catch { }
-
+				catch
+				{
+					continue;
+				}
+				text = ServiceHelper.HandleApostrophes( text );
 				competencies.Add( text.Trim() );
 				next += OR + string.Format( phraseTemplate, text.Trim() );
 				OR = " OR ";
@@ -260,50 +375,69 @@ namespace CTIServices
 		//
 		private static void SetPropertiesFilter( MainSearchInput data, ref string where )
 		{
-			string AND = "";
+			//string AND = "";
 			string searchCategories = UtilityManager.GetAppKeyValue( "asmtSearchCategories", "21,37," );
-			string template = " ( base.Id in ( SELECT  [EntityBaseId] FROM [dbo].[EntityProperty_Summary] where EntityTypeId= 3 AND [PropertyValueId] in ({0}))) ";
-			//what are the valid categories: delivery types.
-			//Where( s => s.CategoryId == 16 || s.CategoryId == 18 ) 
+			SearchServices.SetPropertiesFilter( data, 3, searchCategories, ref where );
+		}
+        public static void SetConnectionsFilter( MainSearchInput data, ref string where )
+        {
+            string AND = "";
+            string OR = "";
+            if ( where.Length > 0 )
+                AND = " AND ";
 
-			//Updated to use FiltersV2
-			string next = "";
-			if ( where.Length > 0 )
-				AND = " AND ";
-			foreach ( var filter in data.FiltersV2.Where(m => m.Type == MainSearchFilterV2Types.CODE ) )
-			{
-				var item = filter.AsCodeItem();
-				if ( searchCategories.Contains( item.CategoryId.ToString() ) )
-				{
-					next += item.Id + ",";
-				}
-			}
-			next = next.Trim( ',' );
-			if ( !string.IsNullOrWhiteSpace( next ) )
-			{
-				where = where + AND + string.Format( template, next );
-			}
+            //Should probably get this from the database
+            Enumeration entity = CF.CodesManager.GetCredentialsConditionProfileTypes();
 
-			/* //Retained for reference
-			foreach ( MainSearchFilter filter in data.Filters)
-			{
-				if ( searchCategories.IndexOf( filter.CategoryId.ToString() ) > -1 )
-				{
-					string next = "";
-					if ( where.Length > 0 )
-						AND = " AND ";
-					foreach ( string item in filter.Items )
-					{
-						next += item + ",";
-					}
-					next = next.Trim( ',' );
-					where = where + AND + string.Format( template, next );
-				}
-			}
-			*/
-		} //
+            var validConnections = new List<string>();
+            //{ 
+            //	"requires", 
+            //	"recommends", 
+            //	"requiredFor", 
+            //	"isRecommendedFor", 
+            //	//"renewal", //Not a connection type
+            //	"isAdvancedStandingFor", 
+            //	"advancedStandingFrom", 
+            //	"preparationFor", 
+            //	"preparationFrom", 
+            //	"isPartOf", 
+            //	"hasPart"	
+            //};
+            //validConnections = validConnections.ConvertAll( m => m.ToLower() ); //Makes comparisons easier when combined with the .ToLower() below
+            validConnections = entity.Items.Select( s => s.SchemaName.ToLower() ).ToList();
 
-		private static void SetFrameworksFilter( MainSearchInput data, ref string where )
+            string conditionTemplate = " {0}Count > 0 ";
+
+            //Updated for FiltersV2
+            string next = "";
+            string condition = "";
+            if ( where.Length > 0 )
+                AND = " AND ";
+            foreach ( var filter in data.FiltersV2.Where( m => m.Type == MainSearchFilterV2Types.CODE ) )
+            {
+                var item = filter.AsCodeItem();
+                if ( item.CategoryId != 15 )
+                {
+                    continue;
+                }
+
+                //Prevent query hijack attacks
+                if ( validConnections.Contains( item.SchemaName.ToLower() ) )
+                {
+                    condition = item.SchemaName;
+                    next += OR + string.Format( conditionTemplate, condition );
+                    OR = " OR ";
+                }
+            }
+            next = next.Trim();
+            next = next.Replace( "ceterms:", "" );
+            if ( !string.IsNullOrWhiteSpace( next ) )
+            {
+                where = where + AND + "(" + next + ")";
+            }
+
+        }
+        private static void SetFrameworksFilter( MainSearchInput data, ref string where )
 		{
 			string AND = "";
 			string codeTemplate = "  (base.Id in (SELECT c.id FROM [dbo].[Entity.FrameworkItemSummary] a inner join Entity b on a.EntityId = b.Id inner join Assessment c on b.EntityUid = c.RowId where [CategoryId] = {0} and ([FrameworkGroup] in ({1})  OR ([CodeId] in ({2}) )  ))  ) ";
@@ -355,8 +489,33 @@ namespace CTIServices
 			*/
 		}
 
+        private static void SetFrameworkTextFilter(MainSearchInput data, ref string where)
+        {
+            string AND = "";
+            string OR = "";
+            
+            string codeTemplate = "  (base.Id in (SELECT c.id FROM [dbo].[Entity.FrameworkItemSummary] a inner join Entity b on a.EntityId = b.Id inner join Assessment c on b.EntityUid = c.RowId where ({0})) ) ";
 
-		public static List<AssessmentProfile> QuickSearch( MainSearchInput data, ref int totalRows )
+            string phraseTemplate = " (case when a.FrameworkCode = '' then a.Title else a.Title + ' (' + a.FrameworkCode + ')' end like '%{0}%') ";
+
+            //Updated to use FiltersV2
+            string next = "";
+            if (where.Length > 0)
+                AND = " AND ";
+
+            foreach (var filter in data.FiltersV2.Where(m => m.Type == MainSearchFilterV2Types.TEXT))
+            {
+                var text = ServiceHelper.HandleApostrophes(filter.AsText());
+                next += OR + string.Format(phraseTemplate, text);
+
+                OR = " OR ";
+            }
+            if (!string.IsNullOrWhiteSpace(next))
+            {
+                where = where + AND + " ( " + string.Format(codeTemplate, next) + ")";
+            }
+        }
+        public static List<AssessmentProfile> QuickSearch( MainSearchInput data, ref int totalRows )
 		{
 
 			int userId = 0;
@@ -373,45 +532,91 @@ namespace CTIServices
 			//}
 			return Mgr.QuickSearch( userId, data.Keywords, data.StartPage, data.PageSize, ref totalRows );
 		}
-		#endregion 
+        #endregion
 
-		#region Retrievals
-		public static AssessmentProfile Get( int id )
-		{
-			AssessmentProfile entity = Mgr.Assessment_Get( id, false, false );
-			return entity;
-		}
-		public static AssessmentProfile GetDetail( int id )
+        #region Retrievals
+        public static AssessmentProfile Get( int id )
+        {
+            AssessmentProfile entity = Mgr.Get( id, false, false );
+            return entity;
+        }
+       
+        public static AssessmentProfile GetBasic( int asmtId )
+        {
+            AssessmentProfile entity = Mgr.GetBasic( asmtId );
+            return entity;
+        }
+        public static AssessmentProfile GetDetail( int id )
 		{
 			AppUser user = AccountServices.GetCurrentUser();
 			return GetDetail( id, user );
-
 		}
-		public static AssessmentProfile GetDetail( int id, AppUser user )
+
+
+
+        public static AssessmentProfile GetDetailByCtid( string ctid, AppUser user, bool skippingCache = false )
+        {
+            AssessmentProfile entity = new AssessmentProfile();
+            if ( string.IsNullOrWhiteSpace( ctid ) )
+                return entity;
+            var assessment = Mgr.GetByCtid( ctid );
+            return GetDetail( assessment.Id, user, skippingCache );
+        }
+
+
+        public static AssessmentProfile GetDetail(  int id, AppUser user, bool skippingCache = false )
 		{
 			string statusMessage = "";
-			AssessmentProfile entity = Mgr.Assessment_Get( id, false, true );
+			AssessmentProfile entity = Mgr.Get( id, false, true );
 			if ( CanUserUpdateAssessment( entity, user, ref statusMessage ) )
 				entity.CanUserEditEntity = true;
 
 			return entity;
 		}
-		public static AssessmentProfile GetForEdit( int id )
-		{
-			AssessmentProfile entity = Mgr.Assessment_Get( id, true, true );
+        public static AssessmentProfile GetForPublish( int id, AppUser user )
+        {
+            string statusMessage = "";
+            AssessmentProfile entity = Mgr.GetForPublish( id );
+            if ( CanUserUpdateAssessment( entity, user, ref statusMessage ) )
+                entity.CanUserEditEntity = true;
 
+            return entity;
+        }
+        public static AssessmentProfile GetForEdit( int id, bool afterAddRecord, ref string status )
+		{
+			AssessmentProfile entity = Mgr.Get( id, true, true );
+			if ( entity.IsReferenceVersion && !afterAddRecord && !AccountServices.IsUserSiteStaff() )
+			{
+				entity.Id = 0;
+				status = "A reference Assessment cannot be edited - Sorry";
+			}
 
 			return entity;
 		}
-		public static AssessmentProfile GetBasic( int asmtId )
-		{
-			AssessmentProfile entity = Mgr.GetBasic( asmtId );
 
-
-			return entity;
-		}
-
-		public static AssessmentProfile GetLightAssessmentByRowId( string rowId )
+        public static string GetForFormat( int id, AppUser user, ref bool isValid, ref List<string> messages, ref bool isApproved, ref DateTime? lastPublishDate, ref DateTime lastUpdatedDate, ref DateTime lastApprovedDate, ref string ctid )
+        {
+            //List<string> messages = new List<string>();
+            string statusMessage = "";
+            AssessmentProfile entity = Mgr.GetForPublish( id );
+            if (entity == null || entity.Id == 0)
+            {
+                isValid = false;
+                messages.Add( "Error - the requested Assessment was not found." );
+                return "";
+            }
+            if ( CanUserUpdateAssessment( entity, user, ref statusMessage ) )
+                entity.CanUserEditEntity = true;
+            isApproved = entity.IsEntityApproved();
+            ctid = entity.ctid;
+            string payload = RegistryAssistantServices.AssessmentMapper.FormatPayload( entity, ref isValid, ref messages );
+			lastUpdatedDate = entity.EntityLastUpdated;
+			lastApprovedDate = entity.EntityApproval.Created;
+            if ( ( entity.CredentialRegistryId ?? "" ).Length == 36 )
+                lastPublishDate = CF.ActivityManager.GetLastPublishDateTime( "assessmentprofile", id );
+            return payload;
+        }
+        public static AssessmentProfile GetLightAssessmentByRowId( string rowId )
 		{
 			if ( !Mgr.IsValidGuid( rowId ) )
 				return null;
@@ -440,22 +645,18 @@ namespace CTIServices
 				return null;
 		}
 
-		#endregion 
-		#region === add/update/delete =============
-		public static bool CanUserUpdateAssessment( int asmtId, ref string status )
-		{
-			AppUser user = AccountServices.GetCurrentUser();
-			if ( user == null || user.Id == 0 )
-				return false;
+        public static string GetPublishedPayload(int id)
+        {
+            AssessmentProfile entity = Mgr.GetBasic(id);
+            if ( string.IsNullOrWhiteSpace(entity.CredentialRegistryId) )
+                return "";
 
-			if ( asmtId == 0 )
-				return true;
-			else if ( AccountServices.IsUserSiteStaff( user ) )
-				return true;
-			AssessmentProfile entity = GetLightAssessmentById( asmtId );
+            string payload = CF.RegistryPublishManager.GetMostRecentPublishedPayload(entity.CTID);
+            return payload;
+        }
+        #endregion
+        #region === add/update/delete =============
 
-			return CanUserUpdateAssessment( entity, user, ref status );
-		}
 		public static bool CanUserUpdateAssessment( int asmtId, AppUser user, ref string status )
 		{
 			if ( user == null || user.Id == 0 )
@@ -463,7 +664,7 @@ namespace CTIServices
 
 			if ( AccountServices.IsUserSiteStaff( user ) )
 				return true;
-			AssessmentProfile entity = GetLightAssessmentById( asmtId );
+			AssessmentProfile entity = AssessmentManager.GetBasic( asmtId );
 
 			return CanUserUpdateAssessment( entity, user, ref status );
 		}
@@ -475,27 +676,27 @@ namespace CTIServices
 
 			if ( AccountServices.IsUserSiteStaff( user ) )
 				return true;
-			AssessmentProfile entity = GetLightAssessmentByRowId( entityUid.ToString() );
+			AssessmentProfile entity = AssessmentManager.GetBasic( entityUid );
 
 			return CanUserUpdateAssessment( entity, user, ref status );
 		}
 		public static bool CanUserUpdateAssessment( AssessmentProfile entity, AppUser user, ref string status )
 		{
 			bool isValid = false;
-			if ( entity.Id == 0 )
-				return true;
+            if ( entity == null || entity.Id == 0 )
+                return true;
 			else if ( AccountServices.IsUserSiteStaff( user ) )
 				return true;
 
 			//is a member of the assessment managing organization 
-			if ( OrganizationServices.IsOrganizationMember( user.Id, entity.ManagingOrgId ) )
+			if ( OrganizationServices.IsOrganizationMember( user.Id, entity.OwningAgentUid ) )
 				return true;
 			status = "Error - you do not have edit access for this record.";
 			return isValid;
 		}
 
 		public static bool CanUserViewAssessment( AssessmentProfile entity, AppUser user, ref string status )
-		{
+        {
 			bool isValid = false;
 			status = "Error - you do not have view access for this record.";
 			if ( entity == null || entity.Id == 0 )
@@ -503,8 +704,6 @@ namespace CTIServices
 				status = "Assessment was Not found";
 				return false;
 			}
-			if ( entity.StatusId == CF.CodesManager.ENTITY_STATUS_PUBLISHED )
-				return true;
 
 			if ( user == null || user.Id == 0 )
 				return false;
@@ -512,7 +711,7 @@ namespace CTIServices
 				return true;
 
 			//is a member of the assessment managing organization 
-			if ( OrganizationServices.IsOrganizationMember( user.Id, entity.ManagingOrgId ) )
+			if ( OrganizationServices.IsOrganizationMember( user.Id, entity.OwningAgentUid ) )
 				return true;
 			
 			return isValid;
@@ -523,7 +722,7 @@ namespace CTIServices
 		/// </summary>
 		/// <param name="entity"></param>
 		/// <returns></returns>
-		public int Add( AssessmentProfile entity, AppUser user,ref string statusMessage )
+		public int Add( AssessmentProfile entity, AppUser user,ref bool valid, ref string statusMessage )
 		{
 			entity.CreatedById = entity.LastUpdatedById = user.Id;
 			LoggingHelper.DoTrace( 5, string.Format( "AssessmentServices.Assessment_Add. Org: {0}, userId: {1}", entity.Name, entity.CreatedById ) );
@@ -548,11 +747,18 @@ namespace CTIServices
 
 				id = mgr.Add( entity, ref statusMessage );
 				if ( id > 0 )
-					if ( id > 0 )
+				{
+                    valid = true;
+					statusMessage = "";
+					if ( entity.IsReferenceVersion )
 					{
-						statusMessage = "Successfully Added Assessment";
-						new ActivityServices().AddActivity( "Assessment", "Add", string.Format( "{0} added a new Assessment: {1}", user.FullName(), entity.Name ), entity.CreatedById, 0, id );
+						new ActivityServices().AddEditorActivity( "AssessmentProfile", "Add Reference", string.Format( "{0} added a new Reference Assessment: {1}", user.FullName(), entity.Name ), entity.CreatedById, id, entity.RowId );
 					}
+					else
+					{
+						new ActivityServices().AddEditorActivity("AssessmentProfile", "Add", string.Format( "{0} added a new Assessment: {1}", user.FullName(), entity.Name ), entity.CreatedById, id, entity.RowId );
+					}
+				}
 			}
 			catch ( Exception ex )
 			{
@@ -567,10 +773,10 @@ namespace CTIServices
 			entity.LastUpdatedById = user.Id;
 
 			LoggingHelper.DoTrace( 5, string.Format( "AssessmentServices.Assessment_Update. OrgId: {0}, userId: {1}", entity.Id, entity.LastUpdatedById ) );
-			if ( !CanUserUpdateAssessment( entity, user, ref statusMessage ) )
-			{
-				return false;
-			}
+			//if ( !CanUserUpdateAssessment( entity, user, ref statusMessage ) )
+			//{
+			//	return false;
+			//}
 			statusMessage = "";
 			Mgr mgr = new Mgr();
 			bool isOK = false;
@@ -580,7 +786,7 @@ namespace CTIServices
 				if ( isOK )
 				{
 					statusMessage = "Successfully Updated Assessment";
-					new ActivityServices().AddActivity( "Assessment", "Update", string.Format( "{0} updated Assessment (or parts of): {1}", user.FullName(), entity.Name ), user.Id, 0, entity.Id );
+					new ActivityServices().AddEditorActivity( "AssessmentProfile", "Update", string.Format( "{0} updated Assessment (or parts of): {1}", user.FullName(), entity.Name ), user.Id, entity.Id, entity.RowId );
 				}
 			}
 			catch ( Exception ex )
@@ -590,30 +796,38 @@ namespace CTIServices
 			return isOK;
 		}
 
-		public bool Delete( int assessmentId, int userId, ref string statusMessage )
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="assessmentId"></param>
+        /// <param name="user"></param>
+        /// <param name="statusMessage"></param>
+        /// <returns></returns>
+		public bool Delete( int assessmentId, AppUser user, ref string status)
 		{
-			bool isOK = false;
-			statusMessage = "";
-			return Delete( assessmentId, userId, ref isOK, ref statusMessage );
-		}
-
-		/// <summary>
-		/// to do - add logging
-		/// </summary>
-		/// <param name="assessmentId"></param>
-		/// <param name="valid"></param>
-		/// <param name="status"></param>
-		/// <returns></returns>
-		public bool Delete( int assessmentId, int userId, ref bool valid, ref string status )
-		{
+			bool valid = true;
+            status = "";
+		
 			Mgr mgr = new Mgr();
 			try
 			{
-				valid = mgr.Delete( assessmentId, ref status );
-			}
+                AssessmentProfile entity = Mgr.Get(assessmentId, false, false);
+                if (!string.IsNullOrWhiteSpace(entity.CredentialRegistryId))
+                {
+                    List<SiteActivity> list = new List<SiteActivity>();
+                    //should be deleting from registry!
+                    //will be change to handling with managed keys
+                    new RegistryServices().Unregister_Assessment(assessmentId, user, ref status, ref list);
+                }
+
+                valid = mgr.Delete( assessmentId, ref status );
+                new ActivityServices().AddEditorActivity("AssessmentProfile", "Delete", string.Format("{0} deleted Assessment: {1} (id: {2})", user.FullName(), entity.Name, entity.Id), user.Id, 0, assessmentId);
+                //related entity will be deleted via triggers
+               
+            }
 			catch ( Exception ex )
 			{
-				LoggingHelper.LogError( ex, "AssessmentServices.Assessment_Delete" );
+				LoggingHelper.LogError( ex, "AssessmentServices.Delete" );
 				status = ex.Message;
 				valid = false;
 			}
@@ -621,55 +835,18 @@ namespace CTIServices
 			return valid;
 		}
 
-		//public bool DeleteProfile( int profileId, string profileName, AppUser user, ref bool valid, ref string status )
-		//{
+        public bool DeleteAllForOrganization( AppUser user,string owningRowid,ref List<string> messages )
+        {
+            Mgr mgr = new Mgr();
+            Guid owningOrgUid = new Guid( owningRowid );
 
-		//	try
-		//	{
-		//		switch ( profileName.ToLower() )
-		//		{
-
-		//			case "durationprofile":
-		//				valid = new CF.DurationProfileManager().DurationProfile_Delete( profileId, ref status );
-		//				break;
-		//			case "geocoordinates":
-		//				valid = new CF.RegionsManager().GeoCoordinate_Delete( profileId, ref status );
-		//				break;
-		//			case "jurisdictionprofile":
-		//				valid = new CF.RegionsManager().JurisdictionProfile_Delete( profileId, ref status );
-		//				break;
-		//			case "organizationrole":
-		//			case "entityrole":
-		//				valid = new CF.Entity_AgentRelationshipManager().EntityAgentRole_Delete( profileId, ref status );
-		//				break;
-		//			case "costprofilesplit":
-		//				valid = new CF.CostProfileManager().CostProfile_Delete( profileId, ref status );
-		//				break;
-		//			case "costprofileitem":
-		//				valid = new CF.CostProfileItemManager().CostProfileItem_Delete( profileId, ref status );
-		//				break;
-		//			default:
-		//				valid = false;
-		//				status = "Deleting the requested clientProfile is not handled at this time.";
-		//				return false;
-		//		}
-			
-		//		if ( valid )
-		//		{
-		//			//if valid, status contains the cred name and id
-		//			ActivityServices.SiteActivityAdd( "Assessment Profile", "Delete profileName", string.Format( "{0} deleted Assessment clientProfile {1}", user.FullName(), profileName ), user.Id, 0, profileId );
-		//			status = "";
-		//		}
-		//	}
-		//	catch ( Exception ex )
-		//	{
-		//		LoggingHelper.LogError( ex, "AssessmentServices.DeleteProfile" );
-		//		status = ex.Message;
-		//		valid = false;
-		//	}
-
-		//	return valid;
-		//}
-		#endregion
-	}
+            if ( !OrganizationServices.CanUserUpdateOrganization( user,owningOrgUid ) )
+            {
+                messages.Add( "You don't have the necessary authorization to remove assessments from this organization." );
+                return false;
+            }
+            return mgr.DeleteAllForOrganization( owningOrgUid,ref messages );
+        }
+        #endregion
+    }
 }

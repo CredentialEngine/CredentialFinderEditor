@@ -1,28 +1,46 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-
-using Org.BouncyCastle.Crypto;
-using Org.BouncyCastle.Security;
-using Org.BouncyCastle.Crypto.Parameters;
-using System.Net.Http;
+using System.Xml.Serialization;
+using Models.Helpers.Cass;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
-using System.Security.Cryptography;
-using System.Xml.Serialization;
-using System.IO;
-using System.Text;
-
-using Models.Helpers.Cass;
+using Org.BouncyCastle.Crypto;
+using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.Security;
 using Utilities;
 
 namespace CTIServices
 {
 	public class CassServices
 	{
-		static string cassURL = UtilityManager.GetAppKeyValue( "cassSearchUrl" );
+		static string cassRootUrl = UtilityManager.GetAppKeyValue( "cassRootUrl" );
+		public static T GetCassObject<T>( string url ) where T : CassObject
+		{
+			var results = new HttpClient().GetAsync( url ).Result.Content.ReadAsStringAsync().Result;
+			return DeserializeCassObject<T>( results, url );
+		}
+		//
+
+		private static T DeserializeCassObject<T>( string data, string selfURL = "" ) where T : CassObject
+		{
+			try
+			{
+				var item = JsonConvert.DeserializeObject<T>( data );
+				item.Url = selfURL;
+				return item;
+			}
+			catch
+			{
+				return default( T );
+			}
+		}
+		//
 
 		//TODO - figure out why data isn't making it from the client to the FrameworkModel here
 		public static FrameworkModel SaveFrameworkData( FrameworkModel data )
@@ -51,7 +69,7 @@ namespace CTIServices
 			container.Add( "@owner", new List<string>() { ownerFlattened } );
 
 			//Create the ID
-			var url = cassURL + "/framework/" + data.FrameworkNode.Guid;
+			var url = cassRootUrl + "/framework/" + data.FrameworkNode.Guid;
 			container.Add( "@id", url );
 
 			//Create a signature
@@ -60,7 +78,7 @@ namespace CTIServices
 				{ "@context", "http://schema.eduworks.com/ebac/0.1/" },
 				{ "@type", "http://schema.eduworks.com/ebac/0.1/timeLimitedSignature" },
 				{ "expiry", ( int ) ( DateTime.UtcNow.Subtract( new DateTime( 1970, 1, 1 ) ).TotalMilliseconds + 30000 ) },
-				{ "server", cassURL },
+				{ "server", cassRootUrl },
 			};
 
 			//Sign the signature - yes, really
@@ -109,7 +127,7 @@ namespace CTIServices
 
 		public static FrameworkModel GetFrameworkData( string frameworkGUID )
 		{
-			var url = cassURL + "/framework/" + frameworkGUID;
+			var url = cassRootUrl + "/framework/" + frameworkGUID;
 			var rawData = new HttpClient().GetAsync( url ).Result.Content.ReadAsStringAsync().Result;
 			var frameworkData = JsonConvert.DeserializeObject<CassFramework>( rawData );
 			var result = new FrameworkModel()
@@ -132,7 +150,7 @@ namespace CTIServices
 		{
 			if ( !string.IsNullOrWhiteSpace( frameworkGUID ) )
 			{
-				var url = cassURL + "/framework/" + frameworkGUID;
+				var url = cassRootUrl + "/framework/" + frameworkGUID;
 				var rawData = new HttpClient().DeleteAsync( url ).Result.Content.ReadAsStringAsync().Result;
 			}
 		}

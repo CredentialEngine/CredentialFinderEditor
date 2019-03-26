@@ -2,10 +2,12 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Net.Http;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Mvc;
+using System.Web.Script.Serialization;
 using Microsoft.AspNet.Identity;
 using Microsoft.AspNet.Identity.Owin;
 using Microsoft.Owin.Security;
@@ -92,6 +94,7 @@ namespace CTI.Directory.Controllers
             }
             LoggingHelper.DoTrace(7, "AccountController.Login");
             string adminKey = UtilityManager.GetAppKeyValue("adminKey");
+            returnUrl = returnUrl ?? "";
 
             ApplicationUser user = this.UserManager.FindByEmail(model.Email.Trim());
             //TODO - implement an admin login
@@ -234,7 +237,9 @@ namespace CTI.Directory.Controllers
                     int id = new AccountServices().Create(model.Email,
                         model.FirstName, model.LastName,
                         model.Email, user.Id,
-                        model.Password, ref statusMessage, doingEmailConfirmation);
+                        model.Password,
+						"",
+						ref statusMessage, doingEmailConfirmation);
 
                     if (doingEmailConfirmation == false)
                     {
@@ -270,99 +275,7 @@ namespace CTI.Directory.Controllers
             return View("~/Views/V2/Account/Register.cshtml", model);
         }
 
-        //
-        // Import users ==> moved to areas/users
-        //[Authorize( Roles = "Administrator" )]
-        //public async Task<ActionResult> ImportUsers( int maxRecords = 50 )
-        //{
-        //	if ( !User.Identity.IsAuthenticated
-        //		|| (User.Identity.Name != "mparsons@illinoisworknet.com" 
-        //		&& User.Identity.Name != "mparsons"
-        //		&& User.Identity.Name != "mparsons@siuccwd.com"
-        //		&& User.Identity.Name != "nathan.argo@siuccwd.com" )
-        //		)
-        //	{
-        //		//
 
-        //		SetSystemMessage( "Unauthorized Action", "You are not authorized to import users." );
-
-        //		return RedirectToAction( "Index", "Message" );
-        //	}
-        //	AccountServices mgr = new AccountServices();
-        //	List<AppUser> users = AccountServices.ImportUsers_GetAll( maxRecords );
-        //	List<string> messages = new List<string>();
-        //	string password = "";
-        //	int cntr = 0;
-        //	int created = 0;
-        //	foreach ( AppUser newUser in users )
-        //	{
-        //		cntr++;
-        //		string statusMessage = "";
-        //		var user = new ApplicationUser
-        //		{
-        //			UserName = newUser.Email.Trim(),
-        //			Email = newUser.Email.Trim(),
-        //			FirstName = newUser.FirstName.Trim(),
-        //			LastName = newUser.LastName.Trim()
-        //		};
-        //		Random rnd = new Random();
-        //		int nbr = rnd.Next( 1000, 9999 );
-
-        //		password = string.Format( "ctiAcct_{0}", nbr );
-
-        //		var result = await UserManager.CreateAsync( user, password );
-
-        //		if ( result.Succeeded )
-        //		{
-        //			created++;
-        //			int userId = new AccountServices().Create( user.Email,
-        //				user.FirstName, user.LastName,
-        //				user.Email, user.Id,
-        //				password, ref statusMessage, false );
-
-        //			if ( userId > 0 )
-        //			{
-        //				//no don't chg userId:
-        //				//newUser.Id = userId;
-        //				//log
-        //				LoggingHelper.DoTrace( 2, "Imported user: " + newUser.Email + ". initial password: " + password );
-
-        //				//add to org
-        //				if ( newUser.PrimaryOrgId > 0)
-        //					new OrganizationServices().OrganizationMember_Save( newUser.PrimaryOrgId, userId, 1, 12, ref statusMessage );
-
-        //				if ( newUser.DefaultRoleId > 0 )
-        //					mgr.Account_AddRole( userId, newUser.DefaultRoleId, 12, ref statusMessage );
-
-        //				//updated
-        //				mgr.ImportUsers_SetCompleted( newUser.Id, userId, password );
-        //			}
-        //			else
-        //			{
-        //				//log error
-        //				LoggingHelper.LogError( string.Format( "Unable to create Account (aspUser was created). Email: {0}, Message", newUser.Email, statusMessage ) );
-
-        //				messages.Add( string.Format( "Unable to create Account (aspUser was created). Email: {0}, Message", newUser.Email, statusMessage ) );
-        //			}
-        //		}
-        //		else
-        //		{
-        //			//error??
-        //			//if is email already taken, may imply needing to add to a second org
-        //			string status = string.Join( "<br/>", result.Errors.ToArray() );
-        //			LoggingHelper.LogError( string.Format( "Unable to create AspUser. Email: {0}, Message", user.Email, status ) );
-        //			messages.Add( string.Format( "Unable to create AspUser. Email: {0}, Message: {1}", user.Email, status ) );
-        //		}
-        //	}
-        //	string summary = string.Format( "Account Import. Read {0} accounts, successfully imported {1} accounts.", cntr, created ) + string.Join( "<br/>", messages.ToArray() );
-
-        //	SetSystemMessage( "Account Import", summary );
-
-        //	return RedirectToAction( "Index", "Message" );
-        //}
-
-        //
-        // GET: /Account/ConfirmEmail
         [AllowAnonymous]
         public async Task<ActionResult> ConfirmEmail(string userId, string code)
         {
@@ -381,7 +294,7 @@ namespace CTI.Directory.Controllers
                 Session["SystemMessage"] = msg;
                 return RedirectToAction("Index", "Message");
             }
-
+			//this also appears to login the user
             var result = await UserManager.ConfirmEmailAsync(userId, code);
             if (result.Succeeded)
             {
@@ -637,11 +550,271 @@ namespace CTI.Directory.Controllers
         {
             //return View();
             return View("~/Views/V2/Account/ResetPasswordConfirmation.cshtml");
-        }
+		}
 
+        /// <summary>
+        /// Initial end point for a login request from the accounts site
+        /// will check for a logged in user. 
+        /// if no user is found, the user will be directed to the accounts site login, with a callback to Account/CE_Login
+        /// </summary>
+        /// <returns></returns>
+		[HttpGet]
+		[AllowAnonymous]
+		public ActionResult CE_ExternalLogin()
+		{
+			//check if logged
+			AppUser user = AccountServices.GetUserFromSession();
+			if (user != null && user.Id > 0)
+			{
+				Response.Redirect( "~/search" );
+			}
+
+			var publisherClientToken = UtilityManager.GetAppKeyValue( "publisherClientToken", "" );
+			var callbackUrl = UtilityManager.GetAppKeyValue( "publisherCallbackUrl", "" );
+			var loginApi = UtilityManager.GetAppKeyValue( "accountsLogin", "" );
+
+			if ( string.IsNullOrWhiteSpace( loginApi ) )
+			{
+				loginApi = Url.Content( "~/Account/Login");
+			}   
+			else
+			{
+				loginApi += "?ClientId=" + publisherClientToken + "&callback=" + callbackUrl;
+			}
+
+			Response.Redirect( loginApi );
+
+			return RedirectToAction( "Index", "Home" );
+		}
+
+		[HttpGet]
+		[AllowAnonymous]
+		public void CE_LoginRedirect( string nextUrl )
+		{
+			var callbackUrl = UtilityManager.GetAppKeyValue( "publisherCallbackUrl", "" );
+			var publisherClientToken = UtilityManager.GetAppKeyValue( "publisherClientToken", "" );
+			var loginApi = UtilityManager.GetAppKeyValue( "accountsLogin", "" );
+			loginApi += "?ClientId=" + publisherClientToken + "&callback=" + callbackUrl;
+
+			if ( !string.IsNullOrWhiteSpace( nextUrl ) )
+			{
+				var url = Request.Url.PathAndQuery.ToLower();
+				if (url.IndexOf("/publisher") > -1 && nextUrl.IndexOf( "/publisher" ) == -1)
+				{
+					nextUrl = "/publisher" + nextUrl;
+				}
+				//nextUrl = "&nextUrl=" + @Url.Content( "~" + url );
+					nextUrl = "&nextUrl=" + nextUrl;
+			} else
+				nextUrl = "";
+
+			//Response.Redirect( "~/Home/About" );
+			Response.Redirect( loginApi + nextUrl );
+
+			//return RedirectToAction( "CE_Login", "Home" );
+		}
+
+		[HttpGet]
+		[AllowAnonymous]
+		public async Task<ActionResult> CE_Login( string nextUrl )
+		{
+			// check for token
+			string token = Request.Params[ "Token" ];
+			if (string.IsNullOrWhiteSpace(token))
+			{
+				
+				SiteMessage msg = new SiteMessage() { Title = "Authorization Failed" };
+				msg.Message = "A valid authorization token was not found.";
+				Session[ "SystemMessage" ] = msg;
+				return RedirectToAction( "Index", "Message" );
+			}
+
+			string publisherSecretToken = UtilityManager.GetAppKeyValue( "publisherSecretToken" );
+			var output = new ApiResult();
+			var accountsAuthorizeApi = UtilityManager.GetAppKeyValue( "accountsAuthorizeApi" ) + "?Token=" + token + "&Secret=" + publisherSecretToken;
+			try
+			{
+				string rawData = MakeAuthorizationRequest( accountsAuthorizeApi );
+				ApiResult data = new ApiResult();
+				//check rawdata for {"data"
+				//&& rawData.ToLower().IndexOf( "{\"data\"" ) > 0
+				if ( rawData != null )
+				{
+					data = new JavaScriptSerializer().Deserialize<ApiResult>( rawData );
+					if ( data == null )
+					{
+
+						SiteMessage msg = new SiteMessage() { Title = "Authorization Failed" };
+						msg.Message = "A valid authorization token was not found.";
+						Session[ "SystemMessage" ] = msg;
+						return RedirectToAction( "Index", "Message" );
+					}
+					else
+					{
+						//do error checking, for error, and existing user.
+						if (data.valid == false)
+						{
+							SiteMessage msg = new SiteMessage() { Title = "Authorization Failed" };
+							msg.Message = "Reason: " + data.status;
+							Session[ "SystemMessage" ] = msg;
+							return RedirectToAction( "Index", "Message" );
+						}
+					}
+				} else
+				{
+					//check for error string
+					//{"data":null,"valid":false,"status":"Error: Invalid token","extra":null}
+					SiteMessage msg = new SiteMessage() { Title = "Authorization Failed" };
+					msg.Message = "A valid authorization token was not found.</br>" + rawData;
+					Session[ "SystemMessage" ] = msg;
+					return RedirectToAction( "Index", "Message" );
+				}
+				nextUrl = string.IsNullOrWhiteSpace( nextUrl ) ? "~/search?searchtype=organization" : nextUrl;
+				//nextUrl = UtilityManager.FormatAbsoluteUrl( nextUrl );
+
+				string statusMessage = "";
+				//now what
+				//login user like external
+				//				AppUser user = AccountServices.GetUserByUserName( data.data.Email );
+				bool isFirstTime = false;
+                AccountServices acctServices = new AccountServices();
+                AppUser user = AccountServices.GetUserByCEAccountId( data.data.AccountIdentifier );
+				//note user may not yet exist here, 
+				if ( user == null || user.Id == 0 )
+				{
+                    LoggingHelper.DoTrace( 4, string.Format( "Account.CE_Login. First time login for {0} {1} ({2})", data.data.FirstName, data.data.LastName, data.data.AccountIdentifier ) );
+					isFirstTime = true;
+					//will eventually not want to use AspNetUsers
+					var newUser = new ApplicationUser
+					{
+						UserName = data.data.Email,
+						Email = data.data.Email,
+						FirstName = data.data.FirstName,
+						LastName = data.data.LastName
+					};
+					var result = await UserManager.CreateAsync( newUser );
+					if ( result.Succeeded )
+					{
+                        //add mirror account
+                        acctServices.Create( data.data.Email,
+							data.data.FirstName, data.data.LastName,
+							data.data.Email,
+							newUser.Id,
+							"",
+							data.data.AccountIdentifier,
+							ref statusMessage, false, true );
+						UserLoginInfo info = new UserLoginInfo( "CredentialEngine", data.data.AccessToken );
+						ExternalLoginInfo einfo = new ExternalLoginInfo() { DefaultUserName = data.data.Email, Email = data.data.Email, Login = info };
+						result = await UserManager.AddLoginAsync( newUser.Id, info );
+						if ( result.Succeeded )
+						{
+							await SignInManager.SignInAsync( newUser, isPersistent: false, rememberBrowser: false );
+
+                            //TODO - if new, need to get org associations as well - will need to do by email
+                            //do all for now, so any orgs will be stored in the user account 
+                            acctServices.ImportCEOrganizationMembers( true);
+
+                            //now get user and add to session, will include any orgs if found
+                            AppUser thisUser = AccountServices.GetUserByCEAccountId( data.data.AccountIdentifier );
+                            //add check for membership
+                            if (thisUser.Organizations == null || thisUser.Organizations.Count == 0)
+                            {
+                                //should have a custom message
+                                SetPopupErrorMessage( "NOTE - Your account is not associated with any organizations at this time. Organizations are created in the Accounts site. Once an organization is approved, it will be copied to this site where you will be able to update the content and add other entity types as needed." );
+                                return RedirectToAction( "Index", "Home" );
+                            }
+                            return RedirectToLocal( nextUrl );
+							//return RedirectToAction( "Index", "Search" );
+						}
+					}
+					AddErrors( result );
+					ConsoleMessageHelper.SetConsoleErrorMessage( "Error - unexpected issue encountered attempting to sign in.<br/>" + result );
+					Session[ "siteMessage" ] = "Error - unexpected issue encountered attempting to sign in.<br/>" + result;
+					//where to go for errors?
+					return RedirectToAction( "About", "Home" );
+				}
+				else
+				{
+					//may want to compare user, and update as needed
+					if ( user.Email != data.data.Email
+						|| user.FirstName != data.data.FirstName
+						|| user.LastName != data.data.LastName )
+					{
+						//update user
+						user.Email = data.data.Email;
+						user.FirstName = data.data.FirstName;
+						user.LastName = data.data.LastName;
+
+                        acctServices.Update( user, false, ref statusMessage );
+
+					}
+                    //do all for now, so any orgs will be stored in the user account 
+                    acctServices.ImportApprovedCEOrganizations();
+
+                    ApplicationUser aspUser = this.UserManager.FindByEmail( data.data.Email.Trim() );
+
+					await SignInManager.SignInAsync( aspUser, isPersistent: false, rememberBrowser: false );
+
+                    AppUser thisUser = AccountServices.SetUserByEmail( aspUser.Email );
+                    ActivityServices.UserExternalAuthentication( appUser, "CE SSO" );
+                    string message = string.Format( "Email: {0}, provider: {1}", data.data.Email, "CE SSO" );
+					LoggingHelper.DoTrace( 5, "AccountController.CE_Login: " + message );
+                    if (thisUser.Organizations == null || thisUser.Organizations.Count == 0)
+                    {
+                        //should have a custom message
+						//NOTE: MAY ONLY HAVE THIRD PARTY
+                        SetPopupErrorMessage( "NOTE - Your account is not associated with any organizations at this time. Organizations are created in the Accounts site. Once an organization is approved, it will be copied to this site where you will be able to update the content and add other entity types as needed." );
+                        return RedirectToAction( "Index", "Home" );
+                    }
+
+                    return RedirectToLocal( nextUrl );
+				}
+
+			}
+			catch (Exception ex)
+			{
+				LoggingHelper.LogError( ex,  "CE_Login Unable to login user" );
+				Session[ "siteMessage" ] = "Error - unexpected issue encountered attempting to sign in.<br/>" + ex.Message;
+				//where to go for errors?
+				return RedirectToAction( "About", "Home" );
+			}
+
+			//return View();
+
+
+		}
+        [HttpGet]
+        [AllowAnonymous]
+        public JsonResult CE_SyncOrg( string token, string orgCtid )
+        {
+            //validate the token
+            if (token != "B07E18C2-132F-4B83-BBA8-29BB2F35FDAB")
+            {
+                return JsonResponse( null, false, "Invalid request token", null );
+            }
+            //call method to just do any current
+            new AccountServices().ImportApprovedCEOrganizations();
+            //no message, just assume OK
+
+            return JsonResponse( null, true, "Successfull", null );
+        }
         //
-        // POST: /Account/ExternalLogin
-        [HttpPost]
+        /// <summary>
+        /// Call accounts to get accountsAuthorizeApi
+        /// </summary>
+        /// <param name="url"></param>
+        /// <returns></returns>
+        public static string MakeAuthorizationRequest( string url )
+		{
+			var getter = new HttpClient();
+			var response = getter.GetAsync( url ).Result;
+			var responseData = response.Content.ReadAsStringAsync().Result;
+
+			return responseData;
+		}
+		//
+		// POST: /Account/ExternalLogin
+		[HttpPost]
         [AllowAnonymous]
         [ValidateAntiForgeryToken]
         public ActionResult ExternalLogin(string provider, string returnUrl)
@@ -649,91 +822,6 @@ namespace CTI.Directory.Controllers
             // Request a redirect to the external login provider
             return new ChallengeResult(provider, Url.Action("ExternalLoginCallback", "Account", new { ReturnUrl = returnUrl }));
         }
-
-
-        #region account code methods - not implemented
-        //
-        // GET: /Account/SendCode
-        [AllowAnonymous]
-        public async Task<ActionResult> SendCode(string returnUrl, bool rememberMe)
-        {
-            var userId = await SignInManager.GetVerifiedUserIdAsync();
-            if (userId == null)
-            {
-                //SiteMessage msg = new SiteMessage() { Title = "Invalid Confirmation Information", Message = "Sorry, that confirmation information was invalid." };
-                //Session[ "SystemMessage" ] = msg;
-                //return RedirectToAction( "Index", "Message" );
-                return View("Error");
-            }
-            var userFactors = await UserManager.GetValidTwoFactorProvidersAsync(userId);
-            var factorOptions = userFactors.Select(purpose => new SelectListItem { Text = purpose, Value = purpose }).ToList();
-            return View(new SendCodeViewModel { Providers = factorOptions, ReturnUrl = returnUrl, RememberMe = rememberMe });
-        }
-
-        //
-        // POST: /Account/SendCode
-        [HttpPost]
-        [AllowAnonymous]
-        [ValidateAntiForgeryToken]
-        public async Task<ActionResult> SendCode(SendCodeViewModel model)
-        {
-            if (!ModelState.IsValid)
-            {
-                return View();
-            }
-
-            // Generate the token and send it
-            if (!await SignInManager.SendTwoFactorCodeAsync(model.SelectedProvider))
-            {
-                return View("Error");
-            }
-            return RedirectToAction("VerifyCode", new { Provider = model.SelectedProvider, ReturnUrl = model.ReturnUrl, RememberMe = model.RememberMe });
-        }
-
-
-        // GET: /Account/VerifyCode
-        [AllowAnonymous]
-        public async Task<ActionResult> VerifyCode(string provider, string returnUrl, bool rememberMe)
-        {
-            // Require that the user has already logged in via username/password or external login
-            if (!await SignInManager.HasBeenVerifiedAsync())
-            {
-                return View("Error");
-            }
-            return View(new VerifyCodeViewModel { Provider = provider, ReturnUrl = returnUrl, RememberMe = rememberMe });
-        }
-
-        //
-        // POST: /Account/VerifyCode
-        [HttpPost]
-        [AllowAnonymous]
-        [ValidateAntiForgeryToken]
-        public async Task<ActionResult> VerifyCode(VerifyCodeViewModel model)
-        {
-            if (!ModelState.IsValid)
-            {
-                return View(model);
-            }
-
-            // The following code protects for brute force attacks against the two factor codes. 
-            // If a user enters incorrect codes for a specified amount of time then the user account 
-            // will be locked out for a specified amount of time. 
-            // You can configure the account lockout settings in IdentityConfig
-            var result = await SignInManager.TwoFactorSignInAsync(model.Provider, model.Code, isPersistent: model.RememberMe, rememberBrowser: model.RememberBrowser);
-            switch (result)
-            {
-                case SignInStatus.Success:
-                    return RedirectToLocal(model.ReturnUrl);
-                case SignInStatus.LockedOut:
-                    return View("Lockout");
-                case SignInStatus.Failure:
-                default:
-                    ModelState.AddModelError("", "Invalid code.");
-                    return View(model);
-            }
-        }
-
-        #endregion
 
         ///called each time for an external login like google.
         // GET: /Account/ExternalLoginCallback
@@ -823,7 +911,7 @@ namespace CTI.Directory.Controllers
                         model.FirstName, model.LastName,
                         model.Email,
                         user.Id,
-                        "",
+                        "", "",
                         ref statusMessage, false, true);
 
                     result = await UserManager.AddLoginAsync(user.Id, info.Login);
@@ -846,18 +934,6 @@ namespace CTI.Directory.Controllers
         }
 
         //
-        // POST: /Account/LogOff
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public ActionResult LogOff()
-        {
-            AuthenticationManager.SignOut(DefaultAuthenticationTypes.ApplicationCookie);
-
-            Session.Abandon();
-            return RedirectToAction("Index", "Home");
-        }
-
-        //
         // GET: /Account/ExternalLoginFailure
         [AllowAnonymous]
         public ActionResult ExternalLoginFailure()
@@ -865,6 +941,110 @@ namespace CTI.Directory.Controllers
             //return View();
             return View("~/Views/V2/Account/ExternalLoginFailure.cshtml");
         }
+        //
+        // POST: /Account/LogOff
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult LogOff()
+        {
+            try
+            {
+                AuthenticationManager.SignOut( DefaultAuthenticationTypes.ApplicationCookie );
+            }
+            catch { }
+            finally
+            {
+                Session.Abandon();
+				AccountServices.RemoveUserFromSession();
+            }
+            return RedirectToAction("Index", "Home");
+        }
+
+
+        #region account code methods - not implemented
+        //
+        // GET: /Account/SendCode
+        [AllowAnonymous]
+        public async Task<ActionResult> SendCode(string returnUrl, bool rememberMe)
+        {
+            var userId = await SignInManager.GetVerifiedUserIdAsync();
+            if (userId == null)
+            {
+                //SiteMessage msg = new SiteMessage() { Title = "Invalid Confirmation Information", Message = "Sorry, that confirmation information was invalid." };
+                //Session[ "SystemMessage" ] = msg;
+                //return RedirectToAction( "Index", "Message" );
+                return View("Error");
+            }
+            var userFactors = await UserManager.GetValidTwoFactorProvidersAsync(userId);
+            var factorOptions = userFactors.Select(purpose => new SelectListItem { Text = purpose, Value = purpose }).ToList();
+            return View(new SendCodeViewModel { Providers = factorOptions, ReturnUrl = returnUrl, RememberMe = rememberMe });
+        }
+
+        //
+        // POST: /Account/SendCode
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult> SendCode(SendCodeViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View();
+            }
+
+            // Generate the token and send it
+            if (!await SignInManager.SendTwoFactorCodeAsync(model.SelectedProvider))
+            {
+                return View("Error");
+            }
+            return RedirectToAction("VerifyCode", new { Provider = model.SelectedProvider, ReturnUrl = model.ReturnUrl, RememberMe = model.RememberMe });
+        }
+
+
+        // GET: /Account/VerifyCode
+        [AllowAnonymous]
+        public async Task<ActionResult> VerifyCode(string provider, string returnUrl, bool rememberMe)
+        {
+            // Require that the user has already logged in via username/password or external login
+            if (!await SignInManager.HasBeenVerifiedAsync())
+            {
+                return View("Error");
+            }
+            return View(new VerifyCodeViewModel { Provider = provider, ReturnUrl = returnUrl, RememberMe = rememberMe });
+        }
+
+        //
+        // POST: /Account/VerifyCode
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult> VerifyCode(VerifyCodeViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            // The following code protects for brute force attacks against the two factor codes. 
+            // If a user enters incorrect codes for a specified amount of time then the user account 
+            // will be locked out for a specified amount of time. 
+            // You can configure the account lockout settings in IdentityConfig
+            var result = await SignInManager.TwoFactorSignInAsync(model.Provider, model.Code, isPersistent: model.RememberMe, rememberBrowser: model.RememberBrowser);
+            switch (result)
+            {
+                case SignInStatus.Success:
+                    return RedirectToLocal(model.ReturnUrl);
+                case SignInStatus.LockedOut:
+                    return View("Lockout");
+                case SignInStatus.Failure:
+                default:
+                    ModelState.AddModelError("", "Invalid code.");
+                    return View(model);
+            }
+        }
+
+        #endregion
+
 
         protected override void Dispose(bool disposing)
         {
@@ -908,9 +1088,12 @@ namespace CTI.Directory.Controllers
 
         private ActionResult RedirectToLocal(string returnUrl)
         {
-            if (Url.IsLocalUrl(returnUrl))
+            if (!string.IsNullOrWhiteSpace(returnUrl))
             {
-                return Redirect(returnUrl);
+                if (Url.IsLocalUrl(returnUrl) || returnUrl.ToLower().IndexOf("localhost") > 2)
+                {
+                    return Redirect(returnUrl);
+                }
             }
             return RedirectToAction("Index", "Home");
         }
@@ -944,5 +1127,22 @@ namespace CTI.Directory.Controllers
             }
         }
         #endregion
+    }
+    [Serializable]
+    public class ApiResult
+    {
+        public ApiUser data { get; set; }
+        public bool valid { get; set; }
+        public string status { get; set; }
+    }
+    [Serializable]
+    public class ApiUser
+    {
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
+        public string Email { get; set; }
+        public string AccessToken { get; set; }
+        public string AccountIdentifier { get; set; }
+
     }
 }

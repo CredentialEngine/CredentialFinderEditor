@@ -1,0 +1,10 @@
+﻿All
+
+<h2>Organization Publishing</h2>
+<p>{0} has published Organization: {1}</p>
+<p>Use the <a href="{2}">Organization summary page</a> to view the details of approvals, and publishing.</p>
+<p>View <a href="{3}">Organization in the Credential Registry</a>.</p>
+<p>HINT: login first, before clicking links!</p>
+
+
+<p>The Credential Engine Team</p>

@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace Models
 {
-	public class SiteMessage
+    [Serializable]
+    public class SiteMessage
 	{
-
 		public string Title { get; set; }
 		public string Message { get; set; }
 		public string MessageType { get; set; }

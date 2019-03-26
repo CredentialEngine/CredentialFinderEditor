@@ -15,7 +15,7 @@
 input,
 select,
 textarea {
-    max-width: 280px;
+    max-width: 300px;
 }
 
 /* styles for validation helpers */
@@ -41,4 +41,60 @@ input[type="checkbox"].input-validation-error {
 
 .validation-summary-valid {
     display: none;
+}
+/* tabs - NEG, others, not ajax/asp menu ====================================*/
+.tabs {
+  position: relative;   
+  min-height: 20px; 
+  clear: both;
+  margin: 5px 0;
+  left: 0px;
+}
+.tab {
+  float: left;
+}
+.tab .tlabel {
+  background: #eee; 
+  padding: 4px 10px 4px 10px; 
+  border: 1px solid #ccc; 
+  margin-left: -1px; 
+  position: relative;
+  left: 1px; 
+}
+
+.tab:after 
+{
+  clear:both;
+}
+
+.tab .radioTab {
+  display: none;   
+}
+.tcontent {
+  position: absolute;
+  top: 28px;
+  left: 0;
+  background: white;
+  right: 0;
+  display:none;
+  padding: 20px;
+  border: 1px solid #ccc; 
+  min-height: 300px;
+}
+[type=radio]:checked ~ label {
+  background: white;
+  border-bottom: 1px solid white;
+  z-index: 2;
+}
+[type=radio]:checked ~ label ~ .tcontent {
+  z-index: 1;
+  display:block;
+}
+/* tabs end ====================================*/
+.note-editable p {margin: 0px; padding: 0;}
+/* bootstrap override ====================================*/
+input[type="radio"], input[type="checkbox"] {
+    margin: 4px 3px 0;
+    margin-top: 1px \9;
+    line-height: normal;
 }

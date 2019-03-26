@@ -17,7 +17,7 @@ namespace Data
         public int Id { get; set; }
         public int CategoryId { get; set; }
         public int EntityTypeId { get; set; }
-        public int CodeId { get; set; }
+        public Nullable<int> CodeId { get; set; }
         public string Description { get; set; }
         public Nullable<int> Totals { get; set; }
     }

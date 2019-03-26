@@ -168,23 +168,23 @@ namespace Factories
 			to.ServiceType.ParentId = to.Id;
 
 			//Need to handle alternate Other now??
-			if ( from.Organization_PropertyOther != null && from.Organization_PropertyOther.Count > 0 )
-			{
-				//for now only handle one value
-				foreach ( EM.Organization_PropertyOther opo in from.Organization_PropertyOther )
-				{
-					if ( opo.CategoryId == CodesManager.PROPERTY_CATEGORY_ORG_SERVICE )
-					{
-						to.ServiceType.OtherValue = opo.OtherValue;
-						to.ServiceTypeOther = opo.OtherValue;
-						break;
-					}
-				}
-			}
+			//if ( from.Organization_PropertyOther != null && from.Organization_PropertyOther.Count > 0 )
+			//{
+			//	//for now only handle one value
+			//	foreach ( EM.Organization_PropertyOther opo in from.Organization_PropertyOther )
+			//	{
+			//		if ( opo.CategoryId == CodesManager.PROPERTY_CATEGORY_ORG_SERVICE )
+			//		{
+			//			to.ServiceType.OtherValue = opo.OtherValue;
+			//			to.ServiceTypeOther = opo.OtherValue;
+			//			break;
+			//		}
+			//	}
+			//}
 
 			to.ServiceType.Items = new List<EnumeratedItem>();
 			EnumeratedItem item = new EnumeratedItem();
-
+			//TODO - change to use Entity.Property
 			foreach ( EM.Organization_Service prop in from.Organization_Service )
 			{
 				item = new EnumeratedItem();
@@ -197,8 +197,8 @@ namespace Factories
 				item.SchemaName = prop.Codes_AgentService.SchemaTag;
 
 				item.Description = prop.Codes_AgentService.Description;
-				if ( (bool) prop.Codes_AgentService.IsQAService )
-					to.IsAQAOrg = true;
+				//if ( (bool) prop.Codes_AgentService.IsQAService )
+				//	to.IsAQAOrg = true;
 
 				item.Selected = true;
 				//if ( !string.IsNullOrWhiteSpace( prop.OtherValue ) )
@@ -265,6 +265,53 @@ namespace Factories
 			}
 
 			return entity;
+		}
+
+		public static bool IsPropertySchemaValid( string categoryCode, string schemaName, ref Models.CodeItem code )
+		{
+			code = new Models.CodeItem();
+
+			code = GetPropertyBySchema( categoryCode, schemaName );
+
+			if ( code != null && code.Id > 0 )
+			{
+				return true;
+			}
+			else
+				return false;
+		}
+		/// <summary>
+		/// Get a single property using the category code, and property schema name
+		/// </summary>
+		/// <param name="category"></param>
+		/// <param name="schemaName"></param>
+		/// <returns></returns>
+		public static Models.CodeItem GetPropertyBySchema( string categoryCode, string schemaName )
+		{
+			Models.CodeItem code = new Models.CodeItem();
+			categoryCode = categoryCode.Replace( ":", "" );
+			using ( var context = new EM.CTIEntities() )
+			{	
+				EM.Codes_PropertyCategory category = context.Codes_PropertyCategory
+							.FirstOrDefault( s => s.SchemaName.ToLower() == categoryCode.ToLower() && s.IsActive == true );
+
+				Data.Codes_AgentService item = context.Codes_AgentService
+					.FirstOrDefault( s => s.SchemaTag == schemaName );
+				if ( item != null && item.Id > 0 )
+				{
+					//could have an additional check that the returned category is correct - no guarentees though
+					code = new Models.CodeItem();
+					code.Id = ( int ) item.Id;
+					code.CategoryId = category != null ? category.Id : CodesManager.PROPERTY_CATEGORY_ORG_SERVICE;
+					code.Title = item.Title;
+					code.Description = item.Description;
+					
+					code.SchemaName = item.SchemaTag;
+					code.ParentSchemaName = "";
+					code.Totals = item.Totals ?? 0;
+				}
+			}
+			return code;
 		}
 		#endregion
 	}

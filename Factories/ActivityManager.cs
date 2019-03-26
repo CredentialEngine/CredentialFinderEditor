@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Web;
 
 using Models;
+using Models.Common;
 using Models.Search;
 using Models.Helpers.Reports;
 using Data;
@@ -23,15 +24,69 @@ namespace Factories
 		private static string thisClassName = "ActivityManager";
 
 
-		#region Persistance
-		public int SiteActivityAdd( SiteActivity entity )
+        #region Persistance
+        //public void AddActivity(string activity, string activityEvent, string comment, int actionByUserId, int activityObjectId = 0)
+        //{
+
+        //    SiteActivity log = new SiteActivity();
+        //    log.CreatedDate = System.DateTime.Now;
+        //    log.ActivityType = "Audit";
+        //    log.Activity = activity;
+        //    log.Event = activityEvent;
+        //    log.Comment = comment;
+        //    log.SessionId = ActivityManager.GetCurrentSessionId();
+        //    log.IPAddress = ActivityManager.GetUserIPAddress();
+
+        //    log.ActionByUserId = actionByUserId;
+        //    log.ActivityObjectId = activityObjectId;
+        //    log.TargetUserId = 0;
+        //    log.ObjectRelatedId = 0;
+
+        //    try
+        //    {
+        //        SiteActivityAdd(log);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        LoggingHelper.LogError(ex, thisClassName + ".AddActivity()");
+        //        return;
+        //    }
+        ////}
+        //public void AddEditorActivity( string activityType, string activityEvent, string comment, int actionByUserId, int targetUserId = 0, int activityObjectId = 0, int objectRelatedId = 0 )
+        //{
+
+        //    SiteActivity log = new SiteActivity();
+        //    log.CreatedDate = System.DateTime.Now;
+        //    log.ActivityType = activityType;
+        //    log.Activity = "Editor";
+        //    log.Event = activityEvent;
+        //    log.Comment = comment;
+        //    log.SessionId = ActivityManager.GetCurrentSessionId();
+        //    log.IPAddress = ActivityManager.GetUserIPAddress();
+
+        //    log.ActionByUserId = actionByUserId;
+        //    log.ActivityObjectId = activityObjectId;
+        //    log.TargetUserId = targetUserId;
+        //    log.ObjectRelatedId = objectRelatedId;
+
+        //    try
+        //    {
+        //        SiteActivityAdd( log );
+        //    }
+        //    catch ( Exception ex )
+        //    {
+        //        LoggingHelper.LogError( ex, thisClassName + ".AddEditorActivity()" );
+        //        return;
+        //    }
+        //}
+        public int SiteActivityAdd( SiteActivity entity )
 		{
 			ActivityLog log = new ActivityLog();
-			 FromMap( entity, log);
+			 MapToDB( entity, log);
 			return SiteActivityAdd( log );
 		} //
 
-		private static int SiteActivityAdd( ActivityLog log )
+		private int SiteActivityAdd( ActivityLog log )
 		{
 			int count = 0;
 			string truncateMsg = "";
@@ -40,26 +95,16 @@ namespace Factories
 
 			string agent = GetUserAgent( ref isBot );
 
-			if ( log.RelatedTargetUrl == null )
-				log.RelatedTargetUrl = "";
-			if ( log.RelatedImageUrl == null )
-				log.RelatedImageUrl = "";
 			if ( log.Referrer == null )
 				log.Referrer = "";
 			if ( log.Comment == null )
 				log.Comment = "";
-			if ( log.SessionId == null || log.SessionId.Length < 10 )
-				log.SessionId = GetCurrentSessionId();
 
-			if ( log.IPAddress == null || log.IPAddress.Length < 10 )
-				log.IPAddress = GetUserIPAddress();
-			if ( log.IPAddress.Length > 50 )
-				log.IPAddress = log.IPAddress.Substring( 0, 50 );
 
 			//================================
 			if ( isBot )
 			{
-				LoggingHelper.DoBotTrace( 6, string.Format( ".SiteActivityAdd Skipping Bot: activity. Agent: {0}, Activity: {1}, Event: {2}, \r\nRelatedTargetUrl: {3}", agent, log.Activity, log.Event, log.RelatedTargetUrl ) );
+				LoggingHelper.DoBotTrace( 6, string.Format( ".SiteActivityAdd Skipping Bot: activity. Agent: {0}, Activity: {1}, Event: {2}", agent, log.Activity, log.Event ) );
 				//should this be added with isBot attribute for referencing when crawled?
 				return 0;
 			}
@@ -75,23 +120,12 @@ namespace Factories
 				string referrer = GetUserReferrer();
 				log.Referrer = referrer;
 			}
-			if ( log.Referrer.Length > 1000 )
-			{
-				truncateMsg += string.Format( "Referrer overflow: {0}; ", log.Referrer.Length );
-				log.Referrer = log.Referrer.Substring( 0, 1000 );
-			}
+			//if ( log.Referrer.Length > 1000 )
+			//{
+			//	truncateMsg += string.Format( "Referrer overflow: {0}; ", log.Referrer.Length );
+			//	log.Referrer = log.Referrer.Substring( 0, 1000 );
+			//}
 
-
-			if ( log.RelatedTargetUrl != null && log.RelatedTargetUrl.Length > 500 )
-			{
-				truncateMsg += string.Format( "RelatedTargetUrl overflow: {0}; ", log.RelatedTargetUrl.Length );
-				log.RelatedTargetUrl = log.RelatedTargetUrl.Substring( 0, 500 );
-			}
-			if ( log.RelatedImageUrl != null && log.RelatedImageUrl.Length > 500 )
-			{
-				truncateMsg += string.Format( "RelatedImageUrl overflow: {0}; ", log.RelatedImageUrl.Length );
-				log.RelatedImageUrl = log.RelatedImageUrl.Substring( 0, 500 );
-			}
 			//if ( log.Referrer.Length > 0 )
 			//    log.Comment += ", Referrer: " + log.Referrer;
 
@@ -121,7 +155,7 @@ namespace Factories
 				try
 				{
 					log.CreatedDate = System.DateTime.Now;
-					if ( log.ActivityType == null || log.ActivityType.Length < 5 )
+					if ( string.IsNullOrWhiteSpace(log.ActivityType))
 						log.ActivityType = "Audit";
 
 					context.ActivityLog.Add( log );
@@ -145,10 +179,18 @@ namespace Factories
 						return 0;
 					}
 				}
+				catch ( System.Data.Entity.Validation.DbEntityValidationException dbex )
+				{
+					string statusMessage = HandleDBValidationError( dbex, thisClassName + ".Add() ", "ActivityLog" );
+					LoggingHelper.LogError( dbex, thisClassName + string.Format( ".Add(), Activity: {0}, Event: {1}, UserId", log.Activity, log.Event, log.ActionByUserId) );
+
+					return 0;
+				}
 				catch ( Exception ex )
 				{
+					string statusMessage = FormatExceptions( ex );
 
-					LoggingHelper.LogError( ex, thisClassName + ".SiteActivityAdd(EFDAL.ActivityLog) ==> trying via proc\n\r" + ex.StackTrace.ToString() );
+					LoggingHelper.LogError( ex, thisClassName + ".SiteActivityAdd(EFDAL.ActivityLog)\n\r" + statusMessage );
 					//call stored proc as backup!
 
 					//count = ActivityAuditManager.LogActivity( log.ActivityType,
@@ -158,8 +200,6 @@ namespace Factories
 					//	log.ActivityObjectId == null ? 0 : ( int ) log.ActivityObjectId,
 					//	log.ActionByUserId == null ? 0 : ( int ) log.ActionByUserId,
 					//	log.ObjectRelatedId == null ? 0 : ( int ) log.ObjectRelatedId,
-					//	log.RelatedImageUrl,
-					//	log.RelatedTargetUrl,
 					//	log.SessionId,
 					//	log.IPAddress,
 					//	log.TargetObjectId == null ? 0 : ( int ) log.TargetObjectId,
@@ -169,7 +209,7 @@ namespace Factories
 				}
 			}
 		} //
-		private void FromMap( SiteActivity from, ActivityLog to )
+		private void MapToDB( SiteActivity from, ActivityLog to )
 		{
 			to.Id = from.Id;
 			to.ActivityType = from.ActivityType;
@@ -180,18 +220,31 @@ namespace Factories
 			to.ActionByUserId = from.ActionByUserId;
 			to.ActivityObjectId = from.ActivityObjectId;
 			to.ObjectRelatedId = from.ObjectRelatedId;
-			to.RelatedImageUrl = from.RelatedImageUrl;
-			to.RelatedTargetUrl = from.RelatedTargetUrl;
+			to.DataOwnerCTID = from.DataOwnerCTID;
+
+            to.ActivityObjectParentEntityUid = IsValidGuid( from.ActivityObjectParentEntityUid ) ? from.ActivityObjectParentEntityUid : null;
+
 			to.TargetObjectId = from.TargetObjectId;
+			if (!from.IsExternalActivity)
+			{
+				if ( from.SessionId == null || from.SessionId.Length < 10 )
+					from.SessionId = GetCurrentSessionId();
+
+				if ( from.IPAddress == null || from.IPAddress.Length < 10 )
+					from.IPAddress = GetUserIPAddress();
+				if ( from.IPAddress.Length > 50 )
+					from.IPAddress = from.IPAddress.Substring( 0, 50 );
+			}
 			to.SessionId = from.SessionId;
 			to.IPAddress = from.IPAddress;
 			to.Referrer = from.Referrer;
 			to.IsBot = from.IsBot;
 
 		}
-		private static void ToMap( ActivityLog from, SiteActivity to )
+		private static void MapFromDB( ActivityLog from, SiteActivity to )
 		{
 			to.Id = from.Id;
+			to.Created = (DateTime)from.CreatedDate;
 			to.ActivityType = from.ActivityType;
 			to.Activity = from.Activity;
 			to.Event = from.Event;
@@ -200,9 +253,9 @@ namespace Factories
 			to.ActionByUserId = from.ActionByUserId;
 			to.ActivityObjectId = from.ActivityObjectId;
 			to.ObjectRelatedId = from.ObjectRelatedId;
-			to.RelatedImageUrl = from.RelatedImageUrl;
-			to.RelatedTargetUrl = from.RelatedTargetUrl;
-			to.TargetObjectId = from.TargetObjectId;
+            to.ActivityObjectParentEntityUid = IsGuidValid( from.ActivityObjectParentEntityUid ) ? from.ActivityObjectParentEntityUid : null;
+
+            to.TargetObjectId = from.TargetObjectId;
 			to.SessionId = from.SessionId;
 			to.IPAddress = from.IPAddress;
 			to.Referrer = from.Referrer;
@@ -234,8 +287,9 @@ namespace Factories
 						foreach ( ActivityLog item in results )
 						{
 							//probably want something more specific
+                            //actually, should we stop on encountering a delete?
 							entity = new SiteActivity();
-							ToMap( item, entity );
+							MapFromDB( item, entity );
 
 							list.Add( entity );
 						}
@@ -248,12 +302,70 @@ namespace Factories
 			}
 			return list;
 		}//
+		public static DateTime? GetLastPublishDateTime(string entityType, int entityId )
+		{
+			SiteActivity entity = ActivityManager.GetLastPublishRecord( entityType, entityId );
+			if ( entity != null && entity.Id > 0 )
+			{
+				return entity.CreatedDate;
+			}
+			return null;
+		}
+		//
+		public static string GetLastPublishDate( string entityType, int entityId )
+		{
+			string lastPublishDate = "";
+			SiteActivity entity = ActivityManager.GetLastPublishRecord( entityType, entityId );
+			if ( entity != null && entity .Id > 0)
+			{
+				lastPublishDate = entity.CreatedDate.ToShortDateString();
+			}
 
-		#endregion
+			return lastPublishDate;
+		}//
+		public static SiteActivity GetLastPublishRecord( string entityType, int entityId )
+		{
+			SiteActivity entity = new SiteActivity();
 
-		#region helpers
+			try
+			{
+				using ( var context = new Data.CTIEntities() )
+				{
+					List<ActivityLog> results = context.ActivityLog
+							.Where( s => s.ActivityType == entityType
+									&& s.Activity == "Credential Registry"
+									&& s.ActivityObjectId == entityId )
+									.Take(1)
+							.OrderByDescending( s => s.Id )
+							.ToList();
 
-		public static void StoreLastRequest( string actionComment )
+					if ( results != null && results.Count > 0 )
+					{
+						foreach ( ActivityLog item in results )
+						{
+                            //probably want something more specific
+                            if ( item.Event.ToLower().IndexOf( "registered" ) > -1 || item.Event.ToLower().IndexOf( "updated" ) > -1 )
+                            {
+                                entity = new SiteActivity();
+
+                                MapFromDB( item, entity );
+                            }
+							break;
+						}
+					}
+				}
+			}
+			catch ( Exception ex )
+			{
+				LoggingHelper.LogError( ex, thisClassName + ".GetLastPublishRecord" );
+			}
+			return entity;
+		}//
+        #endregion
+
+        #region helpers
+
+        public static void StoreLastRequest( string actionComment )
 		{
 			string sessionKey = GetCurrentSessionId() + "_lastHit";
 
@@ -495,7 +607,7 @@ namespace Factories
 		//			foreach ( EM.Credential item in results )
 		//			{
 		//				entity = new ME.Credential();
-		//				ToMap( item, entity );
+		//				MapFromDB( item, entity );
 		//				list.Add( entity );
 		//			}
 		//		}
@@ -614,22 +726,30 @@ namespace Factories
 					SqlParameter totalRows = new SqlParameter( "@TotalRows", pTotalRows );
 					totalRows.Direction = ParameterDirection.Output;
 					command.Parameters.Add( totalRows );
+                    try
+                    {
+                        using ( SqlDataAdapter adapter = new SqlDataAdapter() )
+                        {
+                            adapter.SelectCommand = command;
+                            adapter.Fill(result);
+                        }
+                        string rows = command.Parameters[ 4 ].Value.ToString();
 
-					using ( SqlDataAdapter adapter = new SqlDataAdapter() )
-					{
-						adapter.SelectCommand = command;
-						adapter.Fill( result );
-					}
-					string rows = command.Parameters[ 4 ].Value.ToString();
-					try
-					{
-						pTotalRows = Int32.Parse( rows );
-					}
-					catch
-					{
-						pTotalRows = 0;
-					}
-				}
+                        pTotalRows = Int32.Parse(rows);
+                    }
+                    catch ( Exception ex )
+                    {
+                        pTotalRows = 0;
+                        LoggingHelper.LogError(ex, thisClassName + string.Format(".Search() - Execute proc, Message: {0} \r\n Filter: {1} \r\n", ex.Message, pFilter));
+
+                        item = new SiteActivity();
+                        item.ActivityType = "Unexpected error encountered. System administration has been notified. Please try again later. ";
+                        item.Comment = ex.Message;
+                        item.Event = "error";
+                        list.Add(item);
+                        return list;
+                    }
+                    }
 
 				foreach ( DataRow dr in result.Rows )
 				{
@@ -641,11 +761,15 @@ namespace Factories
 					item.Event = GetRowColumn( dr, "Event", "" );
 					item.Comment = GetRowColumn( dr, "Comment", "" );
 					item.ActionByUser = GetRowColumn( dr, "ActionByUser", "" );
-					item.Referrer = GetRowColumn( dr, "Referrer", "" );
+                    item.ActionByUserId = GetRowColumn( dr, "ActionByUserId", 0 );
+                    item.Referrer = GetRowColumn( dr, "Referrer", "" );
 					item.ActivityObjectId = GetRowColumn( dr, "ActivityObjectId", 0 );
 					item.IPAddress = GetRowColumn( dr, "IPAddress", "" );
-
-					list.Add( item );
+                    item.ParentObject = GetRowColumn( dr, "ParentObject", "" );
+                    item.ParentEntityTypeId = GetRowColumn( dr, "ParentEntityTypeId", 0 );
+                    item.ParentRecordId = GetRowColumn( dr, "ParentRecordId", 0 );
+                    //
+                    list.Add( item );
 				}
 
 				return list;

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Threading;
 using System.Web;
 
 
@@ -8,19 +9,37 @@ namespace Utilities
     public class LoggingHelper
     {
         const string thisClassName = "LoggingHelper";
+		private static string DefaultSubject = "Credential Publisher Application Exception encountered";
 
-        public LoggingHelper() { }
+		public LoggingHelper() { }
 
-
-        #region Error Logging ================================================
-        /// <summary>
-        /// Format an exception and message, and then log it
-        /// </summary>
-        /// <param name="ex">Exception</param>
-        /// <param name="message">Additional message regarding the exception</param>
-        public static void LogError( Exception ex, string message, string subject = "WorkIT Application Exception encountered" )
+		#region Error Logging ================================================
+		public static void LogError( Exception ex, string message )
+		{
+			string subject = DefaultSubject;
+			bool notifyAdmin = false;
+			if ( UtilityManager.GetAppKeyValue( "notifyOnException", "no" ).ToLower() == "yes" )
+				notifyAdmin = true;
+			LogError( ex, message, notifyAdmin, subject );
+		}
+		public static void LogError( Exception ex, string message, bool notifyAdmin )
+		{
+			string subject = DefaultSubject;
+			//bool notifyAdmin = false;
+			if ( UtilityManager.GetAppKeyValue( "notifyOnException", "no" ).ToLower() == "yes" )
+				notifyAdmin = true;
+			LogError( ex, message, notifyAdmin, subject );
+		}
+		/// <summary>
+		/// Format an exception and message, and then log it
+		/// </summary>
+		/// <param name="ex">Exception</param>
+		/// <param name="message">Additional message regarding the exception</param>
+		public static void LogError( Exception ex, string message, string subject )
         {
             bool notifyAdmin = false;
+            if ( UtilityManager.GetAppKeyValue( "notifyOnException", "no" ).ToLower() == "yes" )
+                notifyAdmin = true;
             LogError( ex, message, notifyAdmin, subject );
         }
 
@@ -30,7 +49,7 @@ namespace Utilities
         /// <param name="ex">Exception</param>
         /// <param name="message">Additional message regarding the exception</param>
         /// <param name="notifyAdmin">If true, an email will be sent to admin</param>
-        public static void LogError( Exception ex, string message, bool notifyAdmin, string subject = "WorkIT Application Exception encountered" )
+        public static void LogError( Exception ex, string message, bool notifyAdmin, string subject = "Credential Publisher Application Exception encountered" )
         {
 
             //string userId = "";
@@ -44,8 +63,7 @@ namespace Utilities
 
             try
             {
-                if ( UtilityManager.GetAppKeyValue( "notifyOnException", "no" ).ToLower() == "yes" )
-                    notifyAdmin = true;
+                
 
                 sessionId = HttpContext.Current.Session.SessionID.ToString();
                 remoteIP = HttpContext.Current.Request.ServerVariables[ "REMOTE_HOST" ];
@@ -83,22 +101,23 @@ namespace Utilities
 
             try
             {
+				string exceptions = FormatExceptions( ex );
                 string errMsg = message +
                     "\r\nType: " + ex.GetType().ToString() + ";" + 
                     "\r\nSession Id - " + sessionId + "____IP - " + remoteIP +
                     "\r\rReferrer: " + lRefererPage + ";" +
-                    "\r\nException: " + ex.Message.ToString() + ";" + 
+                    "\r\nException: " + exceptions + ";" + 
                     "\r\nStack Trace: " + ex.StackTrace.ToString() +
                     "\r\nServer\\Template: " + path +
                     "\r\nUrl: " + url;
 
-				if ( ex.InnerException != null && ex.InnerException.Message != null )
-				{
-					errMsg += "\r\n****Inner exception: " + ex.InnerException.Message;
+				//if ( ex.InnerException != null && ex.InnerException.Message != null )
+				//{
+				//	errMsg += "\r\n****Inner exception: " + ex.InnerException.Message;
 
-					if ( ex.InnerException.InnerException != null && ex.InnerException.InnerException.Message != null )
-						errMsg += "\r\n@@@@@@Inner-Inner exception: " + ex.InnerException.InnerException.Message;
-				}
+				//	if ( ex.InnerException.InnerException != null && ex.InnerException.InnerException.Message != null )
+				//		errMsg += "\r\n@@@@@@Inner-Inner exception: " + ex.InnerException.InnerException.Message;
+				//}
 
                 if ( parmsString.Length > 0 )
                     errMsg += "\r\nParameters: " + parmsString;
@@ -112,26 +131,6 @@ namespace Utilities
 
         } //
 
-		/// <summary>
-		/// Format an exception handling inner exceptions as well
-		/// </summary>
-		/// <param name="ex"></param>
-		/// <returns></returns>
-		public static string FormatExceptions( Exception ex )
-		{
-			string message = ex.Message;
-
-			if ( ex.InnerException != null )
-			{
-				message += "; \r\nInnerException: " + ex.InnerException.Message;
-				if ( ex.InnerException.InnerException != null )
-				{
-					message += "; \r\nInnerException2: " + ex.InnerException.InnerException.Message;
-				}
-			}
-
-			return message;
-		}
 
 		/// <summary>
 		/// Write the message to the log file.
@@ -141,7 +140,7 @@ namespace Utilities
 		/// The log file is configured in the web.config, appSetting: "error.log.path"
 		/// </remarks>
 		/// <param name="message">Message to be logged.</param>
-		public static void LogError( string message, string subject = "WorkIT Application Exception encountered" )
+		public static void LogError( string message, string subject = "" )
         {
 
             if ( UtilityManager.GetAppKeyValue( "notifyOnException", "no" ).ToLower() == "yes" )
@@ -163,26 +162,46 @@ namespace Utilities
         /// </remarks>
         /// <param name="message">Message to be logged.</param>
         /// <param name="notifyAdmin"></param>
-        public static void LogError( string message, bool notifyAdmin, string subject = "WorkIT Application Exception encountered" )
+        public static void LogError( string message, bool notifyAdmin, string subject = "" )
         {
+			if ( string.IsNullOrWhiteSpace( subject ) )
+				subject = DefaultSubject;
+
             if ( UtilityManager.GetAppKeyValue( "logErrors" ).ToString().Equals( "yes" ) )
             {
                 try
                 {
-                    string datePrefix = System.DateTime.Today.ToString( "u" ).Substring( 0, 10 );
-                    string logFile = UtilityManager.GetAppKeyValue( "path.error.log", "C:\\LOGS.txt" );
-                    string outputFile = logFile.Replace( "[date]", datePrefix );
-
-                    StreamWriter file = File.AppendText( outputFile );
-                    file.WriteLine( DateTime.Now + ": " + message );
-                    file.WriteLine( "---------------------------------------------------------------------" );
-                    file.Close();
-
-                    if ( notifyAdmin )
+                    //would like to limit number, just need a means to overwrite the first time used in a day
+                    //- check existance, then if for a previous day, overwrite
+                    string datePrefix1 = System.DateTime.Today.ToString( "u" ).Substring( 0, 10 );
+                    string datePrefix = System.DateTime.Today.ToString("yyyy-dd");
+                    string logFile = UtilityManager.GetAppKeyValue( "path.error.log", "" );
+                    if (!string.IsNullOrWhiteSpace(logFile))
                     {
-						if ( ShouldMessagesBeSkipped( message ) == false )
-							EmailManager.NotifyAdmin( subject, message );
-					}
+                        string outputFile = logFile.Replace("[date]", datePrefix);
+                        
+                        if (File.Exists(outputFile))
+                        {
+                            if (File.GetLastWriteTime(outputFile).Month != DateTime.Now.Month)
+                                File.Delete(outputFile);
+                        }
+						else
+						{
+							//just incase, create folders
+							FileSystemHelper.CreateDirectory( outputFile );
+						}
+
+						StreamWriter file = File.AppendText(outputFile);
+                        file.WriteLine(DateTime.Now + ": " + message);
+                        file.WriteLine("---------------------------------------------------------------------");
+                        file.Close();
+
+                        if (notifyAdmin)
+                        {
+                            if (ShouldMessagesBeSkipped(message) == false)
+                                EmailManager.NotifyAdmin(subject, message);
+                        }
+                    }
                 }
                 catch ( Exception ex )
                 {
@@ -191,6 +210,32 @@ namespace Utilities
                 }
             }
         } //
+
+		/// <summary>
+		/// Format an exception handling inner exceptions as well
+		/// </summary>
+		/// <param name="ex"></param>
+		/// <returns></returns>
+		public static string FormatExceptions( Exception ex )
+		{
+			string message = ex.Message;
+
+			if ( ex.InnerException != null )
+			{
+				message += "; \r\nInnerException: " + ex.InnerException.Message;
+				if ( ex.InnerException.InnerException != null )
+				{
+					message += "; \r\nInnerException2: " + ex.InnerException.InnerException.Message;
+					if ( ex.InnerException.InnerException.InnerException != null )
+					{
+						message += "; \r\nInnerException3: " + ex.InnerException.InnerException.InnerException.Message;
+					}
+				}
+			}
+
+			return message;
+		}
+
 		private static bool ShouldMessagesBeSkipped(string message)
 		{
 
@@ -199,77 +244,11 @@ namespace Utilities
 
 			return false;
 		}
-		public static void LogIssue( string message, bool notifyAdmin, string subject = "WorkIT Application Issue Encountered" )
-		{
-			if ( UtilityManager.GetAppKeyValue( "logErrors" ).ToString().Equals( "yes" ) )
-			{
-				try
-				{
-					string datePrefix = System.DateTime.Today.ToString( "u" ).Substring( 0, 10 );
-					string logFile = UtilityManager.GetAppKeyValue( "path.error.log", "C:\\LOGS.txt" );
-					string outputFile = logFile.Replace( "[date]", datePrefix );
-
-					StreamWriter file = File.AppendText( outputFile );
-					file.WriteLine( DateTime.Now + ": " + message );
-					file.WriteLine( "---------------------------------------------------------------------" );
-					file.Close();
-
-					if ( notifyAdmin )
-					{
-						if ( UtilityManager.GetAppKeyValue( "notifyOnException", "no" ).ToLower() == "yes" )
-						{
-							EmailManager.NotifyAdmin( subject, message );
-						}
-					}
-				}
-				catch ( Exception ex )
-				{
-					//eat any additional exception
-					DoTrace( 5, thisClassName + ".LogError(string message, bool notifyAdmin). Exception: " + ex.Message );
-				}
-			}
-		} //
-
+	
         #endregion
 
 
         #region === Application Trace Methods ===
-        /// <summary>
-        /// IsTestEnv - determines if the current environment is a testing/development
-        /// </summary>
-        /// <returns>True if localhost - implies testing</returns>
-        //public static bool IsTestEnv()
-        //{
-        //    string host = HttpContext.Current.Request.Url.Host.ToString();
-
-        //    if ( host.ToLower() == "localhost" )
-        //        return true;
-        //    else
-        //        return false;
-
-        //} //
-
-        /// <summary>
-        /// Handle trace requests - typically during development, but may be turned on to track code flow in production.
-        /// </summary>
-        /// <param name="label">Label control that will display a trace message</param>
-        /// <param name="message">The message to be sent to the trace log as well as to the trace control</param>
-        //public static void DoTrace( System.Web.UI.WebControls.Label label, string message )
-        //{
-        //    try
-        //    {
-        //        label.Text += message + "<br>";
-
-        //        label.Visible = true;
-
-        //        DoTrace( message );
-        //    }
-        //    catch
-        //    {
-        //        // ignore error for now - future to log it
-        //    }
-
-        //} // end
 
         /// <summary>
         /// Handle trace requests - typically during development, but may be turned on to track code flow in production.
@@ -285,59 +264,71 @@ namespace Utilities
             DoTrace( appTraceLevel, message, true );
         }
 
-        /// <summary>
-        /// Handle trace requests - typically during development, but may be turned on to track code flow in production.
-        /// </summary>
-        /// <param name="level"></param>
-        /// <param name="message"></param>
-        public static void DoTrace( int level, string message )
-        {
-            DoTrace( level, message, true );
-        }
 
-        /// <summary>
-        /// Handle trace requests - typically during development, but may be turned on to track code flow in production.
-        /// </summary>
-        /// <param name="level"></param>
-        /// <param name="message"></param>
-        /// <param name="showingDatetime">If true, precede message with current date-time, otherwise just the message> The latter is useful for data dumps</param>
-        public static void DoTrace( int level, string message, bool showingDatetime )
-        {
-            //TODO: Future provide finer control at the control level
-            string msg = "";
-            int appTraceLevel = 0;
-            //bool useBriefFormat = true;
+		/// <summary>
+		/// Handle trace requests - typically during development, but may be turned on to track code flow in production.
+		/// </summary>
+		/// <param name="level"></param>
+		/// <param name="message"></param>
+		/// <param name="showingDatetime">If true, precede message with current date-time, otherwise just the message> The latter is useful for data dumps</param>
+		public static void DoTrace( int level, string message, bool showingDatetime = true )
+		{
+			//TODO: Future provide finer control at the control level
+			string msg = "";
+			int appTraceLevel = UtilityManager.GetAppKeyValue( "appTraceLevel", 6 );
+			//bool useBriefFormat = true;
+			const int NumberOfRetries = 4;
+			const int DelayOnRetry = 1000;
+			if ( showingDatetime )
+				msg = "\n " + System.DateTime.Now.ToString() + " - " + message;
+			else
+				msg = "\n " + message;
+			string datePrefix1 = System.DateTime.Today.ToString( "u" ).Substring( 0, 10 );
+			string datePrefix = System.DateTime.Today.ToString( "yyyy-dd" );
+			string logFile = UtilityManager.GetAppKeyValue( "path.trace.log", "" );
 
-            try
-            {
-                appTraceLevel = UtilityManager.GetAppKeyValue( "appTraceLevel", 6 );
+			//Allow if the requested level is <= the application thresh hold
+			if ( string.IsNullOrWhiteSpace( logFile ) || level > appTraceLevel )
+			{
+				return;
+			}
+			string outputFile = "";
 
-                //Allow if the requested level is <= the application thresh hold
-                if ( level <= appTraceLevel )
-                {
+			//added retries where log file is in use
+			for ( int i = 1; i <= NumberOfRetries; ++i )
+			{
+				try
+				{
+					outputFile = logFile.Replace( "[date]", datePrefix + ( i < 3 ? "" : "_" + i.ToString() ) );
 
-                    if ( showingDatetime )
-                        msg = "\n " + System.DateTime.Now.ToString() + " - " + message;
-                    else
-                        msg = "\n " + message;
+					if ( File.Exists( outputFile ) )
+					{
+						if ( File.GetLastWriteTime( outputFile ).Month != DateTime.Now.Month )
+							File.Delete( outputFile );
+					} else
+					{
+						//just incase, create folders
+						FileSystemHelper.CreateDirectory( outputFile );
+					}
 
-      
-                    string datePrefix = System.DateTime.Today.ToString( "u" ).Substring( 0, 10 );
-                    string logFile = UtilityManager.GetAppKeyValue( "path.trace.log", "C:\\VOS_LOGS.txt" );
-                    string outputFile = logFile.Replace( "[date]", datePrefix );
+					StreamWriter file = File.AppendText( outputFile );
 
-                    StreamWriter file = File.AppendText( outputFile );
-
-                    file.WriteLine( msg );
-                    file.Close();
-
-                }
-            }
-            catch
-            {
-                //ignore errors
-            }
-
+					file.WriteLine( msg );
+					file.Close();
+					Console.WriteLine( message );
+					break;
+				}
+				catch ( IOException e ) when ( i <= NumberOfRetries )
+				{
+					// You may check error code to filter some exceptions, not every error
+					// can be recovered.
+					Thread.Sleep( DelayOnRetry );
+				}
+				catch ( Exception ex )
+				{
+					//ignore errors
+				}
+			}
         }
 		public static void WriteLogFile( int level, string filename, string message, string datePrefixOverride = "", bool appendingText = true )
 		{
@@ -350,14 +341,25 @@ namespace Utilities
 				//Allow if the requested level is <= the application thresh hold
 				if ( level <= appTraceLevel )
 				{					
-					string datePrefix = System.DateTime.Today.ToString( "u" ).Substring( 0, 10 );
+					string datePrefix1 = System.DateTime.Today.ToString( "u" ).Substring( 0, 10 );
+					string datePrefix = System.DateTime.Today.ToString( "yyyy-dd" );
 					if ( !string.IsNullOrWhiteSpace( datePrefixOverride ) )
 						datePrefix = datePrefixOverride;
 
 					string logFile = UtilityManager.GetAppKeyValue( "path.log.file", "C:\\LOGS.txt" );
 					string outputFile = logFile.Replace( "[date]", datePrefix ).Replace( "[filename]", filename );
+					if ( outputFile.IndexOf( "csv.txt" ) > 1 )
+						outputFile = outputFile.Replace( "csv.txt", "csv" );
+                    else if ( outputFile.IndexOf( "csv.json" ) > 1 )
+                        outputFile = outputFile.Replace( "csv.json", "csv" );
+                    else if ( outputFile.IndexOf( "json.txt" ) > 1 )
+                        outputFile = outputFile.Replace( "json.txt", "json" );
+                    else if ( outputFile.IndexOf( "json.json" ) > 1 )
+						outputFile = outputFile.Replace( "json.json", "json" );
+                    else if ( outputFile.IndexOf( "txt.json" ) > 1 )
+                        outputFile = outputFile.Replace( "txt.json", "txt" );
 
-					if ( appendingText )
+                    if ( appendingText )
 					{
 						StreamWriter file = File.AppendText( outputFile );
 
@@ -394,19 +396,30 @@ namespace Utilities
 				{
 					msg = "\n " + System.DateTime.Now.ToString() + " - " + message;
 
-					string datePrefix = System.DateTime.Today.ToString( "u" ).Substring( 0, 10 );
-					string logFile = UtilityManager.GetAppKeyValue( "path.botTrace.log", "" );
-					if ( logFile.Length > 5 )
-					{
-						string outputFile = logFile.Replace( "[date]", datePrefix );
+                    string datePrefix1 = System.DateTime.Today.ToString( "u" ).Substring( 0, 10 );
+                    string datePrefix = System.DateTime.Today.ToString( "yyyy-dd" );
+                    string logFile = UtilityManager.GetAppKeyValue( "path.botTrace.log", "" );
+                    if (!string.IsNullOrWhiteSpace( logFile ))
+                    {
+                        string outputFile = logFile.Replace( "[date]", datePrefix );
+                        if (File.Exists( outputFile ))
+                        {
+                            if (File.GetLastWriteTime( outputFile ).Month != DateTime.Now.Month)
+                                File.Delete( outputFile );
+                        }
+						else
+						{
+							//just incase, create folders
+							FileSystemHelper.CreateDirectory( outputFile );
+						}
 
 						StreamWriter file = File.AppendText( outputFile );
 
-						file.WriteLine( msg );
-						file.Close();
-					}
+                        file.WriteLine( msg );
+                        file.Close();
+                    }
 
-				}
+                }
 			}
 			catch
 			{
@@ -414,135 +427,8 @@ namespace Utilities
 			}
 
 		}
-        /// <summary>
-        /// Record a page visit, either to file or to the database 
-        /// </summary>
-        /// <param name="sessionId">Session Id</param>
-        /// <param name="isPostBack">Was this a page postback</param>
-        /// <param name="template">MCMS Template</param>
-        /// <param name="queryString">Request URL</param>
-        /// <param name="parmString">Request Parameters (if any)</param>
-        /// <param name="userid">Userid of current user (guest if not logged in)</param>
-        /// <param name="partner">Partner name</param>
-        /// <param name="comment">Comment</param>
-        /// <param name="remoteIP">client IP address</param>
-        /// <remarks>06/09/15 mparsons - added remoteIP</remarks>
-		public static void LogPageVisit( string sessionId, string template, string queryString, string parmString, bool isPostBack, string userid, string partner, string comment, string remoteIP, string lwia )
-        {
-            System.DateTime visitDate = System.DateTime.Now;
 
-            string pathway = "";
-            string lang = "";
-            string mainChannel = "";
-           // string currentZip = "";
-            //skip startup records
-            if ( sessionId.ToLower().IndexOf( "worknet" ) > -1
-                || comment.ToLower().StartsWith( "session " ) )
-            { //skip these records
-
-            }
-            else
-            {
-                try
-                {
-                    //pathway = GetPathTitle();
-                    //lang = getLanguage();
-                    //mainChannel = getPathChannel();
-                    //currentZip = GetDefaultZipcode();
-                }
-                catch
-                {
-                    //ignore
-                }
-            }
-
-            string logEntry = sessionId + ","
-                + visitDate.ToString() + ","
-                + pathway + ","
-                + lang + ","
-                + mainChannel + ","
-                + template + ","
-                + queryString + ",'"
-                + parmString + "',"
-                + isPostBack + ","
-                + userid + ","
-                + partner
-                + ",Lwia:" + lwia
-                + ",'" + comment + "',"
-                + remoteIP + "";
-
-            LogPageVisit( logEntry );
-            
-
-        } //
-
-        /// <summary>
-        /// Log a page visit. Output is to a file.
-        /// </summary>
-        /// <param name="message"></param>
-        private static void LogPageVisit( string message )
-        {
-
-            string msg = "";
-            string outputPath = "";
-			string logFileAppKey = "path.trace.log"; //"path.visitor.log"
-            try
-            {
-				msg = "**** Visitor.log: " + message;
-
-                string datePrefix = System.DateTime.Today.ToString( "u" ).Substring( 0, 10 );
-
-				string logFile = UtilityManager.GetAppKeyValue( logFileAppKey, "C:\\VOS_LOGS.txt" );
-
-                string outputFile = logFile.Replace( "[date]", datePrefix );
-
-                outputPath = outputFile;
-
-                StreamWriter file = File.AppendText( outputPath );
-                file.WriteLine( msg );
-                file.Close();
-
-            }
-            catch ( Exception ex )
-            {
-                //ignore errors
-                LogError( "UtilityManager.LogPageVisit: " + ex.ToString(), false );
-            }
-
-        } //
-        private static string GetServerPath( string fileName )
-        {
-            System.Web.HttpApplication swh = new System.Web.HttpApplication();
-            return swh.Server.MapPath( fileName );
-
-        } //
-
-        /// <summary>
-        /// for use only by LogPageVisit to get the current zip, if present
-        /// </summary>
-        /// <returns></returns>
-        private static string GetDefaultZipcode()
-        {
-            string zipCode = "";
-
-            //Get ZipCode from the Querystring/Session/User profile, wherever occurs first
-            if ( FormHelper.GetRequestKeyValue( "zipcode", 0 ) > 0 )
-            {
-                zipCode = HttpContext.Current.Request.QueryString[ "zipcode" ];
-
-            }
-            else if ( HttpContext.Current.Session[ "zipcode" ] != null )
-            {
-                zipCode = ( string ) HttpContext.Current.Session[ "zipcode" ];
-
-            }
-
-            if ( zipCode.Length > 5 ) zipCode = zipCode.Substring( 0, 5 );
-            if ( !UtilityManager.IsInteger( zipCode ) ) zipCode = "";
-
-            return zipCode;
-
-        } //
         #endregion
     }
 }
+;

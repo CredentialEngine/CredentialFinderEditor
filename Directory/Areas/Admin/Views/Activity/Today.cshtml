@@ -24,7 +24,7 @@
         $(document).ready(function () {
             var myGrid = $('#jqGrid');
             myGrid.jqGrid({
-                url: '/Admin/Activity/ActivityToday/',
+                url: '@Url.Content( "~/Admin/Activity/ActivityToday/" )',
                 datatype: "json",
                 contentType: "application/json; charset-utf-8",
                 mtype: 'GET',
@@ -42,7 +42,7 @@
                         formatter: 'showlink', //predefined formatter to display hyperlink
                         formatoptions: { baseLinkUrl: '' }
                     }
-                   
+
                 ],
                 autowidth: true,
                 height: 550,
@@ -55,7 +55,7 @@
                 pagerpos: 'center'
             });
             $("#jqGrid").jqGrid('filterToolbar', { searchOperators: true });
- 
+
         });
 
 

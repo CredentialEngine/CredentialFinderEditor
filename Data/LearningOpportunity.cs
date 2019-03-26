@@ -47,6 +47,8 @@ namespace Data
         public string DeliveryTypeDescription { get; set; }
         public string VerificationMethodDescription { get; set; }
         public Nullable<int> InLanguageId { get; set; }
+        public string VersionIdentifier { get; set; }
+        public string ExternalIdentifier { get; set; }
     
         public virtual ICollection<Entity_LearningOpportunity> Entity_LearningOpportunity { get; set; }
         public virtual Organization Organization { get; set; }

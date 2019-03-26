@@ -201,8 +201,8 @@ namespace Models.Json
 		[DataMember( Name = "ceterms:employmentOutcome" )]
 		public List<EmploymentOutcomeProfile> employmentOutcome { get; set; }
 
-		[DataMember( Name = "ceterms:holders" )]
-		public List<HoldersProfile> holders { get; set; }
+		//[DataMember( Name = "ceterms:holders" )]
+		//public List<HoldersProfile> holders { get; set; }
 
 		//Temporary
 		[DataMember(Name = "ceterms:industryCategory_Flat")]

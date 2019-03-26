@@ -53,6 +53,7 @@ namespace Data
         public Nullable<bool> FeatureLearningOpportunities { get; set; }
         public Nullable<bool> FeatureAssessments { get; set; }
         public Nullable<int> InLanguageId { get; set; }
+        public string ExternalIdentifier { get; set; }
     
         public virtual Codes_Status Codes_Status { get; set; }
         public virtual Organization Organization { get; set; }

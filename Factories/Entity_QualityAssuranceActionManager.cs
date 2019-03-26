@@ -10,7 +10,7 @@ using Models.ProfileModels;
 using EM = Data;
 using Views = Data.Views;
 using Utilities;
-using DBentity = Data.Entity_QA_Action;
+using DBEntity = Data.Entity_QA_Action;
 using ThisEntity = Models.ProfileModels.QualityAssuranceActionProfile;
 using ViewContext = Data.Views.CTIEntities1;
 
@@ -38,13 +38,13 @@ namespace Factories
 			}
 
 			//the parent needs to be established by using isParentActor
-			Views.Entity_Summary parent = EntityManager.GetDBEntity( profile.ParentUid );
+			EntitySummary parent = EntityManager.GetSummary( profile.ParentUid );
 			using ( var context = new EM.CTIEntities() )
 			{
 
 				if ( profile.Id > 0 )
 				{
-					DBentity dbEntity = context.Entity_QA_Action.FirstOrDefault( s => s.Id == profile.Id );
+					DBEntity dbEntity = context.Entity_QA_Action.FirstOrDefault( s => s.Id == profile.Id );
 					if ( dbEntity != null && dbEntity.Id > 0 )
 					{
 						//should not be able to change the profile/parentId
@@ -100,7 +100,7 @@ namespace Factories
 			
 			using ( var context = new EM.CTIEntities() )
 			{
-				DBentity dbEntity = new DBentity();
+				DBEntity dbEntity = new DBEntity();
 				MapFrom( profile, dbEntity );
 
 				dbEntity.EntityId = profile.ParentId;
@@ -152,7 +152,7 @@ namespace Factories
 
 			using ( var context = new EM.CTIEntities() )
 			{
-				DBentity efEntity =
+				DBEntity efEntity =
 	context.Entity_QA_Action.SingleOrDefault( s => s.Id == recordId );
 				if ( efEntity != null && efEntity.Id > 0 )
 				{
@@ -212,7 +212,7 @@ namespace Factories
 				if ( org == null || org.Name.Length == 0 )
 				{
 					messages.Add( "Error: the selected agent was not found!" );
-					LoggingHelper.DoTrace( 5, thisClassname + string.Format( ".ValidateProfile the agent was not found, for entityId: {0}, AgentId:{1}, RoleId: {2}", item.ParentId, item.ActingAgentId, item.RoleTypeId ) );
+					LoggingHelper.DoTrace( 6, thisClassname + string.Format( ".ValidateProfile the agent was not found, for entityId: {0}, AgentId:{1}, RoleId: {2}", item.ParentId, item.ActingAgentId, item.RoleTypeId ) );
 					return false;
 				}
 			}
@@ -317,7 +317,7 @@ namespace Factories
 			QualityAssuranceActionProfile item = new QualityAssuranceActionProfile();
 			using ( var context = new EM.CTIEntities() )
 			{
-				DBentity entity = context.Entity_QA_Action.FirstOrDefault( s => s.EntityId == entityId
+				DBEntity entity = context.Entity_QA_Action.FirstOrDefault( s => s.EntityId == entityId
 						&& s.AgentUid == agentUid
 						&& s.RelationshipTypeId == roleId
 						);
@@ -333,7 +333,7 @@ namespace Factories
 			}
 		}
 
-		public static void MapFrom( ThisEntity from, DBentity to )
+		public static void MapFrom( ThisEntity from, DBEntity to )
 		{
 
 			//want to ensure fields from create are not wiped
@@ -484,7 +484,7 @@ namespace Factories
 		//			}
 		//			else if ( qaRoleState == 2 )
 		//			{
-		//				//this is state is for showing org roles for a credential.
+		//				//this is state is for showning org roles for a credential.
 		//				//16-06-01 mp - for now show qa and no qa, just skip agent to agent which for now is dept and Subsidiary
 		//				if ( entityType.ToLower() == "credential" )
 		//					Query = Query.Where( p => p.IsEntityToAgentRole == true );

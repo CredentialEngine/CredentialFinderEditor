@@ -1,5 +1,5 @@
 ﻿@{
-    ViewBag.Title = "WorkIT Activity Search";
+    ViewBag.Title = "Publisher Activity Search";
 }
 
 <link href="https://code.jquery.com/ui/1.12.0-rc.2/themes/smoothness/jquery-ui.css" rel="stylesheet" />
@@ -9,10 +9,11 @@
     #jqGridPager{height: 45px;}
     .ui-jqgrid .ui-pg-input { height:20px;}
 
+    .ui-jqgrid .ui-jqgrid-bdiv {width: 100%}
 </style>
-<h1>WorkIT Activity Search</h1>
+<h1>Activity Search</h1>
 <br />
-<div style="width:90%">
+<div style="width:95%">
     <table id="jqGrid" align="center"></table>
     <div id="jqGridPager"></div>
     <br />
@@ -47,34 +48,42 @@
 
             var myGrid = $('#jqGrid');
             myGrid.jqGrid({
-                url: '/Admin/Activity/GetActivity/',
+                url: '@Url.Content( "~/Admin/Activity/GetActivity/")',
                 datatype: "json",
                 contentType: "application/json; charset-utf-8",
                 mtype: 'GET',
-                colNames: ['Id', 'Created', 'Activity', 'Event', 'Comment', 'Action By User', 'Activity ObjectId', 'Referrer'],
+                colNames: ['Id', 'Created', 'ActivityType', 'Activity', 'Event', 'Comment', 'Action By User', 'Activity ObjectId', 'ParentObject','Referrer'],
                 colModel: [
-                    { name: 'Id', key: true, width: 75, searchtype: "integer"
-                        , searchoptions: { sopt: ['le', 'gt'] } 
+                    { name: 'Id', key: true, width: 30, searchtype: "integer"
+                        , searchoptions: { sopt: ['le', 'gt'] }
                     },
                     {
-                        name: 'DisplayDate', key: true, width: 75, searchoptions: { sopt: ['eq', 'lt', 'gt'] }
+                        name: 'DisplayDate', key: true, width: 50, searchoptions: { sopt: ['eq', 'lt', 'gt'] }
                     },
-                    { name: 'Activity', key: true, width: 75
+                    {
+                        name: 'ActivityType', key: true, width: 50
                         , searchoptions: { sopt: ['eq', 'bw', 'bn', 'cn', 'nc', 'ew', 'en'] }
                     },
-                    { name: 'Event', key: true, width: 75
-                        , searchoptions: { sopt: ['eq', 'bw', 'bn', 'cn', 'nc', 'ew', 'en'] } 
+                    { name: 'Activity', key: true, width: 50
+                        , searchoptions: { sopt: ['eq', 'bw', 'bn', 'cn', 'nc', 'ew', 'en'] }
+                    },
+                    { name: 'Event', key: true, width: 90
+                        , searchoptions: { sopt: ['eq', 'bw', 'bn', 'cn', 'nc', 'ew', 'en'] }
                     },
                     { name: 'Comment', key: true, width: 200
-                        , searchoptions: { sopt: ['eq', 'bw', 'bn', 'cn', 'nc', 'ew', 'en'] } 
+                        , searchoptions: { sopt: ['bw', 'bn', 'cn', 'nc', 'ew', 'en'] }
                     },
                     {
-                        name: 'ActionByUser', key: true, width: 100
-                    , searchoptions: { sopt: ['cn'] }
+                        name: 'ActionByUser', key: true, width: 75
+                    , searchoptions: { sopt: ['eq','cn'] }
                     },
                     {
                         name: 'ActivityObjectId', key: true, width: 100
                     , searchoptions: { sopt: ['eq', 'le', 'ge'] }
+                    },
+                    {
+                        name: 'ParentObject', key: true, width: 100
+                    , searchoptions: { sopt: ['eq', 'cn'] }
                     },
                     {
                         name: 'Referrer',
@@ -196,9 +205,9 @@
             }
 
             /*
-             * 
+             *
              * FORCE DOWNLOAD
-             * 
+             *
              */
 
 

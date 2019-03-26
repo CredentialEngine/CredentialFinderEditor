@@ -15,12 +15,12 @@
         <EntityTypeShape EntityType="CTI_Views.Entity_Summary" Width="2.625" PointX="8.75" PointY="0.5" FillColor="192, 0, 192" />
         <EntityTypeShape EntityType="CTI_Views.Assessment_Summary" Width="2.5" PointX="18.5" PointY="3.625" />
         <EntityTypeShape EntityType="CTI_Views.CodesProperty_Summary" Width="2.125" PointX="16.875" PointY="9.125" />
-        <EntityTypeShape EntityType="CTI_Views.EntityProperty_Summary" Width="2.5" PointX="8.625" PointY="5.25" FillColor="192, 0, 192" />
+        <EntityTypeShape EntityType="CTI_Views.EntityProperty_Summary" Width="2.5" PointX="6.125" PointY="5" FillColor="192, 0, 192" />
         <EntityTypeShape EntityType="CTI_Views.LearningOpportunity_Summary" Width="2.125" PointX="3.125" PointY="19.5" />
         <EntityTypeShape EntityType="CTI_Views.Organization_Summary" Width="2.25" PointX="5.75" PointY="25.125" />
         <EntityTypeShape EntityType="CTI_Views.Entity_LearningOpportunity_IsPartOfSummary" Width="1.5" PointX="8.125" PointY="9.875" FillColor="192, 0, 192" />
         <EntityTypeShape EntityType="CTI_Views.Entity_LearningOpportunity_Summary" Width="1.5" PointX="19.75" PointY="14.375" FillColor="192, 0, 192" />
-        <EntityTypeShape EntityType="CTI_Views.Entity_PropertyOtherSummary" Width="1.5" PointX="11.5" PointY="0.625" FillColor="192, 0, 192" />
+        <EntityTypeShape EntityType="CTI_Views.Entity_PropertyOtherSummary" Width="1.5" PointX="12.75" PointY="0.5" FillColor="192, 0, 192" />
         <EntityTypeShape EntityType="CTI_Views.Entity_ReferenceUrls_Summary" Width="3.375" PointX="10.125" PointY="10.5" FillColor="192, 0, 192" />
         <EntityTypeShape EntityType="CTI_Views.Naics_Select2DigitCodes" Width="2" PointX="16.75" PointY="13.75" />
         <EntityTypeShape EntityType="CTI_Views.Naics_Select6DigitCodes" Width="1.5" PointX="16.75" PointY="16.75" />
@@ -36,7 +36,7 @@
         <EntityTypeShape EntityType="CTI_Views.Activity_MetadataRegistrySummary" Width="2.625" PointX="5.5" PointY="20.5" />
         <EntityTypeShape EntityType="CTI_Views.ConditionProfile_ParentSummary" Width="2.375" PointX="11.25" PointY="21.5" />
         <EntityTypeShape EntityType="CTI_Views.Entity_Subjects" Width="2.25" PointX="14.25" PointY="19.25" />
-        <EntityTypeShape EntityType="CTI_Views.Activity_Summary" Width="1.5" PointX="21.375" PointY="18.75" />
+        <EntityTypeShape EntityType="CTI_Views.Activity_Summary" Width="2.5" PointX="21" PointY="18.75" />
         <EntityTypeShape EntityType="CTI_Views.Activity_Today_Summary" Width="2.375" PointX="22.375" PointY="0.75" />
         <EntityTypeShape EntityType="CTI_Views.Credential_Assets" Width="2.375" PointX="22.875" PointY="9.875" FillColor="Teal" />
         <EntityTypeShape EntityType="CTI_Views.CostProfile_SummaryForSearch" Width="2.5" PointX="23.375" PointY="13.75" />
@@ -49,6 +49,15 @@
         <EntityTypeShape EntityType="CTI_Views.Entity_FrameworkOccupationGroupSummary" Width="3.25" PointX="21" PointY="27.5" FillColor="Yellow" />
         <EntityTypeShape EntityType="CTI_Views.Entity_FrameworkCIPCodeSummary" Width="2.75" PointX="17.75" PointY="24.5" FillColor="Yellow" />
         <EntityTypeShape EntityType="CTI_Views.Entity_FrameworkIndustryCodeSummary" Width="2.75" PointX="21.625" PointY="24.5" FillColor="Yellow" />
+        <EntityTypeShape EntityType="CTI_Views.Entity_AssertionCSV" Width="1.5" PointX="25.375" PointY="21.75" />
+        <EntityTypeShape EntityType="CTI_Views.Entity_Assertion_Summary" Width="1.5" PointX="26.375" PointY="0.75" />
+        <EntityTypeShape EntityType="CTI_Views.Entity_Competencies_ForExport" Width="1.5" PointX="26.375" PointY="8.75" />
+        <EntityTypeShape EntityType="CTI_Views.Entity_Competencies_Summary" Width="1.5" PointX="25.375" PointY="26.75" />
+        <EntityTypeShape EntityType="CTI_Views.Entity_FrameworkItems_Totals" Width="1.5" PointX="27.375" PointY="16.75" />
+        <EntityTypeShape EntityType="CTI_Views.Entity_Relationship_ToOrgSummary" Width="1.5" PointX="17.375" PointY="27.75" />
+        <EntityTypeShape EntityType="CTI_Views.Organization_CombinedQAPerformed" Width="1.5" PointX="27.375" PointY="19.75" />
+        <EntityTypeShape EntityType="CTI_Views.OrganizationOwnsEtcRolesSummary" Width="1.5" PointX="27.375" PointY="26.75" />
+        <EntityTypeShape EntityType="CTI_Views.Entity_ConditionProfileCompetencies_Summary" Width="1.5" PointX="28.375" PointY="0.75" />
       </Diagram>
     </edmx:Diagrams>
   </edmx:Designer>

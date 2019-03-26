@@ -61,6 +61,7 @@ namespace Data
         public string ScoringMethodExampleDescription { get; set; }
         public Nullable<int> InLanguageId { get; set; }
         public string VersionIdentifier { get; set; }
+        public string ExternalIdentifier { get; set; }
     
         public virtual Organization Organization { get; set; }
         public virtual ICollection<Entity_Assessment> Entity_Assessment { get; set; }

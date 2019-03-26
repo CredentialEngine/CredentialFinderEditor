@@ -10,7 +10,7 @@ using MC = Models.Common;
 using MN = Models.Node;
 using Models.Node.Interface;
 using Models.Search;
-
+using CassCompetency = Models.Helpers.Cass.CassCompetencyV2;
 
 
 namespace CTI.Directory.Controllers
@@ -18,8 +18,8 @@ namespace CTI.Directory.Controllers
 	public class EditorController : BaseController
 	{
 		bool valid = true;
-		AppUser user = new AppUser();
-		string status = "";
+        AppUser user = AccountServices.GetCurrentUser();
+        string status = "";
 
 		//Testing
 		public ActionResult V3()
@@ -29,7 +29,7 @@ namespace CTI.Directory.Controllers
 		//End Testing
 
 		//Create or edit a Credential
-		[Authorize]
+		//[Authorize]
 		public ActionResult Credential( int id = 0 )
 		{
 			return LoadEditor( typeof( MN.Credential ), id, EditorSettings.EditorType.CREDENTIAL );
@@ -37,26 +37,42 @@ namespace CTI.Directory.Controllers
 		//
 
 		//Create or edit an Organization
-		[Authorize]
+		//[Authorize]
 		public ActionResult Organization( int id = 0 )
 		{
+            if (id == 0 && user != null && user.Organizations != null && user.Organizations.Count > 0)
+            {
+                //do a get my org
+                id = user.Organizations[ 0 ].Id;
+            }
+            if (id == -99)
+                id = 0;
 			return LoadEditor( typeof( MN.Organization ), id, EditorSettings.EditorType.ORGANIZATION );
 		}
-		//
-		/// <summary>
-		/// Create or edit a QA Organization 
-		/// - not sure if need a unique profile class??
-		/// </summary>
-		/// <param name="id"></param>
-		/// <returns></returns>
-		[Authorize]
+
+        [Authorize]
+        public ActionResult OrganizationByCtid( string ctid = "")
+        {
+            MC.Organization org = OrganizationServices.GetByCtid( ctid );
+            //return RedirectToAction( "Organization", "Editor" );
+            return RedirectToAction( "Organization", "Editor", new { id = org.Id } );
+            //return LoadEditor( typeof( MN.Organization ), org.Id, EditorSettings.EditorType.ORGANIZATION );
+        }
+        //
+        /// <summary>
+        /// Create or edit a QA Organization 
+        /// - not sure if need a unique profile class??
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        //[Authorize]
 		public ActionResult QAOrganization( int id = 0 )
 		{
 			return LoadEditor( typeof( MN.QAOrganization ), id, EditorSettings.EditorType.QA_ORGANIZATION );
 		}
 		//
 		//Create or edit an Assessment
-		[Authorize]
+		//[Authorize]
 		public ActionResult Assessment( int id = 0 )
 		{
 			return LoadEditor( typeof( MN.Assessment ), id, EditorSettings.EditorType.ASSESSMENT );
@@ -64,7 +80,7 @@ namespace CTI.Directory.Controllers
 		//
 
 		//Create or edit a Learning Opportunity
-		[Authorize]
+		//[Authorize]
 		public ActionResult LearningOpportunity( int id = 0 )
 		{
 			return LoadEditor( typeof( MN.LearningOpportunity ), id, EditorSettings.EditorType.LEARNINGOPPORTUNITY );
@@ -74,6 +90,12 @@ namespace CTI.Directory.Controllers
 		//Standardized way of loading an editor
 		private ActionResult LoadEditor( Type profileType, int profileID, EditorSettings.EditorType editorType )
 		{
+			if (!AccountServices.IsUserAuthenticated())
+			{
+				string nextUrl = string.Format( "/editor/{0}/{1}", editorType.ToString().ToLower(), profileID );
+				return RedirectToAction( "CE_LoginRedirect", "Account", new { nextUrl = nextUrl } );
+			}
+
 			if ( !AuthorizationCheck( editorType, profileID ) )
 			{
 				return RedirectToAction( "Index", "Message" );
@@ -129,9 +151,15 @@ namespace CTI.Directory.Controllers
 
 			if ( data.Id == 0 && profileID > 0 )
 			{
-				SetPopupErrorMessage(string.Format("ERROR - the requested {0} record was not found ", editorType));
+				SetPopupErrorMessage(string.Format("ERROR - the requested {0} record was not found. " + status, editorType));
 				return RedirectToAction( "Index", "Home" );
 			}
+			//if ( data.IsReferenceVersion )
+			//{
+			//	Session[ "siteMessage" ] = "The selected record is a Reference only, there is no detail to display";
+			//	return RedirectToAction( "Index", "Message" );
+			//}
+
 			var settings = new EditorSettings()
 			{
 				MainProfile = new MN.ProfileLink()
@@ -144,22 +172,13 @@ namespace CTI.Directory.Controllers
 				Editor = editorType,
 				Data = data
 			};
+
 			settings.UserOrganizations = OrganizationServices.OrganizationMember_OrgsAsCodeItems( user.Id );
 			settings.ParentRequestType = Request.Params[ "prt" ];
 			settings.LastProfileType = Request.Params[ "lastProfileType" ];
 			settings.LastProfileRowId = Request.Params[ "lastProfileRowId" ];
 
 
-			if ( Request.Params[ "v1" ] == "true" )
-			{
-				
-				return View( "~/Views/Editor/Editor.cshtml", settings );
-			}
-			else if ( Request.Params[ "v2" ] == "true" )
-			{
-
-				return View( "~/Views/Editor/EditorV2.cshtml", settings );
-			}
 			return View( "~/Views/Editor/EditorV2.cshtml", settings );
 		}
 		//
@@ -247,28 +266,29 @@ namespace CTI.Directory.Controllers
 			{
 				return JsonHelper.GetJsonWithWrapper( null, false, status, null );
 			}
-			
-			//Cast the clientProfile based on the provided context
-			var data = JsonConvert.DeserializeObject( profile, context.Profile.Type, new JsonSerializerSettings() { NullValueHandling = NullValueHandling.Ignore } );
 
-			//Add or update the data
 			MN.BaseProfile result = new MN.BaseProfile();
-			//if ( Request.Params[ "V2" ] == "true" )
-			if ( Request.UrlReferrer.ToString().IndexOf("VXXX=true") > 10)
+			//Cast the clientProfile based on the provided context
+			try
 			{
-				//indicate new version. Added property to BaseProfile, but don't want to inject into data at this time
-				result = EditorServices.SaveProfile( context, ( MN.BaseProfile ) data, ref valid, ref status, true );
-			}
-			else
-			{
+				var data = JsonConvert.DeserializeObject( profile, context.Profile.Type, new JsonSerializerSettings() { NullValueHandling = NullValueHandling.Ignore } );
+
+				//Add or update the data
 				result = EditorServices.SaveProfile( context, ( MN.BaseProfile ) data, ref valid, ref status, false );
+
+				//Return the result
+				if ( result == null )
+					valid = false;
+			} catch (Exception ex)
+			{
+				status = ex.Message;
+				//status = ServiceHelper.FormatExceptions( ex );
+				if ( status.IndexOf( ", line " ) > 0 )
+					status = status.Substring( 0, status.IndexOf( ", line " ) );
+				valid = false;
 			}
 			
-			
-			//Return the result
-			if ( result == null )
-				valid = false;
-			
+	
 			if ( valid  )
 			{
 				if ( context.Main.TypeName == "Credential" && result.Id == 0 )
@@ -296,6 +316,9 @@ namespace CTI.Directory.Controllers
 			//Return the result
 			return JsonHelper.GetJsonWithWrapper( null, valid, status, null );
 		}
+		#endregion
+
+		#region registry
 		//
 		/// <summary>
 		/// Register/update an object in the registry
@@ -330,7 +353,6 @@ namespace CTI.Directory.Controllers
 				return JsonHelper.GetJsonWithWrapper( null, false, status, null );
 			}
 
-			//publish to the registry
 			EditorServices.UnregisterEntity( context, ref valid, ref status );
 
 			//Return the result
@@ -338,6 +360,49 @@ namespace CTI.Directory.Controllers
 		}
 		#endregion
 
+		#region Approvals
+		//
+		/// <summary>
+		/// Approve an entity 
+        /// - where is this called from - for now default to send email. 
+        /// A: called from detail, so OK to send email
+		/// </summary>
+		/// <param name="context"></param>
+		/// <returns></returns>
+		public JsonResult Approve( ProfileContext context )
+		{
+			//Check permission
+			if ( AccountServices.AuthorizationCheck( "publish", true, ref status, ref user ) == false )
+			{
+				return JsonHelper.GetJsonWithWrapper( null, false, status, null );
+			}
+            bool isPublished = false;
+			EditorServices.ApproveEntity( context, ref valid, ref isPublished, ref status, true );
+
+			//Return the result
+			//return JsonHelper.GetJsonWithWrapper( null, valid, status, null );
+            return JsonResponse( null, valid, status, new { IsApproved = valid, IsPublished = isPublished, StatusMessages = new List<string>() } );
+        }
+
+		/// <summary>
+		/// Un-Approve an entity
+		/// </summary>
+		/// <param name="context"></param>
+		/// <returns></returns>
+		public JsonResult UnApprove( ProfileContext context )
+		{
+			//Check permission
+			if ( AccountServices.AuthorizationCheck( "publish", true, ref status, ref user ) == false )
+			{
+				return JsonHelper.GetJsonWithWrapper( null, false, status, null );
+			}
+
+			EditorServices.UnApproveEntity( context, ref valid, ref status );
+
+			//Return the result
+			return JsonHelper.GetJsonWithWrapper( null, valid, status, null );
+		}
+		#endregion
 		#region MicroSearchV2 methods
 
 		//Get existing/saved MicroSearch results for initial display
@@ -385,20 +450,18 @@ namespace CTI.Directory.Controllers
 		}
 		//
 
-		//Create a Starter Profile
-		public JsonResult SaveStarterProfile( ProfileContext context, MN.StarterProfile profile, bool allowMultiple )
+		//Create an organization reference
+		public JsonResult SaveOrgReferenceProfile( ProfileContext context, MN.OrgReference profile, bool allowMultiple )
 		{
-			//TODO - remove after implementation of editor2, or chg to default to true
-			bool isNewVersion = false;
-			if ( Request.UrlReferrer.ToString().IndexOf( "V2=true" ) > 10 )
-				isNewVersion = true;
 
 			context.Profile.TypeName = profile.ProfileType;
+            //set org references as QA
+            //may want to force the TypeName to QAOrganization
+            profile.IsAQAOrganization = true;
 			var data = EditorServices.SaveProfile( context,
 				( MN.BaseProfile ) profile, 
 				ref valid, 
-				ref status,
-				isNewVersion );
+				ref status, true );
 
 			MN.MicroProfile result = null;
 			if ( valid )
@@ -416,24 +479,56 @@ namespace CTI.Directory.Controllers
 				result = new MicroSearchServicesV2().SaveMicroProfile( context, selectors, profile.SearchType, context.Profile.Property, allowMultiple, ref valid, ref status );
 			}
 			
+			return JsonHelper.GetJsonWithWrapper( result, valid, status, null );
+		}
+
+		//Create a Starter Profile
+		public JsonResult SaveStarterProfile( ProfileContext context, MN.StarterProfile profile, bool allowMultiple )
+		{
+
+			context.Profile.TypeName = profile.ProfileType;
+			var data = EditorServices.SaveProfile( context,
+				( MN.BaseProfile ) profile,
+				ref valid,
+				ref status, 
+				true ); //is reference
+
+			MN.MicroProfile result = null;
+			if ( valid && data != null)
+			{
+				//Update the context to work with the MicroSearch methods
+				var selectors = new Dictionary<string, object>()
+				{
+					{ "Id", data.Id },
+					{ "Name", data.Name },
+					{ "RowId", data.RowId.ToString() },
+					{ "TypeName", profile.ProfileType }
+				};
+				//why is the profile set to the parent? - may be for use of the search type. for an start asmt, they are the same ProfileLink
+				context.Profile = context.Parent;
+                //HMMM - this is being called from QA performed add reference, and shouldn't. Just want to return the 
+				result = new MicroSearchServicesV2().SaveMicroProfile( context, selectors, profile.SearchType, context.Profile.Property, allowMultiple, ref valid, ref status );
+			} else
+			{
+				if ( string.IsNullOrWhiteSpace( status ) )
+					status = "Error encountered. Sorry the system was remiss in providing adequate details as to what failed!";
+			}
+
 
 			return JsonHelper.GetJsonWithWrapper( result, valid, status, null );
 		}
 		//
-		//Create a Starter Profile
+		//Copy a cost Profile
 		public JsonResult CopyCostProfile( ProfileContext context, MN.StarterProfile profile, bool allowMultiple )
 		{
-			//TODO - remove after implementation of editor2, or chg to default to true
-			bool isNewVersion = false;
-			if ( Request.UrlReferrer.ToString().IndexOf( "V2=true" ) > 10 )
-				isNewVersion = true;
+			
 
 			context.Profile.TypeName = profile.ProfileType;
 			var data = EditorServices.SaveProfile( context,
 				( MN.BaseProfile ) profile,
 				ref valid,
 				ref status,
-				isNewVersion );
+				false );
 
 			MN.MicroProfile result = null;
 			if ( valid )
@@ -492,7 +587,13 @@ namespace CTI.Directory.Controllers
 			//17-02-08 mparsons - if we know this was from a new 
 			//context.Profile.RowId will contain the credentialRowId
 			result = new MicroSearchServicesV2().SaveMicroProfile( context, selectors, profile.SearchType, context.Profile.Property, allowMultiple, ref valid, ref status );
-
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                //if not a success message, force display
+                //valid = false;
+                status = "Successful with warning: " + status;
+                ConsoleMessageHelper.SetConsoleInfoMessage( status );
+            }
 
 			return JsonHelper.GetJsonWithWrapper( result, valid, status, null );
 		}
@@ -503,6 +604,7 @@ namespace CTI.Directory.Controllers
 
 		/// <summary>
 		/// May have separate end points for competencies and frameworks, or determine if can be handled in one?
+		/// called from editor, where invoked from cass.saveSelectedCompetencies
 		/// </summary>
 		/// <param name="data"></param>
 		/// <returns></returns>
@@ -518,11 +620,27 @@ namespace CTI.Directory.Controllers
 
 			var result = CompetencyServices.SaveCassCompetencyList( data, ref valid, ref status );
 
-			return JsonHelper.GetJsonWithWrapper( null, true, "", null );
+			return JsonHelper.GetJsonWithWrapper( result, valid, status, null );
 		}
 		//
 		
+		public JsonResult LoadCassCompetencyList( MN.Interface.ProfileContext context )
+		{
+			//TODO: populate this
+			var result = new List<CassCompetency>();
+            //assuming context.Profile.RowId
+            result = CompetencyServices.CassCompetency_GetAll( context.Profile.RowId );
 
+            return JsonHelper.GetJsonWithWrapper( result, true, "", null );
+		}
+		//
+
+		public JsonResult RemoveCassCompetencyFromList( int associationID )
+		{
+			bool isValid = CompetencyServices.RemoveCassCompetency( associationID, ref status );
+			return JsonHelper.GetJsonWithWrapper( null, isValid, status, null );
+		}
+		//
 		#endregion
 
 		#region elastic loaders 
@@ -532,8 +650,7 @@ namespace CTI.Directory.Controllers
 		//public ActionResult LoadCredentials( int maxRecords = 50 )
 		//{
 		//	if ( !User.Identity.IsAuthenticated
-		//		|| ( User.Identity.Name != "mparsons@illinoisworknet.com"
-		//		&& User.Identity.Name != "mparsons" ) )
+		//		|| ( User.Identity.Name != "mparsons" ) )
 		//	{
 		//		ConsoleMessageHelper.SetConsoleInfoMessage( "ERROR - NOT AUTHORIZED for that action. ", "", false );
 		//		return RedirectToAction( "Index", "Home" );
@@ -549,26 +666,22 @@ namespace CTI.Directory.Controllers
 		//	return View( "~/Views/V2/Account/ConfirmEmail.cshtml" );
 		//}
 
-		//[Authorize( Roles = "Administrator" )]
-		//public ActionResult LoadOrganizations( int maxRecords = 50 )
-		//{
-		//	if ( !User.Identity.IsAuthenticated
-		//		|| ( User.Identity.Name != "mparsons@illinoisworknet.com"
-		//		&& User.Identity.Name != "mparsons" ) )
-		//	{
-		//		ConsoleMessageHelper.SetConsoleInfoMessage( "ERROR - NOT AUTHORIZED for that action. ", "", false );
-		//		return RedirectToAction( "Index", "Home" );
-		//	}
 
-		//	ElasticIndexService eis = new ElasticIndexService();
-		//	eis.CreateIndex();
-		//	eis.LoadAllOrganizations( ref  status );
+		#endregion
 
-		//	ConsoleMessageHelper.SetConsoleInfoMessage( status );
-		//	//anything will do
-		//	//return View( "ConfirmEmail" );
-		//	return View( "~/Views/V2/Account/ConfirmEmail.cshtml" );
-		//}
+		#region Experimental
+
+		public ActionResult EditorV4( string type )
+		{
+			switch ( type )
+			{
+				case "credential":
+					return View( "~/views/editorv4/editorv4.cshtml", new Models.EditorModels.CredentialEditorList() );
+				default:
+					return new ContentResult() { Content = "Error Determining Editor Type" };
+			}
+		}
+
 		#endregion
 	}
 }

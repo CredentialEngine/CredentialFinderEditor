@@ -10,7 +10,7 @@ using Models.Common;
 using Models.ProfileModels;
 using EM = Data;
 using Utilities;
-using DBentity = Data.Entity_Assessment;
+using DBEntity = Data.Entity_Assessment;
 using ThisEntity = Models.ProfileModels.Entity_Assessment;
 
 using Views = Data.Views;
@@ -20,7 +20,19 @@ namespace Factories
 {
 	public class Entity_AssessmentManager : BaseFactory
 	{
-		static string thisClassName = "Entity_AssessmentManager";
+        /// <summary>
+        /// if true, return an error message if the assessment is already associated with the parent
+        /// </summary>
+        private bool ReturningErrorOnDuplicate { get; set; }
+        public Entity_AssessmentManager ()
+        {
+            ReturningErrorOnDuplicate = false;
+        }
+        public Entity_AssessmentManager( bool returnErrorOnDuplicate )
+        {
+            ReturningErrorOnDuplicate = returnErrorOnDuplicate;
+        }
+        static string thisClassName = "Entity_AssessmentManager";
 		/// <summary>
 		/// Get all assessments for the provided entity
 		/// The returned entities are just the base
@@ -29,52 +41,61 @@ namespace Factories
 		/// <returns></returns>
 		public static List<AssessmentProfile> GetAll( Guid parentUid, 
 			bool forEditView,
-			bool isForCredentialDetails = false)
+			bool isForCredentialDetails,
+            bool forSummaryView = false)
 		{
 			List<AssessmentProfile> list = new List<AssessmentProfile>();
 			AssessmentProfile entity = new AssessmentProfile();
 			bool includingProperties = false;
 			bool includingRoles = false;
+            bool includingCosts = true;
 			if ( !forEditView )
 			{
 				includingProperties = true;
 				includingRoles = true;
 			}
+            if ( forSummaryView )
+                includingCosts = false;
 
-			Entity parent = EntityManager.GetEntity( parentUid );
-			LoggingHelper.DoTrace( 5, string.Format( "EntityAssessments_GetAll: parentUid:{0} entityId:{1}, e.EntityTypeId:{2}", parentUid, parent.Id, parent.EntityTypeId ) );
+            Entity parent = EntityManager.GetEntity( parentUid );
+			LoggingHelper.DoTrace( 7, string.Format( "EntityAssessments_GetAll: parentUid:{0} entityId:{1}, e.EntityTypeId:{2}", parentUid, parent.Id, parent.EntityTypeId ) );
 
 			try
 			{
 				using ( var context = new Data.CTIEntities() )
 				{
-					List<DBentity> results = context.Entity_Assessment
+					List<DBEntity> results = context.Entity_Assessment
 							.Where( s => s.EntityId == parent.Id )
 							.OrderBy( s => s.Assessment.Name )
 							.ToList();
 
 					if ( results != null && results.Count > 0 )
 					{
-						foreach ( DBentity item in results )
+						foreach ( DBEntity item in results )
 						{
 							entity = new AssessmentProfile();
-							if ( forEditView )
-								AssessmentManager.ToMap_Basic( item.Assessment, entity,
-								true, //includeCosts - propose to use for credential editor
+                            if ( forSummaryView )
+							{ 
+                                AssessmentManager.MapFromDB_ForSummary(item.Assessment, entity);
+								AssessmentManager.MapFromDB_Competencies( entity );
+							}
+                            else if ( forEditView || !isForCredentialDetails )
+								AssessmentManager.MapFromDB_Basic( item.Assessment, entity,
+                                includingCosts, //includeCosts - propose to use for credential editor
 								forEditView
 								);
 							else
 							{
 								//need to distinguish between on a detail page for conditions and assessment detail
 								//would usually only want basics here??
-								//17-05-26 mp- change to ToMap_Basic
-								AssessmentManager.ToMap_Basic( item.Assessment, entity,
-								true, //includingCosts-not sure
-								forEditView);
+								//17-05-26 mp- change to MapFromDB_Basic
+								AssessmentManager.MapFromDB_Basic( item.Assessment, entity,
+									true, //includingCosts-not sure -yes need for details page
+									forEditView);
 								//add competencies
-								AssessmentManager.ToMap_Competencies( entity );
+								AssessmentManager.MapFromDB_Competencies( entity );
 
-								//AssessmentManager.ToMap( item.Assessment, entity,
+								//AssessmentManager.MapFromDB( item.Assessment, entity,
 								//isForCredentialDetails, //includingProperties-not sure
 								//false, //includingRoles
 								//forEditView,
@@ -121,7 +142,7 @@ namespace Factories
 						entity.ProfileSummary = from.Assessment.Name;
 						//to.Credential = from.Credential;
 						entity.Assessment = new AssessmentProfile();
-						AssessmentManager.ToMap_Basic( from.Assessment, entity.Assessment,
+						AssessmentManager.MapFromDB_Basic( from.Assessment, entity.Assessment,
 								false, //includeCosts - propose to use for credential editor
 								false
 								);
@@ -138,9 +159,34 @@ namespace Factories
 			}
 			return entity;
 		}//
+		public static AssessmentProfile MapFromDB_FirstRecord( ICollection<EM.Entity_Assessment> results )
+		{
+			ThisEntity entity = new ThisEntity();
 
+			if ( results != null && results.Count > 0 )
+			{
+				foreach ( EM.Entity_Assessment item in results )
+				{
+					entity = new ThisEntity();
+					if ( item.Assessment != null && item.Assessment.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED )
+					{
+						entity.AssessmentId = item.AssessmentId;
+						AssessmentManager.MapFromDB_Basic( item.Assessment, entity.Assessment,
+								false, //includeCosts - propose to use for credential editor
+								false
+								);
+						return entity.Assessment;
+						break;
+					}
+				}
+			}
+
+
+			return null;
+
+		}
 		#region Entity Assessment Persistance ===================
-	
+
 		/// <summary>
 		/// Add an Entity assessment
 		/// </summary>
@@ -173,7 +219,7 @@ namespace Factories
 			}
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity efEntity = new DBentity();
+				DBEntity efEntity = new DBEntity();
 				try
 				{
 					//first check for duplicates
@@ -182,8 +228,10 @@ namespace Factories
 
 					if ( efEntity != null && efEntity.Id > 0 )
 					{
-						messages.Add( string.Format( "Error - this Assessment has already been added to this profile.", thisClassName ) );
-						return 0;
+                        if ( ReturningErrorOnDuplicate )
+						    messages.Add( string.Format( "Error - this Assessment has already been added to this profile.", thisClassName ) );
+
+						return efEntity.Id;
 					}
 
 					if ( allowMultiples == false )
@@ -200,7 +248,7 @@ namespace Factories
 							return efEntity.Id;
 						}
 					}
-					efEntity = new DBentity();
+					efEntity = new DBEntity();
 					efEntity.EntityId = parent.Id;
 					efEntity.AssessmentId = assessmentId;
 
@@ -213,7 +261,7 @@ namespace Factories
 					count = context.SaveChanges();
 					if ( count > 0 )
 					{
-						messages.Add( "Successful" );
+						//messages.Add( "Successful" );
 						id = efEntity.Id;
 						return efEntity.Id;
 					}
@@ -261,7 +309,7 @@ namespace Factories
 
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity efEntity = context.Entity_Assessment
+				DBEntity efEntity = context.Entity_Assessment
 								.SingleOrDefault( s => s.EntityId == parent.Id && s.AssessmentId == assessmentId );
 
 				if ( efEntity != null && efEntity.Id > 0 )
@@ -282,7 +330,68 @@ namespace Factories
 
 			return isValid;
 		}
-		
+		public bool DeleteAll( Guid parentUid, ref List<string> messages )
+		{
+			bool isValid = true;
+			Entity parent = EntityManager.GetEntity( parentUid );
+			if ( parent == null || parent.Id == 0 )
+			{
+				messages.Add( "Error - the parent entity was not found." );
+				return false;
+			}
+			using ( var context = new Data.CTIEntities() )
+			{
+				context.Entity_Assessment.RemoveRange( context.Entity_Assessment.Where( s => s.EntityId == parent.Id ) );
+				int count = context.SaveChanges();
+				if ( count > 0 )
+				{
+					isValid = true;
+					messages.Add( string.Format( "removed {0} related assessments.", count ) );
+				}
+			}
+			return isValid;
+
+		}
+
+		/// <summary>
+		/// Delete all records that are not in the provided list. 
+		/// This method is typically called from bulk upload, and want to remove any records not in the current list to upload.
+		/// </summary>
+		/// <param name="parentUid"></param>
+		/// <param name="list"></param>
+		/// <param name="messages"></param>
+		/// <returns></returns>
+		public bool DeleteNotInList( Guid parentUid, List<AssessmentProfile> list, ref List<string> messages )
+		{
+			bool isValid = true;
+			if ( !list.Any() )
+			{
+				return true;
+			}
+			Entity parent = EntityManager.GetEntity( parentUid );
+			if ( parent == null || parent.Id == 0 )
+			{
+				messages.Add( thisClassName + string.Format( ".DeleteNotInList() Error - the parent entity for [{0}] was not found.", parentUid ) );
+				return false;
+			}
+
+			using ( var context = new Data.CTIEntities() )
+			{
+				var existing = context.Entity_Assessment.Where( s => s.EntityId == parent.Id ).ToList();
+				var inputIds = list.Select( x => x.Id ).ToList();
+
+				//delete records which are not selected 
+				var notExisting = existing.Where( x => !inputIds.Contains( x.AssessmentId ) ).ToList();
+				foreach ( var item in notExisting )
+				{
+					context.Entity_Assessment.Remove( item );
+					context.SaveChanges();
+				}
+
+			}
+			return isValid;
+
+		}
 		#endregion
 	}
 }

@@ -29,6 +29,7 @@ namespace Data
         public Nullable<System.DateTime> Created { get; set; }
         public Nullable<int> CreatedById { get; set; }
         public System.Guid RowId { get; set; }
+        public string CTID { get; set; }
     
         public virtual Account Account { get; set; }
         public virtual EducationFramework EducationFramework { get; set; }

@@ -25,8 +25,6 @@ namespace Data.Views
         public string ActionByUser { get; set; }
         public Nullable<int> ActivityObjectId { get; set; }
         public Nullable<int> ObjectRelatedId { get; set; }
-        public string RelatedImageUrl { get; set; }
-        public string RelatedTargetUrl { get; set; }
         public Nullable<int> TargetObjectId { get; set; }
         public string SessionId { get; set; }
         public string IPAddress { get; set; }

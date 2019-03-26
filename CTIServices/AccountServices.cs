@@ -234,9 +234,8 @@ namespace CTIServices
 				)
 				return true;
 
-			bool canEditorsViewAll = UtilityManager.GetAppKeyValue( "canEditorsViewAll", false );
 			//if allowing anyone with edit for any org return true;
-			if ( canEditorsViewAll && OrganizationServices.IsMemberOfAnOrganization( user.Id ) )
+			if ( OrganizationServices.IsMemberOfAnOrganization( user.Id ) )
 				return true;
 
 			//allow once out of beta, and user is member of an org
@@ -382,7 +381,7 @@ namespace CTIServices
 		/// <param name="password">NOTE: may not be necessary as the hash in the aspNetUsers table is used?</param>
 		/// <param name="statusMessage"></param>
 		/// <returns></returns>
-		public int Create( string email, string firstName, string lastName, string userName, string userKey, string password,
+		public int Create( string email, string firstName, string lastName, string userName, string userKey, string password, string externalCEAccountIdentifier,
 				ref string statusMessage,
 				bool doingEmailConfirmation = false,
 				bool isExternalSSO = false )
@@ -402,7 +401,8 @@ namespace CTIServices
 				LastName = lastName,
 				IsActive = !doingEmailConfirmation,
 				AspNetUserId = userKey,
-				Password = encryptedPassword
+				Password = encryptedPassword,
+				CEAccountIdentifier = externalCEAccountIdentifier
 			};
 			id = new AccountManager().Add( user, ref statusMessage );
 			if ( id > 0 )
@@ -410,11 +410,11 @@ namespace CTIServices
 				//don't want to add to session, user needs to confirm
 				//AddUserToSession( HttpContext.Current.Session, user );
 
-				ActivityServices.UserRegistration( user );
+				
 				string msg = string.Format( "New user registration. <br/>Email: {0}, <br/>Name: {1}<br/>Type: {2}", email, firstName + " " + lastName, ( isExternalSSO ? "External SSO" : "Forms" ) );
-
-				EmailManager.SendSiteEmail( "New Credential Finder/WorkIT Account", msg );
-			}
+                ActivityServices.UserRegistration( user, "registration", msg );
+                //EmailManager.SendSiteEmail( "New Credential Publisher Account", msg );
+            }
 
 			return id;
 		} //
@@ -459,7 +459,7 @@ namespace CTIServices
 				ActivityServices.UserRegistration( user );
 				string msg = string.Format( "New Account. <br/>Email: {0}, <br/>Name: {1}<br/>Type: {2}", email, firstName + " " + lastName, "New Account" );
 	
-				EmailManager.SendSiteEmail( "New Credential Finder Account", msg );
+				EmailServices.SendSiteEmail( "New Credential Publisher Account", msg );
 			}
 
 			return id;
@@ -470,10 +470,10 @@ namespace CTIServices
 		/// </summary>
 		/// <param name="user"></param>
 		/// <returns></returns>
-		public bool Update( AppUser user, bool session, ref string statusMessage )
+		public bool Update( AppUser user, bool usingSession, ref string statusMessage )
 		{
 			bool successful = new AccountManager().Update( user, ref statusMessage );
-			if ( successful && session )
+			if ( successful && usingSession )
 			{
 				AddUserToSession( HttpContext.Current.Session, user );
 			}
@@ -483,6 +483,7 @@ namespace CTIServices
 
 		public bool Delete( int userId, ref string message )
 		{
+			message = "";
 			return new AccountManager().Delete( userId, ref message );
 		}
 
@@ -495,7 +496,7 @@ namespace CTIServices
 				user.IsActive = true;
 				if ( new AccountManager().Update( user, ref statusMessage ) )
 				{
-					EmailManager.SendSiteEmail( "User Activated Credential Finder Account", string.Format( "{0} activated a Credential Finder account. <br/>Email: {1}", user.FullName(), user.Email ) );
+					EmailServices.SendSiteEmail( "User Activated Credential Publisher Account", string.Format( "{0} activated a Credential Publisher account. <br/>Email: {1}", user.FullName(), user.Email ) );
 					
 					return true;
 				}
@@ -642,24 +643,38 @@ namespace CTIServices
 				string msg = string.Format( "New user registration. <br/>Email: {0}, <br/>Name: {1}<br/>PW: {2}<br/>Type: {3}", email, firstName + " " + lastName, password, "Import" );
 
 				if (UtilityManager.GetAppKeyValue( "notifyingUserOnImport", false ))
-					EmailManager.SendEmail( email, "New WorkIT Registration", msg2 );
-				else 
-					EmailManager.SendSiteEmail( "New WorkIT Registration via Import", msg2 );
+					EmailServices.SendEmail( email, "New Credential Publisher Registration", msg2 );
+				else
+					EmailServices.SendSiteEmail( "New Credential Publisher Registration via Import", msg2 );
 
 			}
 
 			return id;
 		} //
-		#endregion
+        #endregion
+        #region CE accounts integration
+        public void ImportCEOrganizationMembers( bool isNewUser = false)
+        {
+            if (isNewUser)
+                new AccountManager().ImportCEApprovedOrganizations();
+            else 
+                new AccountManager().ImportCEOrganizationMembers();
+        }
+        public void ImportApprovedCEOrganizations()
+        {
+            new AccountManager().ImportCEApprovedOrganizations();
+            
+        }
+        #endregion 
 
-		#region email methods
-		/// <summary>
-		/// Send reset password email
-		/// </summary>
-		/// <param name="subject"></param>
-		/// <param name="toEmail"></param>
-		/// <param name="url">Will be a formatted callback url</param>
-		public static void SendEmail_ResetPassword( string toEmail, string url )
+        #region email methods
+        /// <summary>
+        /// Send reset password email
+        /// </summary>
+        /// <param name="subject"></param>
+        /// <param name="toEmail"></param>
+        /// <param name="url">Will be a formatted callback url</param>
+        public static void SendEmail_ResetPassword( string toEmail, string url )
 		{
 			//should have a valid email at this point (if from identityConfig)
 			AppUser user = GetUserByEmail( toEmail );
@@ -667,10 +682,10 @@ namespace CTIServices
 			bool isSecure = false;
 			if ( UtilityManager.GetAppKeyValue( "usingSSL", false ) )
 				isSecure = true;
-			string bcc = UtilityManager.GetAppKeyValue( "systemAdminEmail", "mparsons@siuccwd.com" );
+			string bcc = UtilityManager.GetAppKeyValue( "systemAdminEmail", "" );
 
-			string fromEmail = UtilityManager.GetAppKeyValue( "contactUsMailFrom", "mparsons@siuccwd.com" );
-			string subject = "Reset Password for your Credential Finder account";
+			string fromEmail = UtilityManager.GetAppKeyValue( "contactUsMailFrom", "" );
+			string subject = "Reset Password for your Credential Publisher account";
 
 			string email = EmailManager.GetEmailText( "ForgotPassword" );
 			string eMessage = "";
@@ -681,7 +696,7 @@ namespace CTIServices
 				eMessage = string.Format( email, user.FirstName, url );
 
 
-				EmailManager.SendEmail( toEmail, fromEmail, subject, eMessage, "", bcc );
+				EmailServices.SendEmail( toEmail, fromEmail, subject, eMessage, "", bcc );
 			}
 			catch ( Exception ex )
 			{
@@ -703,10 +718,10 @@ namespace CTIServices
 
 			bool isSecure = false;
 			//string toEmail = user.Email;
-			string bcc = UtilityManager.GetAppKeyValue( "systemAdminEmail", "mparsons@siuccwd.com" );
+			string bcc = UtilityManager.GetAppKeyValue( "systemAdminEmail", "" );
 
-			string fromEmail = UtilityManager.GetAppKeyValue( "contactUsMailFrom", "mparsons@siuccwd.com" );
-			string subject = "Confirm Your Credential Finder Account";
+			string fromEmail = UtilityManager.GetAppKeyValue( "contactUsMailFrom", "email@email.com" );
+			string subject = "Confirm Your Credential Publisher Account";
 			string email = EmailManager.GetEmailText( "ConfirmAccount" );
 			string eMessage = "";
 
@@ -716,7 +731,7 @@ namespace CTIServices
 				//assign and substitute: 0-FirstName, 1-body from AccountController
 				eMessage = string.Format( email, user.FirstName, url );
 
-				EmailManager.SendEmail( toEmail, fromEmail, subject, eMessage, "", bcc );
+				EmailServices.SendEmail( toEmail, fromEmail, subject, eMessage, "", bcc );
 			}
 			catch ( Exception ex )
 			{
@@ -731,9 +746,9 @@ namespace CTIServices
 			AppUser user = GetUserByEmail( userEmail );
 			string subject = "Forgot password attempt with unconfirmed email";
 
-			string toEmail = UtilityManager.GetAppKeyValue( "systemAdminEmail", "mparsons@siuccwd.com" );
+			string toEmail = UtilityManager.GetAppKeyValue( "systemAdminEmail", "email@email.com" );
 
-			string fromEmail = UtilityManager.GetAppKeyValue( "contactUsMailFrom", "mparsons@siuccwd.com" );
+			string fromEmail = UtilityManager.GetAppKeyValue( "contactUsMailFrom", "email@email.com" );
 			//string subject = "Forgot Password";
 			string email = "User: {0} attempted Forgot Password, and email has not been confirmed.<br/>Email: {1}<br/>Created: {2}";
 			string eMessage = "";
@@ -742,7 +757,7 @@ namespace CTIServices
 			{
 				eMessage = string.Format( email, user.FullName(), user.Email, user.Created );
 
-				EmailManager.SendEmail( toEmail, fromEmail, subject, eMessage, "", "" );
+				EmailServices.SendEmail( toEmail, fromEmail, subject, eMessage, "", "" );
 			}
 			catch ( Exception ex )
 			{
@@ -791,6 +806,12 @@ namespace CTIServices
 
 			return user;
 		} //
+		public static AppUser GetUserByCEAccountId( string accountIdentifier )
+		{
+			AppUser user = AccountManager.GetUserByCEAccountId( accountIdentifier );
+
+			return user;
+		} //
 		  /// <summary>
 		  /// Get user by email, and add to the session
 		  /// </summary>
@@ -808,17 +829,30 @@ namespace CTIServices
 		/// </summary>
 		/// <param name="identityName"></param>
 		/// <returns></returns>
-		public static AppUser GetCurrentUser( string identityName = "" )
+		public static AppUser GetCurrentUser( string identityName = "", bool doingOrganizationsCheck = false )
 		{
 			AppUser user = AccountServices.GetUserFromSession();
-			if ( ( user == null || user.Id == 0 ) && !string.IsNullOrWhiteSpace( identityName ) )
+			if ( ( user == null || user.Id == 0 ) )
 			{
-				//NOTE identityName is related to the UserName
-				//TODO - need to add code to prevent dups between google register and direct register
-				user = GetUserByUserName( identityName );
-				if ( user != null && user.Id > 0 )
-					AddUserToSession( HttpContext.Current.Session, user );
-			}
+                if ( !string.IsNullOrWhiteSpace( identityName ) )
+                {
+                    //NOTE identityName is related to the UserName
+                    //TODO - need to add code to prevent dups between google register and direct register
+                    user = GetUserByUserName( identityName );
+                    if ( user != null && user.Id > 0 )
+                        AddUserToSession( HttpContext.Current.Session, user );
+                }
+			} else
+            {
+                //may need a check if org exists, because??
+                if (doingOrganizationsCheck)
+                {
+                    if (user.Organizations != null && user.Organizations.Count == 0)
+                    {
+                        //but don't want to this constantly, although would catch orgs that were added since login
+                    }
+                }
+            }
 
 			return user;
 		} //
@@ -1064,7 +1098,14 @@ namespace CTIServices
 
 		} //
 
+		public static void RemoveUserFromSession()
+		{
+			if ( HttpContext.Current.Session[ "user" ] != null )
+			{
+				HttpContext.Current.Session.Remove( "user" );
+			}
 
+		} //
 		#endregion
 		#region Proxy Code methods
 

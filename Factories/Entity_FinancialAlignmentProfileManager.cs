@@ -9,7 +9,7 @@ using CM = Models.Common;
 using Models.ProfileModels;
 using EM = Data;
 using Utilities;
-using DBentity = Data.Entity_FinancialAlignmentProfile;
+using DBEntity = Data.Entity_FinancialAlignmentProfile;
 using ThisEntity = Models.Common.FinancialAlignmentObject;
 
 namespace Factories
@@ -45,7 +45,7 @@ namespace Factories
 
 			int count = 0;
 
-			DBentity efEntity = new DBentity();
+			DBEntity efEntity = new DBEntity();
 
 			CM.Entity parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
@@ -66,8 +66,8 @@ namespace Factories
 					if ( entity.Id == 0 )
 					{
 						//add
-						efEntity = new DBentity();
-						FromMap( entity, efEntity );
+						efEntity = new DBEntity();
+						MapToDB( entity, efEntity );
 						efEntity.EntityId = parent.Id;
 						efEntity.Created = efEntity.LastUpdated = DateTime.Now;
 						efEntity.CreatedById = efEntity.LastUpdatedById = userId;
@@ -96,7 +96,7 @@ namespace Factories
 						{
 							entity.RowId = efEntity.RowId;
 							//update
-							FromMap( entity, efEntity );
+							MapToDB( entity, efEntity );
 							//has changed?
 							if ( HasStateChanged( context ) )
 							{
@@ -150,7 +150,7 @@ namespace Factories
 			{
 				try
 				{
-					DBentity efEntity = context.Entity_FinancialAlignmentProfile
+					DBEntity efEntity = context.Entity_FinancialAlignmentProfile
 								.SingleOrDefault( s => s.Id == Id );
 
 					if ( efEntity != null && efEntity.Id > 0 )
@@ -175,14 +175,8 @@ namespace Factories
 				{
 					LoggingHelper.LogError( ex, thisClassName + ".Delete()" );
 
-					if ( ex.InnerException != null && ex.InnerException.Message != null )
-					{
-						statusMessage = ex.InnerException.Message;
-
-						if ( ex.InnerException.InnerException != null && ex.InnerException.InnerException.Message != null )
-							statusMessage = ex.InnerException.InnerException.Message;
-					}
-					if ( statusMessage.ToLower().IndexOf( "the delete statement conflicted with the reference constraint" ) > -1 )
+                    statusMessage = FormatExceptions( ex );
+                    if ( statusMessage.ToLower().IndexOf( "the delete statement conflicted with the reference constraint" ) > -1 )
 					{
 						statusMessage = "Error: this Financial Alignment cannot be deleted as it is being referenced by other items, such as roles or credentials. These associations must be removed before this Financial Alignment can be deleted.";
 					}
@@ -264,12 +258,12 @@ namespace Factories
 			using ( var context = new Data.CTIEntities() )
 			{
 
-				DBentity item = context.Entity_FinancialAlignmentProfile
+				DBEntity item = context.Entity_FinancialAlignmentProfile
 						.SingleOrDefault( s => s.Id == id );
 
 				if ( item != null && item.Id > 0 )
 				{
-					ToMap( item, entity,
+					MapFromDB( item, entity,
 						true, //includingProperties
 						includingProfiles,
 						forEditView );
@@ -322,7 +316,7 @@ namespace Factories
 							}
 							else
 							{
-								ToMap( from, to, true, true, false );
+								MapFromDB( from, to, true, true, false );
 							}
 							list.Add( to );
 						}
@@ -337,7 +331,7 @@ namespace Factories
 		}//
 		 
 
-		public static void FromMap( ThisEntity from, DBentity to )
+		public static void MapToDB( ThisEntity from, DBEntity to )
 		{
 
 			//want to ensure fields from create are not wiped
@@ -364,7 +358,7 @@ namespace Factories
 			to.Weight = SetData( from.Weight, 0.01M );
 
 		}
-		public static void ToMap( DBentity from, ThisEntity to,
+		public static void MapFromDB( DBEntity from, ThisEntity to,
 				bool includingProperties = false,
 				bool includingProfiles = true,
 				bool forEditView = true )

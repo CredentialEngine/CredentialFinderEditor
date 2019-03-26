@@ -30,6 +30,8 @@ namespace Models.Node
 		}
 
 		public string Heading2 { get; set; }
+		public string CTID { get; set; }
+		public string SubjectWebpage { get; set; }
 
 		public Dictionary<string, object> Properties { get; set; }
 		public Dictionary<string, object> Selectors { get; set; }
@@ -44,10 +46,41 @@ namespace Models.Node
 		public override string Name { get; set; }
 		//public string ProfileType { get; set; }
 		public string SearchType { get; set; } //hack
-		public string Url { get; set; }
-	}
-	//
+		public string SubjectWebpage { get; set; }
 
+		//List-based Info
+		[Property( DBName = "OrganizationType", DBType = typeof( Models.Common.Enumeration ) )]
+		public List<int> OrganizationTypeIds { get; set; }
+
+		[Property( DBName = "CredentialType", DBType = typeof( Models.Common.Enumeration ) )]
+		public int CredentialType { get { return CredentialTypeIds.FirstOrDefault(); } set { CredentialTypeIds = new List<int>() { value }; } }
+
+		[Property( DBName = "null" )] //Database processes need to skip this item
+		public List<int> CredentialTypeIds { get; set; }
+	}
+
+	//
+	[Profile( DBType = typeof( Models.Node.OrgReference ) )] //hack
+	public class OrgReference : BaseProfile
+	{
+		public OrgReference()
+		{
+			IsThirdPartyOrganization = true;
+		}
+		[ Property( DBName = "Name" )] //hack
+		public override string Name { get; set; }
+		
+		public string SearchType { get; set; } //hack
+		public string SubjectWebpage { get; set; }
+
+		//List-based Info
+		[Property( DBName = "OrganizationType", DBType = typeof( Models.Common.Enumeration ) )]
+		public List<int> OrganizationTypeIds { get; set; }
+
+		public bool IsThirdPartyOrganization { get; set; }
+        public bool IsAQAOrganization { get; set; }
+
+	}
 	[Profile( DBType = typeof( Models.ProfileModels.DurationProfile ) )]
 	public class DurationProfile : BaseProfile
 	{
@@ -75,7 +108,7 @@ namespace Models.Node
 
 	}
 	//
-
+	public class DurationProfileExact : DurationProfile { }
 	public class DurationItem //Not sure if this needs to inherit from database
 	{
 		public int Years { get; set; }
@@ -203,6 +236,7 @@ namespace Models.Node
 		public override string Name { get; set; }
 		public string EducationalFramework { get; set; }
 		public string CodedNotation { get; set; }
+		public string TargetNodeName { get; set; }
 		public string TargetName { get; set; } //Name of the target, not the profile. Not currently used.
 		public string TargetDescription { get; set; } //Description of the target, not the profile. Not currently used.
 		public string TargetUrl { get; set; }
@@ -223,10 +257,11 @@ namespace Models.Node
 	{
 		[Property( DBName = "Name" )]
 		public override string Name { get; set; }
+		public string TargetNodeName { get; set; }
 		public string CodedNotation { get; set; }
 		public string TargetName { get; set; } //Name of the target, not the profile. Not currently used.
 		public string TargetDescription { get; set; } //Description of the target, not the profile. Not currently used.
-		public string TargetUrl { get; set; }
+		public string TargetUrl { get; set; } //TargetNode
 		public string AlignmentDate { get; set; }
 	}
 	//

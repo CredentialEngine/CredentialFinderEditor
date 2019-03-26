@@ -4,9 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using Models;
 using Models.ProfileModels;
 using Models.Common;
-using DBentity = Data.Views.Credential_AgentRoleIdCSV;
+using DBEntity = Data.Views.Credential_AgentRoleIdCSV;
 using ThisEntity = Models.ProfileModels.OrganizationRoleProfile;
 using EM = Data;
 using Views = Data.Views;
@@ -39,13 +40,34 @@ namespace Factories
 		public static int CredentialToOrgRole_Contributor = 18;
 		public static int CredentialToOrgRole_WIOAApproved = 19;
 
-		#region role codes retrieval ==================
-		//public static Enumeration GetEntityAgentQAActionFilters( bool isOrgToCredentialRole, bool getAll, string entityType )
-		//{
-		//	return GetEntityToOrgRolesCodes( isOrgToCredentialRole, 1, getAll, entityType );
+        #region role codes retrieval ==================
+        public static CodeItem Codes_CredentialAgentRelationship_Get(int roleId)
+        {
+            CodeItem code = new CodeItem();
 
-		//}
-		public static Enumeration GetEntityQARoles()
+            using (var context = new EM.CTIEntities())
+            {
+                EM.Codes_CredentialAgentRelationship role = context.Codes_CredentialAgentRelationship
+                            .FirstOrDefault(s => s.Id == roleId && s.IsActive == true);
+
+                if (role != null && role.Id > 0)
+                {
+                    code = new CodeItem();
+                    code.Id = role.Id;
+                    code.Title = role.Title;
+                    code.Description = role.Description;
+                    code.ReverseTitle = role.ReverseRelation;
+                    code.SchemaName = role.SchemaTag;
+                }
+            }
+            return code;
+        }
+        //public static Enumeration GetEntityAgentQAActionFilters( bool isOrgToCredentialRole, bool getAll, string entityType )
+        //{
+        //	return GetEntityToOrgRolesCodes( isOrgToCredentialRole, 1, getAll, entityType );
+
+        //}
+        public static Enumeration GetEntityQARoles()
 		{
 			Enumeration entity = new Enumeration();
 
@@ -77,7 +99,7 @@ namespace Factories
 						val.Description = item.Description;
 
 						val.Name = item.Title;
-
+						val.SchemaName = item.SchemaTag;
 						if ( ( bool ) item.IsQARole )
 						{
 							val.IsSpecialValue = true;
@@ -124,7 +146,7 @@ namespace Factories
 						val.Description = item.Description;
 
 						val.Name = item.Title;
-
+						val.SchemaName = item.SchemaTag;
 						if ( ( bool ) item.IsQARole )
 						{
 							val.IsSpecialValue = true;
@@ -145,7 +167,8 @@ namespace Factories
 			return GetEntityToOrgRolesCodes( isOrgToCredentialRole, 1, getAll, entityType );
 
 		}
-		public static Enumeration GetCredentialOrg_NonQARoles( bool isOrgToCredentialRole = true, string entityType = "Credential" )
+
+        public static Enumeration GetCredentialOrg_NonQARoles( bool isOrgToCredentialRole = true, string entityType = "Credential" )
 		{
 			return GetEntityToOrgRolesCodes( isOrgToCredentialRole, 2, true, entityType );
 		}
@@ -195,7 +218,7 @@ namespace Factories
 					}
 					else if ( qaRoleState == 2 )
 					{
-						//this is state is for showing org roles for a credential.
+						//this is state is for showning org roles for a credential.
 						//16-06-01 mp - for now show qa and no qa, just skip agent to agent which for now is dept and Subsidiary
 						if ( entityType.ToLower() == "credential" )
 							Query = Query.Where( p => p.IsEntityToAgentRole == true );
@@ -227,11 +250,15 @@ namespace Factories
 					//foreach ( Codes_PropertyValue item in category.Codes_PropertyValue )
 					foreach ( EM.Codes_CredentialAgentRelationship item in results )
 					{
-						val = new EnumeratedItem();
-						val.Id = item.Id;
-						val.CodeId = item.Id;
-						val.Value = item.Id.ToString();//????
-						val.Description = item.Description;
+						val = new EnumeratedItem
+						{
+							Id = item.Id,
+							CodeId = item.Id,
+							Value = item.Id.ToString(),//????
+							Description = item.Description,
+							SchemaName = item.SchemaTag,
+							Totals = item.Totals ?? 0
+						};
 
 						if ( isInverseRole )
 						{
@@ -255,11 +282,20 @@ namespace Factories
 						if ( ( bool ) item.IsQARole )
 						{
 							val.IsSpecialValue = true;
-							if ( IsDevEnv() )
-								val.Name += " (QA)";
+							//if ( IsDevEnv() )
+							//	val.Name += " (QA)";
 						}
+						int totals = (int)item.Totals;
+						if ( entityType == "Organization" && isInverseRole )
+						{
+							totals = ( int )item.QAPerformedTotals;
+							val.Totals = ( int )item.QAPerformedTotals;
+						}
+						if ( IsDevEnv() )
+							val.Name += string.Format( " ({0})", totals );
 
-						entity.Items.Add( val );
+						if (getAll || (int)item.QAPerformedTotals  > 0 || IsDevEnv() )
+							entity.Items.Add( val );
 					}
 
 				}
@@ -268,7 +304,7 @@ namespace Factories
 			return entity;
 		}
 
-		public static Enumeration GetCredentialOwnerAgentRoles( bool getAll )
+		public static Enumeration GetOwnerAgentRoles( bool getAll, bool isNonCredential = false )
 		{
 			Enumeration entity = new Enumeration();
 
@@ -305,13 +341,21 @@ namespace Factories
 						val.SchemaName = item.SchemaTag;
 						if ( item.Id == 6 )
 						{
+							//place owner first
 							val.Selected = true;
 							val.IsSpecialValue = true;
 							entity.Items.Insert( 0, val );
-						} else
-							entity.Items.Add( val );
+						}
+						else
+						{
+							//revoked only for credentials
+							if ( item.Id == 11 && isNonCredential )
+							{
 
-						
+							}
+							else
+								entity.Items.Add( val );
+						}
 					}
 				}
 			}
@@ -356,7 +400,7 @@ namespace Factories
 						val.CodeId = item.Id;
 						val.Value = item.Id.ToString();//????
 						val.Description = item.Description;
-
+						val.SchemaName = item.SchemaTag;
 						if ( isInverseRole )
 						{
 							val.Name = item.ReverseRelation;
@@ -395,325 +439,5 @@ namespace Factories
 		
 		#endregion
 
-
-		#region OBSOLETE
-		//private static void MapAgentToOrgRole( Credential credential, EM.Credential_AgentRelationship entity )
-		//{
-		//	ThisEntity p = new ThisEntity();
-		//	p.Id = entity.Id;
-		//	p.ParentId = entity.CredentialId;
-		//	p.Url = entity.URL;
-		//	p.Description = entity.Description;
-
-		//	p.ActingAgentId = entity.OrgId;
-		//	if ( entity.AgentUid != null )
-		//		p.ActingAgentUid = ( Guid ) entity.AgentUid;
-		//	p.RoleTypeId = entity.RelationshipTypeId;
-		//	string relation = "";
-		//	if ( entity.Codes_CredentialAgentRelationship != null )
-		//	{
-		//		relation = entity.Codes_CredentialAgentRelationship.ReverseRelation;
-		//	}
-
-		//	//may be included now, but with addition of person, and use of agent, it won't
-		//	if ( entity.Organization != null )
-		//	{
-		//		OrganizationManager.Organization_ToMap( entity.Organization, p.TargetOrganization );
-		//	}
-		//	else
-		//	{
-		//		//get basic?
-		//		p.TargetOrganization = OrganizationManager.Organization_Get( entity.OrgId );
-		//	}
-
-		//	p.ProfileSummary = string.Format( "{0} {1} this credential", entity.Organization.Name, relation );
-		//	if ( IsValidDate( entity.EffectiveDate ) )
-		//		p.DateEffective = ( ( DateTime ) entity.EffectiveDate ).ToShortDateString();
-		//	else
-		//		p.DateEffective = "";
-
-		//	if ( IsValidDate( entity.Created ) )
-		//		p.Created = ( DateTime ) entity.Created;
-		//	p.CreatedById = entity.CreatedById == null ? 0 : ( int ) entity.CreatedById;
-		//	if ( IsValidDate( entity.LastUpdated ) )
-		//		p.LastUpdated = ( DateTime ) entity.LastUpdated;
-		//	p.LastUpdatedById = entity.LastUpdatedById == null ? 0 : ( int ) entity.LastUpdatedById;
-
-		//	credential.OrganizationRole.Add(p);
-		//}		//private bool CredentialOrgRole_Update( int recordId, int agentId, int roleId, int userId, ref string status )
-		//{
-		//	bool isValid = true;
-		//	if ( recordId == 0 )
-		//	{
-		//		status = "Error: invalid request, please ensure a valid record has been selected.";
-		//		return false;
-		//	}
-
-		//	//TODO - need to handle agent
-		//	Organization org = OrganizationManager.Organization_Get( agentId, false );
-		//	if ( org == null || org.Id == 0 )
-		//	{
-		//		status = "Error: the selected organization was not found!";
-		//		LoggingHelper.DoTrace( 5, string.Format( "OrganizationRoleManager.CredentialOrgRole_Update the organization was not found, for credential: {0}, AgentId:{1}, RoleId: {2}", recordId, agentId, roleId ) );
-		//		return false;
-		//	}
-
-		//	using ( var context = new EM.CTIEntities() )
-		//	{
-		//		EM.Credential_AgentRelationship car = context.Credential_AgentRelationship.FirstOrDefault( s => s.Id == recordId );
-		//		if ( car != null && car.Id > 0 )
-		//		{
-		//			status = "Error: the selected relationship was not found!";
-		//			return false;
-		//		}
-
-		//		//assign, then check if there were any actual updates
-		//		//this credential centric, so leave alone
-		//		car.OrgId = agentId;
-		//		car.AgentUid = org.RowId;
-		//		car.RelationshipTypeId = roleId;
-
-		//		if ( HasStateChanged( context ) )
-		//		{
-		//			car.LastUpdated = System.DateTime.Now;
-		//			car.LastUpdatedById = userId;
-
-		//			// submit the change to database
-		//			int count = context.SaveChanges();
-		//		}
-		//	}
-
-		//	return isValid;
-		//}
-		/// <summary>
-		/// Persist all credential - org relationships
-		/// ==> note will want to watch for creator and owner, and ignore as FOR NOW should not be handled here!
-		/// </summary>
-		/// <param name="credential"></param>
-		/// <returns></returns>
-		//public bool CredentialAgentRoles_Update( Credential credential, ref string status, ref int count )
-		//{
-		//	bool isValid = true;
-		//	count = 0;
-		//	int count1 = 0;
-		//	string status1 = "";
-		//	isValid = Credential_UpdateOrgRoles( credential, ref status1, ref count1 );
-		//	count = count1;
-		//	status = status1;
-		//	if ( Credential_UpdateQAActions( credential, ref status, ref count1 ) )
-		//	{
-		//		isValid = false;
-		//	}
-		//	count += count1;
-		//	status += status1;
-		//	//List<string> messages = new List<string>();
-
-		//	//if ( credential.OrganizationRole == null )
-		//	//	credential.OrganizationRole = new List<ThisEntity>();
-
-		//	//if ( credential.QualityAssuranceAction == null )
-		//	//	credential.QualityAssuranceAction = new List<QualityAssuranceActionProfile>();
-
-		//	//using ( var context = new EM.CTIEntities() )
-		//	//{
-		//	//	//loop thru input, check for changes to existing, and for adds
-		//	//	foreach ( ThisEntity item in credential.OrganizationRole )
-		//	//	{
-		//	//		int codeId = CodesManager.GetEnumerationSelection( item.RoleType );
-		//	//		if ( codeId == 0 )
-		//	//		{
-		//	//			isValid = false;
-		//	//			messages.Add( string.Format( "Error: a role was not entered. Select a role and try again. AgentId: {0}", item.ActingAgentId ) );
-		//	//			continue;
-		//	//		}
-
-		//	//		if ( item.Id > 0 )
-		//	//		{
-		//	//			EM.Credential_AgentRelationship p = context.Credential_AgentRelationship.FirstOrDefault( s => s.Id == item.Id);
-		//	//			if ( p != null && p.Id > 0 )
-		//	//			{
-		//	//				p.CredentialId = credential.Id;
-		//	//				//int itemId = CodesManager.GetEnumerationSelection( item.RoleType );
-		//	//				//if ( itemId == 0 )
-		//	//				//{
-		//	//				//	isValid = false;
-		//	//				//	messages.Add( string.Format( "Error: a role was not found: {0}", item.ActingAgentId ) );
-		//	//				//	continue;
-		//	//				//}
-		//	//				p.RelationshipTypeId = codeId;
-		//	//				//actually need to get the rowId!
-		//	//				if ( p.OrgId != item.ActingAgentId )
-		//	//				{
-		//	//					//NOTE - need to handle agent!!!
-		//	//					Organization org = OrganizationManager.Organization_Get( item.OrganizationId, false );
-		//	//					if ( org == null || org.Id == 0 )
-		//	//					{
-		//	//						isValid = false;
-		//	//						messages.Add( string.Format( "Error: the selected organization was not found: {0}", item.ActingAgentId ) );
-		//	//						continue;
-		//	//					}
-		//	//					p.AgentUid = org.RowId;
-		//	//				}
-		//	//				p.OrgId = item.ActingAgentId;
-		//	//				if ( HasStateChanged( context ) )
-		//	//				{
-		//	//					p.LastUpdated = System.DateTime.Now;
-		//	//					p.LastUpdatedById = credential.LastUpdatedById;
-		//	//					count = context.SaveChanges();
-		//	//				}
-		//	//			}
-		//	//			else
-		//	//			{
-		//	//				//error should have been found
-		//	//				isValid = false;
-		//	//				messages.Add( string.Format("Error: the requested role was not found: recordId: {0}", item.Id ));
-		//	//			}
-		//	//		}
-		//	//		else
-		//	//		{
-		//	//			CredentialOrgRole_Add( credential.Id, item.ActingAgentId, codeId, credential.LastUpdatedById, ref status );
-		//	//		}
-		//	//	}
-
-		//	//}
-
-		//	return isValid;
-		//}
-
-		//public static void FillAllOrgToOrgRoles( EM.Credential fromCredential, Credential credential )
-		//{
-		//	//start by assuming all roles have been read
-		//	if ( fromCredential.Credential_AgentRelationship == null || fromCredential.Credential_AgentRelationship.Count == 0 )
-		//	{
-		//		return;
-		//	}
-
-		//	credential.OrganizationRole = new List<ThisEntity>();
-		//	credential.QualityAssuranceAction = new List<QualityAssuranceActionProfile>();
-
-		//	foreach ( EM.Credential_AgentRelationship item in fromCredential.Credential_AgentRelationship )
-		//	{
-		//		bool isActionType = item.IsActionType == null ? false : ( bool ) item.IsActionType;
-
-		//		if ( item.TargetCredentialId > 0 || isActionType )
-		//		{
-		//			MapAgentToQAAction( credential, item );
-		//		}
-		//		else
-		//		{
-		//			//MapAgentToOrgRole( credential, item );
-		//			credential.OrganizationRole.Add( MapAgentToOrgRole( item, "credential" ) );
-		//		}
-
-
-		//		if ( item.RelationshipTypeId == CredentialToOrgRole_CreatedBy )
-		//			credential.CreatorOrganizationId = item.OrgId;
-
-		//		if ( item.RelationshipTypeId == CredentialToOrgRole_OwnedBy )
-		//			credential.OwnerOrganizationId = item.OrgId;
-
-
-		//	}
-
-
-		//}
-		// item
-		//public static CredentialAgentRelationship AgentCredentialRoleGet( int recordId )
-		//{
-		//	CredentialAgentRelationship item = new CredentialAgentRelationship();
-		//	using ( var context = new EM.CTIEntities() )
-		//	{
-		//		EM.Credential_AgentRelationship entity = context.Credential_AgentRelationship.FirstOrDefault( s => s.Id == recordId );
-		//		if ( entity != null && entity.Id > 0 )
-		//		{
-		//			item.Id = entity.Id;
-		//			item.ParentId = entity.CredentialId;
-		//			item.OrganizationId = entity.OrgId;
-		//			item.RelationshipId = entity.RelationshipTypeId;
-		//			item.AgentUid = entity.AgentUid != null ? ( Guid ) entity.AgentUid : Guid.Empty;
-
-		//			//item.TargetOrganization = entity.Organization;
-		//		}
-		//		else
-		//		{
-		//			item.Id = 0;
-		//		}
-
-		//	}
-		//	return item;
-
-		//}
-
-		/// <summary>
-		/// Retrieve and fill org roles of creator or owner only
-		/// </summary>
-		/// <param name="credential"></param>
-		//public static void FillOwnerOrgRolesForCredential( Credential credential )
-		//{
-		//	EnumeratedItem row = new EnumeratedItem();
-		//	using ( var context = new EM.CTIEntities() )
-		//	{
-		//		List<Views.CredentialAgentRelationships_Summary> results = context.CredentialAgentRelationships_Summary
-		//				.Where( s => s.CredentialId == credential.Id
-		//				&& ( s.RelationshipTypeId == CredentialToOrgRole_CreatedBy || s.RelationshipTypeId == CredentialToOrgRole_OwnedBy ) )
-		//				.OrderBy( s => s.RelationshipTypeId )
-		//				.ToList();
-
-		//		if ( results != null && results.Count > 0 )
-		//		{
-		//			foreach ( Views.CredentialAgentRelationships_Summary item in results )
-		//			{
-		//				if ( item.RelationshipTypeId == CredentialToOrgRole_CreatedBy )
-		//				{
-		//					//create an enumeration, but can be minimal
-		//					//credential.CreatorUrl = new Enumeration();
-		//					//credential.CreatorUrl.Name = "creatorUrl";
-		//					//credential.CreatorUrl.SchemaName = "creatorUrl";
-		//					//credential.CreatorUrl.ParentId = credential.Id;
-		//					//credential.CreatorUrl.Id = item.OrgId;
-
-		//					credential.CreatorOrganizationId = item.OrgId;
-
-		//					//row = new EnumeratedItem()
-		//					//{
-		//					//	Id = item.OrgId,
-		//					//	Name = item.OrganizationName,
-		//					//	Description = item.RelationshipType,
-		//					//	Selected = true, 
-		//					//	Value = item.OrgId.ToString(),
-		//					//	Created = item.Created ?? DateTime.Now,
-		//					//	CreatedById = item.CreatedById ?? 0
-		//					//};
-		//					//credential.CreatorUrl.Items.Add( row );
-		//				}
-		//				else if ( item.RelationshipTypeId == CredentialToOrgRole_OwnedBy )
-		//				{
-		//					//credential.OwnerUrl = new Enumeration();
-		//					//credential.OwnerUrl.Name = "ownerUrl";
-		//					//credential.OwnerUrl.SchemaName = "ownerUrl";
-		//					//credential.OwnerUrl.ParentId = credential.Id;
-		//					//credential.OwnerUrl.Id = item.OrgId;
-
-		//					credential.OwnerOrganizationId = item.OrgId;
-
-		//					//row = new EnumeratedItem()
-		//					//{
-		//					//	Id = item.OrgId,
-		//					//	Name = item.OrganizationName,
-		//					//	Description = item.RelationshipType,
-		//					//	Selected = true,
-		//					//	Value = item.OrgId.ToString(),
-		//					//	Created = item.Created ?? DateTime.Now,
-		//					//	CreatedById = item.CreatedById ?? 0
-		//					//};
-		//					//credential.OwnerUrl.Items.Add( row );
-		//				}
-		//			}
-		//		}
-		//	}
-
-		//}//
-
-		#endregion
 	}
 }

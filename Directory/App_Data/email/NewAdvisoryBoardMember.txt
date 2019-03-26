@@ -1,0 +1,18 @@
+﻿Dear {0},
+<p>Thank you for participating in the Credential Publisher search app prototype demonstration. As a member of an advisory group, you will receive a survey in mid-June that asks for feedback about minimum required data, an ethics statement, internal auditing protocols and processes, and a policy related to currency. Please keep these questions in mind, which are explained in more detail in the attached one pager, as you look at Credential Publisher. If you have questions about the CTDL, you can reference the guide <a href="http://credreg.net/ctdl/handbook">here</a>.</p>
+
+<p> Please also feel free to reach out with any questions.  Also, please keep in mind, at this time, the audience for this app is only partners who have selected one or more credentials to include with the registry testing, advisory group members to review and provide feedback, and quality assurance partners who are testing their information in the registry as well.</p>
+ 
+<p>Below is your username and password for your view-only account. You can access the application at <a href="http://www.credentialfinder.org">www.credentialfinder.org</a>.</p>
+</p>
+
+<ul>
+<li>UserName: {1}</li>
+<li>Password: {2}</li>
+</ul>
+
+<p>Thank you,
+Scarlett VanStechelman<br/>
+svanstechelman@siu.edu<br/> 
+217-303-5856
+</p>

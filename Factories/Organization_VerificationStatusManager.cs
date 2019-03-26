@@ -8,7 +8,7 @@ using Models.Common;
 using Models.ProfileModels;
 using EM = Data;
 using Utilities;
-using DBentity = Data.Organization_VerificationStatus;
+using DBEntity = Data.Organization_VerificationStatus;
 using ThisEntity = Models.ProfileModels.VerificationStatus;
 //
 
@@ -32,7 +32,7 @@ namespace Factories
 
 			int count = 0;
 
-			DBentity efEntity = new DBentity();
+			DBEntity efEntity = new DBEntity();
 
 			using ( var context = new Data.CTIEntities() )
 			{
@@ -54,7 +54,7 @@ namespace Factories
 					if ( entity.Id == 0 )
 					{
 						//add
-						efEntity = new DBentity();
+						efEntity = new DBEntity();
 						FromMap( entity, efEntity );
 
 						efEntity.RowId = Guid.NewGuid();
@@ -113,7 +113,7 @@ namespace Factories
 			bool isOK = true;
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity p = context.Organization_VerificationStatus.FirstOrDefault( s => s.Id == recordId );
+				DBEntity p = context.Organization_VerificationStatus.FirstOrDefault( s => s.Id == recordId );
 				if ( p != null && p.Id > 0 )
 				{
 					context.Organization_VerificationStatus.Remove( p );
@@ -144,17 +144,17 @@ namespace Factories
 
 			using ( var context = new Data.CTIEntities() )
 			{
-				List<DBentity> results = context.Organization_VerificationStatus
+				List<DBEntity> results = context.Organization_VerificationStatus
 						.Where( s => s.OrgId == parentId )
 						.OrderBy( s => s.Name )
 						.ToList();
 
 				if ( results != null && results.Count > 0 )
 				{
-					foreach ( DBentity item in results )
+					foreach ( DBEntity item in results )
 					{
 						row = new ThisEntity();
-						ToMap( item, row, true );
+						MapFromDB( item, row, true );
 						profiles.Add( row );
 					}
 				}
@@ -168,12 +168,12 @@ namespace Factories
 
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity item = context.Organization_VerificationStatus
+				DBEntity item = context.Organization_VerificationStatus
 							.SingleOrDefault( s => s.Id == profileId );
 
 				if ( item != null && item.Id > 0 )
 				{
-					ToMap( item, entity, includingProperties );
+					MapFromDB( item, entity, includingProperties );
 				}
 				return entity;
 			}
@@ -203,7 +203,7 @@ namespace Factories
 			return isValid;
 		}
 
-		public static void ToMap( DBentity from, ThisEntity to, bool includingProperties = false )
+		public static void MapFromDB( DBEntity from, ThisEntity to, bool includingProperties = false )
 		{
 			to.Id = from.Id;
 			to.ParentId = from.OrgId;
@@ -222,7 +222,7 @@ namespace Factories
 
 
 		}
-		public static void FromMap( ThisEntity from, DBentity to )
+		public static void FromMap( ThisEntity from, DBEntity to )
 		{
 			//to.Id = from.Id;
 			//should not be necessary?

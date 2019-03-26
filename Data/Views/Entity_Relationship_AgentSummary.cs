@@ -38,14 +38,16 @@ namespace Data.Views
         public string AgentDescription { get; set; }
         public string AgentUrl { get; set; }
         public string AgentImageUrl { get; set; }
-        public Nullable<bool> IsQARole { get; set; }
+        public bool IsQARole { get; set; }
         public string SchemaTag { get; set; }
         public string ReverseSchemaTag { get; set; }
         public string RelationshipDescription { get; set; }
         public string SourceEntityDescription { get; set; }
         public string SourceEntityUrl { get; set; }
         public string SourceEntityImageUrl { get; set; }
-        public Nullable<bool> IsOwnerAgentRole { get; set; }
+        public bool IsOwnerAgentRole { get; set; }
         public string CTID { get; set; }
+        public bool ISQAOrganization { get; set; }
+        public bool IsThirdPartyOrganization { get; set; }
     }
 }

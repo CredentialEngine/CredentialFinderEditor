@@ -48,7 +48,7 @@ namespace Models.Common
 		/// note that for an update, a check may have to be done, in case any previous items were deleted
 		/// </summary>
 		/// <returns></returns>
-		public bool hasItems() 
+		public bool HasItems() 
 		{
 			return !( Items == null || Items.Count == 0 );
 		}
@@ -56,7 +56,7 @@ namespace Models.Common
 		public EnumeratedItem GetFirstItem() 
 		{
 			EnumeratedItem firstItem = new EnumeratedItem();
-			if ( hasItems() )
+			if ( HasItems() )
 			{
 				foreach ( EnumeratedItem item in Items )
 				{
@@ -70,7 +70,7 @@ namespace Models.Common
 		{
 			int id = 0;
 			EnumeratedItem firstItem = new EnumeratedItem();
-			if ( hasItems() )
+			if ( HasItems() )
 			{
 				foreach ( EnumeratedItem item in Items )
 				{
@@ -91,7 +91,17 @@ namespace Models.Common
 				ConvertAlignmentObjectsToEnumeration( this, value );
 			}
 		}
-
+		public List<CredentialAlignmentObjectProfile> ItemsAsAlignmentObjectsWithCodes
+		{
+			get
+			{
+				return ConvertItemsToAlignmentObjectsWithCodes( this );
+			}
+			set
+			{
+				ConvertAlignmentObjectsToEnumeration( this, value );
+			}
+		}
 		public static List<CredentialAlignmentObjectProfile> ConvertItemsToAlignmentObjects( Enumeration data )
 		{
 			var result = new List<CredentialAlignmentObjectProfile>();
@@ -99,19 +109,41 @@ namespace Models.Common
 			{
 				result.Add( new CredentialAlignmentObjectProfile()
 				{
+					FrameworkName = data.Name,
+					FrameworkUrl = data.Url,
 					EducationalFramework = data.Name,
-					Name = item.Name,
-					TargetName = item.Name,
-					Description = item.Description,
-					TargetDescription = item.Description,
+					TargetNodeName = item.Name,
+					TargetNodeDescription = item.Description,
 					TargetUrl = string.IsNullOrWhiteSpace( item.URL ) ? ( string.IsNullOrWhiteSpace( item.SchemaName ) ? "" : item.SchemaName.Contains( ":" ) ? item.SchemaName : "missingPrefix:" + item.SchemaName ) : item.URL,
-					CodedNotation = item.Value
+					//Causes code ID to be output in CodedNotation field during publishing
+					//MP - however we do want this for SOC, Naics, etc
+					//CodedNotation = item.Value 
 				} );
 			}//,CodedNotation = item.Value
 			return result;
 		}
 		//
-
+		public static List<CredentialAlignmentObjectProfile> ConvertItemsToAlignmentObjectsWithCodes( Enumeration data )
+		{
+			var result = new List<CredentialAlignmentObjectProfile>();
+			foreach ( var item in data.Items )
+			{
+				result.Add( new CredentialAlignmentObjectProfile()
+				{
+					EducationalFramework = data.Name,
+					TargetNodeName = item.Name,
+					//TargetName = item.Name,
+					TargetNodeDescription = item.Description,
+					//TargetDescription = item.Description,
+					TargetUrl = string.IsNullOrWhiteSpace( item.URL ) ? ( string.IsNullOrWhiteSpace( item.SchemaName ) ? "" : item.SchemaName.Contains( ":" ) ? item.SchemaName : "missingPrefix:" + item.SchemaName ) : item.URL,
+					//Causes code ID to be output in CodedNotation field during publishing
+					//MP - however we do want this for SOC, Naics, etc
+					CodedNotation = item.Value 
+				} );
+			}//
+			return result;
+		}
+		//
 		public static void ConvertAlignmentObjectsToEnumeration( Enumeration target, List<CredentialAlignmentObjectProfile> data )
 		{
 			//TODO: flesh this out
@@ -154,6 +186,21 @@ namespace Models.Common
 		/// Displayed name
 		/// </summary>
 		public string Name { get; set; }
+    //    public string DisplayName
+    //    {
+    //        get
+    //        {
+    //            string start = Name;
+				//if ( IsIndirectAssertion )
+				//	if ( IsDirectAssertion )
+				//		start += " <span aria-hidden='true' class='fa fa-lock'></span>";
+				//	else
+				//		start = " <span aria-hidden='true' class='fa fa-check'></span> " + start;
+				//else if ( IsDirectAssertion )
+				//	start += "<span aria-hidden='true' class='fa fa-check'></span>";
+				//return start;
+    //        }
+    //    }
  		/// <summary>
 		/// Url - optional
  		/// </summary>
@@ -177,10 +224,22 @@ namespace Models.Common
 		public string Value { get; set; }
 		public bool IsSpecialValue { get; set; }
 
-		/// <summary>
-		/// URL to schema descriptor - can probably delete this
-		/// </summary>
-		public string SchemaUrl { get; set; } 
+        public bool IsDirectAssertion{ get; set; }
+        public bool IsIndirectAssertion { get; set; }
+        public bool IsMatchedAssertion
+        {
+            get
+            {
+                if ( IsDirectAssertion && IsIndirectAssertion )
+                    return true;
+                else
+                    return false;
+            }
+        }
+        /// <summary>
+        /// URL to schema descriptor - can probably delete this
+        /// </summary>
+        public string SchemaUrl { get; set; } 
 		public int SortOrder { get; set; } //Sort Order
 		/// <summary>
 		/// Indicates whether or not the item is selected

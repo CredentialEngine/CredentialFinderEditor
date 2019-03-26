@@ -23,13 +23,16 @@ namespace Models.Common
 		public CodeItemResult AsmtsOwnedByResults { get; set; }
 		public CodeItemResult LoppsOwnedByResults { get; set; }
 
-		public CodeItemResult AccreditedByResults { get; set; }
-		public CodeItemResult ApprovedByResults { get; set; }
+        public CodeItemResult AccreditedByResults { get; set; }
+        public CodeItemResult ApprovedByResults { get; set; } //Should be gone?
 
-		//public CredentialConnectionsResult OwnedByResults { get; set; }
-		//public CredentialConnectionsResult OfferedByResults { get; set; }
+        //public CredentialConnectionsResult OwnedByResults { get; set; }
+        //public CredentialConnectionsResult OfferedByResults { get; set; }
+        public AgentRelationshipResult QualityAssurance { get; set; } = new AgentRelationshipResult();
+        public AgentRelationshipResult AgentAndRoles { get; set; }
+        public int AssertionsTotal { get; set; }
 
-		public AgentRelationshipResult AgentAndRoles { get; set; }
-	}
+        public List<string> ChildOrganizationsList { get; set; } = new List<string>();
+    }
 
 }

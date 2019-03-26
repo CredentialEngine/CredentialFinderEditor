@@ -17,6 +17,8 @@ namespace Models.ProfileModels
 		public int CompetencyId { get; set; }
 		public DateTime Created { get; set; }
 		public int CreatedById { get; set; }
+		public string Uri { get; set; }
+		public string CTID { get; set; }
 
 		#region External Properties
 		public int FrameworkCompetencyId

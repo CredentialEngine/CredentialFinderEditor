@@ -63,7 +63,7 @@ namespace CTIServices
 				Guid parentUid, 
 				int jprofilePurposeId, 
 				string property, 
-				int userId, 
+				AppUser user, 
 				ref string statusMessage )
 		{
 			List<String> messages = new List<string>();
@@ -75,15 +75,19 @@ namespace CTIServices
 			}
 			//remove this if properly passed from client
 			entity.ParentEntityId = parentUid;
-			entity.CreatedById = entity.LastUpdatedById = userId;
+			entity.CreatedById = entity.LastUpdatedById = user.Id;
 			entity.JProfilePurposeId = jprofilePurposeId;
 
 			bool isValid = new Mgr().Add( entity, property, ref messages );
-			statusMessage = string.Join( "<br/>", messages.ToArray() );
+
+            Entity parent = EntityManager.GetEntity(parentUid);
+            new ProfileServices().UpdateTopLevelEntityLastUpdateDate(parent.Id, string.Format("Entity Update triggered by {0} adding a Jurisdiction profile for : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId));
+
+            statusMessage = string.Join( "<br/>", messages.ToArray() );
 			return isValid;
 
 		}
-		public bool JurisdictionProfile_Update( JurisdictionProfile entity, Guid parentUid, string property, int userId, ref string statusMessage )
+		public bool JurisdictionProfile_Update( JurisdictionProfile entity, Guid parentUid, string property, AppUser user, ref string statusMessage )
 		{
 			List<String> messages = new List<string>();
 			//entity.Id is expected
@@ -95,10 +99,14 @@ namespace CTIServices
 
 			//remove this if properly passed from client
 			entity.ParentEntityId = parentUid;
-			entity.LastUpdatedById = userId;
+			entity.LastUpdatedById = user.Id;
 
 			bool isValid = mgr.Update( entity, property, ref messages );
-			statusMessage = string.Join( "<br/>", messages.ToArray() );
+
+            Entity parent = EntityManager.GetEntity(parentUid);
+            new ProfileServices().UpdateTopLevelEntityLastUpdateDate(parent.Id, string.Format("Entity Update triggered by {0} updating a Jurisdiction profile for : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId));
+
+            statusMessage = string.Join( "<br/>", messages.ToArray() );
 			return isValid;
 
 		}
@@ -120,9 +128,11 @@ namespace CTIServices
 				if ( valid )
 				{
 					//if valid, status contains the cred name and id
-					ActivityServices.SiteActivityAdd( "JurisdictionProfile", "Delete", string.Format( "{0} deleted {1}", user.FullName(), status ), user.Id, 0, profileID );
+					new ActivityServices().AddEditorActivity( "JurisdictionProfile", "Delete", string.Format( "{0} deleted {1}", user.FullName(), status ), user.Id, 0, profileID );
 					status = "";
-				}
+                    Entity parent = EntityManager.GetEntity(profile.ParentId);
+                    new ProfileServices().UpdateTopLevelEntityLastUpdateDate(parent.Id, string.Format("Entity Update triggered by {0} deleting a Jurisdiction profile for : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId));
+                }
 			}
 			catch ( Exception ex )
 			{
@@ -162,7 +172,7 @@ namespace CTIServices
 			return profiles;
 		}
 		//
-		public bool GeoCoordinates_Add( GeoCoordinates entity, Guid parentId, int userId, ref string statusMessage )
+		public bool GeoCoordinates_Add( GeoCoordinates entity, Guid parentId, AppUser user, ref string statusMessage )
 		{
 			if ( entity == null || !BaseFactory.IsGuidValid( parentId ) )
 			{
@@ -171,36 +181,41 @@ namespace CTIServices
 			}
 			//remove this if properly passed from client
 			entity.ParentEntityId = parentId;
-			entity.CreatedById = entity.LastUpdatedById = userId;
+			entity.CreatedById = entity.LastUpdatedById = user.Id;
 
 			int id = new Mgr().GeoCoordinates_Add( entity, ref statusMessage );
 			if ( id > 0 )
 			{
 				entity.Id = id;
-				return true;
+
+                JurisdictionProfile jp = Entity_JurisdictionProfileManager.Get(parentId);
+                Entity parent = EntityManager.GetEntity(jp.RowId);
+                new ProfileServices().UpdateTopLevelEntityLastUpdateDate(parent.Id, string.Format("Entity Update triggered by {0} adding Jursidiction/GeoCoordinates to {1} {2}", user.FullName(), parent.EntityType, parent.EntityBaseId));
+                return true;
 			} else 
 				return false;
 
 		}
-		public bool GeoCoordinates_Update( GeoCoordinates entity, Guid parentId, int userId, ref string statusMessage )
-		{
-			List<String> messages = new List<string>();
-			//entity.Id is expected
-			if ( entity == null || entity.Id == 0 || !BaseFactory.IsGuidValid( parentId ) )
-			{
-				messages.Add( "Error - missing an identifier for the GeoCoordinates" );
-				return false;
-			}
+		//public bool GeoCoordinates_Update( GeoCoordinates entity, Guid parentId, AppUser user, ref string statusMessage )
+		//{
+		//	List<String> messages = new List<string>();
+		//	//entity.Id is expected
+		//	if ( entity == null || entity.Id == 0 || !BaseFactory.IsGuidValid( parentId ) )
+		//	{
+		//		messages.Add( "Error - missing an identifier for the GeoCoordinates" );
+		//		return false;
+		//	}
 
-			//remove this if properly passed from client
-			entity.ParentEntityId = parentId;
-			entity.LastUpdatedById = userId;
+		//	//remove this if properly passed from client
+		//	entity.ParentEntityId = parentId;
+		//	entity.LastUpdatedById = user.Id;
 
-			bool isValid = mgr.GeoCoordinate_Update( entity, ref messages );
+		//	bool isValid = mgr.GeoCoordinate_Update( entity, ref messages );
 
-			return isValid;
+  //          new ProfileServices().UpdateTopLevelEntityLastUpdateDate(parent.Id, string.Format("Entity Update triggered by {0} adding a Learning Opportunity Part for : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId));
+  //          return isValid;
 
-		}
+		//}
 
 		public bool GeoCoordinates_Delete( int profileID, ref bool valid, ref string status )
 		{
@@ -213,15 +228,19 @@ namespace CTIServices
 			}
 			try
 			{
-				//GeoCoordinates profile = Mgr.Jurisdiction_Get( profileID );
+				GeoCoordinates profile = Mgr.GeoCoordinates_Get( profileID );
 
 				valid = mgr.GeoCoordinate_Delete( profileID, ref status );
 				if ( valid )
 				{
 					//if valid, status contains the cred name and id
-					ActivityServices.SiteActivityAdd( "GeoCoordinates", "Delete", string.Format( "{0} deleted {1}", user.FullName(), status ), user.Id, 0, profileID );
+					new ActivityServices().AddEditorActivity( "GeoCoordinates", "Delete", string.Format( "{0} deleted {1}", user.FullName(), status ), user.Id, 0, profileID );
 					status = "";
-				}
+
+                    JurisdictionProfile jp = Entity_JurisdictionProfileManager.Get(profile.ParentId);
+                    Entity parent = EntityManager.GetEntity(jp.RowId);
+                    new ProfileServices().UpdateTopLevelEntityLastUpdateDate(parent.Id, string.Format("Entity Update triggered by {0} deleting Jursidiction/GeoCoordinates from {1} {2}", user.FullName(), parent.EntityType, parent.EntityBaseId));
+                }
 			}
 			catch ( Exception ex )
 			{

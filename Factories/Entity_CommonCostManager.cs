@@ -10,7 +10,7 @@ using Models.Common;
 using Models.ProfileModels;
 using EM = Data;
 using Utilities;
-using DBentity = Data.Entity_CommonCost;
+using DBEntity = Data.Entity_CommonCost;
 using ThisEntity = Models.Common.Entity_CommonCost;
 
 using Views = Data.Views;
@@ -35,17 +35,17 @@ namespace Factories
 		public int Add( Guid parentUid,
 					int profileId,
 					int userId,
-					ref List<string> messages )
+					ref List<string> messages, 
+                    bool hideDuplicatesError = false )
 		{
 			int id = 0;
 			int count = messages.Count();
-			if ( profileId == 0 )
+			if ( profileId < 1 )
 			{
 				messages.Add( string.Format( "A valid CostManifest identifier was not provided to the {0}.Add method.", thisClassName ) );
-			}
-			if ( messages.Count > count )
-				return 0;
-
+                return 0;
+            }
+			
 			Entity parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
 			{
@@ -62,7 +62,7 @@ namespace Factories
 			}
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity efEntity = new DBentity();
+				DBEntity efEntity = new DBEntity();
 				try
 				{
 					//first check for duplicates
@@ -72,11 +72,16 @@ namespace Factories
 
 					if ( efEntity != null && efEntity.Id > 0 )
 					{
-						messages.Add( string.Format( "Error - this CostManifest has already been added to this profile.", thisClassName ) );
-						return 0;
+                        if ( hideDuplicatesError )
+                            return efEntity.Id;
+                        else
+                        {
+                            messages.Add( string.Format( "Error - this CostManifest has already been added to this profile.", thisClassName ) );
+                            return 0;
+                        }
 					}
 
-					efEntity = new DBentity();
+					efEntity = new DBEntity();
 					efEntity.EntityId = parent.Id;
 					efEntity.CostManifestId = profileId;
 
@@ -134,45 +139,44 @@ namespace Factories
 
 			return isOK;
 		}
-		public bool Delete( Guid parentUid, int profileId, ref string statusMessage )
-		{
-			bool isValid = false;
-			if ( profileId == 0 )
-			{
-				statusMessage = "Error - missing an identifier for the Assessment to remove";
-				return false;
-			}
-			//need to get Entity.Id 
-			Entity parent = EntityManager.GetEntity( parentUid );
-			if ( parent == null || parent.Id == 0 )
-			{
-				statusMessage = "Error - the parent entity was not found.";
-				return false;
-			}
+        public bool Delete( Guid parentUid, int profileId, ref List<string> messages )
+        {
+            bool isValid = false;
+            if ( profileId == 0 )
+            {
+                messages.Add( "Error - missing an identifier for the Assessment to remove" );
+                return false;
+            }
+            //need to get Entity.Id 
+            Entity parent = EntityManager.GetEntity( parentUid );
+            if ( parent == null || parent.Id == 0 )
+            {
+                messages.Add( "Error - the parent entity was not found." );
+                return false;
+            }
 
-			using ( var context = new Data.CTIEntities() )
-			{
-				DBentity efEntity = context.Entity_CommonCost
-								.SingleOrDefault( s => s.EntityId == parent.Id && s.CostManifestId == profileId );
+            using ( var context = new Data.CTIEntities() )
+            {
+                DBEntity efEntity = context.Entity_CommonCost
+                                .SingleOrDefault( s => s.EntityId == parent.Id && s.CostManifestId == profileId );
 
-				if ( efEntity != null && efEntity.Id > 0 )
-				{
-					context.Entity_CommonCost.Remove( efEntity );
-					int count = context.SaveChanges();
-					if ( count > 0 )
-					{
-						isValid = true;
-					}
-				}
-				else
-				{
-					statusMessage = "Warning - the record was not found - probably because the target had been previously deleted";
-					isValid = true;
-				}
-			}
-
-			return isValid;
-		}
+                if ( efEntity != null && efEntity.Id > 0 )
+                {
+                    context.Entity_CommonCost.Remove( efEntity );
+                    int count = context.SaveChanges();
+                    if ( count > 0 )
+                    {
+                        isValid = true;
+                    }
+                }
+                else
+                {
+                    messages.Add( "Warning - the common cost record was not found - probably because the target had been previously deleted" );
+                    isValid = true;
+                }
+            }
+            return isValid;
+        }
 
 		#endregion
 
@@ -194,20 +198,20 @@ namespace Factories
 			//}
 
 			Entity parent = EntityManager.GetEntity( parentUid );
-			LoggingHelper.DoTrace( 5, string.Format( "Entity_CommonCostManager_GetAll: parentUid:{0} entityId:{1}, e.EntityTypeId:{2}", parentUid, parent.Id, parent.EntityTypeId ) );
+			LoggingHelper.DoTrace( 7, string.Format( "Entity_CommonCostManager_GetAll: parentUid:{0} entityId:{1}, e.EntityTypeId:{2}", parentUid, parent.Id, parent.EntityTypeId ) );
 
 			try
 			{
 				using ( var context = new Data.CTIEntities() )
 				{
-					List<DBentity> results = context.Entity_CommonCost
+					List<DBEntity> results = context.Entity_CommonCost
 							.Where( s => s.EntityId == parent.Id )
 							.OrderBy( s => s.CostManifestId )
 							.ToList();
 
 					if ( results != null && results.Count > 0 )
 					{
-						foreach ( DBentity item in results )
+						foreach ( DBEntity item in results )
 						{
 							entity = new CostManifest();
 							//
@@ -216,7 +220,7 @@ namespace Factories
 							if ( forEditView )
 								entity = CostManifestManager.GetBasic( item.CostManifestId );
 							else
-								entity = CostManifestManager.Get( item.CostManifestId, forEditView );
+								entity = CostManifestManager.Get( item.CostManifestId, true );
 
 							list.Add( entity );
 						}
@@ -240,14 +244,14 @@ namespace Factories
 			{
 				using ( var context = new Data.CTIEntities() )
 				{
-					List<DBentity> results = context.Entity_CommonCost
+					List<DBEntity> results = context.Entity_CommonCost
 							.Where( s => s.CostManifestId == CostManifestId )
 							.OrderBy( s => s.EntityId )
 							.ToList();
 
 					if ( results != null && results.Count > 0 )
 					{
-						foreach ( DBentity item in results )
+						foreach ( DBEntity item in results )
 						{
 							if ( item.Entity.EntityBaseId == CostManifestBeingCheckedId )
 							{
@@ -291,7 +295,7 @@ namespace Factories
 						entity.CostManifestId = from.CostManifestId;
 						entity.EntityId = from.EntityId;
 						//entity.CostManifest = CostManifestManager.GetBasic( from.CostManifestId );
-						entity.ProfileSummary = entity.CostManifest.ProfileName;
+						entity.ProfileSummary = from.CostManifest.Name;
 
 						if ( IsValidDate( from.Created ) )
 							entity.Created = ( DateTime ) from.Created;

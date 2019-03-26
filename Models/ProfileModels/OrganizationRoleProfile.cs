@@ -27,14 +27,15 @@ namespace Models.ProfileModels
 
 		public Guid ActedUponEntityUid { get; set; }
 		public Entity ActedUponEntity { get; set; }
+		//this should the EntityId from the table
 		public int ActedUponEntityId { get; set; }
 
 		public int ParentTypeId { get; set; }
 		public string ParentType { get; set; }
 		public string ParentName { get; set; }
-		
 
-		public Organization ActingAgent { get; set; }
+
+        public Organization ActingAgent { get; set; } = new Organization();
 		public int ActingAgentId { get; set; }
 		public Guid ActingAgentUid { get; set; }
 
@@ -54,19 +55,16 @@ namespace Models.ProfileModels
 		public string AllRoles { get; set; } 
 		public bool IsInverseRole { get; set; }
 
-		[Obsolete]
-		public string Url { get; set; } // url
+        //public string SchemaTag { get; set; }
+        //public string ReverseSchemaTag { get; set; }
+        public string TargetEntityType { get; set; }
+        #region === Targets - where acted upon by the agent ======================
 
-		//public string SchemaTag { get; set; }
-		//public string ReverseSchemaTag { get; set; }
-
-		#region === Targets - where acted upon by the agent ======================
-
-		/// <summary>
-		/// TargetCredentialId is the parentId in credential to org roles
-		/// The credential acted upon by the agent
-		/// </summary>
-		public Credential TargetCredential { get; set; }
+        /// <summary>
+        /// TargetCredentialId is the parentId in credential to org roles
+        /// The credential acted upon by the agent
+        /// </summary>
+        public Credential TargetCredential { get; set; }
 		public int TargetCredentialId { get; set; }
 
 		/// <summary>

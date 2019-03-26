@@ -98,7 +98,7 @@ namespace CTI.Directory
 			if ( dataProtectionProvider != null )
 			{
 				
-				if ( Utilities.UtilityManager.GetAppKeyValue( "envType" ) == "dev" )
+				if ( Utilities.UtilityManager.GetAppKeyValue( "envType" ) == "development" )
 				{
 					//controlling expiration - will this affect remembering day by day?
 					manager.UserTokenProvider =

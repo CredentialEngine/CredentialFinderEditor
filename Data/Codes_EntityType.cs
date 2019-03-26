@@ -17,6 +17,7 @@ namespace Data
         public Codes_EntityType()
         {
             this.Entity = new HashSet<Entity>();
+            this.Import_IdentifierToObjectXref = new HashSet<Import_IdentifierToObjectXref>();
         }
     
         public int Id { get; set; }
@@ -28,5 +29,6 @@ namespace Data
         public Nullable<int> Totals { get; set; }
     
         public virtual ICollection<Entity> Entity { get; set; }
+        public virtual ICollection<Import_IdentifierToObjectXref> Import_IdentifierToObjectXref { get; set; }
     }
 }

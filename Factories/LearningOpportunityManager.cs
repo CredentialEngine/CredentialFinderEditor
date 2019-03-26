@@ -9,7 +9,7 @@ using Models.Common;
 using Models.ProfileModels;
 using EM = Data;
 using Utilities;
-using DBentity = Data.LearningOpportunity;
+using DBEntity = Data.LearningOpportunity;
 using ThisEntity = Models.ProfileModels.LearningOpportunityProfile;
 using CondProfileMgr = Factories.Entity_ConditionProfileManager;
 //using CondProfileMgrOld = Factories.ConnectionProfileManager;
@@ -29,25 +29,34 @@ namespace Factories
 		/// <param name="entity"></param>
 		/// <param name="statusMessage"></param>
 		/// <returns></returns>
-		public int Add( ThisEntity entity, int userId, ref string statusMessage )
+		public int Add( ThisEntity entity, ref string statusMessage )
 		{
-			DBentity efEntity = new DBentity();
-			bool isEmpty = false;
+			DBEntity efEntity = new DBEntity();
 			using ( var context = new Data.CTIEntities() )
 			{
 				try
 				{
-					if ( ValidateProfile( entity, ref isEmpty, ref  messages ) == false )
+					if ( ValidateProfile( entity, ref  messages ) == false )
 					{
 						statusMessage = string.Join( "<br/>", messages.ToArray() );
 						return 0;
 					}
-					FromMap( entity, efEntity );
+					MapToDB( entity, efEntity );
 
-					efEntity.StatusId = 1;
-					efEntity.RowId = Guid.NewGuid();
-					efEntity.CTID = "ce-" + efEntity.RowId.ToString();
-					efEntity.CreatedById = efEntity.LastUpdatedById = userId;
+                    if ( !entity.IsReferenceVersion )
+                        efEntity.StatusId = 1; //obsolete?
+                    else
+                        efEntity.StatusId = 2;
+                    efEntity.RowId = Guid.NewGuid();
+                    if ( !entity.IsReferenceVersion )
+                    {
+                        if ( !string.IsNullOrWhiteSpace( entity.CTID ) && entity.CTID.Length == 39 )
+                            efEntity.CTID = entity.CTID.ToLower();
+                        else
+                            efEntity.CTID = "ce-" + efEntity.RowId.ToString().ToLower();
+                    }
+
+                    efEntity.CreatedById = efEntity.LastUpdatedById = entity.CreatedById;
 					efEntity.Created = System.DateTime.Now;
 					efEntity.LastUpdated = System.DateTime.Now;
 
@@ -61,7 +70,7 @@ namespace Factories
 						entity.Id = efEntity.Id;
 						entity.RowId = efEntity.RowId;
 				
-						if ( UpdateParts( entity, userId, ref messages ) == false )
+						if ( UpdateParts( entity, ref messages ) == false )
 						{
 							statusMessage += string.Join( ", ", messages.ToArray() );
 						}
@@ -99,22 +108,21 @@ namespace Factories
 		/// <param name="entity"></param>
 		/// <param name="statusMessage"></param>
 		/// <returns></returns>
-		public bool Update( ThisEntity entity, int userId, ref string statusMessage )
+		public bool Update( ThisEntity entity, ref string statusMessage )
 		{
 			bool isValid = true;
 			int count = 0;
-			bool isEmpty = false;
 			try
 			{
 				using ( var context = new Data.CTIEntities() )
 				{
 					context.Configuration.LazyLoadingEnabled = false;
-					DBentity efEntity = context.LearningOpportunity
+					DBEntity efEntity = context.LearningOpportunity
 								.SingleOrDefault( s => s.Id == entity.Id );
 
 					if ( efEntity != null && efEntity.Id > 0 )
 					{
-						if ( ValidateProfile( entity, ref isEmpty, ref  messages ) == false )
+						if ( ValidateProfile( entity, ref  messages ) == false )
 						{
 							statusMessage = string.Join( "<br/>", messages.ToArray() );
 							return false;
@@ -124,11 +132,11 @@ namespace Factories
 						//fill in fields that may not be in entity
 						entity.RowId = efEntity.RowId;
 
-						FromMap( entity, efEntity );
+						MapToDB( entity, efEntity );
 						if ( HasStateChanged( context ) )
 						{
 							efEntity.LastUpdated = System.DateTime.Now;
-							efEntity.LastUpdatedById = userId;
+							efEntity.LastUpdatedById = entity.LastUpdatedById;
 							count = context.SaveChanges();
 							//can be zero if no data changed
 							if ( count >= 0 )
@@ -145,7 +153,7 @@ namespace Factories
 						}
 						//continue with parts regardless
 
-						if ( UpdateParts( entity, userId, ref messages ) == false )
+						if ( UpdateParts( entity, ref messages ) == false )
 						{
 							isValid = false;
 							statusMessage += string.Join( "<br/>", messages.ToArray() );
@@ -228,8 +236,8 @@ namespace Factories
 				catch ( Exception ex )
 				{
 					LoggingHelper.LogError( ex, thisClassName + string.Format( ".UpdateEnvelopeId(), LearningOpportunity: {0}, envelopeId: {1}, updatedById: {2}", learningOppId, envelopeId, userId ) );
-					statusMessage = ex.Message + ( ex.InnerException != null && ex.InnerException.InnerException != null ? " - " + ex.InnerException.InnerException.Message : "" );
-				}
+                    statusMessage = FormatExceptions( ex );
+                }
 			}
 
 			return isValid;
@@ -246,7 +254,7 @@ namespace Factories
 		{
 			bool isValid = false;
 			int count = 0;
-			EM.LearningOpportunity efEntity = new DBentity();
+			EM.LearningOpportunity efEntity = new DBEntity();
 			using ( var context = new Data.CTIEntities() )
 			{
 				try
@@ -323,7 +331,7 @@ namespace Factories
 			{
 				try
 				{
-					DBentity efEntity = context.LearningOpportunity
+					DBEntity efEntity = context.LearningOpportunity
 								.SingleOrDefault( s => s.Id == Id );
 
 					if ( efEntity != null && efEntity.Id > 0 )
@@ -350,11 +358,8 @@ namespace Factories
 
 					if ( ex.InnerException != null && ex.InnerException.Message != null )
 					{
-						statusMessage = ex.InnerException.Message;
-
-						if ( ex.InnerException.InnerException != null && ex.InnerException.InnerException.Message != null )
-							statusMessage = ex.InnerException.InnerException.Message;
-					}
+                        statusMessage = FormatExceptions( ex );
+                    }
 					if ( statusMessage.ToLower().IndexOf( "the delete statement conflicted with the reference constraint" ) > -1 )
 					{
 						statusMessage = "Error: this learning opportunity cannot be deleted as it is being referenced by other items, such as roles or credentials. These associations must be removed before this learning opportunity can be deleted.";
@@ -365,12 +370,55 @@ namespace Factories
 			return isValid;
 		}
 
-		#region LearningOpportunity properties ===================
-		public bool UpdateParts( ThisEntity entity, int userId, ref List<string> messages )
+        public bool DeleteAllForOrganization( Guid owningOrgUid, ref List<string> messages )
+        {
+            bool isValid = true;
+            Organization org = OrganizationManager.GetForSummary( owningOrgUid );
+            if ( org == null || org.Id == 0 )
+            {
+                messages.Add( "Error - the provided organization was not found." );
+                return false;
+            }
+            if ( UtilityManager.GetAppKeyValue( "envType" ) == "production" )
+            {
+                messages.Add( "Deleting all learning opportunties for an organization is not allowed in this environment." );
+                return false;
+            }
+            string sql = "";
+            try
+            {
+                using ( var context = new EM.CTIEntities() )
+                {
+                    context.LearningOpportunity.RemoveRange( context.LearningOpportunity.Where( s => s.OwningAgentUid == owningOrgUid ) );
+                    int count = context.SaveChanges();
+                    if ( count > 0 )
+                    {
+                        isValid = true;
+                        messages.Add( string.Format( "removed {0} LearningOpportunities.", count ) );
+                    }
+
+                    //this may not work, needs to be lopp specific
+                    //sql = string.Format( "DELETE FROM [dbo].[Cache.Organization_ActorRoles]   WHERE OrganizationId = {0} ",org.Id );
+                    sql = string.Format( "UPDATE [dbo].[Cache.Organization_ActorRoles] SET [LoppsOwnedBy] = ''  WHERE OrganizationId = {0} ", org.Id );
+                    context.Database.ExecuteSqlCommand( sql );
+                }
+            }
+            catch ( Exception ex )
+            {
+                LoggingHelper.LogError( ex, thisClassName + "DeleteAllForOrganization" );
+                messages.Add( ex.Message );
+            }
+            return isValid;
+        }
+        #region LearningOpportunity properties ===================
+        public bool UpdateParts( ThisEntity entity, ref List<string> messages )
 		{
+			if ( entity.IsReferenceVersion )
+
+				return true;
 			bool isAllValid = true;
 		
-			if ( UpdateProperties( entity, userId, ref messages ) == false )
+			if ( UpdateProperties( entity, entity.LastUpdatedById, ref messages ) == false )
 			{
 				isAllValid = false;
 			}
@@ -381,7 +429,7 @@ namespace Factories
 
 			if ( entity.OwnerRoles == null || entity.OwnerRoles.Items.Count == 0 )
 			{
-				messages.Add( "Invalid request, please select one or more roles for the owing agent." );
+				messages.Add( "Invalid request, please select one or more roles for the owning agent." );
 				isAllValid = false;
 			}
 			else
@@ -406,47 +454,80 @@ namespace Factories
 				}
 			}
 
-			if ( erm.Entity_Reference_Update( entity.OtherInstructionalProgramCategory, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_CIP, false ) == false )
+			if ( erm.Update( entity.AlternativeInstructionalProgramType, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_CIP, false ) == false )
 				isAllValid = false;
 
-
-			if ( erm.Entity_Reference_Update( entity.Subject, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, userId, ref messages, CodesManager.PROPERTY_CATEGORY_SUBJECT, false ) == false )
+			if ( erm.Update( entity.AlternativeIndustries, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_NAICS, false ) == false )
 				isAllValid = false;
 
-			if ( erm.Entity_Reference_Update( entity.Keyword, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, userId, ref messages, CodesManager.PROPERTY_CATEGORY_KEYWORD, false ) == false )
+			if ( erm.Update( entity.AlternativeOccupations, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_SOC, false ) == false )
 				isAllValid = false;
-			
-			return isAllValid;
+
+			if ( erm.Update( entity.Subject, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_SUBJECT, false ) == false )
+				isAllValid = false;
+
+			if ( erm.Update( entity.Keyword, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_KEYWORD, false ) == false )
+				isAllValid = false;
+
+            var lm = new Entity_LanguageManager();
+            if ( lm.Update( entity.InLanguageCodeList, entity.RowId, entity.LastUpdatedById, ref messages ) == false )
+                isAllValid = false;
+
+            return isAllValid;
 		} //
 
 		public bool UpdateProperties( ThisEntity entity, int userId, ref List<string> messages )
 		{
 			bool isAllValid = true;
-			string statusMessage = "";
 
 			EntityPropertyManager mgr = new EntityPropertyManager();
-			if ( entity.IsNewVersion )
-			{	}
 
 
-				if ( mgr.UpdateProperties( entity.LearningMethodType, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, CodesManager.PROPERTY_CATEGORY_Learning_Method_Type, userId, ref messages ) == false )
-					isAllValid = false;
-		
+            if ( mgr.UpdateProperties(entity.LearningMethodType, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, CodesManager.PROPERTY_CATEGORY_Learning_Method_Type, userId, ref messages) == false )
+                isAllValid = false;
 
-			if ( mgr.UpdateProperties( entity.DeliveryType, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, CodesManager.PROPERTY_CATEGORY_LEARNING_OPP_DELIVERY_TYPE, userId, ref messages ) == false )
-				isAllValid = false;
-			return isAllValid;
+            if ( mgr.UpdateProperties(entity.DeliveryType, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, CodesManager.PROPERTY_CATEGORY_DELIVERY_TYPE, userId, ref messages) == false )
+                isAllValid = false;
+
+            if ( mgr.UpdateProperties(entity.AudienceType, entity.RowId, CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE, CodesManager.PROPERTY_CATEGORY_AUDIENCE_TYPE, entity.LastUpdatedById, ref messages) == false )
+                isAllValid = false;
+
+            return isAllValid;
 		}
 
 
-		#endregion
-
-		public bool ValidateProfile( ThisEntity profile, ref bool isEmpty, ref List<string> messages )
+        #endregion
+        public static bool HasMinimumData( ThisEntity profile, ref List<string> messages, bool validatingUrls = false )
+        {
+            bool isValid = true;
+            if (!ValidateProfile( profile, ref messages, validatingUrls ) )
+                isValid = false;
+            //has to have at least one connection or part of something
+            if (profile.IsPartOfCredential == null || profile.IsPartOfCredential.Count == 0)
+            {
+                //TODO - check if this is a child lopp of an lopp that is part of a cred
+                if ( profile.IsPartOf.Count > 0 )
+                {
+                    if (profile.SomeParentIsPartOfCredential == false)
+                    {
+                        messages.Add( string.Format( "The Learning Opportunity: {0} ({1}) is not connected to any credentials, via connections or conditions. Nor are any of it's parent learning opportunities. It cannot be published as a standalone document.", profile.Name, profile.Id ) );
+                        isValid = false;
+                    }
+                }
+                else
+                {
+                    messages.Add( string.Format( "The Learning Opportunity: {0} ({1}) is not connected to any credentials, via connections or conditions. It cannot be published as a standalone document.", profile.Name, profile.Id ) );
+                    isValid = false;
+                }
+            }
+            return isValid;
+        }
+        public static bool ValidateProfile( ThisEntity profile, ref List<string> messages, bool validatingUrls = true )
 		{
 			bool isValid = true;
 			int count = messages.Count;
-
-			isEmpty = false;
+			//ref bool isEmpty,
+			//isEmpty = false;
 			//check if empty
 			if ( string.IsNullOrWhiteSpace( profile.Name )
 				&& string.IsNullOrWhiteSpace( profile.Description )
@@ -464,58 +545,101 @@ namespace Factories
 			{
 				messages.Add( "A Learning Opportunity name must be entered" );
 			}
-			if ( string.IsNullOrWhiteSpace( profile.Description ) )
-			{
-				messages.Add( "A Learning Opportunity Description must be entered" );
-			}
-			if ( !IsValidGuid( profile.OwningAgentUid ) )
-			{
-				messages.Add( "An owning organization must be selected" );
-			}
-
-			if ( !string.IsNullOrWhiteSpace( profile.DateEffective ) && !IsValidDate( profile.DateEffective ) )
-			{
-				messages.Add( "Please enter a valid effective date" );
-			}
-
 			if ( string.IsNullOrWhiteSpace( profile.SubjectWebpage ) )
-				messages.Add( "A Subject Webpage name must be entered" );
+				messages.Add( "A Subject Webpage url must be entered" );
 
-			else if ( !IsUrlValid( profile.SubjectWebpage, ref commonStatusMessage ) )
+			else if ( validatingUrls && !IsUrlValid( profile.SubjectWebpage, ref commonStatusMessage ) )
 			{
 				messages.Add( "The Subject Webpage Url is invalid" + commonStatusMessage );
 			}
 
-			if ( !IsUrlValid( profile.AvailableOnlineAt, ref commonStatusMessage ) )
+            //if ( profile.InLanguageId == 0 )
+             
+
+            if ( profile.IsReferenceVersion )
 			{
-				messages.Add( "The Available Online At Url is invalid" + commonStatusMessage );
-			}
-			
-			if ( !IsUrlValid( profile.AvailabilityListing, ref commonStatusMessage ) )
+                //no more edits
+                if ( FormHelper.HasHtmlTags( profile.Description ) )
+                {
+                    messages.Add( "HTML or Script Tags are not allowed in the description" );
+                }
+            }
+			else
 			{
-				messages.Add( "The Availability Listing Url is invalid" + commonStatusMessage );
+				if ( string.IsNullOrWhiteSpace( profile.Description ) )
+				{
+					messages.Add( "A Learning Opportunity Description must be entered" );
+				}
+                else if ( FormHelper.HasHtmlTags( profile.Description ) )
+                {
+                    messages.Add( "HTML or Script Tags are not allowed in the description" );
+                }
+				else if ( profile.Description.Length < MinimumDescriptionLength && !IsDevEnv() )
+				{
+					messages.Add( string.Format( "The Learning Opportunity description must be at least {0} characters in length.", MinimumDescriptionLength ) );
+				}
+
+				if ( !profile.InLanguageCodeList.Any() )
+                {
+                    messages.Add( "A language must be selected" );
+
+                }
+                if ( !IsGuidValid( profile.OwningAgentUid ) )
+				{
+					messages.Add( "An owning organization must be selected" );
+				}
+                if (profile.OwnerRoles == null || profile.OwnerRoles.Items.Count == 0)
+                {
+                    messages.Add( "Invalid request, please select one or more roles for the owning agent." );
+                }
+                //require at least one avaialble type property 
+                //on initial add, cannot add an address!
+                if ( string.IsNullOrWhiteSpace( profile.AvailableOnlineAt )
+					&& string.IsNullOrWhiteSpace( profile.AvailabilityListing )
+					 )
+				{
+					//addresses probably are not in the profile at this point
+					if ( profile.Id > 0 && AddressProfileManager.HasAddress( profile.RowId ) == false )
+					{
+						messages.Add( "At least one of: 'Available Online At', 'Availability Listing', and 'Available At' (address) must be entered" );
+					}
+				}
+
+				if ( !IsUrlValid( profile.AvailableOnlineAt, ref commonStatusMessage ) )
+				{
+					messages.Add( "The Available Online At Url is invalid" + commonStatusMessage );
+				}
+
+				if ( !IsUrlValid( profile.AvailabilityListing, ref commonStatusMessage ) )
+				{
+					messages.Add( "The Availability Listing Url is invalid" + commonStatusMessage );
+				}
+				if ( !string.IsNullOrWhiteSpace( profile.DateEffective ) && !IsValidDate( profile.DateEffective ) )
+				{
+					messages.Add( "Please enter a valid effective date" );
+				}
+
+
+				if ( profile.CreditHourValue < 0 || profile.CreditHourValue > 10000 )
+					messages.Add( "Error: invalid value for Credit Hour Value. Must be a reasonable decimal value greater than zero." );
+
+				if ( profile.CreditUnitValue < 0 || profile.CreditUnitValue > 10000 )
+					messages.Add( "Error: invalid value for Credit Unit Value. Must be a reasonable decimal value greater than zero." );
+
+
+				//can only have credit hours properties, or credit unit properties, not both
+				bool hasCreditHourData = false;
+				bool hasCreditUnitData = false;
+				if ( profile.CreditHourValue > 0 || ( profile.CreditHourType ?? "" ).Length > 0 )
+					hasCreditHourData = true;
+				if ( profile.CreditUnitTypeId > 0
+					|| ( profile.CreditUnitTypeDescription ?? "" ).Length > 0
+					|| profile.CreditUnitValue > 0 )
+					hasCreditUnitData = true;
+
+				if ( hasCreditHourData && hasCreditUnitData )
+					messages.Add( "Error: Data can be entered for Credit Hour related properties or Credit Unit related properties, but not for both." );
 			}
-
-			if ( profile.CreditHourValue < 0 || profile.CreditHourValue > 100 )
-				messages.Add( "Error: invalid value for Credit Hour Value. Must be a reasonable decimal value greater than zero." );
-
-			if ( profile.CreditUnitValue < 0 || profile.CreditUnitValue > 100 )
-				messages.Add( "Error: invalid value for Credit Unit Value. Must be a reasonable decimal value greater than zero." );
-
-
-			//can only have credit hours properties, or credit unit properties, not both
-			bool hasCreditHourData = false;
-			bool hasCreditUnitData = false;
-			if ( profile.CreditHourValue > 0 || ( profile.CreditHourType ?? "" ).Length > 0 )
-				hasCreditHourData = true;
-			if ( profile.CreditUnitTypeId > 0
-				|| ( profile.CreditUnitTypeDescription ?? "" ).Length > 0
-				|| profile.CreditUnitValue > 0 )
-				hasCreditUnitData = true;
-
-			if ( hasCreditHourData && hasCreditUnitData )
-				messages.Add( "Error: Data can be entered for Credit Hour related properties or Credit Unit related properties, but not for both." );
-
 			if ( messages.Count > count )
 				isValid = false;
 
@@ -533,16 +657,36 @@ namespace Factories
 			using ( var context = new Data.CTIEntities() )
 			{
 				//context.Configuration.LazyLoadingEnabled = false;
-				DBentity item = context.LearningOpportunity
+				DBEntity item = context.LearningOpportunity
 						.SingleOrDefault( s => s.Id == id );
 
 				if ( item != null && item.Id > 0 )
 				{
-					ToMap( item, entity,
+					MapFromDB( item, entity,
 						true, //includingProperties
 						includingProfiles,
 						false, //forEditView
 						true);
+				}
+			}
+
+			return entity;
+		}
+		public static ThisEntity GetForPublish( int id )
+		{
+			ThisEntity entity = new ThisEntity();
+			using ( var context = new Data.CTIEntities() )
+			{
+				DBEntity item = context.LearningOpportunity
+						.SingleOrDefault( s => s.Id == id );
+
+				if ( item != null && item.Id > 0 )
+				{
+					MapFromDB( item, entity,
+							true, //includingProperties
+							true, //includingProfiles
+							false, //forEditView,
+							true ); //includeWhereUsed );
 				}
 			}
 
@@ -566,12 +710,12 @@ namespace Factories
 				//	context.Configuration.LazyLoadingEnabled = false;
 
 
-				DBentity item = context.LearningOpportunity
+				DBEntity item = context.LearningOpportunity
 						.SingleOrDefault( s => s.Id == id );
 
 				if ( item != null && item.Id > 0 )
 				{
-					ToMap( item, entity,
+					MapFromDB( item, entity,
 						true, //includingProperties
 						includingProfiles, 
 						forEditView,  
@@ -581,7 +725,106 @@ namespace Factories
 
 			return entity;
 		}
+        public static ThisEntity GetBasicByUniqueId(string identifier, Guid owningOrgUid)
+        {
 
+            ThisEntity to = new ThisEntity();
+            if ( string.IsNullOrWhiteSpace(identifier) )
+                return to;
+
+            using ( var context = new Data.CTIEntities() )
+            {
+                context.Configuration.LazyLoadingEnabled = false;
+                var from = context.LearningOpportunity
+                            .FirstOrDefault(s => s.ExternalIdentifier.ToLower() == identifier.ToLower()
+                               && s.OwningAgentUid == owningOrgUid
+                               && s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED
+                                );
+
+                if ( from != null && from.Id > 0 )
+                {
+                    MapFromDB_Basic(from, to, false, false);
+                }
+            }
+
+            return to;
+        }
+
+        /// <summary>
+        /// Get summary view of an assessment by ctid
+        /// </summary>
+        /// <param name="ctid"></param>
+        /// <param name="includingRoles"></param>
+        /// <returns></returns>
+        public static ThisEntity GetByCtid( string ctid, bool forSummaryView = true )
+        {
+
+            ThisEntity to = new ThisEntity();
+
+            using ( var context = new Data.CTIEntities() )
+            {
+                //assessment should have few child entities retrieved, allow lazy
+                //context.Configuration.LazyLoadingEnabled = false;
+                DBEntity from = context.LearningOpportunity
+                        .SingleOrDefault( s => s.CTID == ctid
+                        && s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED
+                        );
+
+                if ( from != null && from.Id > 0 )
+                {
+                    MapFromDB_Basic( from, to, false, false, forSummaryView );
+                }
+            }
+
+            return to;
+        }
+
+        /// <summary>
+        /// Get record and do validation for approvals
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="messages"></param>
+        /// <returns></returns>
+        public static ThisEntity GetForApproval( int id, ref List<string> messages )
+        {
+            ThisEntity entity = new ThisEntity();
+
+            using ( var context = new Data.CTIEntities() )
+            {
+                DBEntity item = context.LearningOpportunity
+                            .FirstOrDefault( s => s.Id == id
+                                && s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED
+                                );
+
+                if ( item != null && item.Id > 0 )
+                {
+                    //??
+                    MapFromDB_Basic( item, entity, false, false );
+                    HasMinimumData( entity, ref messages, false );
+                }
+            }
+
+            return entity;
+        }
+
+		public static ThisEntity GetBasic( Guid rowId )
+		{
+			ThisEntity entity = new ThisEntity();
+
+			using ( var context = new Data.CTIEntities() )
+			{
+				context.Configuration.LazyLoadingEnabled = false;
+				DBEntity from = context.LearningOpportunity
+						.FirstOrDefault( s => s.RowId == rowId );
+
+				if ( from != null && from.Id > 0 )
+				{
+					entity = GetBasic(from.Id);
+				}
+			}
+
+			return entity;
+		}
 		/// <summary>
 		/// Get absolute minimum for display as profile link
 		/// </summary>
@@ -593,31 +836,120 @@ namespace Factories
 
 			using ( var context = new Data.CTIEntities() )
 			{
-				context.Configuration.LazyLoadingEnabled = false;
-				DBentity item = context.LearningOpportunity
-						.SingleOrDefault( s => s.Id == id );
+				//context.Configuration.LazyLoadingEnabled = false;
+				DBEntity from = context.LearningOpportunity
+						.FirstOrDefault( s => s.Id == id );
 
-				if ( item != null && item.Id > 0 )
+				if ( from != null && from.Id > 0 )
 				{
-					entity.Id = item.Id;
-					entity.RowId = item.RowId;
-					entity.Name = item.Name;
-					entity.Description = item.Description;
-					entity.SubjectWebpage = item.Url;
-					entity.ctid = item.CTID;
-					if ( IsGuidValid( item.OwningAgentUid ) )
-					{
-						entity.OwningAgentUid = ( Guid ) item.OwningAgentUid;
-
-						entity.OwningOrganization = OrganizationManager.GetForSummary( entity.OwningAgentUid );
-						
-					}
+					MapFromDB_Basic( from, entity, false, false, true );
 				}
 			}
 
 			return entity;
 		}
-		public static ThisEntity GetAs_IsPartOf( Guid rowId, bool forEditView )
+        public static List<ThisEntity> GetAllForOwningOrg( Guid owningOrgUid )
+        {
+            List<ThisEntity> list = new List<ThisEntity>();
+            ThisEntity entity = new ThisEntity();
+            using (var context = new Data.CTIEntities())
+            {
+                List<DBEntity> results = context.LearningOpportunity
+                             .Where( s => s.OwningAgentUid == owningOrgUid )
+                             .OrderBy( s => s.Name )
+                             .ToList();
+                if (results != null && results.Count > 0)
+                {
+                    foreach (DBEntity item in results)
+                    {
+                        entity = new ThisEntity();
+                        MapFromDB_Basic( item, entity, false, false );
+                        list.Add( entity );
+                    }
+                }
+            }
+
+            return list;
+        }
+        public static List<Dictionary<string, object>> GetAllForExport_DictionaryList( string owningOrgUid, bool includingConditionProfile = true )
+        {
+            //
+            var result = new List<Dictionary<string, object>>();
+            var table = GetAllForExport_DataTable( owningOrgUid, includingConditionProfile );
+
+            foreach ( DataRow dr in table.Rows )
+            {
+                var rowData = new Dictionary<string, object>();
+                for ( var i = 0; i < dr.ItemArray.Count(); i++ )
+                {
+                    rowData[ table.Columns[ i ].ColumnName ] = dr.ItemArray[ i ];
+                }
+                result.Add( rowData );
+            }
+            return result;
+        }
+        //
+        public static DataTable GetAllForExport_DataTable( string owningOrgUid, bool includingConditionProfile )
+        {
+            var result = new DataTable();
+            string connectionString = DBConnectionRO();
+            //
+            using ( SqlConnection c = new SqlConnection( connectionString ) )
+            {
+                c.Open();
+                using ( SqlCommand command = new SqlCommand( "[LearningOpportunity_Export]", c ) )
+                {
+                    command.CommandType = CommandType.StoredProcedure;
+                    command.Parameters.Add( new SqlParameter( "@OwningOrgUid", owningOrgUid ) );
+
+                    try
+                    {
+                        using ( SqlDataAdapter adapter = new SqlDataAdapter() )
+                        {
+                            adapter.SelectCommand = command;
+                            adapter.Fill( result );
+                        }
+
+                    }
+                    catch ( Exception ex )
+                    {
+                        LoggingHelper.LogError( ex, thisClassName + string.Format( ".GetAllForExport_DataTable() - Execute proc, Message: {0} \r\n owningOrgUid: {1} ", ex.Message, owningOrgUid ) );
+                    }
+                }
+            }
+            return result;
+        }
+
+        public static ThisEntity GetByNameAndUrl( string name, string url, ref string status )
+        {
+            ThisEntity to = new ThisEntity();
+            //warning the trailing slash is trimmed during save so need to handle, or do both
+
+            if ( url.EndsWith( "/" ) )
+                url = url.TrimEnd( '/' );
+
+            using ( var context = new Data.CTIEntities() )
+            {
+                context.Configuration.LazyLoadingEnabled = false;
+                //can be many, so use list and reject if multiple
+                List<DBEntity> results = context.LearningOpportunity
+                        .Where( s => s.Name.ToLower() == name.ToLower()
+                        && ( s.Url.ToLower() == url.ToLower() )
+                        && s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED
+                        ).ToList();
+
+                if ( results != null )
+                {
+                    if ( results.Count == 1 )
+                        MapFromDB_Basic( results[ 0 ], to, false, false );
+                    else if ( results.Count > 1 )
+                        status = "Error - there are mulitple learningOpportunities with the name: " + name + ". Please ensure a unique learningOpp name is used, or use a CTID for an existing learningOpp instead.";
+                }
+            }
+
+            return to;
+        }
+        public static ThisEntity GetAs_IsPartOf( Guid rowId, bool forEditView )
 		{
 			ThisEntity entity = new ThisEntity();
 
@@ -625,9 +957,9 @@ namespace Factories
 			{
 				//	REVIEW	- seems like will need to almost always bubble up costs
 				//			- just confirm that this method is to simply list parent Lopps
-				context.Configuration.LazyLoadingEnabled = false;
+				//context.Configuration.LazyLoadingEnabled = false;
 
-				DBentity item = context.LearningOpportunity
+				DBEntity item = context.LearningOpportunity
 						.SingleOrDefault( s => s.RowId == rowId );
 
 				if ( item != null && item.Id > 0 )
@@ -638,13 +970,17 @@ namespace Factories
 					entity.Description = item.Description;
 					entity.SubjectWebpage = item.Url;
 					entity.ctid = item.CTID;
+					if ( string.IsNullOrWhiteSpace( item.CTID ) )
+						entity.IsReferenceVersion = true;
+
 					if ( IsGuidValid( item.OwningAgentUid ) )
 					{
 						entity.OwningAgentUid = ( Guid ) item.OwningAgentUid;
 					}
 					//costs? = shouldn't need
 					entity.EstimatedCost = CostProfileManager.GetAll( entity.RowId, forEditView );
-				}
+                    MapFromDB_References( item, entity, forEditView );
+                }
 			}
 
 			return entity;
@@ -657,13 +993,23 @@ namespace Factories
 			List<string> competencyList = new List<string>();
 			//get minimal entity
 			List<ThisEntity> list = Search( pFilter, "", pageNumber, pageSize, userId, ref pTotalRows, ref competencyList, autocomplete );
-
+			bool appendingOrgNameToAutocomplete = UtilityManager.GetAppKeyValue( "appendingOrgNameToAutocomplete", false );
 			string prevName = "";
 			foreach ( LearningOpportunityProfile item in list )
 			{
 				//note excluding duplicates may have an impact on selected max terms
-				if ( item.Name.ToLower() != prevName )
-					results.Add( item.Name );
+				//if ( item.Name.ToLower() != prevName )
+				//	results.Add( item.Name );
+				if ( string.IsNullOrWhiteSpace( item.OrganizationName )
+					|| !appendingOrgNameToAutocomplete )
+				{
+					if ( item.Name.ToLower() != prevName )
+						results.Add( item.Name );
+				}
+				else
+				{
+					results.Add( item.Name + " ('" + item.OrganizationName + "')" );
+				}
 
 				prevName = item.Name.ToLower();
 			}
@@ -705,21 +1051,29 @@ namespace Factories
 					SqlParameter totalRows = new SqlParameter( "@TotalRows", pTotalRows );
 					totalRows.Direction = ParameterDirection.Output;
 					command.Parameters.Add( totalRows );
-
+		try
+					{
 					using ( SqlDataAdapter adapter = new SqlDataAdapter() )
 					{
 						adapter.SelectCommand = command;
 						adapter.Fill( result );
 					}
 					string rows = command.Parameters[ 5 ].Value.ToString();
-					try
-					{
+			
 						pTotalRows = Int32.Parse( rows );
 					}
-					catch
+					catch (Exception ex)
 					{
 						pTotalRows = 0;
-					}
+                        LoggingHelper.LogError(ex, thisClassName + string.Format(".Search() - Execute proc, Message: {0} \r\n Filter: {1} \r\n", ex.Message, pFilter));
+
+                        item = new LearningOpportunityProfile();
+                        item.Name = "Unexpected error encountered. System administration has been notified. Please try again later. ";
+                        item.Description = ex.Message;
+                    
+                        list.Add(item);
+                        return list;
+                    }
 				}
 
 				foreach ( DataRow dr in result.Rows )
@@ -728,29 +1082,16 @@ namespace Factories
 					item.Id = GetRowColumn( dr, "Id", 0 );
 					item.Name = GetRowColumn( dr, "Name", "missing" );
 					item.FriendlyName = FormatFriendlyTitle( item.Name );
-
-					//for autocomplete, only need name
-					if ( autocomplete )
-					{
-						list.Add( item );
-						continue;
-					}
+					item.ManagingOrganization = GetRowPossibleColumn( dr, "ManagingOrganization", "" );
+					item.ManagingOrgId = GetRowPossibleColumn( dr, "ManagingOrgId", 0 );
 					item.Description = GetRowColumn( dr, "Description", "" );
 
 					string rowId = GetRowColumn( dr, "RowId" );
 					item.RowId = new Guid( rowId );
-
-					item.SubjectWebpage = GetRowColumn( dr, "URL", "" );
-					item.AvailableOnlineAt = GetRowPossibleColumn( dr, "AvailableOnlineAt", "" );
-					item.CanEditRecord = GetRowColumn( dr, "CanEditRecord", false );
-					item.StatusId = GetRowColumn( dr, "StatusId", 1 );
-					item.ctid = GetRowPossibleColumn( dr, "CTID", "" );
-					item.CredentialRegistryId = GetRowPossibleColumn( dr, "CredentialRegistryId", "" );
-
-					item.CodedNotation = GetRowColumn( dr, "IdentificationCode", "" );
-					item.ManagingOrganization = GetRowPossibleColumn( dr, "ManagingOrganization", "" );
-					item.ManagingOrgId = GetRowPossibleColumn( dr, "ManagingOrgId", 0 );
-
+					rowId = GetRowColumn( dr, "OwningAgentUid" );
+					if (IsValidGuid(rowId))
+						item.OwningAgentUid = new Guid( rowId );
+					//
 					org = GetRowPossibleColumn( dr, "Organization", "" );
 					orgId = GetRowPossibleColumn( dr, "OrgId", 0 );
 					if ( orgId > 0 )
@@ -758,8 +1099,45 @@ namespace Factories
 						item.OwningOrganization = new Organization() { Id = orgId, Name = org };
 					}
 
-					//item.CreatedByOrganization = GetRowColumn( dr, "Organization", "" );
-					//item.CreatedByOrganizationId = GetRowColumn( dr, "OrgId", 0 );
+					//for autocomplete, only need name
+					if ( autocomplete )
+					{
+						list.Add( item );
+						continue;
+					}
+					
+
+					item.SubjectWebpage = GetRowColumn( dr, "URL", "" );
+					item.AvailableOnlineAt = GetRowPossibleColumn( dr, "AvailableOnlineAt", "" );
+					item.CanEditRecord = GetRowColumn( dr, "CanEditRecord", false );
+					item.StatusId = GetRowColumn( dr, "StatusId", 1 );
+					item.ctid = GetRowPossibleColumn( dr, "CTID", "" );
+					if ( string.IsNullOrWhiteSpace( item.CTID ) )
+						item.IsReferenceVersion = true;
+
+					item.CredentialRegistryId = GetRowPossibleColumn( dr, "CredentialRegistryId", "" );
+
+					item.CodedNotation = GetRowColumn( dr, "IdentificationCode", "" );
+
+                    item.EntityLastUpdated = GetRowColumn(dr, "EntityLastUpdated", System.DateTime.Now);
+                    item.LastPublishDate = GetRowPossibleColumn(dr, "LastPublishDate", "");
+                    DateTime testdate;
+                    if ( DateTime.TryParse( item.LastPublishDate, out testdate ) )
+                    {
+                        item.IsPublished = true;
+                        item.LastPublished = testdate;
+                    }
+                    //approvals
+                    item.LastApprovalDate = GetRowPossibleColumn( dr, "LastApprovalDate", "" );
+                    if ( DateTime.TryParse( item.LastApprovalDate, out testdate ) )
+                    {
+                        item.IsApproved = true;
+                        item.LastApproved = testdate;
+                    }
+                    item.ContentApprovedBy = GetRowPossibleColumn( dr, "ContentApprovedBy" );
+					item.ContentApprovedById = GetRowPossibleColumn( dr, "ContentApprovedById", 0 );
+					if ( item.ContentApprovedById > 0 )
+						item.IsApproved = true;
 
 					temp = GetRowColumn( dr, "DateEffective", "" );
 					if ( IsValidDate( temp ) )
@@ -777,64 +1155,134 @@ namespace Factories
 						item.Addresses = AddressProfileManager.GetAll( item.RowId );
 					}
 					//competencies. either arbitrarily get all, or if filters exist, only return matching ones
-					int competencies = GetRowPossibleColumn( dr, "Competencies", 0 );
-					if ( competencies > 0 )
+					item.TeachesCompetenciesCount = GetRowPossibleColumn( dr, "Competencies", 0 );
+					if (item.TeachesCompetenciesCount > 0 )
 					{
-						if (competencyList.Count == 0)
-							item.TeachesCompetenciesFrameworks = Entity_CompetencyFrameworkManager.GetAll( item.RowId, "teaches" );
-						else
-						{
-							item.TeachesCompetenciesFrameworks = new List<CredentialAlignmentObjectFrameworkProfile>();
-							List<CredentialAlignmentObjectFrameworkProfile> all = Entity_CompetencyFrameworkManager.GetAll( item.RowId, "teaches" );
-							foreach ( CredentialAlignmentObjectFrameworkProfile next in all )
-							{
-								//just do desc for now
-								string orig = (next.Description ?? "");
-								foreach ( string filter in competencyList )
-								{
-									//not ideal, as would be an exact match
-									orig = orig.Replace( filter, string.Format( "<span class='highlight'>{0}<\\span>", filter ) );
-								}
-								if ( orig != ( next.Description ?? "" ) )
-								{
-									next.Description = orig;
-									item.TeachesCompetenciesFrameworks.Add( next );
-								}
-							}
-						}
+                        //do on demand now
+						//FillCompetencies( item, ref competencyList );
 					}
+                    string subjects = GetRowPossibleColumn(dr, "SubjectsList", "");
+                    if (!string.IsNullOrWhiteSpace(subjects))
+                    {
+                        var codeGroup = subjects.Split('|');
+                        foreach (string codeSet in codeGroup)
+                        {
+                            var codes = codeSet.Split('~');
+                            item.Subjects.Add(codes[0].Trim());
+                        }
+                    }
 
-					list.Add( item );
-				}
+                    //IN PROGRESS
+                    item.LearningOppConnectionsList = Fill_CredentialConnectionsResult( dr, "ConnectionsList", CodesManager.PROPERTY_CATEGORY_CONNECTION_PROFILE_TYPE );
+
+					item.IndustryResults = Fill_CodeItemResultsFromXml( dr, "Frameworks", CodesManager.PROPERTY_CATEGORY_NAICS, true, true );
+					item.IndustryOtherResults = Fill_CodeItemResults( dr, "OtherFrameworks", CodesManager.PROPERTY_CATEGORY_NAICS, false, false, false );
+
+					//OccupationsCSV
+					item.OccupationResults = Fill_CodeItemResultsFromXml( dr, "Frameworks", CodesManager.PROPERTY_CATEGORY_SOC, true, true );
+					item.OccupationOtherResults = Fill_CodeItemResults( dr, "OtherFrameworks", CodesManager.PROPERTY_CATEGORY_SOC, false, false, false );
+
+					item.InstructionalProgramResults = Fill_CodeItemResultsFromXml( dr, "Frameworks", CodesManager.PROPERTY_CATEGORY_CIP, false, false );
+                    item.QualityAssurance = Fill_AgentItemResultsFromXml( dr, "QualityAssurance", CodesManager.PROPERTY_CATEGORY_CREDENTIAL_AGENT_ROLE, false, false );
+
+                    string relatedItems = GetRowColumn( dr, "CommonCosts" );
+                    string[] array = relatedItems.Split( ',' );
+                    if ( array.Count() > 0 )
+                        foreach ( var i in array )
+                        {
+                            if ( !string.IsNullOrWhiteSpace( i ) )
+                                item.CommonCostsList.Add( i.ToLower() );
+                        }
+                    relatedItems = GetRowColumn( dr, "CommonConditions" );
+                    array = relatedItems.Split( ',' );
+                    if ( array.Count() > 0 )
+                        foreach ( var i in array )
+                        {
+                            if ( !string.IsNullOrWhiteSpace( i ) )
+                                item.CommonConditionsList.Add( i.ToLower() );
+                        }
+
+
+                    //
+                    list.Add( item );
+                }
 
 				return list;
 
 			}
 		} //
-		
+          //private static void FillCompetencies( ThisEntity item, ref List<string> competencyList )
+          //{
+          //          if ( competencyList.Count == 0 )
+          //          {
+          //              //item.TeachesCompetenciesFrameworks = Entity_CompetencyFrameworkManager.GetAll( item.RowId, "teaches" );
+          //              item.TeachesCompetenciesFrameworks = Entity_CompetencyManager.GetAll( item.RowId, "teaches" );
+          //          }
+          //          else
+          //          {
+          //              item.TeachesCompetenciesFrameworks = new List<CredentialAlignmentObjectFrameworkProfile>();
+          //              //????
+          //              List<CredentialAlignmentObjectFrameworkProfile> all = Entity_CompetencyFrameworkManager.GetAll( item.RowId, "teaches" );
+          //              foreach ( CredentialAlignmentObjectFrameworkProfile next in all )
+          //              {
+          //                  //just do desc for now
+          //                  string orig = ( next.Description ?? "" );
+          //                  foreach ( string filter in competencyList )
+          //                  {
+          //                      //not ideal, as would be an exact match
+          //                      orig = orig.Replace( filter, string.Format( "<span class='highlight'>{0}<\\span>", filter ) );
+          //                  }
+          //                  if ( orig != ( next.Description ?? "" ) )
+          //                  {
+          //                      next.Description = orig;
+          //                      item.TeachesCompetenciesFrameworks.Add( next );
+          //                  }
+          //              }
+          //          }
+          //} //
+        public static List<ThisEntity> SearchByUrl( string subjectWebpage, string pOrderBy, int pageNumber, int pageSize, ref int pTotalRows, int userId = 0, bool autocomplete = false )
+        {
+            string url = NormalizeUrlData( subjectWebpage );
+            //skip if an example url
+            string filter = string.Format( " ( base.Id in (Select Id from Assessment where (Url like '{0}%') )) ", url );
+            int ptotalRows = 0;
+            var exists = Search( filter, "", 1, 100, userId, ref ptotalRows );
+            return exists;
+        }
 
-		public static void FromMap( ThisEntity from, DBentity to )
+        public static void MapToDB( ThisEntity from, DBEntity to )
 		{
 
 			//want to ensure fields from create are not wiped
 			if ( to.Id == 0 )
 			{
-				if ( IsValidDate( from.Created ) )
-					to.Created = from.Created;
-				to.CreatedById = from.CreatedById;
+				to.ExternalIdentifier = string.IsNullOrWhiteSpace( from.ExternalIdentifier ) ? null : from.ExternalIdentifier;
+			}
+			else
+			{
+				if ( string.IsNullOrWhiteSpace( to.ExternalIdentifier ) )
+				{
+					to.ExternalIdentifier = string.IsNullOrWhiteSpace( from.ExternalIdentifier ) ? null : from.ExternalIdentifier;
+				}
 			}
 			//don't map rowId, ctid, or dates as not on form
 
 			to.Id = from.Id;
-			to.Name = GetData(from.Name);
-			//to.StatusId = from.StatusId > 0 ? from.StatusId : ( to.StatusId > 0 ? to.StatusId: 1 );
+			to.Name = ConvertSpecialCharacters(from.Name);
+            //to.StatusId = from.StatusId > 0 ? from.StatusId : ( to.StatusId > 0 ? to.StatusId: 1 );
 
-			to.Description = GetData(from.Description);
+            to.Description = ConvertSpecialCharacters( from.Description );
+            to.Url = NormalizeUrlData( from.SubjectWebpage, null );
 
 			//generally the managing orgId should not be allowed to change in the interface - yet
 			if ( from.ManagingOrgId > 0
 				&& from.ManagingOrgId != ( to.ManagingOrgId ?? 0 ) )
 				to.ManagingOrgId = from.ManagingOrgId;
+
+
+			if ( from.IsReferenceVersion )
+				return;
+			//===============================================================
 
 			if ( IsGuidValid( from.OwningAgentUid ) )
 			{
@@ -854,170 +1302,82 @@ namespace Factories
 				//always have to have an owner
 				//to.OwningAgentUid = null;
 			}
-
-			//OLD??
-			if ( IsGuidValid( from.ProviderUid ) )
-				to.ProviderUid = from.ProviderUid;
-			else
-				to.ProviderUid = null;
-
-			to.Url = GetUrlData( from.SubjectWebpage, null );
+			
 			to.IdentificationCode = GetData(from.CodedNotation);
-			to.AvailableOnlineAt = GetUrlData( from.AvailableOnlineAt, null );
-			to.AvailabilityListing = GetUrlData( from.AvailabilityListing, null );
-			to.DeliveryTypeDescription = from.DeliveryTypeDescription;
-			to.VerificationMethodDescription = from.VerificationMethodDescription;
+			to.AvailableOnlineAt = NormalizeUrlData( from.AvailableOnlineAt, null );
+			to.AvailabilityListing = NormalizeUrlData( from.AvailabilityListing, null );
+			to.DeliveryTypeDescription = ConvertSpecialCharacters(from.DeliveryTypeDescription);
+			to.VerificationMethodDescription = ConvertSpecialCharacters(from.VerificationMethodDescription);
+
+			to.VersionIdentifier = GetData( from.VersionIdentifier );
 
 			if ( IsValidDate( from.DateEffective ) )
 				to.DateEffective = DateTime.Parse( from.DateEffective );
 			else
 				to.DateEffective = null;
-
-			if ( from.InLanguageId > 0 )
-				to.InLanguageId = from.InLanguageId;
-			else
-				to.InLanguageId = null;
+            //TODO - make obsolete
+			//if ( from.InLanguageId > 0 )
+			//	to.InLanguageId = from.InLanguageId;
+			//else
+			//	to.InLanguageId = null;
 
 			to.CreditHourType = GetData( from.CreditHourType );
 			to.CreditHourValue = SetData( from.CreditHourValue, 0.5M );
 			to.CreditUnitTypeId = SetData( from.CreditUnitTypeId, 1 );
-			to.CreditUnitTypeDescription = GetData( from.CreditUnitTypeDescription );
+			to.CreditUnitTypeDescription = ConvertSpecialCharacters( from.CreditUnitTypeDescription );
 			to.CreditUnitValue = SetData( from.CreditUnitValue, 0.5M );
 
-			if ( IsValidDate( from.LastUpdated ) )
-				to.LastUpdated = from.LastUpdated;
-			to.LastUpdatedById = from.LastUpdatedById;
 		}
-		public static void ToMap( DBentity from, ThisEntity to,
+		public static void MapFromDB( DBEntity from, ThisEntity to,
 				bool includingProperties = false,
 				bool includingProfiles = true,
 				bool forEditView = true,
 				bool includeWhereUsed = true )
 		{
 
-			//TODO add a tomap basic, and handle for lists
-			to.Id = from.Id;
-			to.RowId = from.RowId;
-			to.StatusId = from.StatusId ?? 1;
-			to.ManagingOrgId = from.ManagingOrgId ?? 0;
+			MapFromDB_Basic( from, to, true, forEditView );
 
-			if ( IsGuidValid( from.OwningAgentUid ) )
-			{
-				to.OwningAgentUid = ( Guid ) from.OwningAgentUid;
-				to.OwningOrganization = OrganizationManager.GetForSummary( to.OwningAgentUid );
+			if ( to.IsReferenceVersion )
+				return;
+			//=====================================================
 
-				//get roles
-				OrganizationRoleProfile orp = Entity_AgentRelationshipManager.AgentEntityRole_GetAsEnumerationFromCSV( to.RowId, to.OwningAgentUid );
-				to.OwnerRoles = orp.AgentRole;
-			}
 
-			to.Name = from.Name;
-			to.Description = from.Description == null ? "" : from.Description;
-			to.ctid = from.CTID;
-			to.CredentialRegistryId = from.CredentialRegistryId;
 
-			to.AvailabilityListing = from.AvailabilityListing;
-
-			to.SubjectWebpage = from.Url;
-			to.CodedNotation = from.IdentificationCode;
-			to.AvailableOnlineAt = from.AvailableOnlineAt;
-			to.DeliveryTypeDescription = from.DeliveryTypeDescription;
-			to.VerificationMethodDescription = from.VerificationMethodDescription;
-
-			if ( IsValidDate( from.DateEffective ) )
-				to.DateEffective = ( ( DateTime ) from.DateEffective ).ToShortDateString();
-			else
-				to.DateEffective = "";
-			if ( from.ProviderUid != null )
-				to.ProviderUid = ( Guid ) from.ProviderUid;
-
-			if ( from.InLanguageId != null )
-			{
-				to.InLanguageId = ( int ) from.InLanguageId;
-				to.InLanguage = from.Codes_Language.LanguageName;
-				to.InLanguageCode = from.Codes_Language.LangugeCode;
-			}
-			else
-			{
-				to.InLanguageId = 0;
-				to.InLanguage = "";
-				to.InLanguageCode = "";
-			}
-
+			to.VersionIdentifier = from.VersionIdentifier;
 			to.CreditHourType = from.CreditHourType ?? "";
 			to.CreditHourValue = ( from.CreditHourValue ?? 0M );
 			to.CreditUnitTypeId = ( from.CreditUnitTypeId ?? 0 );
 			to.CreditUnitTypeDescription = from.CreditUnitTypeDescription;
 			to.CreditUnitValue = from.CreditUnitValue ?? 0M;
-
-			if ( IsValidDate( from.Created ) )
-				to.Created = ( DateTime ) from.Created;
-			to.CreatedById = from.CreatedById == null ? 0 : ( int ) from.CreatedById;
-			if ( IsValidDate( from.LastUpdated ) )
-				to.LastUpdated = ( DateTime ) from.LastUpdated;
-			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
-			if ( from.Account_Modifier != null )
+			// Begin edits - Need these to populate Credit Unit Type -  NA 3/31/2017
+			if ( to.CreditUnitTypeId > 0 )
 			{
-				to.LastUpdatedBy = from.Account_Modifier.FirstName + " " + from.Account_Modifier.LastName;
+				to.CreditUnitType = new Enumeration();
+				var match = CodesManager.GetEnumeration( "creditUnit" ).Items.FirstOrDefault( m => m.CodeId == to.CreditUnitTypeId );
+				if ( match != null )
+				{
+					to.CreditUnitType.Items.Add( match );
+				}
 			}
-			else
-			{
-				AppUser user = AccountManager.AppUser_Get( to.LastUpdatedById );
-				to.LastUpdatedBy = user.FullName();
-			}
+			
+			to.Subject = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_SUBJECT );
 
-
-			//to.LearningResourceUrl2 = CommaSeparatedListToStringList( from.LearningResourceUrl );
-
-			//to.LearningResourceUrl = from.LearningResourceUrl;
-			//will need a category
-			//to.ResourceUrls = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_REFERENCE_URLS );
-
-			//to.LearningResourceUrls = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_LEARNING_RESOURCE_URLS );
-
-			to.Subject = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_SUBJECT );
-
-			to.Keyword = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_KEYWORD );
-
+			to.Keyword = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_KEYWORD );
 
 			//properties
 			if ( includingProperties )
 			{
-				to.DeliveryType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_LEARNING_OPP_DELIVERY_TYPE );
+				to.DeliveryType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_DELIVERY_TYPE );
 				to.LearningMethodType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_Learning_Method_Type );
 
 				to.Addresses = AddressProfileManager.GetAll( to.RowId );
 
-				// Begin edits - Need these to populate Credit Unit Type -  NA 3/31/2017
-				if ( to.CreditUnitTypeId > 0 )
-				{
-					to.CreditUnitType = new Enumeration();
-					var match = CodesManager.GetEnumeration( "creditUnit" ).Items.FirstOrDefault( m => m.CodeId == to.CreditUnitTypeId );
-					if ( match != null )
-					{
-						to.CreditUnitType.Items.Add( match );
-					}
-				}
+                to.AudienceType = EntityPropertyManager.FillEnumeration(to.RowId, CodesManager.PROPERTY_CATEGORY_AUDIENCE_TYPE);
 
-				//Fix costs
-				to.EstimatedCost = CostProfileManager.GetAll( to.RowId, forEditView );
+                //costs, see basic
+                to.FinancialAssistance = Entity_FinancialAlignmentProfileManager.GetAll( to.RowId, forEditView );
 
-				to.FinancialAssistance = Entity_FinancialAlignmentProfileManager.GetAll( to.RowId, forEditView );
-
-				//Include currencies to fix null errors in various places (detail, compare, publishing) - NA 3/17/2017
-				var currencies = CodesManager.GetCurrencies();
-				//Include cost types to fix other null errors - NA 3/31/2017
-				var costTypes = CodesManager.GetEnumeration( CodesManager.PROPERTY_CATEGORY_CREDENTIAL_ATTAINMENT_COST );
-				foreach ( var cost in to.EstimatedCost )
-				{
-					cost.CurrencyTypes = currencies;
-
-					foreach ( var costItem in cost.Items )
-					{
-						costItem.CostType.Items.Add( costTypes.Items.FirstOrDefault( m => m.CodeId == costItem.CostTypeId ) );
-					}
-				}
-				//End edits - NA 3/31/2017
+				
 
 			}
 			//get condition profiles
@@ -1026,20 +1386,29 @@ namespace Factories
 			{
 				list = Entity_ConditionProfileManager.GetAllForLinks( to.RowId );
 				to.CommonConditions = Entity_CommonConditionManager.GetAll( to.RowId, true );
-				to.CommonCosts = Entity_CommonCostManager.GetAll( to.RowId, true );
+				//to.CommonCosts = Entity_CommonCostManager.GetAll( to.RowId, true );
 			}
 			else
 			{
-				list = Entity_ConditionProfileManager.GetAll( to.RowId );
+				//get all, including connections
+				list = Entity_ConditionProfileManager.GetAll( to.RowId, 0 );
 				to.CommonConditions = Entity_CommonConditionManager.GetAll( to.RowId, false );
-				to.CommonCosts = Entity_CommonCostManager.GetAll( to.RowId, false );
+				//for CommonCosts, see: MapFromDB_Basic
+				//to.CommonCosts = Entity_CommonCostManager.GetAll( to.RowId, false );
 			}
-				
+
 			if ( list != null && list.Count > 0 )
 			{
+                //check for required competencies
 				foreach ( ConditionProfile item in list )
 				{
-					if ( item.ConditionSubTypeId == Entity_ConditionProfileManager.ConditionSubType_LearningOpportunity )
+                    to.AllConditions.Add( item );
+
+                    if ( item.RequiresCompetenciesFrameworks.Count > 0 )
+                        to.RequiresCompetenciesFrameworks.AddRange( item.RequiresCompetenciesFrameworks );
+
+					//store connection types separately
+                    if ( item.ConditionSubTypeId == Entity_ConditionProfileManager.ConditionSubType_LearningOpportunity )
 					{
 						to.LearningOppConnections.Add( item );
 					}
@@ -1065,11 +1434,14 @@ namespace Factories
 				}
 			}
 
-			//if ( includingProfiles )
-			//{
-			to.InstructionalProgramCategory = Entity_FrameworkItemManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_CIP );
+			to.Occupation = Entity_FrameworkItemManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_SOC );
+			to.AlternativeOccupations = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_SOC );
 
-			to.OtherInstructionalProgramCategory = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_CIP );
+			to.Industry = Entity_FrameworkItemManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_NAICS );
+			to.AlternativeIndustries = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_NAICS );
+
+			to.InstructionalProgramType = Entity_FrameworkItemManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_CIP );
+			to.AlternativeInstructionalProgramType = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_CIP );
 		
 			if ( forEditView )
 			{
@@ -1100,78 +1472,240 @@ namespace Factories
 			if ( forEditView )
 				forProfilesList = true;
 
-			to.HasPart = Entity_LearningOpportunityManager.LearningOpps_GetAll( to.RowId, forEditView, forProfilesList );
-			foreach ( ThisEntity e in to.HasPart )
-			{
-				if ( e.HasCompetencies || e.ChildHasCompetencies )
-				{
-					to.ChildHasCompetencies = true;
-					break;
-				}
-			}
+            MapFromDB_HasPart( to, forProfilesList, forEditView );
+   //         to.HasPart = Entity_LearningOpportunityManager.LearningOpps_GetAll( to.RowId, forEditView, forProfilesList );
+			//foreach ( ThisEntity e in to.HasPart )
+			//{
+			//	if ( e.HasCompetencies || e.ChildHasCompetencies )
+			//	{
+			//		to.ChildHasCompetencies = true;
+			//		break;
+			//	}
 			//}
-			ToMap_Competencies( to );
+			//}
+			MapFromDB_Competencies( to );
 
-				
 
-				//to.EmbeddedAssessment = Entity_AssessmentManager.EntityAssessments_GetAll( to.RowId, forEditView );
 
-				//to.LearningOpportunityProcess = Entity_ProcessProfileManager.GetAll( to.RowId, true );
+			//to.EmbeddedAssessment = Entity_AssessmentManager.EntityAssessments_GetAll( to.RowId, forEditView );
 
-				//16-09-02 mp - always get for now
-				//really only needed for detail view
-				//===> need a means to determine request is from microsearch, so only minimal is returned!
-				//if ( includeWhereUsed )
-				//{
-				to.WhereReferenced = new List<string>();
-				if ( from.Entity_LearningOpportunity != null && from.Entity_LearningOpportunity.Count > 0 )
-				{
-					//the Entity_LearningOpportunity could be for a parent lopp, or a condition profile
-					foreach ( EM.Entity_LearningOpportunity item in from.Entity_LearningOpportunity )
-					{
-						to.WhereReferenced.Add( string.Format( "EntityUid: {0}, Type: {1}", item.Entity.EntityUid, item.Entity.Codes_EntityType.Title ) );
-						if ( item.Entity.EntityTypeId == CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE )
-						{
-							to.IsPartOf.Add( GetAs_IsPartOf( item.Entity.EntityUid, forEditView ) );
-						}
-						else if ( item.Entity.EntityTypeId == CodesManager.ENTITY_TYPE_CONNECTION_PROFILE )
-						{
-							ConditionProfile cp = CondProfileMgr.GetAs_IsPartOf( item.Entity.EntityUid );
-							to.IsPartOfConditionProfile.Add( cp );
-							//need to check cond prof for parent of credential
-							//will need to ensure no dups, or realistically, don't do the direct credential check
-							if ( cp.ParentCredential != null && cp.ParentCredential.Id > 0 )
-							{
-								//to.IsPartOfCredential.Add( cp.ParentCredential );
-								AddCredentialReference( cp.ParentCredential.Id, to );
-							}
-					}
-					else if ( item.Entity.EntityTypeId == CodesManager.ENTITY_TYPE_CREDENTIAL )
-					{
-						//to.IsPartOfCredential.Add( CredentialManager.GetBasic( item.Entity.EntityUid, false ) );
-						AddCredentialReference( (int)item.Entity.EntityBaseId, to );
-					}
-				}
-				}
-				//}
 
-		
 		}
 
-		public static void ToMap_Competencies( ThisEntity to )
+        public static void MapFromDB_ForSummary(DBEntity from, ThisEntity to)
+        {
+            MapFromDB_Basic(from, to, false, false, true);
+        } //
+        public static void MapFromDB_Basic( DBEntity from, ThisEntity to,
+				bool includingCosts,
+				bool forEditView,
+                bool forSummaryView = false)
 		{
-			to.TeachesCompetenciesFrameworks = Entity_CompetencyFrameworkManager.GetAll( to.RowId, "teaches" );
+			to.Id = from.Id;
+			to.RowId = from.RowId;
+			to.StatusId = from.StatusId ?? 1;
+			
+			to.Name = from.Name;
+            to.Description = from.Description;
+            to.SubjectWebpage = from.Url;
+			to.ctid = from.CTID;
+
+			to.ManagingOrgId = from.ManagingOrgId ?? 0;
+			if ( IsValidDate( from.Created ) )
+				to.Created = ( DateTime ) from.Created;
+			to.CreatedById = from.CreatedById == null ? 0 : ( int ) from.CreatedById;
+			if ( IsValidDate( from.LastUpdated ) )
+				to.LastUpdated = ( DateTime ) from.LastUpdated;
+			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
+
+            if ( from.Account_Modifier != null )
+			{
+				to.LastUpdatedBy = from.Account_Modifier.FirstName + " " + from.Account_Modifier.LastName;
+			}
+			else
+			{
+				AppUser user = AccountManager.AppUser_Get( to.LastUpdatedById );
+				to.LastUpdatedBy = user.FullName();
+			}
+
+			if ( string.IsNullOrWhiteSpace( to.ctid ) )
+			{
+				to.IsReferenceVersion = true;
+				return;
+			}
+
+            if ( IsGuidValid(from.OwningAgentUid) )
+            {
+                to.OwningAgentUid = ( Guid )from.OwningAgentUid;
+                to.OwningOrganization = OrganizationManager.GetForSummary(to.OwningAgentUid, false);
+
+                //get roles
+                OrganizationRoleProfile orp = Entity_AgentRelationshipManager.AgentEntityRole_GetAsEnumerationFromCSV(to.RowId, to.OwningAgentUid);
+                to.OwnerRoles = orp.AgentRole;
+            }
+            if ( forSummaryView )
+                return;
+			//======================================================
+			to.RelatedEntity = EntityManager.GetEntity( to.RowId, false );
+			if ( to.RelatedEntity != null && to.RelatedEntity.Id > 0 )
+				to.EntityLastUpdated = to.RelatedEntity.LastUpdated;
+
+			to.EntityApproval = Entity_ApprovalManager.GetByParent( to.RowId );
+            if ( to.EntityApproval != null && to.EntityApproval.Id > 0 )
+                to.LastApproved = to.EntityApproval.Created;
+
+
+            //if ( ( from.InLanguageId ?? 0 ) > 0 )
+            //{
+            //    to.InLanguageId = ( int )from.InLanguageId;
+            //    EnumeratedItem code = CodesManager.GetLanguage(to.InLanguageId);
+            //    if ( code.Id > 0 )
+            //    {
+            //        to.InLanguage = code.Name;
+            //        to.InLanguageCode = code.Value;
+            //    }
+            //}
+            //else
+            //{
+            //    to.InLanguageId = 0;
+            //    to.InLanguage = "";
+            //    to.InLanguageCode = "";
+            //}
+            //multiple languages, soon in entity.reference
+            to.InLanguageCodeList = Entity_LanguageManager.GetAll( to.RowId );
+
+            //short term convenience
+            if ( to.InLanguageCodeList != null && to.InLanguageCodeList.Count > 0 )
+                to.InLanguage = to.InLanguageCodeList[ 0 ].LanguageName;
+            to.CredentialRegistryId = from.CredentialRegistryId;
+
+			to.AvailabilityListing = from.AvailabilityListing;
+
+			
+			to.CodedNotation = from.IdentificationCode;
+			to.AvailableOnlineAt = from.AvailableOnlineAt;
+			to.DeliveryTypeDescription = from.DeliveryTypeDescription;
+			to.VerificationMethodDescription = from.VerificationMethodDescription;
+
+			if ( IsValidDate( from.DateEffective ) )
+				to.DateEffective = ( ( DateTime ) from.DateEffective ).ToShortDateString();
+			else
+				to.DateEffective = "";
+
+			
+			//costs may be required for the list view, when called by the credential editor
+			//make configurable
+			if ( includingCosts )
+			{
+
+				//Fix costs
+				to.EstimatedCost = CostProfileManager.GetAll( to.RowId, forEditView );
+
+				//Include currencies to fix null errors in various places (detail, compare, publishing) - NA 3/17/2017
+				var currencies = CodesManager.GetCurrencies();
+				//Include cost types to fix other null errors - NA 3/31/2017
+				var costTypes = CodesManager.GetEnumeration( CodesManager.PROPERTY_CATEGORY_CREDENTIAL_ATTAINMENT_COST );
+				foreach ( var cost in to.EstimatedCost )
+				{
+					cost.CurrencyTypes = currencies;
+
+					foreach ( var costItem in cost.Items )
+					{
+                        int index = costItem.CostType.Items.FindIndex( a => a.Id == costItem.CostTypeId );
+                        if ( index < 0 )
+                            costItem.CostType.Items.Add( costTypes.Items.FirstOrDefault( m => m.CodeId == costItem.CostTypeId ) );
+					}
+				}
+				//End edits - NA 3/31/2017
+
+				to.CommonCosts = Entity_CommonCostManager.GetAll( to.RowId, forEditView );
+
+
+            }
+            //16-09-02 mp - always get for now
+            MapFromDB_References( from, to, forEditView );
+
+        }
+
+        public static void MapFromDB_References( DBEntity from, ThisEntity to, bool forEditView )
+        {
+            
+            //really only needed for detail view
+            //===> need a means to determine request is from microsearch, so only minimal is returned!
+            //if ( includeWhereUsed )
+            //{
+            to.WhereReferenced = new List<string>();
+            if ( from.Entity_LearningOpportunity != null && from.Entity_LearningOpportunity.Count > 0 )
+            {
+                //the Entity_LearningOpportunity could be for a parent lopp, or a condition profile
+                foreach ( EM.Entity_LearningOpportunity item in from.Entity_LearningOpportunity )
+                {
+                    to.WhereReferenced.Add( string.Format( "EntityUid: {0}, Type: {1}", item.Entity.EntityUid, item.Entity.Codes_EntityType.Title ) );
+                    if ( item.Entity.EntityTypeId == CodesManager.ENTITY_TYPE_LEARNING_OPP_PROFILE )
+                    {
+                        var parentLopp = GetAs_IsPartOf( item.Entity.EntityUid, forEditView );
+                        if ( parentLopp.SomeParentIsPartOfCredential 
+                            || (parentLopp.IsPartOfCredential != null && parentLopp.IsPartOfCredential.Count > 0) )
+                        {
+                            //mark as OK
+                            to.SomeParentIsPartOfCredential = true;
+                        }
+                        to.IsPartOf.Add( parentLopp );
+                    }
+                    else if ( item.Entity.EntityTypeId == CodesManager.ENTITY_TYPE_CONNECTION_PROFILE )
+                    {
+                        ConditionProfile cp = CondProfileMgr.GetAs_IsPartOf( item.Entity.EntityUid, false );
+                        to.IsPartOfConditionProfile.Add( cp );
+                        //need to check cond prof for parent of credential
+                        //will need to ensure no dups, or realistically, don't do the direct credential check
+                        if ( cp.ParentCredential != null && cp.ParentCredential.Id > 0 )
+                        {
+                            AddCredentialReference( cp.ParentCredential.Id, to );
+                        }
+                    }
+                    else if ( item.Entity.EntityTypeId == CodesManager.ENTITY_TYPE_CREDENTIAL )
+                    {
+                        //18-05-11 - confusing if shown, need to be clear if used, so only show via the condition profile
+                        //if (forEditView)
+                        //    AddCredentialReference( ( int ) item.Entity.EntityBaseId, to );
+                    }
+                }
+            }
+        } 
+
+        public static void MapFromDB_HasPart( ThisEntity to, bool forProfilesList, bool forEditView )
+        {
+            to.HasPart = Entity_LearningOpportunityManager.LearningOpps_GetAll( to.RowId, forEditView, forProfilesList );
+            foreach ( ThisEntity e in to.HasPart )
+            {
+                if ( e.HasCompetencies || e.ChildHasCompetencies )
+                {
+                    to.ChildHasCompetencies = true;
+                    break;
+                }
+            }
+        }
+
+		public static void MapFromDB_Competencies( ThisEntity to )
+		{
+            //TODO - replace this method handler after cutover
+            to.TeachesCompetenciesFrameworks = Entity_CompetencyManager.GetAll( to.RowId, "teaches" );
+
+           // to.TeachesCompetenciesFrameworks = Entity_CompetencyFrameworkManager.GetAll( to.RowId, "teaches" );
 			if ( to.TeachesCompetenciesFrameworks.Count > 0 )
 				to.HasCompetencies = true;
-			to.RequiresCompetenciesFrameworks = Entity_CompetencyFrameworkManager.GetAll( to.RowId, "requires" );
+
+			//this is wrong, required comps are under condition profiles
+			//to.RequiresCompetenciesFrameworks = Entity_CompetencyFrameworkManager.GetAll( to.RowId, "requires" );
 			if ( to.RequiresCompetenciesFrameworks.Count > 0 )
 				to.HasCompetencies = true;
 		}
 		private static void AddCredentialReference( int credentialId, ThisEntity to )
 		{
 			Credential exists = to.IsPartOfCredential.SingleOrDefault( s => s.Id == credentialId );
-			if ( exists == null || exists.Id == 0 )
-				to.IsPartOfCredential.Add( CredentialManager.GetBasic( ( int ) credentialId ) );
+			if ( exists == null || exists.Id == 0 ) //prevent dups
+               // if (to.IsPartOfCredential.FindIndex( s => s.Id == exists.Id) < 0)
+				    to.IsPartOfCredential.Add( CredentialManager.GetBasic( ( int ) credentialId ) );
 		}
 		#endregion
 	}

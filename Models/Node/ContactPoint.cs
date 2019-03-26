@@ -16,7 +16,7 @@ namespace Models.Node
 			SocialMediaPages = new List<TextValueProfile>();
 		}
 		public string ContactType { get; set; }
-		public string ContactOption { get; set; }
+		//public string ContactOption { get; set; }
 		//public string Email { get; set; }
 		//public string Telephone { get; set; }
 		//public string FaxNumber { get; set; }

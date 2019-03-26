@@ -5,6 +5,7 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web;
 
 using Models;
 
@@ -14,6 +15,7 @@ using MN = Models.Node;
 //using ME = Models.Elastic;
 using Models.ProfileModels;
 using EM = Data;
+using DBEntity = Data.Organization;
 using ThisEntity = Models.Common.Organization;
 using Utilities;
 using Models.Search.ThirdPartyApiModels;
@@ -40,10 +42,10 @@ namespace Factories
 		/// <param name="entity"></param>
 		/// <param name="statusMessage"></param>
 		/// <returns></returns>
-		public int Add( CM.Organization entity, bool isSiteStaff, ref string statusMessage )
+		public int Add( ThisEntity entity, bool isSiteStaff, ref string statusMessage )
 		{
-			EM.Organization efEntity = new EM.Organization();
-			OrganizationPropertyManager opMgr = new OrganizationPropertyManager();
+			DBEntity efEntity = new DBEntity();
+			
 			using ( var context = new Data.CTIEntities() )
 			{
 				try
@@ -54,11 +56,18 @@ namespace Factories
 						return 0;
 					}
 
-					FromMap( entity, efEntity );
-					efEntity.RowId = Guid.NewGuid();
-					efEntity.CTID = "ce-" + efEntity.RowId.ToString();
+					MapToDB( entity, efEntity );
 
-					efEntity.CreatedById = entity.CreatedById;
+                    efEntity.RowId = Guid.NewGuid();
+                    if ( !entity.IsReferenceVersion )
+                    {
+                        if ( !string.IsNullOrWhiteSpace( entity.CTID ) && entity.CTID.Length == 39 )
+                            efEntity.CTID = entity.CTID.ToLower();
+                        else
+                            efEntity.CTID = "ce-" + efEntity.RowId.ToString().ToLower();
+                    }
+
+                    efEntity.CreatedById = entity.CreatedById;
 					efEntity.Created = System.DateTime.Now;
 					efEntity.LastUpdatedById = entity.CreatedById;
 					efEntity.LastUpdated = System.DateTime.Now;
@@ -77,9 +86,10 @@ namespace Factories
 						//notify admin - done in services
 						//add current user as an admin member, or entity partner
 						//check if has a primary orgId
-						if ( !isSiteStaff )
+						if ( !isSiteStaff && !entity.IsReferenceVersion )
+						{
 							OrganizationMember_Save( efEntity.Id, entity.CreatedById, ORG_MEMBER_ADMIN, entity.CreatedById, ref statusMessage );
-
+						}
 						UpdateParts( entity, ref statusMessage );
 						return efEntity.Id;
 					}
@@ -93,21 +103,9 @@ namespace Factories
 				}
 				catch ( System.Data.Entity.Validation.DbEntityValidationException dbex )
 				{
-					//LoggingHelper.LogError( dbex, thisClassName + string.Format( ".ContentAdd() DbEntityValidationException, Type:{0}", entity.TypeId ) );
-					string message = thisClassName + string.Format( ".Add() DbEntityValidationException, Name: {0}", efEntity.Name );
-					statusMessage = "Error - missing fields. ";
-					foreach ( var eve in dbex.EntityValidationErrors )
-					{
-						message += string.Format( "\rEntity of type \"{0}\" in state \"{1}\" has the following validation errors:",
-							eve.Entry.Entity.GetType().Name, eve.Entry.State );
-						foreach ( var ve in eve.ValidationErrors )
-						{
-							message += string.Format( "- Property: \"{0}\", Error: \"{1}\"",
-								ve.PropertyName, ve.ErrorMessage );
-						}
-
-						LoggingHelper.LogError( message, true );
-					}
+					string message = HandleDBValidationError( dbex, thisClassName + ".Save() ", "Organization" );
+					LoggingHelper.LogError(thisClassName + string.Format( ".Add(), Name: {0} \r\n", efEntity.Name ) + message, true );
+					statusMessage = "Error - the save was not successful. <br/> " + message;
 				}
 				catch ( Exception ex )
 				{
@@ -120,8 +118,7 @@ namespace Factories
 		}
 		public int Add_QAOrg( CM.QAOrganization entity, bool isSiteStaff, ref string statusMessage )
 		{
-			EM.Organization efEntity = new EM.Organization();
-			OrganizationPropertyManager opMgr = new OrganizationPropertyManager();
+			DBEntity efEntity = new DBEntity();
 			using ( var context = new Data.CTIEntities() )
 			{
 				try
@@ -132,11 +129,17 @@ namespace Factories
 						return 0;
 					}
 
-					FromMap( entity, efEntity );
+					MapToDB( entity, efEntity );
 					efEntity.RowId = Guid.NewGuid();
-					efEntity.CTID = "ce-" + efEntity.RowId.ToString();
+                    if ( !entity.IsReferenceVersion )
+                    {
+                        if ( !string.IsNullOrWhiteSpace( entity.CTID ) && entity.CTID.Length == 39 )
+                            efEntity.CTID = entity.CTID.ToLower();
+                        else
+                            efEntity.CTID = "ce-" + efEntity.RowId.ToString().ToLower();
+                    }
 
-					efEntity.CreatedById = entity.CreatedById;
+                    efEntity.CreatedById = entity.CreatedById;
 					efEntity.Created = System.DateTime.Now;
 					efEntity.LastUpdatedById = entity.CreatedById;
 					efEntity.LastUpdated = System.DateTime.Now;
@@ -203,7 +206,7 @@ namespace Factories
 		/// <param name="entity"></param>
 		/// <param name="statusMessage"></param>
 		/// <returns></returns>
-		public bool Update( CM.Organization entity, ref string statusMessage )
+		public bool Update( ThisEntity entity, ref string statusMessage )
 		{
 			bool isValid = true;
 			int count = 0;
@@ -211,7 +214,7 @@ namespace Factories
 			{
 				using ( var context = new Data.CTIEntities() )
 				{
-					EM.Organization efEntity = context.Organization
+					DBEntity efEntity = context.Organization
 								.SingleOrDefault( s => s.Id == entity.Id );
 
 					if ( efEntity != null && efEntity.Id > 0 )
@@ -226,7 +229,7 @@ namespace Factories
 						//**ensure rowId is passed down for use by profiles, etc
 						entity.RowId = efEntity.RowId;
 
-						FromMap( entity, efEntity );
+						MapToDB( entity, efEntity );
 						if ( HasStateChanged( context ) )
 						{
 							efEntity.LastUpdated = System.DateTime.Now;
@@ -275,7 +278,7 @@ namespace Factories
 			{
 				using ( var context = new Data.CTIEntities() )
 				{
-					EM.Organization efEntity = context.Organization
+					DBEntity efEntity = context.Organization
 								.SingleOrDefault( s => s.Id == entity.Id );
 
 					if ( efEntity != null && efEntity.Id > 0 )
@@ -290,7 +293,7 @@ namespace Factories
 						//**ensure rowId is passed down for use by profiles, etc
 						entity.RowId = efEntity.RowId;
 
-						FromMap( entity, efEntity );
+						MapToDB( entity, efEntity );
 						if ( HasStateChanged( context ) )
 						{
 							efEntity.LastUpdated = System.DateTime.Now;
@@ -350,7 +353,7 @@ namespace Factories
 				{
 					context.Configuration.LazyLoadingEnabled = false;
 
-					EM.Organization efEntity = context.Organization
+					DBEntity efEntity = context.Organization
 									.SingleOrDefault( s => s.Id == recordId );
 
 					if ( efEntity != null && efEntity.Id > 0 )
@@ -389,8 +392,8 @@ namespace Factories
 				catch ( Exception ex )
 				{
 					LoggingHelper.LogError( ex, thisClassName + string.Format( ".UpdateEnvelopeId(), Organization: {0}, envelopeId: {1}, updatedById: {2}", recordId, envelopeId, userId ) );
-					statusMessage = ex.Message + ( ex.InnerException != null && ex.InnerException.InnerException != null ? " - " + ex.InnerException.InnerException.Message : "" );
-				}
+                    statusMessage = FormatExceptions( ex );
+                }
 			}
 
 			return isValid;
@@ -413,7 +416,7 @@ namespace Factories
 				{
 					context.Configuration.LazyLoadingEnabled = false;
 
-					EM.Organization efEntity = context.Organization
+					DBEntity efEntity = context.Organization
 									.SingleOrDefault( s => s.Id == recordId );
 
 					if ( efEntity != null && efEntity.Id > 0 )
@@ -450,21 +453,27 @@ namespace Factories
 				catch ( Exception ex )
 				{
 					LoggingHelper.LogError( ex, thisClassName + string.Format( ".UnPublish(), Organization: {0}, updatedById: {1}", recordId, userId ) );
-					statusMessage = ex.Message + ( ex.InnerException != null && ex.InnerException.InnerException != null ? " - " + ex.InnerException.InnerException.Message : "" );
-				}
+                    statusMessage = FormatExceptions( ex );
+                }
 			}
 
 			return isValid;
 		}
 		public bool UpdateParts( Organization entity, ref string statusMessage )
 		{
+			//if ( entity.IsReferenceVersion )
+			//	return true;
+
 			bool isAllValid = UpdatePartsCommon( entity, ref statusMessage );
 
 			return isAllValid;
 		}
 		public bool UpdateParts( QAOrganization entity, ref string statusMessage )
 		{
-			bool isAllValid = UpdatePartsCommon( entity, ref statusMessage );
+            if ( entity.IsReferenceVersion )
+                return true;
+
+            bool isAllValid = UpdatePartsCommon( entity, ref statusMessage );
 
 			//specific
 			//may not be any, if only profiles
@@ -479,29 +488,38 @@ namespace Factories
 			bool isAllValid = true;
 			int count = 0;
 			List<string> messages = new List<string>();
-
+            //for now allow updating properties for a reference - to allow setting to QA
 			if ( UpdateProperties( entity, ref messages ) == false )
 				isAllValid = false;
 
-			if ( !new OrganizationServiceManager().OrganizationService_Update( entity, false, ref statusMessage ) )
+            if ( entity.IsReferenceVersion )
+                return true;
+
+            if ( !new OrganizationServiceManager().OrganizationService_Update( entity, false, ref statusMessage ) )
 				isAllValid = false;
 			//handle jurisdictions? ==> direct
 
 			Entity_ReferenceManager erm = new
 				Entity_ReferenceManager();
 
-			if ( erm.Entity_Reference_Update( entity.Keyword, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_KEYWORD, false ) == false )
+			if ( erm.Update( entity.Keyword, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_KEYWORD, false ) == false )
+				isAllValid = false;
+			if ( erm.Update( entity.AlternateName, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_ALTERNATE_NAME, false ) == false )
 				isAllValid = false;
 
-			if ( erm.Entity_Reference_Update( entity.OtherIndustries, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_NAICS, false ) == false )
+			if ( erm.Update( entity.AlternativeIndustries, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_NAICS, false ) == false )
 				isAllValid = false;
 
-			//departments
+            var lm = new Entity_LanguageManager();
+            if ( lm.Update( entity.InLanguageCodeList, entity.RowId, entity.LastUpdatedById, ref messages ) == false )
+                isAllValid = false;
 
-			//address - separate
+            //departments
 
-			//subsiduaries
-			if ( messages.Count > 0 )
+            //address - separate
+
+            //subsiduaries
+            if ( messages.Count > 0 )
 				statusMessage += string.Join( "<br/>", messages.ToArray() );
 
 			return isAllValid;
@@ -510,31 +528,35 @@ namespace Factories
 		{
 			bool isAllValid = true;
 			//==== convert to entity properties ========================
-			OrganizationPropertyManager opMgr = new OrganizationPropertyManager();
+
 			EntityPropertyManager mgr = new EntityPropertyManager();
-			Entity_ReferenceManager erm = new Entity_ReferenceManager();
+			
 
 			if ( mgr.UpdateProperties( entity.OrganizationType, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_TYPE, entity.LastUpdatedById, ref messages ) == false )
 				isAllValid = false;
 			//TODO - may want a check to toggle the IsQaOrg property. It is used for other checks
-			// however this would not be dependable, need to query on ToMap
+			// however this would not be dependable, need to query on MapFromDB
 
 			if ( mgr.UpdateProperties( entity.OrganizationSectorType, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SECTORTYPE, entity.LastUpdatedById, ref messages ) == false )
 			{
 				isAllValid = false;
 			}
 
-			if ( erm.Entity_Reference_Update( entity.SocialMediaPages, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SOCIAL_MEDIA, true ) == false )
+            if ( entity.IsReferenceVersion )
+                return true;
+
+            Entity_ReferenceManager erm = new Entity_ReferenceManager();
+            if ( erm.Update( entity.SocialMediaPages, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SOCIAL_MEDIA, true ) == false )
 				isAllValid = false;
 
 			//how to handle notifications on 'other'?
-			if ( erm.Entity_Reference_Update( entity.IdentificationCodes, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_IDENTIFIERS, true ) == false )
+			if ( erm.Update( entity.IdentificationCodes, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_IDENTIFIERS, true ) == false )
 				isAllValid = false;
 
-			if ( erm.Entity_Reference_Update( entity.Emails, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_EMAIL_TYPE, true ) == false )
+			if ( erm.Update( entity.Emails, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_EMAIL_TYPE, true ) == false )
 				isAllValid = false;
 
-			if ( erm.Entity_Reference_Update( entity.PhoneNumbers, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_PHONE_TYPE, true ) == false )
+			if ( erm.Update( entity.PhoneNumbers, entity.RowId, CodesManager.ENTITY_TYPE_ORGANIZATION, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_PHONE_TYPE, true ) == false )
 				isAllValid = false;
 
 			//}
@@ -560,7 +582,7 @@ namespace Factories
 				try
 				{
 					//ensure exists
-					EM.Organization efEntity = context.Organization
+					DBEntity efEntity = context.Organization
 								.SingleOrDefault( s => s.Id == orgId );
 
 					if ( efEntity != null && efEntity.Id > 0 )
@@ -607,14 +629,8 @@ namespace Factories
 				{
 					statusMessage = ex.Message;
 					LoggingHelper.LogError( ex, thisClassName + ".Organization_Delete()" );
-					if ( ex.InnerException != null && ex.InnerException.Message != null )
-					{
-						statusMessage = ex.InnerException.Message;
-
-						if ( ex.InnerException.InnerException != null && ex.InnerException.InnerException.Message != null )
-							statusMessage = ex.InnerException.InnerException.Message;
-					}
-					if ( statusMessage.ToLower().IndexOf( "the delete statement conflicted with the reference constraint" ) > -1 )
+                    statusMessage = FormatExceptions( ex );
+                    if ( statusMessage.ToLower().IndexOf( "the delete statement conflicted with the reference constraint" ) > -1 )
 					{
 						statusMessage = "Error: this organization cannot be deleted as it is being referenced by other items, such as credentials. These associations must be removed before this organization can be deleted.";
 					}
@@ -623,8 +639,37 @@ namespace Factories
 
 			return isValid;
 		}
+        public static bool HasMinimumData( ThisEntity profile, ref List<string> messages, bool validatingUrls = true )
+        {
+            bool isValid = true;
+            if ( !ValidateProfile( profile, ref messages, false ) )
+                isValid = false;
 
-		public bool ValidateProfile( ThisEntity profile, ref List<string> messages )
+            if ( ( profile.Emails == null || profile.Emails.Count == 0 ) &&
+                ( profile.PhoneNumbers == null || profile.PhoneNumbers.Count == 0 ) &&
+                ( profile.Addresses == null || profile.Addresses.Count == 0 ) &&
+                ( profile.ContactPoint == null || profile.ContactPoint.Count == 0 )
+                )
+                messages.Add("At least one type of contact property, like  physical address, contact point, email address, or phone number is required");
+
+            //need to check offered by as well!
+            if ( !profile.ISQAOrganization
+                && ( profile.CreatedCredentials == null || profile.CreatedCredentials.Count == 0 )
+                && ( profile.OfferedCredentials == null || profile.OfferedCredentials.Count == 0 )
+                && !profile.ChildOrganizationsHaveCredentials
+                )
+            {
+                //check for sub-organizations/departments
+
+                //ensure only done with minimum data checks
+                messages.Add("A credentialing organization (or a subsidiary/department) must 'own' or 'offer' at least one credential in order to be published to the Credential Registry.</br> ");
+            }
+
+            if ( messages.Count > 0 )
+                isValid = false;
+            return isValid;
+        }
+        public static bool ValidateProfile( ThisEntity profile, ref List<string> messages, bool validatingUrls = true )
 		{
 			bool isValid = true;
 			int count = messages.Count;
@@ -633,40 +678,77 @@ namespace Factories
 			{
 				messages.Add( "An organization name must be entered" );
 			}
-			if ( !string.IsNullOrWhiteSpace( profile.DateEffective ) && !IsValidDate( profile.DateEffective ) )
-			{
-				messages.Add( "Please enter a valid effective date" );
-			}
-
+		
 			if ( string.IsNullOrWhiteSpace( profile.SubjectWebpage ) )
 				messages.Add( "A Subject Webpage must be entered" );
 
-			else if ( !IsUrlValid( profile.SubjectWebpage, ref commonStatusMessage ) )
-				messages.Add( "The Subject Webpage Url is invalid. " + commonStatusMessage );
+			else if ( validatingUrls && !IsUrlValid( profile.SubjectWebpage, ref commonStatusMessage ) )
+				messages.Add( string.Format("The Subject Webpage Url ({0}) is invalid. " + commonStatusMessage, profile.SubjectWebpage) );
 
-			if ( profile.OrganizationType == null
-				|| profile.OrganizationType.hasItems() == false)
-				messages.Add( "At least one organization type must be selected." );
+            if ( profile.IsReferenceVersion || profile.IsThirdPartyOrganization )
+            {
+                //no more edits
+                if ( FormHelper.HasHtmlTags( profile.Description ) )
+                {
+                    messages.Add( "HTML or Script Tags are not allowed in the description" );
+                }
+            }
+            else
+            {
+                if ( string.IsNullOrWhiteSpace( profile.Description ) )
+                {
+                    messages.Add( "An organization description must be entered" );
+                }
+                else if ( FormHelper.HasHtmlTags( profile.Description ) )
+                {
+                    messages.Add( "HTML or Script Tags are not allowed in the description" );
+                }
+				else if ( profile.Description.Length < MinimumDescriptionLength && !IsDevEnv() )
+				{
+					messages.Add( string.Format( "The Organization description must be at least {0} characters in length.", MinimumDescriptionLength ) );
+				}
 
-			if ( !IsUrlValid( profile.AgentPurposeUrl, ref commonStatusMessage ) )
-				messages.Add( "The Agent Purpose Url is invalid. " + commonStatusMessage );
+				if ( profile.OrganizationType == null
+                    || profile.OrganizationType.HasItems() == false )
+                    messages.Add( "At least one organization type must be selected." );
 
-			if ( !IsUrlValid( profile.MissionAndGoalsStatement, ref commonStatusMessage ) )
-				messages.Add( "The Mission and Goals Statement Url is invalid. " + commonStatusMessage );
+                if ( profile.OrganizationSectorType == null
+                    || profile.OrganizationSectorType.HasItems() == false )
+                    messages.Add( "At least one organization sector type must be selected." );
 
-			if ( !IsUrlValid( profile.AvailabilityListing, ref commonStatusMessage ) )
-				messages.Add( "The Availability Listing Url is invalid. " + commonStatusMessage );
+                if ( validatingUrls && !IsUrlValid( profile.AgentPurposeUrl, ref commonStatusMessage ) )
+                    messages.Add( "The Agent Purpose Url is invalid. " + commonStatusMessage );
 
-			//if ( !IsUrlWellFormed( profile.UniqueURI ) )
-			//{
-			//	messages.Add( "The Unique URI format is invalid" );
-			//}
-			if ( !IsUrlValid( profile.ImageUrl, ref commonStatusMessage ) )
-			{
-				messages.Add( "The Image Url is invalid. " + commonStatusMessage );
+                if ( validatingUrls && !IsUrlValid( profile.MissionAndGoalsStatement, ref commonStatusMessage ) )
+                    messages.Add( "The Mission and Goals Statement Url is invalid. " + commonStatusMessage );
+
+                if ( validatingUrls && !IsUrlValid( profile.AvailabilityListing, ref commonStatusMessage ) )
+                    messages.Add( "The Availability Listing Url is invalid. " + commonStatusMessage );
+
+                if ( !string.IsNullOrWhiteSpace( profile.DateEffective ) && !IsValidDate( profile.DateEffective ) )
+                {
+                    messages.Add( "Please enter a valid effective date" );
+                }
+                if ( validatingUrls && !string.IsNullOrEmpty( profile.ImageUrl ) && !IsImageUrlValid( profile.ImageUrl, ref commonStatusMessage ) )
+                {
+                    messages.Add( "The Image Url is invalid. " + commonStatusMessage );
+                }
+
+                if ( !profile.InLanguageCodeList.Any() )
+                {
+                    //messages.Add( "A language must be selected." );
+                    //just default to englist
+                    profile.InLanguageCodeList.Add( new LanguageProfile()
+                    {
+                        LanguageCodeId = 40
+                    } );
+            
+                } else if  ( profile.InLanguageCodeList.Count > 1)
+                    messages.Add( "Only one language may be entered for an Organization."  );
+
+                IsFoundingDateValid( profile, ref messages );
 			}
-
-			IsFoundingDateValid( profile, ref messages );
+			
 
 			if ( messages.Count > count )
 				isValid = false;
@@ -685,7 +767,7 @@ namespace Factories
 		/// <param name="profile"></param>
 		/// <param name="messages"></param>
 		/// <returns></returns>
-		private bool IsFoundingDateValid( ThisEntity profile, ref List<string> messages )
+		private static bool IsFoundingDateValid( ThisEntity profile, ref List<string> messages )
 		{
 			bool isValid = true;
 			bool enforcingFoundingDateFormats = UtilityManager.GetAppKeyValue( "enforcingFoundingDateFormats", false );
@@ -820,51 +902,56 @@ namespace Factories
 		#endregion
 
 		#region == Retrieval =======================
-		public static CM.Organization GetDetail( int id, bool isForPublishing )
+		public static ThisEntity GetDetail( int id, bool isForPublishing )
 		{
 
 			bool includeCredentials = true;
 			bool includingRoles = true;
-			CM.Organization entity = new CM.Organization();
+			ThisEntity entity = new ThisEntity();
 
 			using ( var context = new Data.CTIEntities() )
 			{
-				EM.Organization item = context.Organization
+				DBEntity item = context.Organization
 						.SingleOrDefault( s => s.Id == id
 						&& s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED );
 
 				if ( item != null && item.Id > 0 )
 				{
-					ToMapForDetail( item, entity
+					MapFromDB_Detail( item, entity
 						, true      //includingProperties
 						, includeCredentials
 						, includingRoles
 						, isForPublishing );
+                    if (isForPublishing)
+                    {
+                        //do min value checks!
+                    }
 				}
 			}
 
 			return entity;
 		}
-		/// <summary>
-		/// Get org for edit view
-		/// </summary>
-		/// <param name="id"></param>
-		/// <returns></returns>
-		public static CM.Organization GetForEdit( int id )
+       
+        /// <summary>
+        /// Get org for edit view
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public static ThisEntity GetForEdit( int id )
 		{
 
-			CM.Organization entity = new CM.Organization();
+			ThisEntity entity = new ThisEntity();
 
 			using ( var context = new Data.CTIEntities() )
 			{
-				EM.Organization item = context.Organization
+				DBEntity item = context.Organization
 						.SingleOrDefault( s => s.Id == id
 						&& s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED
 						);
 
 				if ( item != null && item.Id > 0 )
 				{
-					ToMap1( item, entity,
+					MapFromDB( item, entity,
 						true,
 						true,
 						true,
@@ -876,19 +963,18 @@ namespace Factories
 		}
 		public static CM.QAOrganization GetQAOrgForEdit( int id )
 		{
-
 			CM.QAOrganization entity = new CM.QAOrganization();
 
 			using ( var context = new Data.CTIEntities() )
 			{
-				EM.Organization item = context.Organization
+				DBEntity item = context.Organization
 						.SingleOrDefault( s => s.Id == id
 						&& s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED
 						);
 
 				if ( item != null && item.Id > 0 )
 				{
-					ToMapQA( item, entity,
+					MapFromDB_QA( item, entity,
 						true,
 						true,
 						true,
@@ -898,107 +984,209 @@ namespace Factories
 
 			return entity;
 		}
-		/// <summary>
-		/// Get minimum org for display in search results
-		/// </summary>
-		/// <param name="id"></param>
-		/// <returns></returns>
-		public static CM.Organization GetForSummary( int id )
+        public static ThisEntity GetForApproval( int id, ref List<string> messages )
+        {
+            ThisEntity entity = new ThisEntity();
+
+            using ( var context = new Data.CTIEntities() )
+            {
+                DBEntity item = context.Organization
+                            .FirstOrDefault( s => s.Id == id
+                                && s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED
+                                );
+
+                if ( item != null && item.Id > 0 )
+                {
+                    //??
+                    MapFromDB_Common( item, entity, false, true, true, true, false );
+                    //string dataCheck = "";
+                    //if ( !entity.HasMinimumData( ref dataCheck ) )
+                    //    messages.Add( dataCheck );
+                    if ( HasMinimumData( entity, ref messages, false ) == false )
+                    {
+                        LoggingHelper.DoTrace( 1, string.Format( "PublishOrganization for recordId: {0} failed due to missing minimum required data. ", entity.Id ) + string.Join( "<br/>", messages.ToArray() ));
+                       
+                    }
+                }
+            }
+
+            return entity;
+        }
+        /// <summary>
+        /// Get minimum org for display in search results
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public static ThisEntity GetForSummary( int id, bool includingRoles = false )
 		{
 
-			CM.Organization to = new CM.Organization();
+			ThisEntity to = new ThisEntity();
 
 			using ( var context = new Data.CTIEntities() )
 			{
 				context.Configuration.LazyLoadingEnabled = false;
-				EM.Organization from = context.Organization
+				DBEntity from = context.Organization
 						.SingleOrDefault( s => s.Id == id
 						&& s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED
 						);
 
 				if ( from != null && from.Id > 0 )
 				{
-					ToMapForSummary( from, to );
+					MapFromDB_Summary( from, to );
+					if ( includingRoles )
+					{
+						GetOrgRoles( from, to, false );
+					}
 				}
 			}
 
 			return to;
 		}
 
-		/// <summary>
-		/// Get agent (only active records: StatusId <= published)
-		/// </summary>
-		/// <param name="agentRowId"></param>
-		/// <param name="includeCredentials"></param>
-		/// <returns></returns>
-		public static CM.Organization GetForSummary( Guid agentRowId )
-		{
-			CM.Organization to = new CM.Organization();
-			using ( var context = new ViewContext() )
-			{
-				//HACK note- there is currently only one organization property type, so we can get all. 
-				//In the case of multiple properties (ie creds), need to use a view to get selectively - or add more includes
-				//						.Include( "Codes_PropertyValue" )
-				Views.Agent_Summary from = context.Agent_Summary
-						.FirstOrDefault( s => s.AgentRowId == agentRowId );
+        public static ThisEntity GetForSummary( string agentRowId )
+        {
+            Guid agentUid = new Guid( agentRowId );
 
-				if ( from != null && from.AgentType != null && from.AgentType.Length > 4 )
-				{
-					//ToMap( item, entity, true );
-					to.RowId = from.AgentRowId;
-					to.Id = from.AgentRelativeId;
-					to.Name = from.AgentName;// +" (" + from.AgentType + ")";
-					to.Description = from.Description;
-					to.Email = from.Email;
-					to.SubjectWebpage = from.URL;
-					//17-726 mp - removed address from summary, as hurt performance. There can be multiple addresses - need a better approach
-					to.Address.AddressRegion = from.Region;
-					to.Address.Country = from.Country;
-					to.ImageUrl = from.ImageURL;
+            return GetForSummary(agentUid);
+        }
+        /// <summary>
+        /// Get agent (only active records: StatusId <= published)
+        /// </summary>
+        /// <param name="agentRowId"></param>
+        /// <returns></returns>
+        public static ThisEntity GetForSummary( Guid agentRowId, bool allowingCaching = true)
+        {
+            ThisEntity to = new ThisEntity();
+            //this was a problem for checking published status!
+            string key = "organizationSummary_" + agentRowId.ToString();
+            if (allowingCaching &&
+                CacheManager.IsOrganizationAvailableFromCache(key, ref to) )
+                return to;
 
-					to.ctid = from.CTID;
+            using ( var context = new Data.CTIEntities() )
+            {
+                context.Configuration.LazyLoadingEnabled = false;
+                DBEntity from = context.Organization
+                        .SingleOrDefault( s => s.RowId == agentRowId
+                        && s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED
+                        );
 
-				}
-			}
+                if ( from != null && from.Id > 0 )
+                {
+                    MapFromDB_Summary( from, to );
+                    CacheManager.AddOrganizationToCache(to, key);
+                }
+            }
 
-			return to;
-		}
+            return to;
+        }
+
+        /// <summary>
+        /// Get a BASIC Organization by Ctid
+        /// </summary>
+        /// <param name="ctid"></param>
+        /// <param name="includingRoles"></param>
+        /// <returns></returns>
+        public static ThisEntity GetByCtid( string ctid, bool includingRoles = false, bool includingAddresses = false, bool includingManifests = false )
+        {
+
+            ThisEntity to = new ThisEntity();
+            if (string.IsNullOrWhiteSpace( ctid ))
+                return to;
+
+            using (var context = new Data.CTIEntities())
+            {
+                context.Configuration.LazyLoadingEnabled = false;
+                DBEntity from = context.Organization
+                        .FirstOrDefault( s => s.CTID.ToLower() == ctid.ToLower()
+                        && s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED
+                        );
+                if ( ctid == "ce-8f1a526b-3e18-4a4e-829f-05b85197772c" )
+                {
+                    //WACKY TAFFY ERROR - FOR SOME REASON THE LATTER CTID IS NOT FOUND THOUGH VALID
+                    ctid = "Microsoft";
+                    //from = context.Organization
+                    //        .FirstOrDefault( s => s.Name == ctid );
+                }
+                if (from != null && from.Id > 0)
+                {
+                    MapFromDB_Summary( from, to );
+                    if (includingRoles)
+                    {
+                        GetOrgRoles( from, to, false );
+                    }
+					if ( includingAddresses )
+					{
+						to.Addresses = AddressProfileManager.GetAll( to.RowId );
+					}
+                    if (includingManifests)
+                    {
+                        to.HasConditionManifest = ConditionManifestManager.GetAll( to.Id, true );
+                        to.HasCostManifest = CostManifestManager.GetAll( to.Id, true );
+                    }
+                }
+            }
+
+            return to;
+        }
+        //public static ThisEntity GetByName( string name, ref string status )
+        //{
+
+        //    ThisEntity to = new ThisEntity();
+
+        //    using (var context = new Data.CTIEntities())
+        //    {
+        //        context.Configuration.LazyLoadingEnabled = false;
+        //        //can be many, so use list and reject if multiple
+        //        List<DBEntity> results = context.Organization
+        //                .Where( s => s.Name.ToLower() == name.ToLower()
+        //                && s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED
+        //                ).ToList();
+
+        //        if (results != null )
+        //        {
+        //            if (results.Count == 1)
+        //                MapFromDB_Summary( results[ 0 ], to );
+        //            else if (results.Count > 1)
+        //                status = "Error - there are mulitple organizations with the name: " + name + ". Please ensure a unique organization name is used, or use a CTID for an existing organization instead.";
+        //        }
+        //    }
+
+        //    return to;
+        //}
+        public static ThisEntity GetByNameAndUrl( string name, string url, ref string status )
+        {
+
+            ThisEntity to = new ThisEntity();
+            //warning the trailing slash is trimmed during save so need to handle, or do both
+            
+            if (url.EndsWith("/"))
+                url = url.TrimEnd( '/' );
+
+            using (var context = new Data.CTIEntities())
+            {
+                context.Configuration.LazyLoadingEnabled = false;
+                //can be many, so use list and reject if multiple
+                List<DBEntity> results = context.Organization
+                        .Where( s => s.Name.ToLower() == name.ToLower() 
+                        && (s.URL.ToLower() == url.ToLower())
+                        && s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED
+                        ).ToList();
+
+                if (results != null)
+                {
+                    if (results.Count == 1)
+                        MapFromDB_Summary( results[ 0 ], to );
+                    else if (results.Count > 1)
+                        status = "Error - there are mulitple organizations with the name: " + name + ". Please ensure a unique organization name is used, or use a CTID for an existing organization instead.";
+                }
+            }
+
+            return to;
+        }
 
 
-		/// <summary>
-		/// Get an organization by Guid
-		/// </summary>
-		/// <param name="agentId"></param>
-		/// <param name="includingProperties"></param>
-		/// <param name="includeCredentials"></param>
-		/// <param name="includingRoles"></param>
-		/// <returns></returns>
-		public static CM.Organization GetBasics( Guid agentId )
-		{
-			CM.Organization to = new CM.Organization();
-			using ( var context = new Data.CTIEntities() )
-			{
-				EM.Organization from = context.Organization
-
-						.SingleOrDefault( s => s.RowId == agentId
-						&& s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED );
-
-				if ( from != null && from.Id > 0 )
-				{
-					to.RowId = from.RowId;
-					to.Id = from.Id;
-					to.Name = from.Name;
-					to.Description = from.Description;
-					to.SubjectWebpage = from.URL;
-					
-					to.ImageUrl = from.ImageURL;
-					to.ctid = from.CTID;
-				}
-			}
-
-			return to;
-		}
-
+		
 
 		public static MN.ProfileLink Agent_GetProfileLink( Guid agentId )
 		{
@@ -1021,53 +1209,13 @@ namespace Factories
 		}
 
 		/// <summary>
-		/// Get agent using relativeId - this should require an entity typeId, to avoid duplicates
-		/// </summary>
-		/// <param name="agentId"></param>
-		/// <returns></returns>
-		public static MN.ProfileLink Agent_GetProfileLink( int agentId, int agentTypeId = 2 )
-		{
-			MN.ProfileLink entity = new MN.ProfileLink();
-			using ( var context = new ViewContext() )
-			{
-				Views.Agent_Summary efEntity = context.Agent_Summary
-						.FirstOrDefault( s => s.AgentRelativeId == agentId
-							&& s.AgentTypeId == agentTypeId );
-
-				if ( efEntity != null && efEntity.AgentRelativeId > 0 )
-				{
-					entity.RowId = efEntity.AgentRowId;
-					entity.Id = efEntity.AgentRelativeId;
-					entity.Name = efEntity.AgentName;
-					entity.Type = typeof( Models.Node.Organization );
-				}
-			}
-
-			return entity;
-		}
-		/// <summary>
-		/// Retrieve a list of all orgs by name
-		/// </summary>
-		/// <returns></returns>
-		public static List<Organization> Organization_ListByName( int userId, string keyword, int maxTerms = 25 )
-		{
-			int pTotalRows = 0;
-			return QuickSearch( userId, keyword, 1, maxTerms, ref pTotalRows );
-		}
-
-		//public static List<Organization> QuickSearch( int userId, string keyword, ref int pTotalRows )
-		//{
-		//	return QuickSearch( userId, keyword, 1, 200, ref pTotalRows );
-		//}
-
-		/// <summary>
 		/// Retrieve a list of all orgs by name
 		/// </summary>
 		/// <returns></returns>
 		public static List<Organization> QuickSearch( int userId, string keyword, int pageNumber, int pageSize, ref int pTotalRows )
 		{
-			List<CM.Organization> list = new List<CM.Organization>();
-			CM.Organization to = new CM.Organization();
+			List<ThisEntity> list = new List<ThisEntity>();
+			ThisEntity to = new ThisEntity();
 			keyword = string.IsNullOrWhiteSpace( keyword ) ? "" : keyword.Trim();
 			if ( pageSize == 0 )
 				pageSize = 500;
@@ -1089,7 +1237,7 @@ namespace Factories
 				var results = Query.Skip( skip ).Take( pageSize )
 					.ToList();
 
-				//List<EM.Organization> results2 = context.Organization
+				//List<DBEntity> results2 = context.Organization
 				//	.Where( s => keyword == "" || s.Name.Contains( keyword ) )
 				//	.Take( pageSize )
 				//	.OrderBy( s => s.Name )
@@ -1097,9 +1245,9 @@ namespace Factories
 
 				if ( results != null && results.Count > 0 )
 				{
-					foreach ( EM.Organization from in results )
+					foreach ( DBEntity from in results )
 					{
-						ToMapForSummary( from, to );
+						MapFromDB_Summary( from, to );
 
 						list.Add( to );
 					}
@@ -1147,41 +1295,8 @@ namespace Factories
 						if ( string.IsNullOrWhiteSpace( item.City ) == false )
 							entity.Name += " ( " + item.City + " )";
 						entity.CTID = item.CTID;
-						list.Add( entity );
-					}
-				}
-			}
-
-			return list;
-		}
-
-		/// <summary>
-		/// Retrieve all active orgs
-		/// </summary>
-		/// <param name="userId"></param>
-		/// <returns></returns>
-		public static List<Organization> Organization_SelectAll( int userId = 0 )
-		{
-			List<Organization> list = new List<Organization>();
-			Organization entity = new Organization();
-			using ( var context = new Data.CTIEntities() )
-			{
-				List<EM.Organization> results = context.Organization
-					.Where( s => s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED )
-									.OrderBy( s => s.Name )
-									.ToList();
-
-				if ( results != null && results.Count > 0 )
-				{
-					foreach ( EM.Organization item in results )
-					{
-						entity = new Organization();
-						entity.Id = item.Id;
-						entity.RowId = item.RowId;
-						entity.Name = item.Name;
-						//if ( string.IsNullOrWhiteSpace( item.Address ) == false )
-						//	entity.Name += " ( " + item.Address.City + " )";
-						entity.CTID = item.CTID;
+						if ( string.IsNullOrWhiteSpace( item.CTID ) )
+							entity.IsReferenceVersion = true;
 
 						list.Add( entity );
 					}
@@ -1190,13 +1305,21 @@ namespace Factories
 
 			return list;
 		}
-		public static List<CodeItem> Organization_SelectAllAsCodes( bool insertingSelectTitle = false )
+
+        
+
+        /// <summary>
+        /// Used to retrieve managing orgs in the editor
+        /// </summary>
+        /// <param name="insertSelectTitle"></param>
+        /// <returns></returns>
+        public static List<CodeItem> Organization_SelectAllAsCodes( bool insertingSelectTitle = false )
 		{
 			List<CodeItem> list = new List<CodeItem>();
 			CodeItem entity = new CodeItem();
 			using ( var context = new Data.CTIEntities() )
 			{
-				List<EM.Organization> results = context.Organization
+				List<DBEntity> results = context.Organization
 					.Where( s => s.StatusId <= CodesManager.ENTITY_STATUS_PUBLISHED )
 									.OrderBy( s => s.Name )
 									.ToList();
@@ -1212,7 +1335,7 @@ namespace Factories
 						list.Add( entity );
 					}
 
-					foreach ( EM.Organization item in results )
+					foreach ( DBEntity item in results )
 					{
 						entity = new CodeItem();
 						entity.Id = item.Id;
@@ -1226,12 +1349,15 @@ namespace Factories
 			return list;
 		}
 
-		public static List<EM.Organization> GetOrganizations( string search )
+		public static List<DBEntity> GetOrganizations( string search )
 		{
 			using ( var context = new Data.CTIEntities() )
 			{
 				context.Configuration.ProxyCreationEnabled = false;
-				return context.Organization.Where( x => x.Name.Contains( search ) ).ToList();
+				return context.Organization
+					.Where( x => (x.CTID != null  && x.CTID.Length == 39)
+						&& x.Name.Contains( search ) )
+					.ToList();
 			}
 		}
 
@@ -1266,8 +1392,9 @@ namespace Factories
 				{
 					pFilter = "";
 				}
+                LoggingHelper.DoTrace( 6, thisClassName + string.Format( ".Search() START. Filter: {0}", pFilter) );
 
-				using ( SqlCommand command = new SqlCommand( "OrganizationSearch", c ) )
+                using ( SqlCommand command = new SqlCommand( "OrganizationSearch", c ) )
 				{
 					command.CommandType = CommandType.StoredProcedure;
 					command.Parameters.Add( new SqlParameter( "@Filter", pFilter ) );
@@ -1280,21 +1407,38 @@ namespace Factories
 					totalRows.Direction = ParameterDirection.Output;
 					command.Parameters.Add( totalRows );
 
-					using ( SqlDataAdapter adapter = new SqlDataAdapter() )
-					{
-						adapter.SelectCommand = command;
-						adapter.Fill( result );
-					}
-					string rows = command.Parameters[ 5 ].Value.ToString();
-					try
-					{
-						pTotalRows = Int32.Parse( rows );
-					}
-					catch
-					{
-						pTotalRows = 0;
-					}
-				}
+                    try
+                    {
+                        using ( SqlDataAdapter adapter = new SqlDataAdapter() )
+                        {
+                            adapter.SelectCommand = command;
+                            adapter.Fill( result );
+                        }
+                        string rows = command.Parameters[ 5 ].Value.ToString();
+                        try
+                        {
+                            pTotalRows = Int32.Parse( rows );
+                        }
+                        catch
+                        {
+                            pTotalRows = 0;
+                        }
+                    }
+                    catch ( Exception ex )
+                    {
+                        pTotalRows = 0;
+
+                        LoggingHelper.DoTrace( 6, thisClassName + string.Format( ".Search() EXCEPTION. \r\n{0}", ex.Message ) );
+                        LoggingHelper.LogError( ex, thisClassName + string.Format( ".Search() - Execute proc, Message: {0} \r\n Filter: {1} \r\n", ex.Message, pFilter ) );
+
+                        item = new Organization();
+                        item.Name = "Unexpected error encountered. System administration has been notified. Please try again later. ";
+                        item.Description = ex.Message;
+                        item.AlternativeIdentifier = "error";
+                        list.Add( item );
+                        return list;
+                    }
+                }
 
 				foreach ( DataRow dr in result.Rows )
 				{
@@ -1303,25 +1447,48 @@ namespace Factories
 					item.Name = GetRowColumn( dr, "Name", "missing" );
 					item.FriendlyName = FormatFriendlyTitle( item.Name );
 
-					if ( idsOnly || autocomplete )
-					{
-						list.Add( item );
-						continue;
-					}
 					item.Description = GetRowColumn( dr, "Description", "" );
 					string rowId = GetRowColumn( dr, "RowId" );
 					item.RowId = new Guid( rowId );
 					item.ctid = GetRowPossibleColumn( dr, "CTID", "" );
-					item.SubjectWebpage = GetRowColumn( dr, "URL", "" );
+					if ( string.IsNullOrWhiteSpace( item.CTID ) )
+						item.IsReferenceVersion = true;
+                    else
+                        item.IsThirdPartyOrganization = GetRowColumn( dr, "IsThirdPartyOrganization", false );
+                    item.CredentialRegistryId = GetRowPossibleColumn( dr, "CredentialRegistryId", "" );
+
+                    item.SubjectWebpage = GetRowColumn( dr, "URL", "" );
 					item.CanEditRecord = GetRowColumn( dr, "CanEditRecord", false );
-					item.CredentialRegistryId = GetRowPossibleColumn( dr, "CredentialRegistryId", "" );
+
+                    //make sure ok for micro search get profile
+                    if ( idsOnly || autocomplete )
+                    {
+                        list.Add( item );
+                        continue;
+                    }
+                    //=====================================
+                    if ( item.CredentialRegistryId.Length == 36 )
+                        item.Name += " [published] ";
+                    item.EntityLastUpdated = GetRowColumn(dr, "EntityLastUpdated", System.DateTime.Now);
+                    item.LastPublishDate = GetRowPossibleColumn(dr, "LastPublishDate", "");
+                    DateTime testdate;
+                    if (DateTime.TryParse(item.LastPublishDate, out testdate))
+                        item.IsPublished = true;
+
+                    //approvals
+                    item.LastApprovalDate = GetRowPossibleColumn( dr, "LastApprovalDate", "" );
+					item.ContentApprovedBy = GetRowPossibleColumn( dr, "ContentApprovedBy" );
+					item.ContentApprovedById = GetRowPossibleColumn( dr, "ContentApprovedById", 0 );
+					if ( item.ContentApprovedById > 0 )
+						item.IsApproved = true;
 
 					item.ImageUrl = GetRowColumn( dr, "ImageUrl", "" );
 					if ( GetRowColumn( dr, "CredentialCount", 0 ) > 0 )
 						item.IsACredentialingOrg = true;
 					item.IsAQAOrg = GetRowColumn( dr, "IsAQAOrganization", false );
+                    
 
-					item.MainPhoneNumber = PhoneNumber.DisplayPhone( GetRowColumn( dr, "MainPhoneNumber", "" ) );
+                    item.MainPhoneNumber = PhoneNumber.DisplayPhone( GetRowColumn( dr, "MainPhoneNumber", "" ) );
 					
 					//all addressess
 					int addressess = GetRowPossibleColumn( dr, "AvailableAddresses", 0 );
@@ -1342,7 +1509,9 @@ namespace Factories
 					list.Add( item );
 				}
 
-				return list;
+                LoggingHelper.DoTrace( 6, thisClassName + string.Format( ".Search() END. Total rows: {0}", pTotalRows) );
+
+                return list;
 
 			}
 		}
@@ -1353,6 +1522,7 @@ namespace Factories
 			OrganizationSummary item = new OrganizationSummary();
 			List<OrganizationSummary> list = new List<OrganizationSummary>();
 			var result = new DataTable();
+
 			using ( SqlConnection c = new SqlConnection( connectionString ) )
 			{
 				c.Open();
@@ -1361,8 +1531,8 @@ namespace Factories
 				{
 					pFilter = "";
 				}
-
-				using ( SqlCommand command = new SqlCommand( "OrganizationSearch", c ) )
+                LoggingHelper.DoTrace( 6, thisClassName + string.Format( ".Search() START. Filter: {0}", pFilter ) );
+                using ( SqlCommand command = new SqlCommand( "OrganizationSearch", c ) )
 				{
 					command.CommandType = CommandType.StoredProcedure;
 					command.Parameters.Add( new SqlParameter( "@Filter", pFilter ) );
@@ -1375,21 +1545,35 @@ namespace Factories
 					totalRows.Direction = ParameterDirection.Output;
 					command.Parameters.Add( totalRows );
 
-					using ( SqlDataAdapter adapter = new SqlDataAdapter() )
-					{
-						adapter.SelectCommand = command;
-						adapter.Fill( result );
-					}
-					string rows = command.Parameters[ 5 ].Value.ToString();
 					try
 					{
+						using ( SqlDataAdapter adapter = new SqlDataAdapter() )
+						{
+							adapter.SelectCommand = command;
+							adapter.Fill( result );
+						}
+						string rows = command.Parameters[ 5 ].Value.ToString();
 						pTotalRows = Int32.Parse( rows );
 					}
-					catch
+					catch ( Exception ex )
 					{
 						pTotalRows = 0;
+                        LoggingHelper.DoTrace( 6, thisClassName + string.Format( ".Search() EXCEPTION. \r\n{0}", ex.Message ) );
+                        LoggingHelper.LogError( ex, thisClassName + string.Format( ".MainSearch() - Execute proc, Message: {0} \r\n Filter: {1} \r\n", ex.Message, pFilter ) );
+
+						item = new CM.OrganizationSummary();
+						item.Name = "Unexpected error encountered. System administration has been notified. Please try again later. ";
+						item.Description = ex.Message;
+						item.AlternativeIdentifier = "error";
+						list.Add( item );
+						return list;
 					}
 				}
+			}
+
+			try
+			{
+                LoggingHelper.DoTrace( 6, thisClassName + string.Format( ".MainSearch(). Filter: {0}, TotalRows: {1}", pFilter, pTotalRows ) );
 
 				foreach ( DataRow dr in result.Rows )
 				{
@@ -1407,11 +1591,35 @@ namespace Factories
 					string rowId = GetRowColumn( dr, "RowId" );
 					item.RowId = new Guid( rowId );
 					item.ctid = GetRowPossibleColumn( dr, "CTID", "" );
+					if ( string.IsNullOrWhiteSpace( item.CTID ) )
+						item.IsReferenceVersion = true;
+
 					item.SubjectWebpage = GetRowColumn( dr, "URL", "" );
 					item.CanEditRecord = GetRowColumn( dr, "CanEditRecord", false );
-					item.CredentialRegistryId = GetRowPossibleColumn( dr, "CredentialRegistryId", "" );
+                    //=====================================
+                    item.CredentialRegistryId = GetRowPossibleColumn( dr, "CredentialRegistryId", "" );
+                    item.EntityLastUpdated = GetRowColumn(dr, "EntityLastUpdated", System.DateTime.Now);
+                    item.LastPublishDate = GetRowPossibleColumn(dr, "LastPublishDate", "");
+                    DateTime testdate;
+                    if ( DateTime.TryParse( item.LastPublishDate, out testdate ) )
+                    {
+                        item.LastPublished = testdate;
+                        item.IsPublished = true;
+                    }
 
-					item.ImageUrl = GetRowColumn( dr, "ImageUrl", "" );
+                    //approvals
+                    item.LastApprovalDate = GetRowPossibleColumn(dr, "LastApprovalDate", "");
+                    if ( DateTime.TryParse( item.LastApprovalDate, out testdate ) )
+                    {
+                        item.IsApproved = true;
+                        item.LastApproved = testdate;
+                    }
+                    item.ContentApprovedBy = GetRowPossibleColumn(dr, "ContentApprovedBy");
+                    item.ContentApprovedById = GetRowPossibleColumn(dr, "ContentApprovedById", 0);
+                    if (item.ContentApprovedById > 0)
+                        item.IsApproved = true;
+
+                    item.ImageUrl = GetRowColumn( dr, "ImageUrl", "" );
 					if ( GetRowColumn( dr, "CredentialCount", 0 ) > 0 )
 						item.IsACredentialingOrg = true;
 					item.IsAQAOrg = GetRowColumn( dr, "IsAQAOrganization", false );
@@ -1424,17 +1632,16 @@ namespace Factories
 					{
 						//item.Addresses = AddressProfileManager.GetAllOrgAddresses( item.Id );
 						item.Addresses = AddressProfileManager.GetAll( item.RowId );
-						//just in case (short term
-						if ( item.Addresses.Count > 0 )
-							item.Address = item.Addresses[ 0 ];
 					}
 
-					//Edit - Added to fill out gray boxes in results - NA 5/12/2017
-					item.OrganizationType = EntityPropertyManager.FillEnumeration( item.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_TYPE );
+                    item.AssertionsTotal = GetRowPossibleColumn( dr, "AssertionsTotal", 0 );
+
+                    //Edit - Added to fill out gray boxes in results - NA 5/12/2017
+                    item.OrganizationType = EntityPropertyManager.FillEnumeration( item.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_TYPE );
 					item.OrganizationSectorType = EntityPropertyManager.FillEnumeration( item.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SECTORTYPE );
 					//End Edit
 
-					item.NaicsResults = Fill_CodeItemResults( dr, "NaicsList", CodesManager.PROPERTY_CATEGORY_NAICS, false, false );
+					item.NaicsResults = Fill_CodeItemResults( dr, "NaicsList", CodesManager.PROPERTY_CATEGORY_NAICS, true, true );
 					item.IndustryOtherResults = Fill_CodeItemResults( dr, "OtherIndustriesList", CodesManager.PROPERTY_CATEGORY_NAICS, false, false, false );
 
 					item.OwnedByResults = Fill_CodeItemResults( dr, "OwnedByList", CodesManager.PROPERTY_CATEGORY_CREDENTIAL_AGENT_ROLE, false, false );
@@ -1445,35 +1652,59 @@ namespace Factories
 
 					item.LoppsOwnedByResults = Fill_CodeItemResults( dr, "LoppsOwnedByList", CodesManager.PROPERTY_CATEGORY_CREDENTIAL_AGENT_ROLE, false, false );
 
-					item.AccreditedByResults = Fill_CodeItemResults( dr, "AccreditedByList", CodesManager.PROPERTY_CATEGORY_CREDENTIAL_AGENT_ROLE, false, false );
+                   // item.AccreditedByResults = Fill_CodeItemResults( dr, "AccreditedByList", CodesManager.PROPERTY_CATEGORY_CREDENTIAL_AGENT_ROLE, false, false );
 
-					item.ApprovedByResults = Fill_CodeItemResults( dr, "ApprovedByList", CodesManager.PROPERTY_CATEGORY_CREDENTIAL_AGENT_ROLE, false, false );
+                   // item.ApprovedByResults = Fill_CodeItemResults( dr, "ApprovedByList", CodesManager.PROPERTY_CATEGORY_CREDENTIAL_AGENT_ROLE, false, false );
 
+                    item.QualityAssurance = Fill_AgentItemResultsFromXml( dr, "QualityAssurance", CodesManager.PROPERTY_CATEGORY_CREDENTIAL_AGENT_ROLE, false, false );
 
-					list.Add( item );
+                    string relatedItems = GetRowColumn( dr, "ChildOrganizations" );
+                    string[] array = relatedItems.Split( ',' );
+                    if ( array.Count() > 0 )
+                        foreach ( var i in array )
+                        {
+                            if ( !string.IsNullOrWhiteSpace( i ) )
+                                item.ChildOrganizationsList.Add( i.ToLower() );
+                        }
+
+                    list.Add( item );
 				}
 
+                LoggingHelper.DoTrace( 6, thisClassName + string.Format( ".MainSearch() END. Total rows: {0}", pTotalRows ) );
+                return list;
 
+
+			}
+			catch ( Exception ex )
+			{
+				LoggingHelper.LogError(ex, thisClassName + string.Format( ".MainSearch() - results, Message: {0} \r\n Filter: {1} \r\n", pFilter )  );
+
+				item = new CM.OrganizationSummary();
+				item.Name = "Unexpected error encountered. System administration has been notified. Please try again later. ";
+				item.Description = ex.Message;
+				item.AlternativeIdentifier = "error";
+				list.Add( item );
 				return list;
-
 			}
 		}
 
-		public static void FromMap( CM.Organization from, EM.Organization to )
+		public static void MapToDB( ThisEntity from, DBEntity to )
 		{
-			FromMapBase( from, to );
-			to.ISQAOrganization = false;
+			MapToDB_Base( from, to );
+            if (from.IsAQAOrg || from.ISQAOrganization)
+                to.ISQAOrganization = true;
+            else 
+                to.ISQAOrganization = false;
 
 		}
-		public static void FromMap( CM.QAOrganization from, EM.Organization to )
+		public static void MapToDB( CM.QAOrganization from, DBEntity to )
 		{
-			FromMapBase( from, to );
+			MapToDB_Base( from, to );
 			to.ISQAOrganization = true;
 
 		}
-		public static void FromMapBase( CM.Organization from, EM.Organization to )
+		public static void MapToDB_Base( ThisEntity from, DBEntity to )
 		{
-
 			//want to ensure fields from create are not wiped
 			if ( to.Id > 0 )
 			{
@@ -1487,22 +1718,37 @@ namespace Factories
 					to.Created = from.Created;
 				to.CreatedById = from.CreatedById;
 				to.StatusId = 1;
-			}
+				//this can only be set on add
+				to.IsThirdPartyOrganization = from.IsReferenceVersion || from.IsThirdPartyOrganization;
+                if ( (bool)to.IsThirdPartyOrganization )
+                    to.StatusId = 2;
+            }
 
 			to.Id = from.Id;
-			to.Name = GetData( from.Name );
-			//to.StatusId = from.StatusId > 0 ? from.StatusId : ( to.StatusId > 0 ? to.StatusId : 1 );
+			to.Name = ConvertSpecialCharacters( from.Name );
+			to.URL = NormalizeUrlData( from.SubjectWebpage, null );
 
-			to.Description = GetData( from.Description );
-			to.Purpose = GetData( from.Purpose );
-			to.AgentPurposeUrl = GetUrlData( from.AgentPurposeUrl, null );
-			to.Purpose = from.Purpose;
+			to.Description = ConvertSpecialCharacters( from.Description );
+            to.ISQAOrganization = from.ISQAOrganization;
+            //helper for QA reference org, to ensure marked as QA
+            if ( from.OrganizationType.HasItems() )
+            {
+                EnumeratedItem item = from.OrganizationType.Items.SingleOrDefault( s => s.SchemaName == "orgType:QualityAssurance" );
+                if ( item != null && item.Id > 0 )
+                    to.ISQAOrganization = true;
+            }
 
-			to.URL = GetUrlData( from.SubjectWebpage, null );
+            if ( from.IsReferenceVersion )
+				return;
+
+			to.AgentPurposeUrl = NormalizeUrlData( from.AgentPurposeUrl, null );
+			to.Purpose = ConvertSpecialCharacters(from.Purpose);
+
+			
 			//to.UniqueURI = GetUrlData( from.UniqueURI, null );
-			to.AvailabilityListing = GetUrlData( from.AvailabilityListing, null );
-			to.ImageURL = GetUrlData( from.ImageUrl, null );
-			to.AlternativeIdentifier = from.AlternativeIdentifier;
+			to.AvailabilityListing = NormalizeUrlData( from.AvailabilityListing, null );
+			to.ImageURL = NormalizeUrlData( from.ImageUrl, null );
+			//to.AlternativeIdentifier = from.AlternativeIdentifier;
 
 			//FoundingDate is now a string
 			//interface must handle? Or do we have to fix here?
@@ -1514,10 +1760,8 @@ namespace Factories
 				to.FoundingDate = null;
 			//to.FoundingDate = FormatFoundingDate( from );
 
-			if ( from.IsNewVersion )
-			{ }
-			to.MissionAndGoalsStatement = GetUrlData( from.MissionAndGoalsStatement, null );
-			to.MissionAndGoalsStatementDescription = GetData( from.MissionAndGoalsStatementDescription );
+			to.MissionAndGoalsStatement = NormalizeUrlData( from.MissionAndGoalsStatement, null );
+			to.MissionAndGoalsStatementDescription = ConvertSpecialCharacters( from.MissionAndGoalsStatementDescription );
 			to.Versioning = from.Versioning;
 
 
@@ -1531,7 +1775,7 @@ namespace Factories
 				to.LastUpdated = from.LastUpdated;
 			to.LastUpdatedById = from.LastUpdatedById;
 		}
-		private static string FormatFoundingDate( CM.Organization from )
+		private static string FormatFoundingDate( ThisEntity from )
 		{
 			string foundingDate = "";
 			if ( !string.IsNullOrWhiteSpace( from.FoundingYear ) && from.FoundingYear.Length == 4 && IsInteger( from.FoundingYear ) )
@@ -1564,76 +1808,76 @@ namespace Factories
 
 			return foundingDate;
 		}
-		public static void ToMap1( EM.Organization from, CM.Organization to,
+		public static void MapFromDB( DBEntity from, ThisEntity to,
 			bool isForEditView,
 			bool includingProperties = false,
 			bool includingRoles = false,
 			bool includeCredentials = false )
 		{
-			ToMapCommon( from, to,
+			MapFromDB_Common( from, to,
 				isForEditView,
 				includingProperties,
 				includeCredentials,
 				includingRoles,
 				false );
+
+			if ( to.IsReferenceVersion )
+				return;
+
+			//===============================================================
+
 			//ISQAOrganization can be assigned in mapping if there is an org type of QA body
 			//17-07-01 currently no difference, moved VerificationStatus here to claify as previously QA only
 			to.VerificationStatus = Organization_VerificationStatusManager.GetAll( to.Id );
 			if ( to.ISQAOrganization )
 			{
-				//ToMap_QA( from, to, false );
+				//MapFromDB_QA( from, to, false );
 			}
 		}
 
-		private static void ToMapQA( EM.Organization from, CM.QAOrganization to,
+		private static void MapFromDB_QA( DBEntity from, CM.QAOrganization to,
 					bool isForEditView,
 					bool includingProperties = false,
 					bool includingRoles = false,
 					bool includeCredentials = false )
 		{
-			ToMapCommon( from, to, isForEditView, includingProperties, includeCredentials, includingRoles, false );
+			MapFromDB_Common( from, to, isForEditView, includingProperties, includeCredentials, includingRoles, false );
 			//now do QA specific
-			//17-07-01 currently no difference, moved VerificationStatus here to claify as previously QA only
+			//17-07-01 currently no difference, moved VerificationStatus here to clarify as previously QA only
 			to.VerificationStatus = Organization_VerificationStatusManager.GetAll( to.Id );
 			//ToMap_QA( from, to, isForEditView );
 
 		}
 
-		/// <summary>
-		/// Conveniance method
-		/// </summary>
-		/// <param name="from"></param>
-		/// <param name="to"></param>
-		/// <param name="isForEditView"></param>
-		public static void ToMap_QA( EM.Organization from, CM.Organization to,
-					bool isForEditView )
-		{
-			
 
-		}
-
-		public static void ToMapForDetail( EM.Organization from, CM.Organization to,
+		public static void MapFromDB_Detail( DBEntity from, ThisEntity to,
 					bool includingProperties,
 					bool includeCredentials,
 					bool includingRoles,
-					bool isForPublishing //concept, not used yet
+					bool isForPublishing 
 			)
 		{
-			ToMapCommon( from, to,
+			MapFromDB_Common( from, to,
 				false,      //isForEditView
 				includingProperties,
 				includeCredentials,
 				includingRoles,
-				true //includingQAWhereUsed
-				);
+				true, //includingQAWhereUsed
+                isForPublishing
+                );
 			//17-07-01 currently no difference, moved VerificationStatus here to claify as previously QA only
 			to.VerificationStatus = Organization_VerificationStatusManager.GetAll( to.Id );
 			if ( to.ISQAOrganization )
 			{
 				//ToMap_QA( from, to, false );
 			}
+			//if ( isForPublishing )
+			//{
+			//	GetPublishingOrgRoles( to );
+   //             //check if has credentials
+			//}
 		}
-		public static void ToMapForSummary( EM.Organization from, CM.Organization to )
+		public static void MapFromDB_Summary( DBEntity from, ThisEntity to )
 		{
 			if ( to == null )
 				to = new ThisEntity();
@@ -1649,7 +1893,13 @@ namespace Factories
 			else
 				to.ImageUrl = null;
 			to.CredentialRegistryId = from.CredentialRegistryId;
-			to.ctid = from.CTID;
+            if ( !string.IsNullOrWhiteSpace( to.CredentialRegistryId ) )
+            {
+                SetLastPublishedData( to );
+            }
+            to.ctid = from.CTID;
+			if ( string.IsNullOrWhiteSpace( to.CTID ) )
+				to.IsReferenceVersion = true;
 
 			if ( IsValidDate( from.Created ) )
 				to.Created = ( DateTime ) from.Created;
@@ -1658,15 +1908,28 @@ namespace Factories
 				to.LastUpdated = ( DateTime ) from.LastUpdated;
 			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
 
+            to.EntityApproval = Entity_ApprovalManager.GetByParent( to.RowId );
+            if ( to.EntityApproval != null && to.EntityApproval.Id > 0 )
+			{
+                to.LastApproved = to.EntityApproval.Created;
+				to.IsApproved = true;
+			}
 
-			to.ISQAOrganization = from.ISQAOrganization == null ? false : ( bool ) from.ISQAOrganization;
-		}
-		public static void ToMapCommon( EM.Organization from, CM.Organization to,
+            to.RelatedEntity = EntityManager.GetEntity( to.RowId, false );
+            if ( to.RelatedEntity != null && to.RelatedEntity.Id > 0 )
+                to.EntityLastUpdated = to.RelatedEntity.LastUpdated;
+
+            to.ISQAOrganization = from.ISQAOrganization == null ? false : ( bool ) from.ISQAOrganization;
+
+            to.InLanguageCodeList = Entity_LanguageManager.GetAll( to.RowId );
+        }
+		public static void MapFromDB_Common( DBEntity from, ThisEntity to,
 					bool isForEditView,
 					bool includingProperties,
-					bool includeCredentials,
+					bool includeCredentials, //true for detail, and publishing
 					bool includingRoles,
-					bool includingQAWhereUsed )
+					bool includingQAWhereUsed,
+                    bool isForPublishing = false)
 
 		{
 			if ( to == null )
@@ -1678,13 +1941,7 @@ namespace Factories
 			to.Name = from.Name;
 			to.Description = from.Description;
 			to.SubjectWebpage = from.URL;
-			if ( from.ImageURL != null && from.ImageURL.Trim().Length > 0 )
-				to.ImageUrl = from.ImageURL;
-			else
-				to.ImageUrl = null;
-			to.CredentialRegistryId = from.CredentialRegistryId;
-			to.ctid = from.CTID;
-			to.AlternativeIdentifier = from.AlternativeIdentifier;
+
 			if ( IsValidDate( from.Created ) )
 				to.Created = ( DateTime ) from.Created;
 			to.CreatedById = from.CreatedById == null ? 0 : ( int ) from.CreatedById;
@@ -1700,35 +1957,65 @@ namespace Factories
 				AppUser user = AccountManager.AppUser_Get( to.LastUpdatedById );
 				to.LastUpdatedBy = user.FullName();
 			}
+            to.RelatedEntity = EntityManager.GetEntity( to.RowId, false );
+            if ( to.RelatedEntity != null && to.RelatedEntity.Id > 0 )
+                to.EntityLastUpdated = to.RelatedEntity.LastUpdated;
 
-			//need to use the service types as well. See assignment for to.OrganizationType below
-			to.ISQAOrganization = from.ISQAOrganization == null ? false : ( bool ) from.ISQAOrganization;
+            to.IsThirdPartyOrganization = from.IsThirdPartyOrganization != null ? ( bool ) from.IsThirdPartyOrganization : false;
+			to.ctid = from.CTID;
 
 
-			to.OrganizationType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_TYPE );
-			if ( to.OrganizationType.hasItems() )
+            //need to use the service types as well. See assignment for to.OrganizationType below
+            to.ISQAOrganization = from.ISQAOrganization == null ? false : ( bool )from.ISQAOrganization;
+            to.OrganizationType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_TYPE );
+            if ( to.OrganizationType.HasItems() )
+            {
+                EnumeratedItem item = to.OrganizationType.Items.SingleOrDefault( s => s.SchemaName == "orgType:QualityAssurance" );
+                if ( item != null && item.Id > 0 )
+                    to.ISQAOrganization = true;
+
+
+                //remove helper properties, if not edit
+                if ( !isForEditView )
+                {
+                    if ( to.OrganizationType != null && to.OrganizationType.Items != null )
+                    {
+                        foreach ( EnumeratedItem item2 in to.OrganizationType.Items )
+                        {
+                            if ( item2.SchemaName == "{none}" )
+                            {
+                                to.OrganizationType.Items.Remove( item2 );
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            to.InLanguageCodeList = Entity_LanguageManager.GetAll( to.RowId );
+            if ( string.IsNullOrWhiteSpace( to.ctid )  || to.IsThirdPartyOrganization )
 			{
-				EnumeratedItem item = to.OrganizationType.Items.SingleOrDefault( s => s.SchemaName == "orgType:QualityAssurance" );
-				if ( item != null && item.Id > 0 )
-					to.ISQAOrganization = true;
-
-
-				//remove helper properties, if not edit
-				if ( !isForEditView )
-				{
-					if ( to.OrganizationType != null && to.OrganizationType.Items != null )
-					{
-						foreach ( EnumeratedItem item2 in to.OrganizationType.Items )
-						{
-							if ( item2.SchemaName == "{none}" )
-							{
-								to.OrganizationType.Items.Remove( item2 );
-								break;
-							}
-						}
-					}
-				}
+				to.IsReferenceVersion = true;
+				to.IsThirdPartyOrganization = true;
+				return;
 			}
+
+			//====================================================
+			if ( from.ImageURL != null && from.ImageURL.Trim().Length > 0 )
+				to.ImageUrl = from.ImageURL;
+			else
+				to.ImageUrl = null;
+
+			to.EntityApproval = Entity_ApprovalManager.GetByParent( to.RowId );
+            if ( to.EntityApproval != null && to.EntityApproval.Id > 0 )
+                to.LastApproved = to.EntityApproval.Created;
+
+            to.CredentialRegistryId = from.CredentialRegistryId;
+            if ( !string.IsNullOrWhiteSpace( to.CredentialRegistryId ) )
+            {
+                SetLastPublishedData( to );
+            }
+
+
 			//=========================================================
 			to.AgentPurposeUrl = from.AgentPurposeUrl;
 			to.Purpose = from.Purpose;
@@ -1750,7 +2037,9 @@ namespace Factories
 
 			//to.UniqueURI = from.UniqueURI;
 
-			to.Keyword = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_KEYWORD );
+			to.Keyword = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_KEYWORD );
+
+			to.AlternateName = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_ALTERNATE_NAME );
 			//properties
 			if ( includingProperties )
 			{
@@ -1766,26 +2055,48 @@ namespace Factories
 				to.OrganizationSectorType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SECTORTYPE );
 				to.Jurisdiction = Entity_JurisdictionProfileManager.Jurisdiction_GetAll( to.RowId );
 
+				//identifcation codes
+				//ALL
+				to.IdentificationCodes = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_IDENTIFIERS );
+				//Others alternate identifiers
+
+				to.AlternativeIdentifiers = Entity_ReferenceManager.GetOrgAlternativeIdentifiers( to.RowId );
 
 				//to.QAPurposeType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_AGENT_QAPURPOSE_TYPE );
 				//to.QATargetType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_QA_TARGET_TYPE );
-				to.SocialMediaPages = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SOCIAL_MEDIA );
-				to.IdentificationCodes = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_IDENTIFIERS );
-				to.PhoneNumbers = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_PHONE_TYPE );
-				to.Emails = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_EMAIL_TYPE );
+				to.SocialMediaPages = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_ORGANIZATION_SOCIAL_MEDIA );
+
+				//get separate other identifiers
+				to.PhoneNumbers = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_PHONE_TYPE );
+				to.Emails = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_EMAIL_TYPE );
 
 				to.Industry = Entity_FrameworkItemManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_NAICS );
 
-				to.OtherIndustries = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_NAICS );
+				to.AlternativeIndustries = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_NAICS );
 				//}
 			}
 
 			//credentialing?
 			if ( includeCredentials )
 			{
-				to.CreatedCredentials = Entity_AgentRelationshipManager.Credentials_ForOwningOrg( to.RowId );
-				if ( to.CreatedCredentials != null && to.CreatedCredentials.Count > 0 )
-					to.IsACredentialingOrg = true;
+                GetOrgArtifacts( to, isForEditView );
+
+    //            to.CreatedCredentials = Entity_AgentRelationshipManager.Credentials_ForOwningOrg( to.RowId );
+				//if ( to.CreatedCredentials != null && to.CreatedCredentials.Count > 0 )
+				//	to.IsACredentialingOrg = true;
+    //            if (!isForEditView)
+    //            {
+    //                //don't include assessments and lopps in edit view, for now
+    //                to.OwnedAssessments = AssessmentManager.GetAllForOwningOrg( to.RowId );
+    //                to.OwnedLearningOpportunities = LearningOpportunityManager.GetAllForOwningOrg( to.RowId );
+
+    //                to.OfferedCredentials = Entity_AgentRelationshipManager.OfferedCredentials_ForOwningOrg( to.RowId );
+    //                //aslo 
+    //                if ( to.CreatedCredentials.Count == 0 && to.OfferedCredentials.Count == 0)
+    //                {
+    //                    //also c
+    //                }
+    //            }
 			}
 			else
 			{
@@ -1794,37 +2105,8 @@ namespace Factories
 					to.IsACredentialingOrg = true;
 			}
 
-			if ( includingRoles )
-			{
-				if ( isForEditView )
-				{
-					//gets targets, with just a csv of roles
-					to.OrganizationRole_Recipient = Entity_AgentRelationshipManager.AgentEntityRole_GetAllSummary( to.RowId, false );
-				}
-				else
-				{
-					to.OrganizationRole_Recipient = Entity_AgentRelationshipManager.AgentEntityRole_GetAll_ToEnumeration( to.RowId, true );
 
-					//also want the inverses - where this org was providing the QA for asmts, etc. 
-					//NOTE: currently this is just mapped to a ProfileLink
-					to.OrganizationRole_Actor = Entity_AgentRelationshipManager.GetAll_QATargets_ForAgent( to.RowId );
-				}
-				to.JurisdictionAssertions = Entity_JurisdictionProfileManager.Jurisdiction_GetAll( to.RowId, Entity_JurisdictionProfileManager.JURISDICTION_PURPOSE_OFFERREDIN );
 
-				//to.QualityAssuranceAction = Entity_QualityAssuranceActionManager.QualityAssuranceActionProfile_GetAll( to.RowId );
-
-				//dept and subsiduaries ????
-				Entity_AgentRelationshipManager.AgentRole_FillAllSubOrganizations( to, 0, isForEditView );
-
-				//parent org 
-				Entity_AgentRelationshipManager.AgentRole_GetParentOrganization( to, isForEditView );
-
-			}
-
-			if ( includingQAWhereUsed )
-			{
-				//to.QualityAssuranceActor = Entity_QualityAssuranceActionManager.QualityAssuranceActionProfile_GetAllForAgent( to.RowId );
-			}
 			if ( isForEditView )
 			{
 				to.HasConditionManifest = ConditionManifestManager.GetAll( to.Id, true );
@@ -1836,15 +2118,177 @@ namespace Factories
 				to.HasConditionManifest = ConditionManifestManager.GetAll( to.Id, false );
 				to.HasCostManifest = CostManifestManager.GetAll( to.Id, false );
 			}
-			MapProcessProfiles( from, to, isForEditView );
+
+            if ( includingRoles )
+            {
+                //need to call after GetOrgArtifacts, as GetOrgRoles has a check for owns credentials
+                GetOrgRoles( from, to, isForEditView, isForPublishing );
+            }
+            if ( includingQAWhereUsed )
+            {
+                //to.QualityAssuranceActor = Entity_QualityAssuranceActionManager.QualityAssuranceActionProfile_GetAllForAgent( to.RowId );
+            }
+
+
+
+            MapProcessProfiles( from, to, isForEditView );
 
 			//need to distiguish between edit, list, and detail
 			to.VerificationServiceProfiles = Entity_VerificationProfileManager.GetAll( to.RowId, isForEditView );
-
-			
 		}
 
-		private static void MapProcessProfiles( EM.Organization from, CM.Organization to,
+        /// <summary>
+        /// Get last published date
+        /// NOTE: need to ensure after an un publish event
+        /// </summary>
+        /// <param name="record"></param>
+        public static void SetLastPublishedData( ThisEntity record )
+        {
+            //NOTE there is a method in ActivityServices for this
+            //  string GetLastPublishDate( string entityType, int entityId )
+            //which calls:
+            //SiteActivity GetLastPublishRecord( string entityType, int entityId )
+
+            string filter = string.Format( " [ActivityObjectId] = {0} AND [ActivityType] = 'Organization' AND Activity = 'Credential Registry'", record.Id );
+            int totalRows = 0;
+            List<SiteActivity> list = ActivityManager.Search( filter, "base.CreatedDate desc", 1, 1, ref totalRows );
+            if ( list != null && list.Count > 0 )
+            {
+                //check first record
+                SiteActivity item = list[ 0 ];
+                if ( item.Event.ToLower().IndexOf( "registered" ) > -1 || item.Event.ToLower().IndexOf( "updated" ) > -1 )
+                {
+                    record.LastPublished = item.Created;
+                    record.LastUpdatedById = ( int ) item.ActionByUserId;
+                    record.IsPublished = true;
+                }
+            }
+
+        }
+        [Obsolete]
+        private static void GetPublishingOrgRoles( ThisEntity to )
+		{
+			to.OrganizationThirdPartyAssertions = Entity_AgentRelationshipManager.GetAll_OrganizationOwnsEtcRolesSummary( to.Id );
+
+            //to.OrganizationAssertions = Entity_AgentRelationshipManager.GetAll_OrganizationOwnsEtcRolesSummaries( to.Id );
+        }
+
+		private static void GetOrgRoles( DBEntity from, ThisEntity to,
+					bool isForEditView, bool isForPublishing = false )
+		{
+			if ( isForEditView )
+			{
+				//gets targets, with just a csv of roles
+				to.OrganizationRole_Recipient = Entity_AgentRelationshipManager.AgentEntityRole_GetAllSummary( to.RowId, false );
+
+                //compare with GetPublishingOrgRoles
+                //nothing returned for ACBSP
+                //to.OrganizationRole_QAPerformed = Entity_AgentRelationshipManager.GetAll_QATargets_ForAgent( to.RowId );
+
+                //not sure we want this, can't use for publishing, as uses the CSV view 
+                var assertions = Entity_AssertionManager.GetAllAssertionsForDetailView( to.RowId );
+                to.CredentialAssertions = assertions.Where( x => x.TargetEntityTypeId == 1 ).ToList();
+                to.OrganizationAssertions = assertions.Where( x => x.TargetEntityTypeId == 2 ).ToList();
+                to.AssessmentAssertions = assertions.Where( x => x.TargetEntityTypeId == 3 ).ToList();
+                to.LoppAssertions = assertions.Where( x => x.TargetEntityTypeId == 7 ).ToList();
+            }
+			else
+			{
+                if ( isForPublishing )
+                {
+					to.OrganizationRole = Entity_AgentRelationshipManager.AgentEntityRole_GetAll_ToEnumeration( to.RowId, true );
+
+					//need this view for publishing - rename for clarity
+					to.OrganizationFirstPartyAssertions = Entity_AssertionManager.GetAllDirectAssertions( to.RowId );
+                    to.OrganizationThirdPartyAssertions = Entity_AgentRelationshipManager.GetAll_OrganizationOwnsEtcRolesSummary( to.Id );
+                } else
+                {
+
+                    //not sure we want this, can't use for publishing, as uses the CSV view 
+                    //TBD: this should be replace by GetAllCombined, leaving both for now
+                    var assertions = Entity_AssertionManager.GetAllAssertionsForDetailView( to.RowId );
+                    to.CredentialAssertions = assertions.Where( x => x.TargetEntityTypeId == 1 ).ToList();
+                    to.OrganizationAssertions = assertions.Where( x => x.TargetEntityTypeId == 2 ).ToList();
+                    to.AssessmentAssertions = assertions.Where( x => x.TargetEntityTypeId == 3 ).ToList();
+                    to.LoppAssertions = assertions.Where( x => x.TargetEntityTypeId == 7 ).ToList();
+
+					//not sure why true here?
+                    to.OrganizationRole_Recipient = Entity_AgentRelationshipManager.AgentEntityRole_GetAll_ToEnumeration( to.RowId, true );
+
+                    //also want the inverses - where this org was providing the QA for asmts, etc. 
+                    //NOTE: currently this is just mapped to a ProfileLink
+                    //to.OrganizationRole_QAPerformed = Entity_AgentRelationshipManager.GetAll_QATargets_ForAgent( to.RowId );
+                    //turns out, not used for detail page YET!!!
+                    to.OrganizationRole_QAPerformed = Entity_AssertionManager.GetAllCombined( to.RowId );
+                }
+            }
+			to.JurisdictionAssertions = Entity_JurisdictionProfileManager.Jurisdiction_GetAll( to.RowId, Entity_JurisdictionProfileManager.JURISDICTION_PURPOSE_OFFERREDIN );
+
+			//to.QualityAssuranceAction = Entity_QualityAssuranceActionManager.QualityAssuranceActionProfile_GetAll( to.RowId );
+
+			//dept and subsiduaries ????
+			Entity_AgentRelationshipManager.AgentRole_FillAllSubOrganizations( to, 0, isForEditView );
+            //checks for publishing
+            if ( !isForEditView )
+            {
+                if ( !to.ISQAOrganization
+               && ( to.OwnsOrOffersCredentials  == false)
+               )
+                {
+                    //check for sub-organizations/departments
+                    if ( to.OrganizationRole_Subsidiary.Count > 0 )
+                    {
+                        //may have to go to multiple levels
+                        foreach ( var item in to.OrganizationRole_Subsidiary )
+                        {
+                            GetOrgArtifacts( item.ActingAgent, isForEditView );
+                            if ( item.ActingAgent.OwnsOrOffersCredentials )
+                            {
+                                to.ChildOrganizationsHaveCredentials = true;
+                                break;
+                            }
+                        }
+                    }
+                    if ( !to.ChildOrganizationsHaveCredentials && to.OrganizationRole_Dept.Count > 0 )
+                    {
+                        foreach ( var item in to.OrganizationRole_Dept )
+                        {
+                            GetOrgArtifacts( item.ActingAgent, isForEditView );
+                            if ( item.ActingAgent.OwnsOrOffersCredentials )
+                            {
+                                to.ChildOrganizationsHaveCredentials = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+                
+            //parent org 
+            Entity_AgentRelationshipManager.GetParentOrganizations( to, isForEditView );
+        }
+
+        private static void GetOrgArtifacts( ThisEntity to, bool isForEditView )
+        {
+            to.CreatedCredentials = Entity_AgentRelationshipManager.Credentials_ForOwningOrg( to.RowId );
+            if ( to.CreatedCredentials != null && to.CreatedCredentials.Count > 0 )
+                to.IsACredentialingOrg = true;
+            if ( !isForEditView )
+            {
+                //don't include assessments and lopps in edit view, for now
+                to.OwnedAssessments = AssessmentManager.GetAllForOwningOrg( to.RowId );
+                to.OwnedLearningOpportunities = LearningOpportunityManager.GetAllForOwningOrg( to.RowId );
+
+                to.OfferedCredentials = Entity_AgentRelationshipManager.OfferedCredentials_ByOrg( to.RowId );
+                 
+                if ( to.OwnsOrOffersCredentials == false )
+                {
+                    //also check child orgs - actually now done from Mapper
+                }
+            }
+        }
+
+		private static void MapProcessProfiles( DBEntity from, ThisEntity to,
 					bool isForEditView )
 		{
 			//get all and then split
@@ -1884,7 +2328,7 @@ namespace Factories
 		#endregion
 
 		#region **** COUNTS ****
-		private static int CountCredentials( EM.Organization entity )
+		private static int CountCredentials( DBEntity entity )
 		{
 			//change to use owning org
 			//
@@ -1904,6 +2348,8 @@ namespace Factories
 			return count;
 		}
 		#endregion
+
+
 
 		#region org member methods
 
@@ -2010,7 +2456,7 @@ namespace Factories
 			return id;
 		}
 
-		public bool OrganizationMember_Delete( int orgId, int userId, ref string statusMessage )
+		public bool OrganizationMember_Delete( int orgId, int userId, ref string statusMessage, ref bool userWasFound)
 		{
 			bool isValid = false;
 			if ( orgId == 0 || userId == 0 )
@@ -2025,6 +2471,7 @@ namespace Factories
 
 				if ( efEntity != null && efEntity.Id > 0 )
 				{
+					userWasFound = true;
 					context.Organization_Member.Remove( efEntity );
 					int count = context.SaveChanges();
 					if ( count > 0 )
@@ -2034,7 +2481,7 @@ namespace Factories
 				}
 				else
 				{
-					statusMessage = "Error - delete failed, as record was not found.";
+					statusMessage = "Error/Warning - user is not part of this organization.";
 				}
 			}
 
@@ -2090,8 +2537,8 @@ namespace Factories
 
 						//Hmm no reason to map the org, as most likely in context of org
 						//OR ensure minimum
-						ToMapForSummary( item.Organization, entity.Organization );
-						AccountManager.ToMap( item.Account, entity.Account );
+						MapFromDB_Summary( item.Organization, entity.Organization );
+						AccountManager.MapFromDB( item.Account, entity.Account );
 
 						list.Add( entity );
 					}
@@ -2111,7 +2558,7 @@ namespace Factories
 		/// <param name="pageNumber"></param>
 		/// <param name="pageSize"></param>
 		/// <returns></returns>
-		public static List<CM.OrganizationMember> SelectUserOrganizationMembers( int userId, int pageNumber, int pageSize, ref int pTotalRows )
+		public static List<CM.OrganizationMember> GetUserOrganizations( int userId, int pageNumber, int pageSize, ref int pTotalRows )
 		{
 			pTotalRows = 0;
 			List<CM.OrganizationMember> list = new List<CM.OrganizationMember>();
@@ -2152,9 +2599,9 @@ namespace Factories
 
 						//Hmm no reason to map the org, as most likely in context of org
 						//OR ensure minimum
-						ToMapForSummary( item.Organization, entity.Organization );
-
-						AccountManager.ToMap( item.Account, entity.Account );
+						MapFromDB_Summary( item.Organization, entity.Organization );
+                        //why doing account, will be the same for each item
+						AccountManager.MapFromDB( item.Account, entity.Account );
 
 						list.Add( entity );
 					}
@@ -2164,28 +2611,7 @@ namespace Factories
 
 			return list;
 		}
-		//public static List<CM.Organization> SelectUserOrganizationsForList( int userId )
-		//{
-		//	int pTotalRows = 0;
-		//	List<CM.Organization> orgs = new List<ThisEntity>();
 
-		//	//get all ogrs
-		//	List<CM.OrganizationMember> list = SelectUserOrganizationMembers( userId, 1, 100, ref pTotalRows );
-		//	if ( pTotalRows > 100 && pTotalRows < 500 )
-		//	{
-		//		//just get all???
-		//		SelectUserOrganizationMembers( userId, 1, pTotalRows, ref pTotalRows );
-		//	}
-		//	if ( list != null && list.Count > 0 )
-		//	{
-		//		foreach ( CM.OrganizationMember e in list )
-		//		{
-		//			orgs.Add( e.Organization );
-		//		}
-		//	}
-		//	return orgs;
-
-		//}
 		public static List<CodeItem> SelectUserOrganizationsAsCodeItems( int userId )
 		{
 			int pTotalRows = 0;
@@ -2193,11 +2619,11 @@ namespace Factories
 			CodeItem profile = new CodeItem();
 
 			//get all ogrs
-			List<CM.OrganizationMember> list = SelectUserOrganizationMembers( userId, 1, 100, ref pTotalRows );
+			List<CM.OrganizationMember> list = GetUserOrganizations( userId, 1, 100, ref pTotalRows );
 			if ( pTotalRows > 100 && pTotalRows < 500 )
 			{
 				//just get all???
-				SelectUserOrganizationMembers( userId, 1, pTotalRows, ref pTotalRows );
+				list = GetUserOrganizations( userId, 1, pTotalRows, ref pTotalRows );
 			}
 			if ( list != null && list.Count > 0 )
 			{
@@ -2222,11 +2648,11 @@ namespace Factories
 			MN.ProfileLink profile = new MN.ProfileLink();
 
 			//get all ogrs
-			List<CM.OrganizationMember> list = SelectUserOrganizationMembers( userId, 1, 100, ref pTotalRows );
+			List<CM.OrganizationMember> list = GetUserOrganizations( userId, 1, 100, ref pTotalRows );
 			if ( pTotalRows > 100 && pTotalRows < 500 )
 			{
 				//just get all???
-				SelectUserOrganizationMembers( userId, 1, pTotalRows, ref pTotalRows );
+				GetUserOrganizations( userId, 1, pTotalRows, ref pTotalRows );
 			}
 			if ( list != null && list.Count > 0 )
 			{
@@ -2245,25 +2671,7 @@ namespace Factories
 
 		}
 
-		/// <summary>
-		/// Return true if user is a member of any organization
-		/// </summary>
-		/// <param name="userId"></param>
-		/// <returns></returns>
-		public static bool IsMemberOfAnyOrganization( int userId )
-		{
-
-			using ( var context = new Data.CTIEntities() )
-			{
-				List<EM.Organization_Member> list = context.Organization_Member
-						.Where( s => s.UserId == userId ).ToList();
-
-				if ( list != null && list.Count() > 0 )
-					return true;
-				else
-					return false;
-			}
-		}
+		
 
 		/// <summary>
 		/// Get the orgId of the primary org for a user
@@ -2305,8 +2713,8 @@ namespace Factories
 						if ( ( bool ) ( item.IsPrimaryOrganization ?? false )
 							|| list.Count == cntr )
 						{
-							//ToMap( item.Organization, org, false, false, false );
-							ToMapForSummary( item.Organization, org );
+							//MapFromDB( item.Organization, org, false, false, false );
+							MapFromDB_Summary( item.Organization, org );
 							break;
 						}
 					}
@@ -2315,13 +2723,33 @@ namespace Factories
 				return org;
 			}
 		}
-		/// <summary>
-		/// Return true if user is a member of the provided organization
+
+        /// <summary>
+		/// Return true if user is a member of any organization
 		/// </summary>
 		/// <param name="userId"></param>
-		/// <param name="orgId"></param>
 		/// <returns></returns>
-		public static bool IsOrganizationMember( int userId, int orgId )
+		public static bool IsMemberOfAnyOrganization( int userId )
+        {
+
+            using (var context = new Data.CTIEntities())
+            {
+                List<EM.Organization_Member> list = context.Organization_Member
+                        .Where( s => s.UserId == userId ).ToList();
+
+                if (list != null && list.Count() > 0)
+                    return true;
+                else
+                    return false;
+            }
+        }
+        /// <summary>
+        /// Return true if user is a member of the provided organization
+        /// </summary>
+        /// <param name="userId"></param>
+        /// <param name="orgId"></param>
+        /// <returns></returns>
+        public static bool IsOrganizationMember( int userId, int orgId )
 		{
 
 			using ( var context = new Data.CTIEntities() )

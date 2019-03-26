@@ -9,7 +9,7 @@ using MC = Models.Common;
 using EM = Data;
 using Utilities;
 using Data;
-using DBentity = Data.Entity_JurisdictionProfile;
+using DBEntity = Data.Entity_JurisdictionProfile;
 using ThisEntity = Models.Common.JurisdictionProfile;
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
@@ -69,8 +69,8 @@ namespace Factories
 				
 
 				//id = JurisdictionProfile_Add( entity, ref messages );
-				DBentity efEntity = new DBentity();
-				FromMap( entity, efEntity );
+				DBEntity efEntity = new DBEntity();
+				MapToDB( entity, efEntity );
 				efEntity.EntityId = parent.Id;
 				efEntity.RowId = Guid.NewGuid();
 				entity.RowId = efEntity.RowId;
@@ -129,11 +129,11 @@ namespace Factories
 					return false;
 				}
 
-				DBentity efEntity =
+				DBEntity efEntity =
 					context.Entity_JurisdictionProfile.SingleOrDefault( s => s.Id == entity.Id );
 
 				entity.RowId = efEntity.RowId;
-				FromMap( entity, efEntity );
+				MapToDB( entity, efEntity );
 				
 
 				if ( HasStateChanged( context ) )
@@ -228,8 +228,8 @@ namespace Factories
 			}
 			if ( property == "JurisdictionAssertions"  && profile.Id > 0)
 			{
-				if (!IsValidGuid(profile.AssertedBy))
-					messages.Add( "Please select the Agent that makes these assertions." );
+				//if (!IsValidGuid(profile.AssertedBy))
+				//	messages.Add( "Please select the Agent that makes these assertions." );
 				if ( profile.JurisdictionAssertion == null || profile.JurisdictionAssertion.Items.Count == 0 )
 					messages.Add( "Please select at least one assertion." );
 			}
@@ -292,7 +292,7 @@ namespace Factories
 					return false;
 				}
 
-				DBentity efEntity =
+				DBEntity efEntity =
 					context.Entity_JurisdictionProfile.SingleOrDefault( s => s.Id == Id );
 				if ( efEntity != null && efEntity.Id > 0 )
 				{
@@ -336,19 +336,19 @@ namespace Factories
 
 			using ( var context = new Data.CTIEntities() )
 			{
-				List<DBentity> Items = context.Entity_JurisdictionProfile
+				List<DBEntity> Items = context.Entity_JurisdictionProfile
 							.Where( s => s.EntityId == parent.Id 
 								&& s.JProfilePurposeId == jprofilePurposeId )
 							.OrderBy( s => s.Id ).ToList();
 
 				if ( Items.Count > 0 )
 				{
-					foreach ( DBentity item in Items )
+					foreach ( DBEntity item in Items )
 					{
 						entity = new ThisEntity();
 						count++;
 						//map and get regions
-						ToMap( item, entity, count );
+						MapFromDB( item, entity, count );
 						list.Add( entity );
 					}
 				}
@@ -367,12 +367,12 @@ namespace Factories
 			ThisEntity entity = new ThisEntity();
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity item = context.Entity_JurisdictionProfile
+				DBEntity item = context.Entity_JurisdictionProfile
 							.SingleOrDefault( s => s.Id == id );
 
 				if ( item != null && item.Id > 0 )
 				{
-					ToMap( item, entity, 1 );
+					MapFromDB( item, entity, 1 );
 				}
 
 			}
@@ -389,12 +389,12 @@ namespace Factories
 			ThisEntity entity = new ThisEntity();
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity item = context.Entity_JurisdictionProfile
+				DBEntity item = context.Entity_JurisdictionProfile
 							.SingleOrDefault( s => s.RowId == rowId );
 
 				if ( item != null && item.Id > 0 )
 				{
-					ToMap( item, entity, 1 );
+					MapFromDB( item, entity, 1 );
 				}
 
 			}
@@ -408,7 +408,7 @@ namespace Factories
 		/// </summary>
 		/// <param name="from"></param>
 		/// <param name="to"></param>
-		private static void FromMap( ThisEntity from, DBentity to )
+		private static void MapToDB( ThisEntity from, DBEntity to )
 		{
 			to.Id = from.Id;
 			//to.EntityId = from.ParentId;
@@ -478,7 +478,7 @@ namespace Factories
 				to.AssertedByAgentUid = null;
 			}
 		}
-		private static void ToMap( DBentity from, ThisEntity to, int count )
+		private static void MapFromDB( DBEntity from, ThisEntity to, int count )
 		{
 			to.Id = from.Id;
 			to.RowId = from.RowId;
@@ -493,7 +493,9 @@ namespace Factories
 			if ( IsGuidValid( from.AssertedByAgentUid ) )
 			{
 				to.AssertedBy = ( Guid ) from.AssertedByAgentUid;
-				
+
+				to.AssertedByOrganization = OrganizationManager.GetForSummary( to.AssertedBy );
+
 			}
 			//to.Name = from.Name;
 			if ( (from.Description ?? "") == "Auto-saved Jurisdiction" )
@@ -635,7 +637,7 @@ namespace Factories
 							//prob not necessary, check
 							item.ParentEntityId = parentUid;
 
-							FromMap( item, efEntity );
+							MapToDB( item, efEntity );
 
 							efEntity.Created = System.DateTime.Now;
 							efEntity.LastUpdated = System.DateTime.Now;
@@ -691,7 +693,7 @@ namespace Factories
 			}
 			else
 			{
-				FromMap( entity, efEntity );
+				MapToDB( entity, efEntity );
 				return GeoCoordinate_Add( efEntity, ref statusMessage );
 			}
 
@@ -765,7 +767,7 @@ namespace Factories
 					return false;
 				}
 
-				FromMap( entity, efEntity );
+				MapToDB( entity, efEntity );
 
 				if ( HasStateChanged( context ) )
 				{
@@ -843,7 +845,7 @@ namespace Factories
 
 				if ( item != null && item.Id > 0 )
 				{
-					ToMap( item, entity );
+					MapFromDB( item, entity );
 				}
 			}
 
@@ -893,7 +895,7 @@ namespace Factories
 				if ( list != null && list.Count > 0 )
 				{
 					isFound = true;
-					ToMap( list[ 0 ], entity );
+					MapFromDB( list[ 0 ], entity );
 				}
 			}
 
@@ -914,7 +916,7 @@ namespace Factories
 				foreach ( var item in items )
 				{
 					MC.GeoCoordinates entity = new MC.GeoCoordinates();
-					ToMap( item, entity );
+					MapFromDB( item, entity );
 					entities.Add( entity );
 				}
 			}
@@ -945,7 +947,7 @@ namespace Factories
 					foreach ( EM.GeoCoordinate item in Items )
 					{
 						entity = new MC.GeoCoordinates();
-						ToMap( item, entity );
+						MapFromDB( item, entity );
 						list.Add( entity );
 					}
 				}
@@ -975,7 +977,7 @@ namespace Factories
 					foreach ( EM.GeoCoordinate item in Items )
 					{
 						entity = new MC.GeoCoordinates();
-						ToMap( item, entity );
+						MapFromDB( item, entity );
 						list.Add( entity );
 					}
 				}
@@ -1009,7 +1011,7 @@ namespace Factories
 						if ( prevGeoId != ( int ) item.GeoNamesId )
 						{
 							entity = new MC.GeoCoordinates();
-							ToMap( item, entity );
+							MapFromDB( item, entity );
 							list.Add( entity );
 							prevGeoId = ( int ) item.GeoNamesId;
 						}
@@ -1020,7 +1022,7 @@ namespace Factories
 			return list;
 		}
 
-		private static void FromMap( MC.GeoCoordinates from, EM.GeoCoordinate to )
+		private static void MapToDB( MC.GeoCoordinates from, EM.GeoCoordinate to )
 		{
 			to.Id = from.Id;
 			to.ParentId = from.ParentEntityId;
@@ -1047,7 +1049,7 @@ namespace Factories
 
 
 		}
-		private static void ToMap( EM.GeoCoordinate from, MC.GeoCoordinates to )
+		private static void MapFromDB( EM.GeoCoordinate from, MC.GeoCoordinates to )
 		{
 			to.Id = from.Id;
 			to.ParentEntityId = from.ParentId;

@@ -11,7 +11,7 @@ using MC = Models.Common;
 using Models.ProfileModels;
 using Data;
 using Utilities;
-using DBentity = Data.Entity_FrameworkItem;
+using DBEntity = Data.Entity_FrameworkItem;
 using DBRefentity = Data.Entity_Reference;
 using Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
@@ -30,10 +30,10 @@ namespace Factories
 		/// <param name="userId"></param>
 		/// <param name="statusMessage"></param>
 		/// <returns></returns>
-		public int ItemAdd( int parentEntityId, int categoryId, int codeID, int userId, ref string statusMessage )
+		public int Add( int parentEntityId, int categoryId, int codeID, int userId, ref string statusMessage )
 		{
-
-			DBentity efEntity = new DBentity();
+			statusMessage = "";
+			DBEntity efEntity = new DBEntity();
 			//Entity_Summary e = EntityManager.GetDBEntityByBaseId( parentId, entityTypeId );
 
 			using ( var context = new Data.CTIEntities() )
@@ -44,8 +44,8 @@ namespace Factories
 					EnumeratedItem entity = ItemGet( parentEntityId, categoryId, codeID );
 					if ( entity != null && entity.Id > 0 )
 					{
-						statusMessage = "Error: the selected code already exists!";
-						return 0;
+						//statusMessage = "Error: the selected code already exists!";
+						return -1;
 					}
 					efEntity.EntityId = parentEntityId;
 					efEntity.CategoryId = categoryId;
@@ -75,22 +75,93 @@ namespace Factories
 				catch ( Exception ex )
 				{
 					LoggingHelper.LogError( ex, thisClassName + string.Format( ".ItemAdd(), parentId: {0}, createdById: {1}, CategoryId: {2}, CodeId: {3}", parentEntityId, userId, categoryId, codeID ) );
-					statusMessage = ex.Message + ( ex.InnerException != null && ex.InnerException.InnerException != null ? " - " + ex.InnerException.InnerException.Message : "" );
-				}
+                    statusMessage = FormatExceptions( ex );
+                }
 			}
 
 			return efEntity.Id;
 		}
 
-		public bool ItemDelete( int recordId, ref string statusMessage )
+		/// <summary>
+		/// Replace all data from a list. Will handle deleting existing items not in the input list
+		/// </summary>
+		/// <param name="parentEntityId"></param>
+		/// <param name="categoryId"></param>
+		/// <param name="profiles"></param>
+		/// <param name="userId"></param>
+		/// <param name="messages"></param>
+		/// <returns></returns>
+		public bool Replace( int parentEntityId, int categoryId, List<CodeItem> profiles, int userId, ref List<string> messages )
+		{
+			bool isValid = true;
+			int intialCount = messages.Count;
+
+			int count = 0;
+			DBEntity efEntity = new DBEntity();
+			try
+			{
+				using ( var context = new Data.CTIEntities() )
+				{
+					if ( !profiles.Any() )
+					{
+						//no action, this is used initial by bulk upload
+					}
+					else
+					{
+						var existing = context.Entity_FrameworkItem.Where( s => s.EntityId == parentEntityId && s.CategoryId == categoryId );
+						var inputIds = profiles.Select( x => x.Id ).ToList();
+
+						//delete records which are not selected 
+						var notExisting = existing.Where( x => !inputIds.Contains( x.CodeId ?? 0 ) ).ToList();
+						foreach ( var item in notExisting )
+						{
+							context.Entity_FrameworkItem.Remove( item );
+							context.SaveChanges();
+						}
+
+						foreach ( var entity in profiles )
+						{
+							efEntity = context.Entity_FrameworkItem.FirstOrDefault( s => s.EntityId == parentEntityId
+								&& s.CategoryId == categoryId 
+								&& s.CodeId == entity.Id );
+
+							if ( efEntity == null || efEntity.Id == 0 )
+							{
+								//add new record 
+								efEntity = new DBEntity
+								{
+									EntityId = parentEntityId,
+									CategoryId = categoryId,
+									CodedNotation = entity.SchemaName,
+									CodeId = entity.Id,
+									Created = DateTime.Now,
+									CreatedById = userId
+								};
+								context.Entity_FrameworkItem.Add( efEntity );
+								count = context.SaveChanges();
+							}
+
+						} //foreach
+					}
+				}
+			}
+			catch ( Exception ex )
+			{
+				string message = FormatExceptions( ex );
+				messages.Add( message );
+				LoggingHelper.LogError( ex, "Entity_FrameworkItemManager.Replace()" );
+			}
+			return isValid;
+		} //
+		public bool Delete( int recordId, ref string statusMessage )
 		{
 			bool isOK = true;
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity p = context.Entity_FrameworkItem.FirstOrDefault( s => s.Id == recordId );
+				DBEntity p = context.Entity_FrameworkItem.FirstOrDefault( s => s.Id == recordId );
 				if ( p != null && p.Id > 0 )
 				{
-					statusMessage = thisClassName + string.Format( ".ItemDelete. Deleting codeID: {0} of categoryID: {1} from ParentId: {2}", p.CodeId, p.CategoryId, p.EntityId );
+					//statusMessage = thisClassName + string.Format( ".ItemDelete. Deleting codeID: {0} of categoryID: {1} from ParentId: {2}", p.CodeId, p.CategoryId, p.EntityId );
 					context.Entity_FrameworkItem.Remove( p );
 					int count = context.SaveChanges();
 				}
@@ -103,13 +174,33 @@ namespace Factories
 			return isOK;
 
 		}
+        public bool DeleteAll( Guid parentUid, int categoryId, ref List<string> messages )
+        {
+            bool isValid = true;
+            MC.Entity parent = EntityManager.GetEntity( parentUid );
+            if ( parent == null || parent.Id == 0 )
+            {
+                messages.Add( "Error - the provided target parent entity was not found." );
+                return false;
+            }
+            using ( var context = new Data.CTIEntities() )
+            {
+                context.Entity_FrameworkItem.RemoveRange( context.Entity_FrameworkItem.Where( s => s.EntityId == parent.Id && s.CategoryId == categoryId) );
+                int count = context.SaveChanges();
+                if ( count > 0 )
+                {
+                    isValid = true;
+                }
+            }
 
-		/// <summary>
-		/// Get a list of framework items generically
-		/// </summary>
-		/// <param name="recordIds"></param>
-		/// <returns></returns>
-		public static List<EnumeratedItem> ItemsGet( List<int> recordIds )
+            return isValid;
+        }
+        /// <summary>
+        /// Get a list of framework items generically
+        /// </summary>
+        /// <param name="recordIds"></param>
+        /// <returns></returns>
+        public static List<EnumeratedItem> ItemsGet( List<int> recordIds )
 		{
 			var items = new List<EnumeratedItem>();
 			using ( var context = new ViewContext() )
@@ -124,7 +215,7 @@ namespace Factories
 					{
 						Id = entity.Id,
 						ParentId = (int)entity.ParentId,
-						CodeId = entity.CodeId,
+						CodeId = entity.CodeId ,
 						URL = entity.URL,
 						Value = entity.FrameworkCode,
 						Name = entity.Title,
@@ -204,6 +295,35 @@ namespace Factories
 
 		}
 
+		public static List<string> GetAll( int entityTypeId, int entityBaseId, int categoryId, int maxRecords, ref int pTotalRows )
+		{
+			List<string> results = new List<string>();
+			using ( var context = new ViewContext() )
+			{
+				var list = context.Entity_FrameworkItemSummary.Where( s => s.EntityTypeId == entityTypeId
+							&& s.EntityBaseId == entityBaseId
+							&& s.CategoryId == categoryId ).ToList();
+				pTotalRows = list.Count();
+				foreach ( var entity in list )
+				{
+					if (!String.IsNullOrEmpty (entity.FrameworkCode))
+					{
+						results.Add( entity.Title + " (" + entity.FrameworkCode + ")");
+					}
+					else
+					{
+						results.Add( entity.Title );
+					}
+					if ( results.Count >= maxRecords )
+					{
+						break;
+					}
+				}
+			}
+			return results;
+
+		}
+
 		//public static void Item_FillOccupations( Models.Common.Credential to )
 		//{
 		//	to.Occupation = CodesManager.GetEnumeration( CodesManager.PROPERTY_CATEGORY_SOC );
@@ -249,6 +369,13 @@ namespace Factories
 		//}
 
 		#region Entity property read ===================
+		/// <summary>
+		/// Return Framework Items in an Enumeration
+		/// 18-12-11 mparsons - the Entity_FrameworkItemSummary view now does a Union with other/non-code items. Add code to exclude the latter from the Enumeration
+		/// </summary>
+		/// <param name="parentUid"></param>
+		/// <param name="categoryId"></param>
+		/// <returns></returns>
 		public static Enumeration FillEnumeration( Guid parentUid, int categoryId )
 		{
 			Enumeration entity = new Enumeration();
@@ -284,9 +411,12 @@ namespace Factories
 						item.SchemaName = prop.SchemaName;
 
 						item.Selected = true;
-
-						item.ItemSummary = item.Name + " (" + item.Value + ")";
-						entity.Items.Add( item );
+                        if (!string.IsNullOrWhiteSpace( item.Value ))
+                            item.ItemSummary = item.Name + " (" + item.Value + ")";
+                        else
+                            item.ItemSummary = item.Name;
+						if ( item.CodeId > 0)
+							entity.Items.Add( item );
 
 					}
 				}
@@ -295,101 +425,53 @@ namespace Factories
 			}
 		}
 
-		public static List<TextValueProfile> GetAll_Other( Guid parentUid, int categoryId )
-		{
-			TextValueProfile entity = new TextValueProfile();
-			List<TextValueProfile> list = new List<TextValueProfile>();
-			MC.Entity parent = EntityManager.GetEntity( parentUid );
-			if ( parent == null || parent.Id == 0 )
-			{
-				return list;
-			}
-			try
-			{
-				using ( var context = new Data.CTIEntities() )
-				{
-					var query = from Q in context.Entity_Reference
-							.Where( s => s.EntityId == parent.Id && s.CategoryId == categoryId )
-								select Q;
-					if ( categoryId == CodesManager.PROPERTY_CATEGORY_SUBJECT
-					  || categoryId == CodesManager.PROPERTY_CATEGORY_KEYWORD )
-					{
-						query = query.OrderBy( p => p.TextValue );
-					}
-					else
-					{
-						query = query.OrderBy( p => p.Id );
-					}
-					var count = query.Count();
-					var results = query.ToList();
+		//public static List<TextValueProfile> GetAll_Other( Guid parentUid, int categoryId )
+		//{
+		//	TextValueProfile entity = new TextValueProfile();
+		//	List<TextValueProfile> list = new List<TextValueProfile>();
+		//	MC.Entity parent = EntityManager.GetEntity( parentUid );
+		//	if ( parent == null || parent.Id == 0 )
+		//	{
+		//		return list;
+		//	}
+		//	try
+		//	{
+		//		using ( var context = new Data.CTIEntities() )
+		//		{
+		//			var query = from Q in context.Entity_Reference
+		//					.Where( s => s.EntityId == parent.Id && s.CategoryId == categoryId )
+		//						select Q;
+		//			if ( categoryId == CodesManager.PROPERTY_CATEGORY_SUBJECT
+		//			  || categoryId == CodesManager.PROPERTY_CATEGORY_KEYWORD )
+		//			{
+		//				query = query.OrderBy( p => p.TextValue );
+		//			}
+		//			else
+		//			{
+		//				query = query.OrderBy( p => p.Id );
+		//			}
+		//			var count = query.Count();
+		//			var results = query.ToList();
 
-					if ( results != null && results.Count > 0 )
-					{
-						foreach ( DBRefentity item in results )
-						{
-							entity = new TextValueProfile();
-							ToMap( item, entity );
+		//			if ( results != null && results.Count > 0 )
+		//			{
+		//				foreach ( DBRefentity item in results )
+		//				{
+		//					entity = new TextValueProfile();
+		//					MapFromDB( item, entity );
 
-							list.Add( entity );
-						}
-					}
-				}
-			}
-			catch ( Exception ex )
-			{
-				LoggingHelper.LogError( ex, thisClassName + ".Entity_GetAll" );
-			}
-			return list;
-		}//
-		private static void ToMap( DBRefentity from, TextValueProfile to )
-		{
-			to.Id = from.Id;
-			to.ParentId = from.EntityId;
-			to.TextTitle = from.Title;
-			to.CategoryId = from.CategoryId;
-			if ( to.CategoryId == CodesManager.PROPERTY_CATEGORY_PHONE_TYPE )
-			{
-				to.TextValue = PhoneNumber.DisplayPhone( from.TextValue );
-			}
-			else if ( to.CategoryId == CodesManager.PROPERTY_CATEGORY_ORGANIZATION_IDENTIFIERS )
-			{
-				to.TextValue = from.TextValue;
-			}
-			else
-			{
-				to.TextValue = from.TextValue;
-			}
-
-			//if ( from.Codes_PropertyValue != null)
-			//	to.CodeTitle = from.Codes_PropertyValue.Title;
-			to.CodeId = ( int ) ( from.PropertyValueId ?? 0 );
-
-			to.ProfileSummary = to.TextTitle + " - " + to.TextValue;
-			if ( from.Codes_PropertyValue != null
-				&& from.Codes_PropertyValue.Title != null )
-			{
-				to.CodeTitle = from.Codes_PropertyValue.Title;
-				to.CodeSchema = from.Codes_PropertyValue.SchemaName ?? "";
-
-				//to.ProfileSummary += " (" + from.Codes_PropertyValue.Title + ")";
-				to.ProfileSummary = from.Codes_PropertyValue.Title + " - " + to.TextValue;
-				//to.TextTitle = from.Codes_PropertyValue.Title;
-				//just in case
-				if ( to.CodeId == 0 )
-					to.CodeId = from.Codes_PropertyValue.Id;
-			}
-
-
-			if ( IsValidDate( from.Created ) )
-				to.Created = ( DateTime ) from.Created;
-			to.CreatedById = from.CreatedById == null ? 0 : ( int ) from.CreatedById;
-			if ( IsValidDate( from.LastUpdated ) )
-				to.LastUpdated = ( DateTime ) from.LastUpdated;
-			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
-
-
-		}
-
+		//					list.Add( entity );
+		//				}
+		//			}
+		//		}
+		//	}
+		//	catch ( Exception ex )
+		//	{
+		//		LoggingHelper.LogError( ex, thisClassName + ".Entity_GetAll" );
+		//	}
+		//	return list;
+		//}//
+	
 		#endregion
 	}
 }

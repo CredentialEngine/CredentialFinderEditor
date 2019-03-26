@@ -8,7 +8,7 @@ using Models.Common;
 using Models.ProfileModels;
 using EM = Data;
 using Utilities;
-using DBentity = Data.Entity_VerificationProfile;
+using DBEntity = Data.Entity_VerificationProfile;
 using ThisEntity = Models.ProfileModels.VerificationServiceProfile;
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
@@ -41,7 +41,7 @@ namespace Factories
 
 			int count = 0;
 
-			DBentity efEntity = new DBentity();
+			DBEntity efEntity = new DBEntity();
 
 			Entity parent = EntityManager.GetEntity( parentUid );
 			if ( parent == null || parent.Id == 0 )
@@ -68,8 +68,8 @@ namespace Factories
 					if ( entity.Id == 0 )
 					{
 						//add
-						efEntity = new DBentity();
-						FromMap( entity, efEntity );
+						efEntity = new DBEntity();
+						MapToDB( entity, efEntity );
 						efEntity.EntityId = parent.Id;
 
 						efEntity.Created = efEntity.LastUpdated = DateTime.Now;
@@ -104,7 +104,7 @@ namespace Factories
 						{
 							entity.RowId = efEntity.RowId;
 							//update
-							FromMap( entity, efEntity );
+							MapToDB( entity, efEntity );
 							//has changed?
 							if ( HasStateChanged( context ) )
 							{
@@ -157,7 +157,7 @@ namespace Factories
 			bool isOK = true;
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity p = context.Entity_VerificationProfile.FirstOrDefault( s => s.Id == recordId );
+				DBEntity p = context.Entity_VerificationProfile.FirstOrDefault( s => s.Id == recordId );
 				if ( p != null && p.Id > 0 )
 				{
 					context.Entity_VerificationProfile.Remove( p );
@@ -183,12 +183,10 @@ namespace Factories
 			if ( profile.IsStarterProfile )
 				return true;
 
-			if ( string.IsNullOrWhiteSpace( profile.Description ) )
+			if ( string.IsNullOrWhiteSpace( profile.Description ) || profile.Description == "please add a meaningful description" )
 			{
-				if ( profile.IsStarterProfile )
-					profile.Description = "Verification service";
-				else 
-					messages.Add( "A profile description must be entered" );
+				profile.Description = "";
+				messages.Add( "A meaningfull profile description must be entered" );
 			}
 			
 				if ( !IsUrlValid( profile.SubjectWebpage, ref commonStatusMessage ) )
@@ -243,17 +241,17 @@ namespace Factories
 			{
 				using ( var context = new Data.CTIEntities() )
 				{
-					List<DBentity> results = context.Entity_VerificationProfile
+					List<DBEntity> results = context.Entity_VerificationProfile
 							.Where( s => s.EntityId == parent.Id )
 							.OrderBy( s => s.Id )
 							.ToList();
 
 					if ( results != null && results.Count > 0 )
 					{
-						foreach ( DBentity item in results )
+						foreach ( DBEntity item in results )
 						{
 							entity = new ThisEntity();
-							ToMap( item, entity, includingItems, false );
+							MapFromDB( item, entity, includingItems, isForEditView );
 
 
 							list.Add( entity );
@@ -276,12 +274,12 @@ namespace Factories
 			{
 				using ( var context = new Data.CTIEntities() )
 				{
-					DBentity item = context.Entity_VerificationProfile
+					DBEntity item = context.Entity_VerificationProfile
 							.SingleOrDefault( s => s.Id == profileId );
 
 					if ( item != null && item.Id > 0 )
 					{
-						ToMap( item, entity, true, isEditView );
+						MapFromDB( item, entity, true, isEditView );
 					}
 				}
 			}
@@ -292,7 +290,7 @@ namespace Factories
 			return entity;
 		}//
 
-		public static void FromMap( ThisEntity from, DBentity to )
+		public static void MapToDB( ThisEntity from, DBEntity to )
 		{
 			//want to ensure fields from create are not wiped
 			if ( to.Id == 0 )
@@ -305,12 +303,15 @@ namespace Factories
 			//to.ProfileName = from.ProfileName;
 			to.Description = from.Description;
 			to.HolderMustAuthorize = from.HolderMustAuthorize;
-			if ( from.TargetCredentialId > 0 )
-				to.CredentialId = from.TargetCredentialId;
-			else
-				to.CredentialId = null;
 
-			to.SubjectWebpage = GetUrlData( from.SubjectWebpage );
+			//TODO - removed this
+			//need to first convert any existing ones to entity.credential
+			//if ( from.TargetCredentialId > 0 )
+			//	to.CredentialId = from.TargetCredentialId;
+			//else
+			//	to.CredentialId = null;
+
+			to.SubjectWebpage = NormalizeUrlData( from.SubjectWebpage );
 
 			to.VerificationServiceUrl = from.VerificationServiceUrl;
 			to.VerificationDirectory = from.VerificationDirectory;
@@ -331,13 +332,18 @@ namespace Factories
 			}
 
 		}
-		public static void ToMap( DBentity from, ThisEntity to, bool includingItems, bool isEditView )
+		public static void MapFromDB( DBEntity from, ThisEntity to, 
+				bool includingItems, 
+				bool isEditView, 
+				bool asList = false //better option than includingItems
+			)
 		{
 			to.Id = from.Id;
 			to.RowId = from.RowId;
+            to.ParentId = from.EntityId;
 
 			to.Description = ( from.Description ?? "" );
-			if ( isEditView && to.Description == "Verification service" )
+			if ( isEditView && to.Description == "please add a meaningful description" )
 				to.Description = "";
 			//ProfileName is for display purposes
 			to.ProfileName = to.Description.Length < 80 ? to.Description : to.Description.Substring(0, 79) + " ...";
@@ -345,18 +351,6 @@ namespace Factories
 
 			if ( from.HolderMustAuthorize != null )
 				to.HolderMustAuthorize = ( bool ) from.HolderMustAuthorize;
-
-			to.TargetCredentialId = (int) (from.CredentialId ?? 0);
-			if ( to.TargetCredentialId  > 0)
-			{
-				//This wasn't being populated, needed for detail page - NA 4/14/2017
-				//should use the embedded credential, need to determine if all properties will be available
-				CredentialRequest cr = new CredentialRequest();
-				cr.IsForEditView = isEditView;
-				//CredentialManager.ToMap( from.Credential, to.RelevantCredential, cr );
-
-				to.RelevantCredential = CredentialManager.GetBasic( to.TargetCredentialId );
-			}
 			
 			if ( IsValidDate( from.DateEffective ) )
 				to.DateEffective = ( ( DateTime ) from.DateEffective ).ToShortDateString();
@@ -372,11 +366,20 @@ namespace Factories
 			if ( IsGuidValid( from.OfferedByAgentUid ) )
 			{
 				to.OfferedByAgentUid = ( Guid ) from.OfferedByAgentUid;
-
+				to.OfferedBy = OrganizationManager.GetForSummary( to.OfferedByAgentUid );
 			}
 
 			if ( includingItems )
 			{
+				//TODO 170803- need to chg to a list
+				//only get if:
+				//edit - get profile list
+				//detail - get basic
+				bool isForDetailPageCredential = true;
+				if ( asList )
+					isForDetailPageCredential = false;
+				to.TargetCredential = Entity_CredentialManager.GetAll( to.RowId, isForDetailPageCredential );
+
 				to.EstimatedCost = CostProfileManager.GetAll( to.RowId, isEditView );
 
 				to.ClaimType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_CLAIM_TYPE );

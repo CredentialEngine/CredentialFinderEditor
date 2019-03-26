@@ -29,5 +29,6 @@ namespace Data.Views
         public string AgentImageUrl { get; set; }
         public Nullable<int> EntityBaseId { get; set; }
         public string EntityBaseName { get; set; }
+        public string CTID { get; set; }
     }
 }

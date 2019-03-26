@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Configuration;
 using System.Globalization;
 using System.Resources;
@@ -263,6 +263,15 @@ namespace Utilities
             return CleanText(text, false);
         }
 
+        public static bool HasHtmlTags(string description)
+        {
+            if ( string.IsNullOrWhiteSpace( description ) )
+                return false;
+
+            var htmlTags = new Regex( @"<[^>]*>" ).Match( description );
+            return htmlTags.Success;
+        }
+
         public static String CleanText(String text, bool allowingHtmlPosts)
         {
             if ( String.IsNullOrEmpty( text.Trim() ) )
@@ -503,6 +512,7 @@ namespace Utilities
             
         } // end
 		#endregion
+
 		#region === Session handler methods ===
 		/// <summary>
 		/// Gets an item from the session as a string.

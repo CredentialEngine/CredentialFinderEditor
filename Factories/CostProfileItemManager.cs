@@ -10,7 +10,7 @@ using Models.Common;
 using Models.ProfileModels;
 using EM = Data;
 using Utilities;
-using DBentity = Data.Entity_CostProfileItem;
+using DBEntity = Data.Entity_CostProfileItem;
 using ThisEntity = Models.ProfileModels.CostProfileItem;
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
@@ -24,17 +24,15 @@ namespace Factories
 		public bool Save( ThisEntity entity, int parentId, int userId, ref List<string> messages )
 		{
 			bool isValid = true;
-			int intialCount = messages.Count;
 			if ( parentId == 0 )
 			{
 				messages.Add( "Error: the parent cost profile id was not provided." );
-			}
-			if ( messages.Count > intialCount )
-				return false;
+                return false;
+            }
 
 			int count = 0;
 
-			DBentity efEntity = new DBentity();
+			DBEntity efEntity = new DBEntity();
 
 			using ( var context = new Data.CTIEntities() )
 			{
@@ -56,7 +54,7 @@ namespace Factories
 					if ( entity.Id == 0 )
 					{
 						//add
-						efEntity = new DBentity();
+						efEntity = new DBEntity();
 						FromMap( entity, efEntity );
 
 						efEntity.RowId = Guid.NewGuid();
@@ -78,7 +76,6 @@ namespace Factories
 						{
 							UpdateParts( entity, userId, ref messages );
 						}
-
 					}
 					else
 					{
@@ -119,12 +116,75 @@ namespace Factories
 
 			return isValid;
 		}
+
+		public bool Replace( int costProfileId, List<Models.Import.CostProfileItemDTO> profiles, int userId, ref List<string> messages )
+		{
+			bool isValid = true;
+			int intialCount = messages.Count;
+			string statusMessage = "";
+			int count = 0;
+			DBEntity efEntity = new DBEntity();
+			try
+			{
+				using ( var context = new Data.CTIEntities() )
+				{
+					if ( !profiles.Any() )
+					{
+						//no action, this is used initial by bulk upload
+					}
+					else
+					{
+						var existing = context.Entity_CostProfileItem.Where( s => s.CostProfileId == costProfileId );
+
+						//delete records which are not selected 
+						foreach ( var item in existing )
+						{
+							int index = profiles.FindIndex( a => a.DirectCostTypeId == item.CostTypeId && a.Price == item.Price );
+							if ( index < 0 )
+							{
+								Delete( item.Id, ref statusMessage );
+							}
+						}
+
+						foreach ( var entity in profiles )
+						{
+							efEntity = context.Entity_CostProfileItem.FirstOrDefault( s => s.CostProfileId == costProfileId
+								&& s.CostTypeId == entity.DirectCostTypeId
+								&& s.Price == entity.Price );
+
+							if ( efEntity == null || efEntity.Id == 0 )
+							{
+								//add new record 
+								efEntity = new DBEntity
+								{
+									CostProfileId = costProfileId,
+									CostTypeId = entity.DirectCostTypeId,
+									Price = entity.Price,
+									Created = DateTime.Now,
+									CreatedById = userId
+								};
+								context.Entity_CostProfileItem.Add( efEntity );
+								count = context.SaveChanges();
+							}
+
+						} //foreach
+					}
+				}
+			}
+			catch ( Exception ex )
+			{
+				string message = FormatExceptions( ex );
+				messages.Add( message );
+				LoggingHelper.LogError( ex, "Entity_FrameworkItemManager.Replace()" );
+			}
+			return isValid;
+		} //
 		public bool Delete( int recordId, ref string statusMessage )
 		{
 			bool isOK = true;
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity p = context.Entity_CostProfileItem.FirstOrDefault( s => s.Id == recordId );
+				DBEntity p = context.Entity_CostProfileItem.FirstOrDefault( s => s.Id == recordId );
 				if ( p != null && p.Id > 0 )
 				{
 					context.Entity_CostProfileItem.Remove( p );
@@ -173,12 +233,12 @@ namespace Factories
 
 			using ( var context = new Data.CTIEntities() )
 			{
-				DBentity item = context.Entity_CostProfileItem
+				DBEntity item = context.Entity_CostProfileItem
 							.SingleOrDefault( s => s.Id == profileId );
 
 				if ( item != null && item.Id > 0 )
 				{
-					ToMap( item, entity, includingProperties, forEditView );
+					MapFromDB( item, entity, includingProperties, forEditView );
 				}
 				return entity;
 			}
@@ -200,7 +260,6 @@ namespace Factories
 
 			//check if empty
 			if ( profile.CostTypeId == 0
-				&& string.IsNullOrWhiteSpace( profile.CostTypeOther )
 				&& string.IsNullOrWhiteSpace( profile.DateEffective )
 				&& ( profile.ResidencyType == null || profile.ResidencyType.Items.Count == 0 )
 				&& ( profile.ApplicableAudienceType == null || profile.ApplicableAudienceType.Items.Count == 0 )
@@ -209,7 +268,7 @@ namespace Factories
 				//isEmpty = true;
 				//return isValid;
 			}
-			if ( profile.CostTypeId == 0 && profile.CostType.hasItems() )
+			if ( profile.CostTypeId == 0 && profile.CostType.HasItems() )
 				profile.CostTypeId = CodesManager.GetEnumerationSelection( profile.CostType );
 
 			//&& string.IsNullOrWhiteSpace( profile.CostTypeOther ) 
@@ -229,7 +288,7 @@ namespace Factories
 			//	messages.Add( "A residency type must be selected " );
 			//
 			if ( profile.Price < 1)
-				messages.Add( "A cost must be entered" );
+				messages.Add( "A price must be entered for a cost item." );
 
 
 			if ( messages.Count > count)
@@ -238,34 +297,44 @@ namespace Factories
 			return isValid;
 		}
 
-		public static void ToMap( DBentity from, ThisEntity to, bool includingProperties, bool forEditView )
+		public static void MapFromDB( DBEntity from, ThisEntity to, bool includingProperties, bool forEditView )
 		{
 			to.Id = from.Id;
 			to.RowId = from.RowId;
 			to.CostProfileId = from.CostProfileId;
 			to.CostTypeId = from.CostTypeId;
-			to.CostTypeOther = from.CostTypeOther;
+			//to.CostTypeOther = from.CostTypeOther;
 
-			//profile name will no longer be visible, but we could still persist with the cost type
-			//to.ProfileName = from.ProfileName;
-			//if ( to.ProfileName.Length == 0 )
-			//{
-				if ( from.Codes_PropertyValue != null )
-				{
-					to.CostTypeName = from.Codes_PropertyValue.Title;
+            //profile name will no longer be visible, but we could still persist with the cost type
+            //to.ProfileName = from.ProfileName;
 
-					to.ProfileName = from.Codes_PropertyValue.Title;
-					if ( !string.IsNullOrEmpty( from.CostTypeOther ) )
-						to.ProfileName += " - " + from.CostTypeOther;
-				}
-				else
-				{
-					to.ProfileName = (to.CostTypeOther ?? "Cost");
-				}
-			//}
-			
-			//NA 3/17/2017 - Need this to fix null errors in publishing and detail page, but it isn't working: no item is selected, and it's not clear why. 
-			to.CostType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_CREDENTIAL_ATTAINMENT_COST ); 
+            if (from.Codes_PropertyValue != null)
+            {
+                to.CostTypeName = from.Codes_PropertyValue.Title;
+                to.CostTypeSchema = from.Codes_PropertyValue.SchemaName;
+
+                to.ProfileName = from.Codes_PropertyValue.Title;
+                if (!string.IsNullOrEmpty( from.CostTypeOther ))
+                    to.ProfileName += " - " + from.CostTypeOther;
+
+                EnumeratedItem item = new EnumeratedItem();
+                item.Id = to.CostTypeId;
+                item.Value = to.CostTypeId.ToString();
+                item.Selected = true;
+
+                item.Name = to.CostTypeName;
+                item.SchemaName = to.CostTypeSchema;
+                to.CostType.Items.Add( item );
+            }
+            else
+            {
+                to.ProfileName = "Cost";// ( to.CostTypeOther ?? "Cost" );
+            }
+
+
+            //NA 3/17/2017 - Need this to fix null errors in publishing and detail page, but it isn't working: no item is selected, and it's not clear why. 
+            //mp 18-03-15 - no item, because the Fill method looks for data in Entity.Property, and the cost type id is stored on CostProfileItem ==> NOW HANDLED ABOVE
+            //to.CostType = EntityPropertyManager.FillEnumeration( to.RowId, CodesManager.PROPERTY_CATEGORY_CREDENTIAL_ATTAINMENT_COST ); 
 
 			to.Price = from.Price == null ? 0 : ( decimal ) from.Price;
 			if ( forEditView && to.Price > 0 )
@@ -273,15 +342,6 @@ namespace Factories
 			//to.Description = from.Description;
 
 			to.PaymentPattern = from.PaymentPattern;
-			//if ( ( to.PaymentPattern ?? "").Length > 0 )
-			//	to.ProfileName += " - " + to.PaymentPattern;
-
-			//if ( from.PayeeUid != null )
-			//	to.PayeeUid = ( Guid ) from.PayeeUid;
-
-			//to.OtherResidencyType = from.OtherResidencyType;
-			//to.OtherEnrollmentType = from.OtherEnrollmentType;
-			//to.OtherApplicableAudienceType = from.OtherApplicableAudienceType;
 
 			if ( IsValidDate( from.Created ) )
 				to.Created = ( DateTime ) from.Created;
@@ -303,7 +363,7 @@ namespace Factories
 			}
 
 		}
-		public static void FromMap( ThisEntity from, DBentity to )
+		public static void FromMap( ThisEntity from, DBEntity to )
 		{
 			to.Id = from.Id;
 			to.CostProfileId = from.CostProfileId;
@@ -395,7 +455,7 @@ namespace Factories
 				}
 				//determine if we want to return data as a list of costprofiles or costProfileItems
 				//
-				int prevCostProfileId = 0;
+
 				foreach ( DataRow dr in result.Rows )
 				{
 					//cp = new CostProfile();
@@ -412,7 +472,7 @@ namespace Factories
 					item.CurrencySymbol = GetRowColumn( dr, "CurrencySymbol", "" );
 					item.Price = GetRowPossibleColumn( dr, "Price", 0M );
 
-					item.Description = string.Format( "{0} {1} ({2})", item.CurrencySymbol, item.Price, item.ParentEntityType );
+					//item.Description = string.Format( "{0} {1} ({2})", item.CurrencySymbol, item.Price, item.ParentEntityType );
 					list.Add( item );
 				}
 
@@ -422,7 +482,7 @@ namespace Factories
 		} //
 
 
-		//private static void FillAudienceType( DBentity from, ThisEntity to )
+		//private static void FillAudienceType( DBEntity from, ThisEntity to )
 		//{
 		//	to.ApplicableAudienceType = CodesManager.GetEnumeration( CodesManager.PROPERTY_CATEGORY_AUDIENCE_TYPE );
 

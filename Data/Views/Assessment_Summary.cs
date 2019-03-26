@@ -33,5 +33,43 @@ namespace Data.Views
         public string availableOnlineAt { get; set; }
         public string CTID { get; set; }
         public string CredentialRegistryId { get; set; }
+        public int EntityId { get; set; }
+        public Nullable<System.DateTime> EntityLastUpdated { get; set; }
+        public string ExternalIdentifier { get; set; }
+        public string cerEnvelopeUrl { get; set; }
+        public string editUrl { get; set; }
+        public string detailUrl { get; set; }
+        public Nullable<System.Guid> OwningAgentUid { get; set; }
+        public string AvailabilityListing { get; set; }
+        public int AvailableAtCount { get; set; }
+        public int InLanguageId { get; set; }
+        public string DeliveryTypeDescription { get; set; }
+        public string VerificationMethodDescription { get; set; }
+        public string AssessmentExampleUrl { get; set; }
+        public string AssessmentExampleDescription { get; set; }
+        public string AssessmentOutput { get; set; }
+        public string ExternalResearch { get; set; }
+        public Nullable<bool> HasGroupEvaluation { get; set; }
+        public Nullable<bool> HasGroupParticipation { get; set; }
+        public Nullable<bool> IsProctored { get; set; }
+        public string ProcessStandards { get; set; }
+        public string ProcessStandardsDescription { get; set; }
+        public string ScoringMethodDescription { get; set; }
+        public string ScoringMethodExample { get; set; }
+        public string ScoringMethodExampleDescription { get; set; }
+        public string VersionIdentifier { get; set; }
+        public int HasCompetencyCount { get; set; }
+        public int CredentialConnections { get; set; }
+        public string CreditHourType { get; set; }
+        public decimal CreditHourValue { get; set; }
+        public string CreditUnitType { get; set; }
+        public decimal CreditUnitValue { get; set; }
+        public string CreditUnitTypeDescription { get; set; }
+        public string LastApprovalDate2 { get; set; }
+        public string LastApprovalDate { get; set; }
+        public string ContentApprovedBy { get; set; }
+        public Nullable<int> ContentApprovedById { get; set; }
+        public string IsPublished { get; set; }
+        public string LastPublishDate { get; set; }
     }
 }

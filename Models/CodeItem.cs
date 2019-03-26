@@ -24,7 +24,7 @@ namespace Models
 		{
 			get
 			{
-				return Title;
+				return Title.Trim();
 			}
 			set
 			{
@@ -49,5 +49,18 @@ namespace Models
 		public string ReverseTitle { get; set; }
 		public string ReverseDescription { get; set; }
 		public string ReverseSchemaName { get; set; }
-	}
+        public int RelationshipId { get; set; }
+        public string CodedNotation { get; set; }
+        public string CodeTitle {
+            get
+            {
+                var codeTitle = Name;
+                if ( !string.IsNullOrEmpty( CodedNotation ) )
+                    codeTitle = string.Format( "{0} ({1})", Name, CodedNotation );
+                return codeTitle;
+            }
+        }
+
+        public string IsThirdPartyOrganization { get; set; }
+    }
 }

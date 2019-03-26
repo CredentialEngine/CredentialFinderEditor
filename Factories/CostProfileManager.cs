@@ -10,7 +10,7 @@ using EM = Data;
 using Views = Data.Views;
 using ViewContext = Data.Views.CTIEntities1;
 using Utilities;
-using DBentity = Data.Entity_CostProfile;
+using DBEntity = Data.Entity_CostProfile;
 using ThisEntity = Models.ProfileModels.CostProfile;
 //using DBentityChild = Data.Entity_CostProfileItem;
 //using EntityChild = Models.ProfileModels.CostProfileItem;
@@ -52,7 +52,7 @@ namespace Factories
 			}
 			int count = 0;
 
-			DBentity efEntity = new DBentity();
+			DBEntity efEntity = new DBEntity();
 
 			using ( var context = new EM.CTIEntities() )
 			{
@@ -82,13 +82,17 @@ namespace Factories
 						entity.EntityId = parent.Id;
 
 						//add
-						efEntity = new DBentity();
-						FromMap( entity, efEntity );
+						efEntity = new DBEntity();
+						MapToDB( entity, efEntity );
 						efEntity.Created = efEntity.LastUpdated = DateTime.Now;
 						efEntity.CreatedById = efEntity.LastUpdatedById = userId;
-						efEntity.RowId = Guid.NewGuid();
+                        //allow client (initially via bulk upload), to set identifer
+                        if ( IsValidGuid( entity.RowId ) )
+                            efEntity.RowId = entity.RowId;
+                        else
+                            efEntity.RowId = Guid.NewGuid();
 
-						context.Entity_CostProfile.Add( efEntity );
+                        context.Entity_CostProfile.Add( efEntity );
 						count = context.SaveChanges();
 						//update profile record so doesn't get deleted
 						entity.Id = efEntity.Id;
@@ -112,7 +116,7 @@ namespace Factories
 						{
 							entity.RowId = efEntity.RowId;
 							//update
-							FromMap( entity, efEntity );
+							MapToDB( entity, efEntity );
 							//has changed?
 							if ( HasStateChanged( context ) )
 							{
@@ -180,25 +184,26 @@ namespace Factories
 				return 0;
 			}
 
-			DBentity efEntity = new DBentity();
+			DBEntity efEntity = new DBEntity();
 			
 
 			using ( var context = new EM.CTIEntities() )
 			{
 				//get the source
-				DBentity item = context.Entity_CostProfile
+				DBEntity item = context.Entity_CostProfile
 							.SingleOrDefault( s => s.RowId == sourceCostProfileUid );
 
 				if ( item != null && item.Id > 0 )
 				{
-					ToMap( item, newCostProfile, true, true );
+					MapFromDB( item, newCostProfile, true, true );
 					//change parentage
 					newCostProfile.Id = 0;
 					newCostProfile.ProfileName = ( newCostProfile.ProfileName ?? "" ) + " (COPY)";
 					newCostProfile.EntityId = parent.Id;
 					newCostProfile.LastUpdatedById = newCostProfile.CreatedById = userId;
-					//save main
-					if ( Save( newCostProfile, targetParentUid, userId, ref messages ) )
+                    newCostProfile.RowId = Guid.NewGuid(); 
+                    //save main
+                    if ( Save( newCostProfile, targetParentUid, userId, ref messages ) )
 					{
 						newId = newCostProfile.Id;
 						//get the newly created Entity
@@ -248,9 +253,10 @@ namespace Factories
 		public bool Delete( int recordId, ref string statusMessage )
 		{
 			bool isOK = true;
+			statusMessage = "";
 			using ( var context = new EM.CTIEntities() )
 			{
-				DBentity p = context.Entity_CostProfile.FirstOrDefault( s => s.Id == recordId );
+				DBEntity p = context.Entity_CostProfile.FirstOrDefault( s => s.Id == recordId );
 				if ( p != null && p.Id > 0 )
 				{
 					context.Entity_CostProfile.Remove( p );
@@ -265,7 +271,27 @@ namespace Factories
 			return isOK;
 
 		}
+		public bool Delete( Guid recordId, ref string statusMessage )
+		{
+			bool isOK = true;
+			statusMessage = "";
+			using ( var context = new EM.CTIEntities() )
+			{
+				DBEntity p = context.Entity_CostProfile.FirstOrDefault( s => s.RowId == recordId );
+				if ( p != null && p.Id > 0 )
+				{
+					context.Entity_CostProfile.Remove( p );
+					int count = context.SaveChanges();
+				}
+				else
+				{
+					statusMessage = string.Format( "Cost Profile record was not found: {0}", recordId );
+					isOK = false;
+				}
+			}
+			return isOK;
 
+		}
 		#endregion
 
 		#region  retrieval ==================
@@ -276,25 +302,25 @@ namespace Factories
 		/// <param name="parentUid"></param>
 		public static List<ThisEntity> GetAll( Guid parentUid, bool forEditView )
 		{
-			LoggingHelper.DoTrace( 6, string.Format( "CostProfileManager.GetAll(parentUid={0}, forEditView={1})", parentUid, forEditView ) );
+			LoggingHelper.DoTrace( 8, string.Format( "CostProfileManager.GetAll(parentUid={0}, forEditView={1})", parentUid, forEditView ) );
 			ThisEntity row = new ThisEntity();
-			DurationItem duration = new DurationItem();
+
 			List<ThisEntity> profiles = new List<ThisEntity>();
 			Entity parent = EntityManager.GetEntity( parentUid );
 
 			using ( var context = new EM.CTIEntities() )
 			{
-				List<DBentity> results = context.Entity_CostProfile
+				List<DBEntity> results = context.Entity_CostProfile
 						.Where( s => s.EntityId == parent.Id )
 						.OrderBy( s => s.Id )
 						.ToList();
 
 				if ( results != null && results.Count > 0 )
 				{
-					foreach ( DBentity item in results )
+					foreach ( DBEntity item in results )
 					{
 						row = new ThisEntity();
-						ToMap( item, row, true, forEditView );
+						MapFromDB( item, row, true, forEditView );
 
 
 						profiles.Add( row );
@@ -307,23 +333,23 @@ namespace Factories
 		public static List<ThisEntity> GetAllForList( Guid parentUid, bool forEditView )
 		{
 			ThisEntity row = new ThisEntity();
-			DurationItem duration = new DurationItem();
+
 			List<ThisEntity> profiles = new List<ThisEntity>();
 			Entity parent = EntityManager.GetEntity( parentUid );
 
 			using ( var context = new EM.CTIEntities() )
 			{
-				List<DBentity> results = context.Entity_CostProfile
+				List<DBEntity> results = context.Entity_CostProfile
 						.Where( s => s.EntityId == parent.Id )
 						.OrderBy( s => s.Id )
 						.ToList();
 
 				if ( results != null && results.Count > 0 )
 				{
-					foreach ( DBentity item in results )
+					foreach ( DBEntity item in results )
 					{
 						row = new ThisEntity();
-						ToMap( item, row, false, forEditView );
+						MapFromDB( item, row, false, forEditView );
 
 
 						profiles.Add( row );
@@ -340,12 +366,12 @@ namespace Factories
 
 			using ( var context = new EM.CTIEntities() )
 			{
-				DBentity item = context.Entity_CostProfile
+				DBEntity item = context.Entity_CostProfile
 							.SingleOrDefault( s => s.Id == profileId );
 
 				if ( item != null && item.Id > 0 )
 				{
-					ToMap( item, entity, true, true );
+					MapFromDB( item, entity, true, true );
 				}
 			}
 			return entity;
@@ -356,38 +382,51 @@ namespace Factories
 
 			using ( var context = new EM.CTIEntities() )
 			{
-				context.Configuration.LazyLoadingEnabled = false;
-				DBentity item = context.Entity_CostProfile
+				//context.Configuration.LazyLoadingEnabled = false;
+				DBEntity item = context.Entity_CostProfile
 							.SingleOrDefault( s => s.Id == profileId );
 
 				if ( item != null && item.Id > 0 )
 				{
-					entity.Id = item.Id;
-					entity.RowId = item.RowId;
-					entity.EntityId = item.EntityId ?? 0;
-					entity.ProfileName = item.ProfileName;
-					entity.Description = item.Description;
+					MapFromDB( item, entity, true, false );
+
+					//entity.Id = item.Id;
+					//entity.RowId = item.RowId;
+					//entity.EntityId = item.EntityId ?? 0;
+					//entity.ProfileName = item.ProfileName;
+					//entity.Description = item.Description;
+     //               if (item.Entity != null && item.Entity.Id > 0)
+     //               {
+     //                   entity.ParentUid = item.Entity.EntityUid;
+     //                   entity.ParentId = (int)item.Entity.EntityBaseId;
+     //               }
 				}
 			}
 			return entity;
-		}//
+        }//
+        public static ThisEntity GetBasicProfile( string profileUid )
+        {
+            Guid identifier = new Guid( profileUid );
+            return GetBasicProfile( identifier ); ;
+        }//
 		public static ThisEntity GetBasicProfile( Guid profileUid )
 		{
 			ThisEntity entity = new ThisEntity();
 
 			using ( var context = new EM.CTIEntities() )
 			{
-				context.Configuration.LazyLoadingEnabled = false;
-				DBentity item = context.Entity_CostProfile
+				//context.Configuration.LazyLoadingEnabled = false;
+				DBEntity item = context.Entity_CostProfile
 							.SingleOrDefault( s => s.RowId == profileUid );
 
 				if ( item != null && item.Id > 0 )
 				{
-					entity.Id = item.Id;
-					entity.RowId = item.RowId;
-					entity.EntityId = item.EntityId ?? 0;
-					entity.ProfileName = item.ProfileName;
-					entity.Description = item.Description;
+					MapFromDB( item, entity, true, false );
+					//entity.Id = item.Id;
+					//entity.RowId = item.RowId;
+					//entity.EntityId = item.EntityId ?? 0;
+					//entity.ProfileName = item.ProfileName;
+					//entity.Description = item.Description;
 				}
 			}
 			return entity;
@@ -398,7 +437,8 @@ namespace Factories
 			List<ThisEntity> profiles = new List<ThisEntity>();
 			if ( IsValidGuid( parentRowId ) )
 			{
-				return SearchByOwningOrg( new Guid( parentRowId ) );
+				profiles = SearchByOwningOrg( new Guid( parentRowId ) );
+                pTotalRows = profiles.Count();
 			}
 
 			return profiles;
@@ -484,7 +524,16 @@ namespace Factories
 				return isValid;
 			}
 
-			if ( !IsUrlValid( profile.DetailsUrl, ref commonStatusMessage ) )
+			if ( string.IsNullOrWhiteSpace( profile.Description ) )
+			{
+				messages.Add( "The Cost Profile Description is required" );
+			}
+
+			if ( string.IsNullOrWhiteSpace( profile.DetailsUrl ))
+			{
+				messages.Add( "The Cost Details Url is required"  );
+			}
+			else if ( !IsUrlValid( profile.DetailsUrl, ref commonStatusMessage ) )
 			{
 				messages.Add( "The Cost Details Url is invalid" + commonStatusMessage );
 			}
@@ -527,7 +576,7 @@ namespace Factories
 			return isValid;
 		}
 
-		public static void FromMap( ThisEntity from, DBentity to )
+		public static void MapToDB( ThisEntity from, DBEntity to )
 		{
 			to.Id = from.Id;
 			
@@ -540,7 +589,7 @@ namespace Factories
 					to.EntityId = from.EntityId;
 			}
 
-			to.ProfileName = from.ProfileName;
+			to.ProfileName = (from.ProfileName ?? "").Trim();
 			to.Description = from.Description;
 
 			if ( IsValidDate( from.ExpirationDate ) )
@@ -561,7 +610,7 @@ namespace Factories
 				to.CurrencyTypeId = null;
 
 		}
-		public static void ToMap( DBentity from, ThisEntity to, bool includingItems, bool forEditView )
+		public static void MapFromDB( DBEntity from, ThisEntity to, bool includingItems, bool forEditView )
 		{
 			to.Id = from.Id;
 			to.RowId = from.RowId;
@@ -581,6 +630,7 @@ namespace Factories
 					to.ViewHeading = from.Entity.Codes_EntityType.Title + " - ";
 				//this name could be out of date
 				to.ViewHeading += from.Entity.EntityBaseName;
+				EntityManager.MapFromDB( from.Entity, to.RelatedEntity );
 			}
 			if ( IsValidDate( from.ExpirationDate ) )
 				to.ExpirationDate = ( ( DateTime ) from.ExpirationDate ).ToShortDateString();
@@ -610,7 +660,7 @@ namespace Factories
 			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
 			to.LastUpdatedBy = SetLastUpdatedBy( to.LastUpdatedById, from.Account_Modifier );
 
-			to.Condition = Entity_ReferenceManager.Entity_GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_CONDITION_ITEM );
+			to.Condition = Entity_ReferenceManager.GetAll( to.RowId, CodesManager.PROPERTY_CATEGORY_CONDITION_ITEM );
 
 			if ( includingItems )
 			{
@@ -621,7 +671,7 @@ namespace Factories
 					foreach ( EM.Entity_CostProfileItem item in from.Entity_CostProfileItem )
 					{
 						row = new CostProfileItem();
-						CostProfileItemManager.ToMap( item, row, true, forEditView );
+						CostProfileItemManager.MapFromDB( item, row, true, forEditView );
 						to.Items.Add( row );
 					}
 				}
@@ -663,7 +713,7 @@ namespace Factories
 			//if ( new Entity_ReferenceManager().Entity_Reference_Update( entity.ReferenceUrl, entity.RowId, CodesManager.ENTITY_TYPE_COST_PROFILE, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_REFERENCE_URLS, false ) == false )
 			//	isAllValid = false;
 
-			if ( new Entity_ReferenceManager().Entity_Reference_Update( entity.Condition, entity.RowId, CodesManager.ENTITY_TYPE_CONDITION_PROFILE, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_CONDITION_ITEM, false ) == false )
+			if ( new Entity_ReferenceManager().Update( entity.Condition, entity.RowId, CodesManager.ENTITY_TYPE_CONDITION_PROFILE, entity.LastUpdatedById, ref messages, CodesManager.PROPERTY_CATEGORY_CONDITION_ITEM, false ) == false )
 				isAllValid = false;
 			return isAllValid;
 		}

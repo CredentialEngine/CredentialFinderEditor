@@ -1,16 +1,45 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 
 namespace Models.Helpers.Cass
 {
+	public class CassCompetencyV2
+	{
+		public string FrameworkName { get; set; }
+		public string FrameworkUri { get; set; }
+		public string Name { get; set; }
+		public string Description { get; set; }
+		public string CodedNotation { get; set; }
+		public string Uri { get; set; }
+
+		public string CTID { get; set; }
+
+        public int Id { get; set; }
+        public int EntityId { get; set; }
+        public int CompetencyId { get; set; }
+        public DateTime Created { get; set; }
+        public int CreatedById { get; set; }
+		public int AssociationId { get; set; } //The ID of the connection between a competency and some other item. Used for deletes.
+
+	}
+
+
+
+	//18-02-08 Nate: Everything below here is no longer used
+
+
 	public class CassObject
 	{
 		public CassObject()
 		{
 			UtilityData = new Dictionary<string, object>();
 		}
+        public int Id { get; set; }
+        public int EntityId { get; set; }
+        public int CompetencyId { get; set; }
 
 		[JsonProperty( PropertyName = "@id" )]
 		public string _IdAndVersion { get; set; }
@@ -41,7 +70,10 @@ namespace Models.Helpers.Cass
 		[JsonProperty( PropertyName = "url" )]
 		public string Url { get; set; }
 
-		public Dictionary<string, object> UtilityData { get; set; }
+        [JsonProperty(PropertyName = "ctid")]
+        public string CTID { get; set; }
+
+        public Dictionary<string, object> UtilityData { get; set; }
 	}
 	//
 
@@ -80,6 +112,7 @@ namespace Models.Helpers.Cass
 		public string FrameworkUri { get; set; }
 		public List<string> ChildrenUris { get; set; }
 		public string CodedNotation { get; set; }
+		public string Uri { get; set; }
 	}
 	//
 

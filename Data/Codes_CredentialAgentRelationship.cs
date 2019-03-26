@@ -18,6 +18,7 @@ namespace Data
         {
             this.Entity_AgentRelationship = new HashSet<Entity_AgentRelationship>();
             this.Entity_QA_Action = new HashSet<Entity_QA_Action>();
+            this.Entity_Assertion = new HashSet<Entity_Assertion>();
         }
     
         public int Id { get; set; }
@@ -35,8 +36,14 @@ namespace Data
         public Nullable<bool> IsLearningOppAgentRole { get; set; }
         public Nullable<int> Totals { get; set; }
         public Nullable<bool> IsOwnerAgentRole { get; set; }
+        public Nullable<int> CredentialTotals { get; set; }
+        public Nullable<int> OrganizationTotals { get; set; }
+        public Nullable<int> AssessmentTotals { get; set; }
+        public Nullable<int> LoppTotals { get; set; }
+        public Nullable<int> QAPerformedTotals { get; set; }
     
         public virtual ICollection<Entity_AgentRelationship> Entity_AgentRelationship { get; set; }
         public virtual ICollection<Entity_QA_Action> Entity_QA_Action { get; set; }
+        public virtual ICollection<Entity_Assertion> Entity_Assertion { get; set; }
     }
 }

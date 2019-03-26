@@ -28,5 +28,14 @@ namespace Models.Common
 
 		public Organization Organization { get; set; }
 		public AppUser Account { get; set; }
-	}
+        public string Email {
+            get
+            {
+                if (Account != null && Account.Id > 0)
+                    return Account.Email;
+                else
+                    return "";
+            }
+        }
+    }
 }

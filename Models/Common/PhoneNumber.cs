@@ -1,16 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-//using System.Reflection;
-using System.Runtime.Serialization;
-using System.Globalization;
-using System.Security.Permissions;
-//using System.Text;
 using System.ComponentModel;
 using System.ComponentModel.Design.Serialization;
+using System.Globalization;
 using System.Reflection;
+using System.Runtime.Serialization;
+using System.Security.Permissions;
+using System.Text;
 
 namespace Models.Common
 {
@@ -937,6 +932,9 @@ namespace Models.Common
 		{
 			if ( string.IsNullOrWhiteSpace( phone ))
 				return "";
+			if ( phone.Length == 3 )
+				return phone;
+
 			string part1 = "";
 			string part2 = "";
 			string part3 = "";

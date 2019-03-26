@@ -22,10 +22,11 @@ namespace Models
 		public int AgentId { get; set; }
 		public System.Guid AgentUid { get; set; }
 		public string Agent { get; set; }
-
+        public string AgentUrl { get; set; }
+        public string IsThirdPartyOrganization { get; set; }
 		public int CategoryId { get; set; }
 		public string Category { get; set; }
 		public string CategorySchema { get; set; }
 		public string EntityType { get; set; }
-	}
+    }
 }

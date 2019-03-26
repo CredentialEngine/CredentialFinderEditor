@@ -34,6 +34,25 @@ namespace Models.ProfileModels
 		public Organization ProcessingAgent { get; set; }
 		public MN.ProfileLink ProcessingAgentProfileLink { get; set; }
 		public Guid ProcessingAgentUid { get; set; }
+
+		//public List<TextValueProfile> Auto_ProcessingAgent
+		//{
+		//	get
+		//	{
+		//		var result = new List<TextValueProfile>();
+		//		if ( ProcessingAgent == null
+		//			|| ProcessingAgent.Id == 0
+		//			|| ( ProcessingAgent.CTID ?? "" ).Length != 39 )
+		//			return result;
+
+		//		if ( !string.IsNullOrWhiteSpace( ProcessingAgent.CTID ) && ProcessingAgent.CTID.IndexOf( "00000000-" ) == -1 )
+		//		{
+		//			result.Add( new TextValueProfile() { TextValue = Utilities.GetWebConfigValue( "credRegistryResourceUrl" ) + ProcessingAgent.CTID } );
+		//		}
+		//		return result;
+		//	}
+		//}
+
 		public Enumeration ExternalInput { get; set; }
 		/// <summary>
 		/// Alias used for publishing
@@ -84,33 +103,13 @@ namespace Models.ProfileModels
 
 
 		//TODO - chg
-		public string TargetCompetencyFramework { get; set; }
+		//public string TargetCompetencyFramework { get; set; }
 		public List<CredentialAlignmentObjectFrameworkProfile> RequiresCompetenciesFrameworks { get; set; }
 
 		public List<AssessmentProfile> TargetAssessment { get; set; }
 		public List<LearningOpportunityProfile> TargetLearningOpportunity  { get; set; }
 		public List<Credential> TargetCredential { get; set; }
 
-		public string ProcessType
-		{
-			get
-			{
-				if ( ProcessTypeId == 2 )
-					return "Appeal Process ";
-				else if ( ProcessTypeId == 3 )
-					return "Complaint Process ";
-				else if ( ProcessTypeId == 4 )
-					return "Criteria Process ";
-				else if ( ProcessTypeId == 5 )
-					return "Review Process ";
-				else if ( ProcessTypeId == 6 )
-					return "Revoke Process ";
-				
-				else
-					return "Process Profile ";
-
-			}
-		}
 
 	}
 	//

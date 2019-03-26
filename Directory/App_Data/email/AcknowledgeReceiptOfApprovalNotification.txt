@@ -1,0 +1,15 @@
+﻿{0}, 
+<p>This is a confirmation that we have been notified of your recent {1} approval action(s).</p>
+
+<p>We will review the related entities. If there are any concerns we will contact you, otherwise, we will publish them to the Credential Registry. </p>
+
+<p>Upon successful publishing, you will receive a notification.</p>
+
+<p>
+[notes]
+</p>
+
+<p>
+If you have any questions, please <a href="https://credentialengine.org/contact">visit our Contact Us page</a>.
+</p>
+<p>The Credential Engine team</p>

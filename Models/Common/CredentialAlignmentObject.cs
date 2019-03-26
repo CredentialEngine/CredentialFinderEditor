@@ -9,8 +9,10 @@ using Models.ProfileModels;
 namespace Models.Common
 {
 
-	public class CredentialAlignmentObjectProfile : BaseProfile
+	//: BaseProfile
+	public class CredentialAlignmentObjectProfile 
 	{
+		public int Id { get; set; }
 		public string AlignmentDate { get; set; }
 
 		public int AlignmentTypeId { get; set; }
@@ -35,10 +37,17 @@ namespace Models.Common
 		}
 		//public string AssertedBy { get; set; }
 		public string EducationalFramework { get; set; } //Is this a framework name or a framework URL? Both "framework" (a URL) and "frameworkName" (a string) exist in CTDL.
-		public string TargetDescription { get; set; }
-		public string TargetName { get; set; }
-		public string TargetUrl { get; set; }
-		public string Name { get; set; } //No longer exists in this class in CTDL and should not be used
+		
+
+
+		public string CTID { get; set; }
+
+		/// <summary>
+		/// actually is TargetNodeName. merge with TargetName
+		/// </summary>
+		//public string Name { get; set; } //No longer exists in this class in CTDL and should not be used
+
+		
 		public string CodedNotation { get; set; }
 		public List<TextValueProfile> Auto_CodedNotation {
 			get
@@ -59,9 +68,14 @@ namespace Models.Common
 		//More modern versions of the above properties
 		public string FrameworkUrl { get; set; }
 		public string FrameworkName { get; set; }
-		public string TargetNodeName { get { return ( string.IsNullOrWhiteSpace( TargetName ) ? Name : TargetName); } set { TargetName = value; } }
-		public string TargetNodeDescription { get { return ( string.IsNullOrWhiteSpace( TargetDescription ) ? Description : TargetDescription); } set { TargetDescription = value; } }
+
+		public string TargetNodeName { get; set; }
+		public string TargetNodeDescription { get; set; }
+        //[Obsolete]
+		public string TargetUrl { get; set; }
+        //18-05-03 mp - NOTE don't think that TargetNode should be TargetUrl
 		public string TargetNode { get { return TargetUrl; } set { TargetUrl = value; } }
+		public decimal Weight { get; set; }
 	}
 	//
 	public class CredentialAlignmentObject : CredentialAlignmentObjectProfile
@@ -98,7 +112,23 @@ namespace Models.Common
 		//public string AssertedBy { get; set; }
 		public string EducationalFrameworkName { get; set; }
 		public string EducationalFrameworkUrl { get; set; }
-		public List<CredentialAlignmentObjectItemProfile> Items { get; set; }
+        public string CTID { get; set; }
+        public List<CredentialAlignmentObjectItemProfile> Items { get; set; }
+        public string CaSSViewerUrl { get; set; }
+		//public string FrameworkUri { get; set; }
+		public bool IsARegistryFrameworkUrl
+		{
+			get
+			{
+				if ( string.IsNullOrWhiteSpace( EducationalFrameworkUrl ) )
+					return false;
+				else if ( EducationalFrameworkUrl.ToLower().IndexOf( "credentialengineregistry.org/resources/ce-" ) > -1
+					|| EducationalFrameworkUrl.ToLower().IndexOf( "credentialengineregistry.org/graph/ce-" ) > -1 )
+					return true;
+				else
+					return false;
+			}
+		}
 
 		public static List<CredentialAlignmentObjectProfile> FlattenAlignmentObjects( List<CredentialAlignmentObjectFrameworkProfile> data )
 		{
@@ -108,22 +138,26 @@ namespace Models.Common
 			{
 				foreach( var item in framework.Items )
 				{
+                    
+                    
 					result.Add( new CredentialAlignmentObjectProfile()
 					{
 						AlignmentType = framework.AlignmentType,
 						AlignmentTypeId = framework.AlignmentTypeId,
 						EducationalFramework = string.IsNullOrWhiteSpace( framework.EducationalFrameworkUrl ) ? framework.EducationalFrameworkName : framework.EducationalFrameworkUrl,
 						FrameworkName = framework.EducationalFrameworkName,
-						FrameworkUrl = framework.EducationalFrameworkUrl,
-						TargetName = item.TargetName,
-						TargetDescription = item.TargetDescription,
-						//TargetUrl = string.IsNullOrWhiteSpace( item.TargetUrl ) ? framework.EducationalFrameworkUrl : item.TargetUrl,
-						TargetUrl = item.TargetUrl,
-						Name = item.Name,
-						Description = item.Description,
+                        
+                        FrameworkUrl = framework.EducationalFrameworkUrl,
+						TargetUrl = item.TargetNode,
+                        TargetNode = item.RepositoryUri,
+						TargetNodeName = item.TargetNodeName,
+						TargetNodeDescription = item.TargetNodeDescription,
+                        CTID = item.CTID,
 						CodedNotation = item.CodedNotation
 					} );
-				}
+
+                   
+                }
 			}
 
 			return result;
@@ -150,10 +184,9 @@ namespace Models.Common
 				}
 				currentFramework.Items.Add( new CredentialAlignmentObjectItemProfile()
 				{
-					TargetDescription = item.TargetDescription,
-					TargetName = item.TargetName,
-					TargetUrl = item.TargetUrl,
-					Name = item.Name,
+					TargetNodeDescription = item.TargetNodeDescription,
+					TargetNode = item.TargetUrl,
+					TargetNodeName = item.TargetNodeName,
 					CodedNotation = item.CodedNotation,
 					AlignmentDate = item.AlignmentDate
 				} );
@@ -165,10 +198,26 @@ namespace Models.Common
 	//
 	public class CredentialAlignmentObjectItemProfile : BaseProfile
 	{
-		public string Name { get; set; }
-		public string TargetDescription { get; set; }
-		public string TargetName { get; set; }
-		public string TargetUrl { get; set; }
+		/// <summary>
+		/// TargetNodeName
+		/// </summary>
+		//public string Name
+		//{
+		//	get { return TargetNodeName; }
+		//	set { TargetNodeName = value; }
+		//}
+		public string EducationalFrameworkName { get; set; }
+		public string TargetNodeName { get; set; }
+		public string TargetNodeDescription
+		{
+			get { return Description; }
+			set { Description = value; }
+		}
+
+		/// <summary>
+		/// TargetNode
+		/// </summary>
+		public string TargetNode { get; set; }
 		
 		
 		public string CodedNotation { get; set; }
@@ -184,9 +233,10 @@ namespace Models.Common
 
 		public int AlignmentTypeId { get; set; }
 		public string AlignmentType { get; set; }
+        public string CTID { get; set; }
 
-		//for use with CASS comps, initially
-		public int CompetencyId { get; set; }
+        //for use with CASS comps, initially
+        public int CompetencyId { get; set; }
 		public string RepositoryUri { get; set; }
 	}
 	//

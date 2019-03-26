@@ -18,21 +18,23 @@ namespace CTIServices
 		private static string thisClassName = "ActivityServices";
 		ActivityManager mgr = new ActivityManager();
 
-		/// <summary>
-		/// General purpose create of a site activity
-		/// </summary>
-		/// <param name="activity"></param>
-		/// <param name="activityEvent"></param>
-		/// <param name="comment">A formatted user friendly description of the activity</param>
-		/// <param name="actionByUserId">Optional userId of person initiating the activity</param>
-		/// <param name="activityObjectId"></param>
-		public void AddActivity( string activity, string activityEvent, string comment, int actionByUserId, int targetUserId = 0, int activityObjectId = 0, int objectRelatedId = 0)
+        #region Add site activity
+        /// <summary>
+        /// General purpose create of an Editor related site activity
+        /// </summary>
+        /// <param name="activityType"></param>
+        /// <param name="activityEvent"></param>
+        /// <param name="comment">A formatted user friendly description of the activity</param>
+        /// <param name="actionByUserId">Optional userId of person initiating the activity</param>
+        /// <param name="activityObjectId"></param>
+        /// <param name="activityObjectParentEntityUid">Guid of top level parent for entity with activity</param>
+        public void AddEditorActivity( string activityType, string activityEvent, string comment, int actionByUserId, int activityObjectId = 0, Guid? activityObjectParentEntityUid = null)
 		{
 
 			SiteActivity log = new SiteActivity();
 			log.CreatedDate = System.DateTime.Now;
-			log.ActivityType = "Audit";
-			log.Activity = activity;
+			log.ActivityType = activityType;
+			log.Activity = "Editor";
 			log.Event = activityEvent;
 			log.Comment = comment;
 			log.SessionId = ActivityManager.GetCurrentSessionId();
@@ -40,10 +42,8 @@ namespace CTIServices
 
 			log.ActionByUserId = actionByUserId;
 			log.ActivityObjectId = activityObjectId;
-			log.TargetUserId = targetUserId;
-			log.ObjectRelatedId = objectRelatedId;
-
-
+			log.TargetUserId = 0;
+			log.ActivityObjectParentEntityUid = activityObjectParentEntityUid;
 
 			try
 			{
@@ -51,16 +51,53 @@ namespace CTIServices
 			}
 			catch ( Exception ex )
 			{
-				LoggingHelper.LogError( ex, thisClassName + ".AddActivity()" );
+				LoggingHelper.LogError( ex, thisClassName + ".AddEditorActivity()" );
 				return;
 			}
 		}
 
-		/// <summary>
-		/// Add site activity
-		/// </summary>
-		/// <param name="log"></param>
-		public void AddActivity( SiteActivity log )
+        /// <summary>
+        /// General purpose create of an Editor related site activity
+        /// </summary>
+        /// <param name="activityType"></param>
+        /// <param name="activityEvent"></param>
+        /// <param name="comment"></param>
+        /// <param name="actionByUserId"></param>
+        /// <param name="targetUserId"></param>
+        /// <param name="activityObjectId"></param>
+        /// <param name="objectRelatedId"></param>
+        public void AddEditorActivity( string activityType, string activityEvent, string comment, int actionByUserId, int targetUserId = 0, int activityObjectId = 0, int objectRelatedId = 0 )
+        {
+
+            SiteActivity log = new SiteActivity();
+            log.CreatedDate = System.DateTime.Now;
+            log.ActivityType = activityType;
+            log.Activity = "Editor";
+            log.Event = activityEvent;
+            log.Comment = comment;
+            log.SessionId = ActivityManager.GetCurrentSessionId();
+            log.IPAddress = ActivityManager.GetUserIPAddress();
+
+            log.ActionByUserId = actionByUserId;
+            log.ActivityObjectId = activityObjectId;
+            log.TargetUserId = targetUserId;
+            log.ObjectRelatedId = objectRelatedId;
+
+            try
+            {
+                mgr.SiteActivityAdd( log );
+            }
+            catch ( Exception ex )
+            {
+                LoggingHelper.LogError( ex, thisClassName + ".AddEditorActivity()" );
+                return;
+            }
+        }
+        /// <summary>
+        /// Add site activity - provide specific ActivityType and Activity
+        /// </summary>
+        /// <param name="log"></param>
+        public void AddActivity( SiteActivity log )
 		{
 
 			if ( log.SessionId == null || log.SessionId.Length < 10 )
@@ -104,7 +141,7 @@ namespace CTIServices
 
 			SiteActivity log = new SiteActivity();
 			log.CreatedDate = System.DateTime.Now;
-			log.ActivityType = "Audit";
+			log.ActivityType = "User";
 			log.Activity = "Account";
 			log.Event = type;
 			log.Comment = string.Format( "{0} ({1}) {4}. From IPAddress: {2}, on server: {3}. {5}", entity.FullName(), entity.Id, ipAddress, server, type, extra );
@@ -131,7 +168,7 @@ namespace CTIServices
 			try
 			{
 				log.CreatedDate = System.DateTime.Now;
-				log.ActivityType = "Audit";
+				log.ActivityType = "User";
 				log.Activity = "Account";
 				log.Event = "Confirmation";
 				log.Comment = string.Format( "{0} ({1}) Registration Confirmation, on server: {2}, tyep: {3}", entity.FullName(), entity.Id, server, type );
@@ -173,7 +210,7 @@ namespace CTIServices
 			string server = UtilityManager.GetAppKeyValue( "serverName", "" );
 			SiteActivity log = new SiteActivity();
 			log.CreatedDate = System.DateTime.Now;
-			log.ActivityType = "Audit";
+			log.ActivityType = "User";
 			log.Activity = "Account";
 			log.Event = "Authentication: " + type;
 			log.Comment = string.Format( "{0} ({1}) logged in ({2}) on server: {3}", entity.FullName(), entity.Id, type, server );
@@ -192,8 +229,31 @@ namespace CTIServices
 				return 0;
 			}
 		}
+        public static void ApplicationStartActivity()
+        {
+            SiteActivity log = new SiteActivity();
+            //bool isBot = false;
+            string server = UtilityManager.GetAppKeyValue( "serverName", "" );
+            try
+            {
+                log.CreatedDate = System.DateTime.Now;
+                log.ActivityType = "Site";
+                log.Activity = "Application";
+                log.Event = "Start";
+                log.Comment = "The application was restarted.";
 
-		public static void SessionStartActivity( string comment, string sessionId, string ipAddress, string referrer, bool isBot )
+
+                new ActivityManager().SiteActivityAdd( log );
+
+            }
+            catch ( Exception ex )
+            {
+                LoggingHelper.LogError( ex, thisClassName + ".ApplicationStartActivity()" );
+                return;
+            }
+
+        }
+        public static void SessionStartActivity( string comment, string sessionId, string ipAddress, string referrer, bool isBot )
 		{
 			SiteActivity log = new SiteActivity();
 			//bool isBot = false;
@@ -204,7 +264,7 @@ namespace CTIServices
 					comment = "";
 
 				log.CreatedDate = System.DateTime.Now;
-				log.ActivityType = "Audit";
+				log.ActivityType = "User";
 				log.Activity = "Session";
 				log.Event = "Start";
 				log.Comment = comment + string.Format( " (on server: {0})", server );
@@ -227,13 +287,13 @@ namespace CTIServices
 		}
 		#endregion
 
-		public static int SiteActivityAdd( string activity, string eventType, string comment
-					, int actionByUserId, int targetUserId, int activityObjectId )
-		{
-			return SiteActivityAdd( activity, eventType, comment, actionByUserId, targetUserId, activityObjectId, "", "" );
-		}
+		//public static int SiteActivityAdd( string activity, string eventType, string comment
+		//			, int actionByUserId, int targetUserId, int activityObjectId )
+		//{
+		//	return SiteActivityAdd( activity, eventType, comment, actionByUserId, targetUserId, activityObjectId, "", "" );
+		//}
 
-		public static int SiteActivityAdd( string activity, string eventType, string comment
+		public static int SiteActivityAdd(string activityType, string activity, string eventType, string comment
 					, int actionByUserId, int targetUserId, int activityObjectId
 					, string sessionId, string ipAddress )
 		{
@@ -248,10 +308,10 @@ namespace CTIServices
 			try
 			{
 				log.CreatedDate = System.DateTime.Now;
-				log.ActivityType = "Audit";
+				log.ActivityType = activityType;
 				log.Activity = activity;
 				log.Event = eventType;
-				log.Comment = comment + string.Format( " (on server: {0})", server );
+                log.Comment = comment;// + string.Format( " (on server: {0})", server );
 				//actor type - person, system
 				if ( actionByUserId > 0 )
 					log.ActionByUserId = actionByUserId;
@@ -272,8 +332,10 @@ namespace CTIServices
 				return 0;
 			}
 		} //
+        #endregion
 
-		public static List<SiteActivity> SearchToday( string keywords, string pOrderBy, string sortDirection, int pageNumber, int pageSize, ref int pTotalRows )
+        #region Activity Search
+        public static List<SiteActivity> SearchToday( string keywords, string pOrderBy, string sortDirection, int pageNumber, int pageSize, ref int pTotalRows )
 		{
 		
 			BaseSearchModel parms = new BaseSearchModel()
@@ -345,11 +407,15 @@ namespace CTIServices
 			}
 			else
 			{
-				if ( "id activity event email comment createddate actionbyuser".IndexOf( parms.OrderBy.ToLower() ) == -1 )
+				if ( "id activity event comment createddate actionbyuser".IndexOf( parms.OrderBy.ToLower() ) == -1 )
 				{
-					parms.OrderBy = "CreatedDate";
-					//pOrderBy = "Created DESC";
-				}
+					parms.OrderBy = "CreatedDate ";
+                    if ( parms.IsDescending )
+                        parms.OrderBy += " DESC";
+                } else if ( parms.IsDescending && parms.OrderBy.ToLower().IndexOf("desc") == -1)
+                {
+                    parms.OrderBy = parms.OrderBy + " desc";
+                }
 			}
 			List<SiteActivity> list = ActivityManager.Search( parms.Filter, parms.OrderBy, parms.PageNumber, parms.PageSize, ref pTotalRows );
 			//pTotalRows = parms.TotalRows;
@@ -371,8 +437,8 @@ namespace CTIServices
 
 			where = where + AND + string.Format( " ( " + text + " ) ", keywords );
 
-
 		}
+        #endregion
 
-	}
+    }
 }

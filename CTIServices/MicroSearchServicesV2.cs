@@ -93,7 +93,7 @@ namespace CTIServices
 					}
 				case "AssessmentSearch":
 					{
-						var results = AssessmentServices.Search( query.GetFilterValueString( "Keywords" ), query.PageNumber, query.PageSize, ref totalResults );
+						var results = AssessmentServices.MicroSearch( query.GetFilterValueString( "Keywords" ), query.PageNumber, query.PageSize, ref totalResults );
 						return results.ConvertAll( m => ConvertProfileToMicroProfile( m ) );
 					}
 				case "QACredentialSearch":
@@ -103,33 +103,42 @@ namespace CTIServices
 					}
 				case "CredentialSearch":
 					{
-						List<MC.CredentialSummary> results = CredentialServices.Search( query.GetFilterValueString( "Keywords" ), query.PageNumber, query.PageSize, ref totalResults );
-						//Convert first to Credential so that the resulting results object has the correct Type in its selectors
-						//return results.ConvertAll( m => new Credential() 
-						//{ Id = m.Id, Name = m.Name, RowId = m.RowId, Description = m.Description 
-						//} ).ConvertAll( m => ConvertProfileToMicroProfile( m ) );
-
-						return results.ConvertAll( m => ConvertProfileToMicroProfile( m ) );
+                    //for micro searches, may want to remove restrictions for user access
+                    //List<MC.CredentialSummary> results = CredentialServices.MicroSearch( query.GetFilterValueString( "Keywords" ), query.PageNumber, query.PageSize, ref totalResults );
+                    List<MC.CredentialSummary> results = CredentialServices.MicroSearch( query, query.PageNumber, query.PageSize, ref totalResults );
+                    return results.ConvertAll( m => ConvertProfileToMicroProfile( m ) );
 					}
-				case "QAOrganizationSearch":
+                //case "MyCredentialsSearch":
+                //{
+                //    //for micro searches, may want to remove restrictions for user access
+                //    List<MC.CredentialSummary> results = CredentialServices.MyCredentialsSearch( query.GetFilterValueString( "Name" ), query.PageNumber, query.PageSize, ref totalResults );
+                //    return results.ConvertAll( m => ConvertProfileToMicroProfile( m ) );
+                //}
+                case "QAOrganizationSearch":
 					{
 						var results = OrganizationServices.QAOrgsSearch( query.GetFilterValueString( "Keywords" ), query.PageNumber, query.PageSize, ref totalResults );
 						return results.ConvertAll( m => ConvertProfileToMicroProfile( m ) );
 					}
+				case "QAOrganizationLookup":
+					{
+						var results = OrganizationServices.QAOrgsLookup( query.GetFilterValueString( "Name" ), query.GetFilterValueString( "SubjectWebpage" ), 0, query.PageNumber, query.PageSize, ref totalResults );
+						return results.ConvertAll( m => ConvertProfileToMicroProfile( m ) );
+					}
 				case "OrganizationSearch":
 					{
-						var results = OrganizationServices.Search( query, query.PageNumber, query.PageSize, ref totalResults );
+						var results = OrganizationServices.MicroSearch( query, query.PageNumber, query.PageSize, ref totalResults );
 						return results.ConvertAll( m => ConvertProfileToMicroProfile( m ) );
 					}
 				case "LearningOpportunitySearch":
 				case "LearningOpportunityHasPartSearch":
 					{
-						var results = LearningOpportunityServices.Search( query.GetFilterValueString( "Keywords" ), query.PageNumber, query.PageSize, ref totalResults );
+						var results = LearningOpportunityServices.MicroSearch( query.GetFilterValueString( "Keywords" ), query.PageNumber, query.PageSize, ref totalResults );
 						return results.ConvertAll( m => ConvertProfileToMicroProfile( m ) );
 					}
 				case "AddressSearch":
 					{
-						var results = ProfileServices.AddressProfile_Search( query.GetFilterValueString( "Keywords" ), query.PageNumber, query.PageSize, ref totalResults );
+                    //search for org addresses only
+						var results = ProfileServices.AddressProfile_Search( query.GetFilterValueString( "Keywords" ), query.PageNumber, query.PageSize, ref totalResults, 2 );
 						return results.ConvertAll( m => ConvertAddressToMicroProfile( m ) );
 					}
 
@@ -241,7 +250,9 @@ namespace CTIServices
 		public MicroProfile SaveMicroProfile( ProfileContext context, Dictionary<string, object> selectors, string searchType, string property, bool allowMultipleSavedItems, ref bool valid, ref string status )
 		{
 			AppUser user = AccountServices.GetUserFromSession();
-			switch ( searchType )
+            List<string> messages = new List<string>();
+
+            switch ( searchType )
 			{
 				case "RegionSearch":
 					{
@@ -261,7 +272,7 @@ namespace CTIServices
 							Longitude = double.Parse( selectors[ "Longitude" ].ToString() ),
 							Url = ( string ) selectors[ "Url" ]
 						};
-						valid = js.GeoCoordinates_Add( region, context.Profile.RowId, AccountServices.GetUserFromSession().Id, ref status );
+						valid = js.GeoCoordinates_Add( region, context.Profile.RowId, AccountServices.GetUserFromSession(), ref status );
 						return valid ? ConvertRegionToMicroProfile( js.GeoCoordiates_Get( region.Id ) ) : null;
 					}
 				case "IndustrySearch":
@@ -295,51 +306,64 @@ namespace CTIServices
 				case "AssessmentSearch":
 					{
 						var target = GetProfileLinkFromSelectors( selectors );
-						var rawData = new ProfileServices().Assessment_Add( context.Profile.RowId, target.Id, AccountServices.GetUserFromSession(), ref valid, ref status, allowMultipleSavedItems );
-						if ( rawData == 0 )
-						{
-							valid = false;
-							return null;
-						}
-						else
-						{
-							//if was added to a credential, then add to a condition profile
-							//TODO - need to handle with process profiles
-							if ( context.Profile.TypeName == "Credential" )
-							{
-								UpsertConditionProfileForAssessment( context.Profile.RowId, target.Id, user, ref status );
+                        if ( context.Profile.TypeName == "ConditionProfile" || context.Profile.TypeName == "ProcessProfile" )
+                        {
+                            var rawData = new ProfileServices().Assessment_Add( context.Profile.RowId, context.Main.RowId, target.Id, user, ref valid, ref status, allowMultipleSavedItems );
+                            if ( rawData == 0 )
+                            {
+                                valid = false;
+                                return null;
+                            }
+                            else
+                            {
+                                //if was added to a credential, then add to a condition profile
+                                //TODO - need to handle with process profiles
+                                if ( context.Profile.TypeName == "Credential" )
+                                {
+                                    UpsertConditionProfileForAssessment( context.Profile.RowId, target.Id, user, ref status );
 
-							}
+                                }
 
-							var results = AssessmentServices.Get( target.Id );
-							return ConvertProfileToMicroProfile( results );
-						}
+                                var results = AssessmentServices.Get( target.Id );
+                                return ConvertProfileToMicroProfile( results );
+                            }
+                        } else
+                        {
+                            var results = AssessmentServices.Get( target.Id );
+                            return ConvertProfileToMicroProfile( results );
+                        }
 					}
 				
 				case "LearningOpportunitySearch":
 					{
-						var target = GetProfileLinkFromSelectors( selectors );
-						var newId = new ProfileServices().LearningOpportunity_Add( context.Profile.RowId, target.Id, user, ref valid, ref status, allowMultipleSavedItems );
+                    var target = GetProfileLinkFromSelectors( selectors );
+                    if ( context.Profile.TypeName == "ConditionProfile" || context.Profile.TypeName == "ProcessProfile" )
+                    {
+                        var newId = new ProfileServices().LearningOpportunity_Add( context.Profile.RowId, context.Main.RowId, target.Id, user, ref valid, ref status, allowMultipleSavedItems );
 
-						if ( newId == 0 )
-						{
-							valid = false;
-							return null;
-						}
-						else
-						{
-							//if was added to a credential, then add to a condition profile
-							if ( context.Profile.TypeName == "Credential")
-							{
-								UpsertConditionProfileForLearningOpp( context.Profile.RowId, target.Id, user, ref status );
+                        if ( newId == 0 )
+                        {
+                            valid = false;
+                            return null;
+                        }
+                        else
+                        {
+                            //if was added to a credential, then add to a condition profile
+                            if ( context.Profile.TypeName == "Credential" )
+                            {
+                                UpsertConditionProfileForLearningOpp( context.Profile.RowId, target.Id, user, ref status );
+                            }
+                            var results = LearningOpportunityServices.GetForMicroProfile( target.Id );
+                            return ConvertProfileToMicroProfile( results );
+                        }
+                    }
+                    else
+                    {
+                        var results = LearningOpportunityServices.Get( target.Id );
+                        return ConvertProfileToMicroProfile( results );
+                    }
 
-							}
-							
-
-							var results = LearningOpportunityServices.GetForMicroProfile( target.Id );
-							return ConvertProfileToMicroProfile( results );
-						}
-					}
+                }
 				case "LearningOpportunityHasPartSearch":
 					{
 						//TODO - can we get rowId instead?
@@ -358,26 +382,39 @@ namespace CTIServices
 							return ConvertProfileToMicroProfile( results );
 						}
 					}
-				case "QACredentialSearch":
-				case "CredentialSearch":
-					{
-						var target = GetProfileLinkFromSelectors( selectors );
-						//use context.Profile.RowId for adding a credential to a condition profile or process profile
-						var newId = new ProfileServices().EntityCredential_Save( context.Profile.RowId, target.Id, AccountServices.GetUserFromSession(), allowMultipleSavedItems, ref valid, ref status );
-						if ( newId == 0 )
+                case "QACredentialSearch":
+                case "CredentialSearch":
+                {
+                    var target = GetProfileLinkFromSelectors( selectors );
+                    switch ( context.Profile.TypeName )
+                    {
+						case "Agent_QAPerformed_Credential":
 						{
-							valid = false;
-							return null;
+							//this doesn't save, and actually shouldn't even call this 
+							//??what else
+							var entity = CredentialServices.GetBasicCredential( target.Id );
+							return ConvertProfileToMicroProfile( entity );
 						}
-						else
+						default:
 						{
-							//??
-							var entity = ProfileServices.EntityCredential_Get( newId );
-							//???
-							return ConvertProfileToMicroProfile( entity.Credential );
+							//use context.Profile.RowId for adding a credential to a condition profile or process profile
+							var newId = new ProfileServices().EntityCredential_Save( context.Profile.RowId, target.Id, AccountServices.GetUserFromSession(), allowMultipleSavedItems, ref valid, ref status );
+							if ( newId == 0 )
+							{
+								valid = false;
+								return null;
+							}
+							else
+							{
+								//??
+								var entity = ProfileServices.EntityCredential_Get( newId );
+								return ConvertProfileToMicroProfile( entity.Credential );
+							}
 						}
 					}
-				case "QAOrganizationSearch":
+
+                }
+                case "QAOrganizationSearch":
 				case "OrganizationSearch":
 					{
 						return SaveMicroProfiles_ForOrgSearch( context, selectors, searchType, property, allowMultipleSavedItems, ref valid, ref status );
@@ -499,9 +536,27 @@ namespace CTIServices
 							return ConvertProfileToMicroProfile( results );
 						}
 					}
-				default:
+                case "AddressSearch":
+                {
+                    //will contain Id to the location, or entity.address
+                    var target = GetProfileLinkFromSelectors( selectors );
+                    //use 
+                    var rawData = new ProfileServices().LocationReferenceAdd( context.Profile.RowId, target.Id, user.Id, ref messages );
+                    if ( rawData == 0 )
+                    {
+                        valid = false;
+                        status = string.Join( ",", messages );
+                        return null;
+                    }
+                    else
+                    {
+                        var results = ProfileServices.AddressProfile_Get( target.Id );
+                        return ConvertProfileToMicroProfile( results );
+                    }
+                }
+                default:
 					valid = false;
-					status = "Unable to find Search Type";
+					status = "Microsearch: Unable to find Search Type";
 					return null;
 			}
 		}
@@ -582,13 +637,19 @@ namespace CTIServices
 						if ( property == "OfferedByOrganization" )
 						{
 
-							new OrganizationServices().EntityAgent_SaveRole( context.Main.RowId, 
-								target.RowId, 
+							if ( new OrganizationServices().EntityAgent_SaveRole( context.Main.RowId,
+								target.RowId,
 								Entity_AgentRelationshipManager.ROLE_TYPE_OFFERED_BY,
-								AccountServices.GetUserFromSession(), ref status );
-
-							var entity = OrganizationServices.GetForSummary( target.Id );
-							return ConvertProfileToMicroProfile( entity );
+								AccountServices.GetUserFromSession(), ref status ) )
+							{
+								var entity = OrganizationServices.GetForSummary( target.Id );
+								return ConvertProfileToMicroProfile( entity );
+							}
+							else
+							{
+								valid = false;
+								return null;
+							}
 						}
 						else
 						{
@@ -608,6 +669,7 @@ namespace CTIServices
 				//break;
 
 				case "AgentRoleProfile_Recipient":
+                case "Agent_QAPerformed_Organization":
 				{
 					//??what else
 					var entity = OrganizationServices.GetForSummary( target.Id );
@@ -1044,6 +1106,8 @@ namespace CTIServices
 					Heading2 = TryGetValue<string>( item, properties, "OrganizationName" ),
 					Description = TryGetValue<string>( item, properties, "Description" ),
 					RowId = TryGetValue<Guid>( item, properties, "RowId" ),
+					CTID = TryGetValue<string>( item, properties, "CTID" ),
+					SubjectWebpage = TryGetValue<string>( item, properties, "SubjectWebpage" ),
 					Selectors = new Dictionary<string, object>() //Create a faux ProfileLink
 					{
 						{ "RowId", TryGetValue<Guid>( item, properties, "RowId" ) },

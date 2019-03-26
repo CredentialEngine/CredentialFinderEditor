@@ -5,6 +5,7 @@ using System.Web;
 using System.Web.Mvc;
 
 using CTIServices;
+using Utilities;
 
 namespace CTI.Directory.Controllers
 {
@@ -14,10 +15,7 @@ namespace CTI.Directory.Controllers
 		// GET: /Home/
 		public ActionResult Index()
 		{
-			//string envType = Utilities.UtilityManager.GetAppKeyValue("envType", "dev");
-
-			//return View( "Index" );
-			return V2();
+			return View( "~/Views/V2/Home/Index.cshtml" );
 		}
 
 		public ActionResult About()
@@ -31,20 +29,50 @@ namespace CTI.Directory.Controllers
 				Utilities.ConsoleMessageHelper.SetConsoleErrorMessage( pageMessage, "", true );
 				Session.Remove( "siteMessage" );
 			}
-			else
+			//else
+			//if ( Session[ "SystemMessage" ] != null )
+			//{
+			//	pageMessage = Session[ "SystemMessage" ].ToString();
+			//	//setting console message doesn't work when switching to a different controller
+			//	Utilities.ConsoleMessageHelper.SetConsoleErrorMessage( pageMessage, "", true );
+			//	Session.Remove( "SystemMessage" );
+			//}
+			else if ( AccountServices.IsUserAuthenticated())
 			{
+				if ( !AccountServices.CanUserCreateContent() )
+				{
+					string noOrganizationMessage = UtilityManager.GetAppKeyValue( "noOrganizationMessage", "" );
+					if ( !string.IsNullOrWhiteSpace( noOrganizationMessage ) )
+					{
+						Utilities.ConsoleMessageHelper.SetConsoleErrorMessage( noOrganizationMessage, "", true );
+					}
+				}
+				else 
 				if ( !AccountServices.CanUserViewSite() )
 				{
-					Utilities.ConsoleMessageHelper.SetConsoleErrorMessage( "This site is not currently open to the public. You must be logged in and authorized in order to use this site.", "", true );
+					string loginRequiredMessage = UtilityManager.GetAppKeyValue( "loginRequiredMessage", "" );
+					if ( !string.IsNullOrWhiteSpace( loginRequiredMessage ))
+					{
+						Utilities.ConsoleMessageHelper.SetConsoleErrorMessage( loginRequiredMessage, "", true );
+						//Utilities.ConsoleMessageHelper.SetConsoleErrorMessage( "This site is not currently open to the public. You must be logged in and authorized in order to use this site.", "", true );
+					}
 				}
 			}
+
+			//just show the home page. The difference is that user can be a guest. 
 			return Index();
 		}
 
-		public ActionResult V2()
+		public ActionResult GettingStarted()
 		{
-			return View( "~/Views/V2/Home/Index.cshtml" );
+		
+
+			return View();
 		}
 
-	}
+        public ActionResult History()
+        {
+            return View( "~/Views/V2/Home/History.cshtml" );
+        }
+    }
 }

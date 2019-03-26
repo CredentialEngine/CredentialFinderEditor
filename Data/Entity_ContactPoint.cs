@@ -19,10 +19,6 @@ namespace Data
         public string Name { get; set; }
         public string ContactType { get; set; }
         public string ContactOption { get; set; }
-        public string Telephone { get; set; }
-        public string Fax { get; set; }
-        public string Email { get; set; }
-        public string SocialMedia { get; set; }
         public Nullable<System.DateTime> Created { get; set; }
         public Nullable<int> CreatedById { get; set; }
         public Nullable<System.DateTime> LastUpdated { get; set; }

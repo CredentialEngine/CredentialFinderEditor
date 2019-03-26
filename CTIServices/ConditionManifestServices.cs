@@ -40,7 +40,25 @@ namespace CTIServices
 				profile.CanUserEditEntity = true;
 			return profile;
 		}
-
+		public static string GetForFormat( int profileId, AppUser user, ref bool isValid, ref List<string> messages, ref bool isApproved, ref DateTime? lastPublishDate, ref DateTime lastUpdatedDate, ref DateTime lastApprovedDate, ref string ctid )
+		{
+			//List<string> messages = new List<string>();
+			ConditionManifest entity = ConditionManifestManager.Get( profileId, false );
+            if (entity == null || entity.Id == 0)
+            {
+                isValid = false;
+                messages.Add( "Error - the requested Condition Manifest was not found." );
+                return "";
+            }
+            
+            isApproved = entity.IsEntityApproved();
+			ctid = entity.CTID;
+			string payload = RegistryAssistantServices.ConditionManifestMapper.FormatPayload( entity, ref isValid, ref messages );
+			lastUpdatedDate = entity.EntityLastUpdated;
+			lastApprovedDate = entity.EntityApproval.Created;
+            lastPublishDate = ActivityManager.GetLastPublishDateTime( "conditionmanifest", profileId );
+            return payload;
+		}
 		public static bool CanUserUpdateConditionManifest( ConditionManifest entity, AppUser user, ref string status )
 		{
 			if ( user == null || user.Id == 0 )
@@ -66,6 +84,11 @@ namespace CTIServices
 
 			return profile;
 		}
+		public static ConditionManifest GetBasic( Guid rowID )
+		{
+			var profile = ConditionManifestManager.GetBasic( rowID );
+			return profile;
+		}
 		public bool Save( ConditionManifest entity, Guid parentUid, string action, AppUser user, ref string status, bool isQuickCreate = false )
 		{
 			bool isValid = true;
@@ -89,10 +112,11 @@ namespace CTIServices
 				{
 
 					//if valid, status contains the cred id, category, and codeId
-					status = "Successfully Saved Condition Manifest";
-					activityMgr.AddActivity( "Condition Manifest", action, string.Format( "{0} added/updated Condition Manifest profile: {1}", user.FullName(), entity.ProfileName ), user.Id, 0, entity.Id );
-
-				}
+					status = "";
+					activityMgr.AddEditorActivity( "Condition Manifest", action, string.Format( "{0} added/updated Condition Manifest profile: {1} for organization: {2}", user.FullName(), entity.ProfileName, e.EntityBaseId ), user.Id, entity.Id, entity.RowId );
+                    //we do want to update the last updated for the org entity to reflect need to republish.
+                    new ProfileServices().UpdateTopLevelEntityLastUpdateDate( e.Id, string.Format( "Entity Update triggered by {0} adding/updating Condition Manifest profile : {1}, for Organization: {2}", user.FullName(), entity.ProfileName, e.EntityBaseId ) );
+                }
 				else
 				{
 					status += string.Join( "<br/>", messages.ToArray() );
@@ -109,8 +133,24 @@ namespace CTIServices
 			return isValid;
 		}
 
+        public static List<ConditionManifest> GetAllForOwningOrganization( string orgUid, ref int pTotalRows )
+        {
+            List<ConditionManifest> list = new List<ConditionManifest>();
+            if ( string.IsNullOrWhiteSpace( orgUid ) )
+                return list;
+            string keywords = "";
+            int pageNumber = 1;
+            int pageSize = 0;
+            string pOrderBy = "";
+            string AND = "";
+            int userId = AccountServices.GetCurrentUserId();
+            string filter = string.Format( " (  org.RowId = '{0}' ) ", orgUid );
 
-		public static List<ConditionManifest> Search( int orgId, int pageNumber, int pageSize, ref int pTotalRows )
+
+            return ConditionManifestManager.MainSearch( filter, pOrderBy, pageNumber, pageSize, userId, ref pTotalRows );
+
+        }
+        public static List<ConditionManifest> Search( int orgId, int pageNumber, int pageSize, ref int pTotalRows )
 		{
 			List<ConditionManifest> list = ConditionManifestManager.Search( orgId, pageNumber, pageSize, ref pTotalRows );
 			return list;
@@ -119,20 +159,28 @@ namespace CTIServices
 		public bool Delete( Guid parentUid, int profileId, AppUser user, ref string status )
 		{
 			bool valid = true;
+            List<SiteActivity> list = new List<SiteActivity>();
 
-			ConditionManifestManager mgr = new ConditionManifestManager();
+            ConditionManifestManager mgr = new ConditionManifestManager();
 			try
 			{
 				//get first to validate (soon)
 				//to do match to the conditionProfileId
 				ConditionManifest profile = ConditionManifestManager.GetBasic( profileId );
-
-				valid = mgr.Delete( profileId, ref status );
+                if (!string.IsNullOrWhiteSpace(profile.CredentialRegistryId))
+                {
+                    //should be deleting from registry!
+                    //will be change to handling with managed keys
+                    new RegistryServices().Unregister_ConditionManifest(profileId, user, ref status, ref list);
+                }
+                valid = mgr.Delete( profileId, ref status );
 
 				if ( valid )
 				{
 					//if valid, status contains the cred id, category, and codeId
-					activityMgr.AddActivity( "ConditionManifest Profile", "Delete Task", string.Format( "{0} deleted ConditionManifest Profile {1} from OrganizationId:  {2}", user.FullName(), profileId, profile.OrganizationId ), user.Id, 0, profileId );
+					activityMgr.AddEditorActivity( "Condition Manifest", "Delete", string.Format( "{0} deleted ConditionManifest Profile {1} from OrganizationId:  {2}", user.FullName(), profileId, profile.OrganizationId ), user.Id, 0, profileId );
+
+                    
 					status = "";
 				}
 			}
@@ -176,8 +224,10 @@ namespace CTIServices
 				if ( id > 0 )
 				{
 					//if valid, status contains the cred id, category, and codeId
-					activityMgr.AddActivity( "Entity_CommonCondition", "Add Entity_CommonCondition", string.Format( "{0} added Entity_CommonCondition {1} to {3} EntityId: {2}", user.FullName(), conditionManifestId, parent.Id, parent.EntityType ), user.Id, 0, conditionManifestId );
-					status = "";
+					activityMgr.AddEditorActivity( "Entity_CommonCondition", "Add Entity_CommonCondition", string.Format( "{0} added Entity_CommonCondition {1} to {3} EntityId: {2}", user.FullName(), conditionManifestId, parent.Id, parent.EntityType ), user.Id, conditionManifestId, parentUid );
+
+                    new ProfileServices().UpdateTopLevelEntityLastUpdateDate(parent.Id, string.Format("Entity Update triggered by {0} adding a common condition to : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId));
+                    status = "";
 
 				}
 				else
@@ -217,15 +267,17 @@ namespace CTIServices
 					return false;
 				}
 				string cmName = profile.ConditionManifest.Name ?? "no name";
-				valid = mgr.Delete( parentUid, manifestId, ref status );
+				valid = mgr.Delete( parentUid, manifestId, ref messages );
 
 				//if valid, and no message (assuming related to the targer not being found)
 				if ( valid && status.Length == 0 )
 				{
 					//activity
-					activityMgr.AddActivity( "Entity_CommonCondition", "Remove Entity_CommonCondition", string.Format( "{0} removed Entity_CommonCondition {1} ({2}) from Entity: {3} (4)", user.FullName(), cmName, manifestId, parent.EntityType, parent.EntityBaseId ), user.Id, 0, manifestId, parent.EntityBaseId );
+					activityMgr.AddEditorActivity( "Entity_CommonCondition", "Remove Entity_CommonCondition", string.Format( "{0} removed Entity_CommonCondition {1} ({2}) from Entity: {3} (4)", user.FullName(), cmName, manifestId, parent.EntityType, parent.EntityBaseId ), user.Id, 0, manifestId, parent.EntityBaseId );
 
-					status = "";
+                    new ProfileServices().UpdateTopLevelEntityLastUpdateDate(parent.Id, string.Format("Entity Update triggered by {0} deleting a common condition from : {1}, BaseId: {2}", user.FullName(), parent.EntityType, parent.EntityBaseId));
+
+                    status = "";
 				}
 			}
 			catch ( Exception ex )

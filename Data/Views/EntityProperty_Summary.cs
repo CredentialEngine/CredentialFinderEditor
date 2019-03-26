@@ -32,5 +32,6 @@ namespace Data.Views
         public Nullable<int> EntityBaseId { get; set; }
         public string ParentSchemaName { get; set; }
         public string EntityBaseName { get; set; }
+        public Nullable<bool> IsSubType1 { get; set; }
     }
 }

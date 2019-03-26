@@ -1,24 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Security.Claims;
+using System.Net;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Mvc;
-using Microsoft.AspNet.Identity;
-using Microsoft.AspNet.Identity.Owin;
-using Microsoft.Owin.Security;
 
-using Newtonsoft.Json;
-
-using CTI.Directory;
 using CTIDirectory.Models;
 using CTIServices;
-using Utilities;
+using Microsoft.AspNet.Identity;
+using Microsoft.AspNet.Identity.Owin;
 using Models;
-using System.Text.RegularExpressions;
-using System.Net;
+using Newtonsoft.Json;
+using Utilities;
 
 namespace CTI.Directory.Areas.Admin.Controllers
 {
@@ -230,7 +225,8 @@ namespace CTI.Directory.Areas.Admin.Controllers
                     var value = Request.Form[string.Format("columns[{0}][search][value]", index)];
 					if ( !string.IsNullOrWhiteSpace( value ) )
 					{
-						string colName = Request.Form[ string.Format( "columns[{0}][data]", index ) ];
+                        value = value.Trim();
+                        string colName = Request.Form[ string.Format( "columns[{0}][data]", index ) ];
 						if ( colName == "lastLogon" )
 						{
 							if ( DateTime.TryParse( value, out dt ) )
@@ -446,7 +442,7 @@ namespace CTI.Directory.Areas.Admin.Controllers
 
                         //if null, should there be a check to delete all??
                         //Bulk Add/Remove Organizations
-                        OrganizationServices.UpdateOrganizations(model.UserId, model.SelectedOrgs, User.Identity.Name);
+                        OrganizationServices.UpdateUserOrganizations(model.UserId, model.SelectedOrgs, User.Identity.Name);
                     }
 
                     Response.StatusCode = (int)HttpStatusCode.OK;
@@ -579,9 +575,8 @@ namespace CTI.Directory.Areas.Admin.Controllers
         public async Task<ActionResult> ImportUsers(int maxRecords = 100)
         {
             if (!User.Identity.IsAuthenticated
-                || (User.Identity.Name != "mparsons@illinoisworknet.com"
-                && User.Identity.Name != "mparsons"
-                && User.Identity.Name != "mparsons@siuccwd.com"
+                || (User.Identity.Name != "mparsons"
+                && User.Identity.Name != "email@email.com"
                 && User.Identity.Name != "nathan.argo@siuccwd.com")
                 )
             {
@@ -714,7 +709,7 @@ namespace CTI.Directory.Areas.Admin.Controllers
                             int ombrId = new OrganizationServices().OrganizationMember_Save((int)model.OrganizationId, id, 2, currentUserId, ref statusMessage);
                             if (ombrId > 0)
                             {
-                                msg += " Added user as employee to " + model.Organization;
+                                msg += " Added user as member of " + model.Organization;
                             }
                             else
                             {

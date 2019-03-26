@@ -11,7 +11,7 @@ using CM = Models.Common;
 using Models.ProfileModels;
 using EM = Data;
 using Utilities;
-using DBentity = Data.ConditionManifest;
+using DBEntity = Data.ConditionManifest;
 using ThisEntity = Models.Common.ConditionManifest;
 
 namespace Factories
@@ -47,7 +47,7 @@ namespace Factories
 
 			int count = 0;
 
-			DBentity efEntity = new DBentity();
+			DBEntity efEntity = new DBEntity();
 			int parentOrgId = 0;
 			Guid commonConditionParentUid = new Guid();
 			Guid condtionManifestParentUid = new Guid();
@@ -83,8 +83,10 @@ namespace Factories
 				try
 				{
 					bool isEmpty = false;
+					entity.ParentId = parentOrgId;
+					entity.OwningAgentUid = parent.EntityUid;
 
-					if ( ValidateProfile( entity, ref isEmpty, ref messages ) == false )
+					if ( ValidateProfile( entity, ref messages ) == false )
 					{
 						return false;
 					}
@@ -97,17 +99,20 @@ namespace Factories
 					if ( entity.Id == 0 )
 					{
 						//add
-						efEntity = new DBentity();
-						FromMap( entity, efEntity );
+						efEntity = new DBEntity();
+						MapToDB( entity, efEntity );
 						//Note- parent could be a condition manifest
 						efEntity.OrganizationId = parentOrgId;
 
 						efEntity.Created = efEntity.LastUpdated = DateTime.Now;
 						efEntity.CreatedById = efEntity.LastUpdatedById = userId;
 						efEntity.RowId = Guid.NewGuid();
-						efEntity.CTID = "ce-" + efEntity.RowId.ToString();
+                        if ( !string.IsNullOrWhiteSpace( entity.CTID ) && entity.CTID.Length == 39 )
+                            efEntity.CTID = entity.CTID.ToLower();
+                        else
+                            efEntity.CTID = "ce-" + efEntity.RowId.ToString().ToLower();
 
-						context.ConditionManifest.Add( efEntity );
+                        context.ConditionManifest.Add( efEntity );
 						count = context.SaveChanges();
 
 						entity.Id = efEntity.Id;
@@ -120,7 +125,7 @@ namespace Factories
 						{
 							//create the Entity.ConditionManifest
 							//ensure to handle this properly when adding a commonCondition CM to a CM
-							EntityConditionManifest_Add( condtionManifestParentUid, efEntity.Id, userId, ref messages );
+							Entity_HasConditionManifest_Add( condtionManifestParentUid, efEntity.Id, userId, ref messages );
 
 							if ( parent.EntityTypeId == CodesManager.ENTITY_TYPE_CONDITION_MANIFEST )
 							{
@@ -140,7 +145,7 @@ namespace Factories
 						{
 							entity.RowId = efEntity.RowId;
 							//update
-							FromMap( entity, efEntity );
+							MapToDB( entity, efEntity );
 							//has changed?
 							if ( HasStateChanged( context ) )
 							{
@@ -203,8 +208,9 @@ namespace Factories
 
 						if ( HasStateChanged( context ) )
 						{
-							efEntity.LastUpdated = System.DateTime.Now;
-							efEntity.LastUpdatedById = userId;
+							//don't set updated for this action
+							//efEntity.LastUpdated = System.DateTime.Now;
+							//efEntity.LastUpdatedById = userId;
 
 							count = context.SaveChanges();
 							//can be zero if no data changed
@@ -316,7 +322,7 @@ namespace Factories
 			{
 				try
 				{
-					DBentity efEntity = context.ConditionManifest
+					DBEntity efEntity = context.ConditionManifest
 								.SingleOrDefault( s => s.Id == Id );
 
 					if ( efEntity != null && efEntity.Id > 0 )
@@ -364,24 +370,13 @@ namespace Factories
 
 		#endregion
 
-		public bool ValidateProfile( ThisEntity profile, ref bool isEmpty, ref List<string> messages )
+		public static bool ValidateProfile( ThisEntity profile, ref List<string> messages, bool validatingUrls = true )
 		{
 			bool isValid = true;
 			int count = messages.Count;
 			if ( profile.IsStarterProfile )
 				return true;
 
-			isEmpty = false;
-			//check if empty
-			if ( string.IsNullOrWhiteSpace( profile.ProfileName )
-				&& string.IsNullOrWhiteSpace( profile.Description )
-				&& string.IsNullOrWhiteSpace( profile.SubjectWebpage )
-				
-				)
-			{
-				//isEmpty = true;
-				//return isValid;
-			}
 			//&& ( profile.EstimatedCost == null || profile.EstimatedCost.Count == 0 )
 			if ( string.IsNullOrWhiteSpace( profile.ProfileName ) )
 			{
@@ -391,14 +386,24 @@ namespace Factories
 			{
 				messages.Add( "A Condition Manifest Description must be entered" );
 			}
-
+			else if ( FormHelper.HasHtmlTags( profile.Description ) )
+			{
+				messages.Add( "HTML or Script Tags are not allowed in the description" );
+			}
+			else if ( profile.Description.Length < MinimumDescriptionLength && !IsDevEnv() )
+			{
+				messages.Add( string.Format( "The Condition Manifest description must be at least {0} characters in length.", MinimumDescriptionLength ) );
+			}
 			//not sure if this will be selected, or by context
-			//if ( !IsValidGuid( profile.OwningAgentUid ) )
-			//{
-			//	messages.Add( "An owning organization must be selected" );
-			//}
+			if ( !IsGuidValid( profile.OwningAgentUid ) )
+			{
+				messages.Add( "An owning organization must be selected" );
+			}
 
-			if ( !IsUrlValid( profile.SubjectWebpage, ref commonStatusMessage ) )
+			if ( string.IsNullOrWhiteSpace( profile.SubjectWebpage ) )
+				messages.Add( "A Subject Webpage name must be entered" );
+
+			else if ( validatingUrls && !IsUrlValid( profile.SubjectWebpage, ref commonStatusMessage ) )
 			{
 				messages.Add( "The Subject Webpage Url is invalid " + commonStatusMessage );
 			}
@@ -424,12 +429,12 @@ namespace Factories
 			using ( var context = new Data.CTIEntities() )
 			{
 			
-				DBentity item = context.ConditionManifest
+				DBEntity item = context.ConditionManifest
 						.SingleOrDefault( s => s.Id == id );
 
 				if ( item != null && item.Id > 0 )
 				{
-					ToMap( item, entity,
+					MapFromDB( item, entity,
 						true, //includingProperties
 						includingProfiles,
 						forEditView );
@@ -439,12 +444,20 @@ namespace Factories
 			return entity;
 		}
 
-		/// <summary>
-		/// Get absolute minimum for display as profile link
-		/// </summary>
-		/// <param name="id"></param>
-		/// <returns></returns>
-		public static ThisEntity GetBasic( int id )
+        public static ThisEntity GetForApproval( int id, ref List<string> messages )
+        {
+            ThisEntity entity = GetBasic( id );
+            ValidateProfile( entity, ref messages, false );
+
+            return entity;
+        }
+
+        /// <summary>
+        /// Get absolute minimum often for display as profile link
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public static ThisEntity GetBasic( int id )
 		{
 			ThisEntity entity = new ThisEntity();
 
@@ -453,7 +466,7 @@ namespace Factories
 				//want to get org, deal with others
 				//context.Configuration.LazyLoadingEnabled = false;
 
-				DBentity item = context.ConditionManifest
+				DBEntity item = context.ConditionManifest
 						.SingleOrDefault( s => s.Id == id );
 
 				if ( item != null && item.Id > 0 )
@@ -461,8 +474,11 @@ namespace Factories
 					entity.Id = item.Id;
 					entity.RowId = item.RowId;
 					entity.Name = item.Name;
+                    entity.CTID = item.CTID;
 					entity.Description = item.Description;
 					entity.SubjectWebpage = item.SubjectWebpage;
+                    entity.CredentialRegistryId = item.CredentialRegistryId;
+
 					entity.OrganizationId = item.OrganizationId;
 					entity.OwningOrganization = new CM.Organization();
 					if ( item.OrganizationId > 0 )
@@ -473,7 +489,7 @@ namespace Factories
 							entity.OwningOrganization.Name = item.Organization.Name;
 							entity.OwningOrganization.RowId = item.Organization.RowId;
 							entity.OwningOrganization.SubjectWebpage = item.Organization.URL;
-
+							entity.OwningOrganization.CTID = item.Organization.CTID;
 							//OrganizationManager.ToMapCommon( item.Organization, entity.OwningOrganization, false, false, false, false, false );
 						}
 						else
@@ -489,6 +505,14 @@ namespace Factories
 			}
 
 			return entity;
+		}
+		public static ThisEntity GetBasic( Guid rowID )
+		{
+			using ( var context = new Data.CTIEntities() )
+			{
+				var match = context.ConditionManifest.FirstOrDefault( m => m.RowId == rowID );
+				return match == null ? null : GetBasic( match.Id );
+			}
 		}
 
 
@@ -525,14 +549,14 @@ namespace Factories
 							{
 								to.Id = from.ConditionManifestId;
 								to.RowId = from.ConditionManifest.RowId;
-
+                                to.CTID = from.ConditionManifest.CTID;
 								to.OrganizationId = (int)from.Entity.EntityBaseId;
 								to.OwningAgentUid = from.Entity.EntityUid;
 								//
-								to.ProfileName = from.ConditionManifest.Name;
+								to.ProfileName = from.ConditionManifest.Name + " ( " + from.ConditionManifest.CTID + " )";
 							} else
 							{
-								ToMap( from.ConditionManifest, to, true, true, false );
+								MapFromDB( from.ConditionManifest, to, true, true, false );
 							}
 							list.Add( to );
 						}
@@ -578,7 +602,7 @@ namespace Factories
 							to = new ThisEntity();
 							if ( isForLinks )
 							{
-								to.Id = from.Id;
+								to.Id = from.ConditionManifest.Id;
 								to.RowId = from.ConditionManifest.RowId;
 
 								to.OrganizationId = ( int ) from.Entity.EntityBaseId;
@@ -587,7 +611,7 @@ namespace Factories
 							}
 							else
 							{
-								ToMap( from.ConditionManifest, to, true, true, false );
+								MapFromDB( from.ConditionManifest, to, true, true, false );
 							}
 							list.Add( to );
 						}
@@ -662,9 +686,6 @@ namespace Factories
 			ThisEntity item = new ThisEntity();
 			List<ThisEntity> list = new List<ThisEntity>();
 			var result = new DataTable();
-			string temp = "";
-			string org = "";
-			int orgId = 0;
 
 			using ( SqlConnection c = new SqlConnection( connectionString ) )
 			{
@@ -687,21 +708,30 @@ namespace Factories
 					totalRows.Direction = ParameterDirection.Output;
 					command.Parameters.Add( totalRows );
 
-					using ( SqlDataAdapter adapter = new SqlDataAdapter() )
-					{
-						adapter.SelectCommand = command;
-						adapter.Fill( result );
-					}
-					string rows = command.Parameters[ 4 ].Value.ToString();
-					try
-					{
-						pTotalRows = Int32.Parse( rows );
-					}
-					catch
-					{
-						pTotalRows = 0;
-					}
-				}
+                    try
+                    {
+                        using ( SqlDataAdapter adapter = new SqlDataAdapter() )
+                        {
+                            adapter.SelectCommand = command;
+                            adapter.Fill( result );
+                        }
+                        string rows = command.Parameters[ 4 ].Value.ToString();
+
+                        pTotalRows = Int32.Parse( rows );
+                    }
+                    catch ( Exception ex )
+                    {
+                        pTotalRows = 0;
+                        LoggingHelper.LogError( ex, thisClassName + string.Format( ".MainSearch() - Execute proc, Message: {0} \r\n Filter: {1} \r\n", ex.Message, pFilter ) );
+
+                        item = new ThisEntity();
+                        item.Name = "Unexpected error encountered. System administration has been notified. Please try again later. ";
+                        item.Description = ex.Message;
+
+                        list.Add( item );
+                        return list;
+                    }
+                }
 
 				foreach ( DataRow dr in result.Rows )
 				{
@@ -715,10 +745,53 @@ namespace Factories
 					string rowId = GetRowColumn( dr, "RowId" );
 					item.RowId = new Guid( rowId );
 					item.CTID = GetRowColumn( dr, "CTID" );
-					item.SubjectWebpage = GetRowColumn( dr, "URL", "" );
-					
+					item.SubjectWebpage = GetRowColumn( dr, "SubjectWebpage", "" );
 
-					list.Add( item );
+                    item.EntityLastUpdated = GetRowColumn( dr, "EntityLastUpdated", System.DateTime.Now );
+
+                    //published ==========================
+                    string date = GetRowPossibleColumn( dr, "LastPublishDate", "" );
+                    DateTime testdate;
+                    if ( DateTime.TryParse( date, out testdate ) )
+                    {
+                        //item.IsPublished = true;
+                        item.LastPublished = testdate;
+                    }
+                    //approvals ==========================
+                    date = GetRowPossibleColumn( dr, "LastApprovalDate", "" );
+                    if ( DateTime.TryParse( date, out testdate ) )
+                    {
+                        //item.IsApproved = true;
+                        item.LastApproved = testdate;
+                    }
+
+                    string relatedItems = GetRowColumn( dr, "TargetAssessments" );
+                    string[] array = relatedItems.Split( ',' );
+                    if ( array.Count() > 0 )
+                        foreach ( var i in array )
+                        {
+                            if ( !string.IsNullOrWhiteSpace( i ) )
+                                item.TargetAssessmentsList.Add( i.ToLower() );
+                        }
+                    relatedItems = GetRowColumn( dr, "TargetLearningOpps" );
+                    array = relatedItems.Split( ',' );
+                    if ( array.Count() > 0 )
+                        foreach ( var i in array )
+                        {
+                            if ( !string.IsNullOrWhiteSpace( i ) )
+                                item.TargetLearningOppsList.Add( i.ToLower() );
+                        }
+                    relatedItems = GetRowColumn( dr, "TargetCredentials" );
+                    array = relatedItems.Split( ',' );
+                    if ( array.Count() > 0 )
+                        foreach ( var i in array )
+                        {
+                            if ( !string.IsNullOrWhiteSpace( i ) )
+                                item.TargetCredentialsList.Add( i.ToLower() );
+                        }
+
+
+                    list.Add( item );
 				}
 
 				return list;
@@ -727,7 +800,7 @@ namespace Factories
 		} //
 
 
-		public static void FromMap( ThisEntity from, DBentity to )
+		public static void MapToDB( ThisEntity from, DBEntity to )
 		{
 
 			//want to ensure fields from create are not wiped
@@ -742,7 +815,7 @@ namespace Factories
 			//to.OrganizationId = from.OrganizationId;
 			to.Name = GetData( from.Name );
 			to.Description = GetData( from.Description );
-			to.SubjectWebpage = GetUrlData( from.SubjectWebpage, null );
+			to.SubjectWebpage = NormalizeUrlData( from.SubjectWebpage, null );
 
 			//if ( IsGuidValid( from.OwningAgentUid ) )
 			//{
@@ -764,7 +837,7 @@ namespace Factories
 			//}
 
 		}
-		public static void ToMap( DBentity from, ThisEntity to,
+		public static void MapFromDB( DBEntity from, ThisEntity to,
 				bool includingProperties = false,
 				bool includingProfiles = true,
 				bool forEditView = true )
@@ -779,7 +852,13 @@ namespace Factories
 				if ( from.Organization != null && from.Organization.Id > 0 )
 				{
 					//ensure there is no infinite loop
-					OrganizationManager.ToMapCommon( from.Organization, to.OwningOrganization, false, false, false, false, false );
+					//the following results in an infinite loop
+					//OrganizationManager.ToMapCommon( from.Organization, to.OwningOrganization, false, false, false, false, false );
+					//maybe: ToMapForSummary
+					//OrganizationManager.ToMapForSummary( from.Organization, to.OwningOrganization );
+
+					to.OwningOrganization = OrganizationManager.GetForSummary( to.OrganizationId );
+					to.OwningAgentUid = to.OwningOrganization.RowId;
 				} else
 				{
 					to.OwningOrganization = OrganizationManager.GetForSummary( to.OrganizationId );
@@ -795,8 +874,11 @@ namespace Factories
 			
 			to.CTID = from.CTID;
 			to.CredentialRegistryId = from.CredentialRegistryId;
+			to.EntityApproval = Entity_ApprovalManager.GetByParent( to.RowId );
+            if ( to.EntityApproval != null && to.EntityApproval.Id > 0 )
+                to.LastApproved = to.EntityApproval.Created;
 
-			to.SubjectWebpage = from.SubjectWebpage;
+            to.SubjectWebpage = from.SubjectWebpage;
 			
 			if ( IsValidDate( from.Created ) )
 				to.Created = ( DateTime ) from.Created;
@@ -805,7 +887,11 @@ namespace Factories
 				to.LastUpdated = ( DateTime ) from.LastUpdated;
 			to.LastUpdatedById = from.LastUpdatedById == null ? 0 : ( int ) from.LastUpdatedById;
 
-			if ( from.Account_Modifier != null )
+            to.RelatedEntity = EntityManager.GetEntity( to.RowId, false );
+            if ( to.RelatedEntity != null && to.RelatedEntity.Id > 0 )
+                to.EntityLastUpdated = to.RelatedEntity.LastUpdated;
+
+            if ( from.Account_Modifier != null )
 			{
 				to.LastUpdatedBy = from.Account_Modifier.FirstName + " " + from.Account_Modifier.LastName;
 			}
@@ -827,7 +913,7 @@ namespace Factories
 			if ( forEditView )
 				list = Entity_ConditionProfileManager.GetAllForLinks( to.RowId );
 			else
-				list = Entity_ConditionProfileManager.GetAll( to.RowId );
+				list = Entity_ConditionProfileManager.GetAll( to.RowId, 1 );
 
 			//??actions
 			if ( list != null && list.Count > 0 )
@@ -838,7 +924,9 @@ namespace Factories
 
 					if ( item.ConnectionProfileTypeId == Entity_ConditionProfileManager.ConnectionProfileType_Requirement )
 						to.Requires.Add( item );
-					else if ( item.ConnectionProfileTypeId == Entity_ConditionProfileManager.ConnectionProfileType_Recommendation )
+                    else if ( item.ConnectionProfileTypeId == Entity_ConditionProfileManager.ConnectionProfileType_Renewal )
+                        to.Renewal.Add( item );
+                    else if ( item.ConnectionProfileTypeId == Entity_ConditionProfileManager.ConnectionProfileType_Recommendation )
 						to.Recommends.Add( item );
 					else if ( item.ConnectionProfileTypeId == Entity_ConditionProfileManager.ConnectionProfileType_EntryCondition )
 						to.EntryCondition.Add( item );
@@ -867,7 +955,7 @@ namespace Factories
 		/// <param name="userId"></param>
 		/// <param name="messages"></param>
 		/// <returns></returns>
-		public int EntityConditionManifest_Add( Guid parentUid,
+		public int Entity_HasConditionManifest_Add( Guid parentUid,
 					int profileId,
 					int userId,
 					ref List<string> messages )
@@ -1041,16 +1129,16 @@ namespace Factories
 					{
 						foreach ( EM.Entity_ConditionManifest item in results )
 						{
-							//TODO - optimize the appropriate ToMap methods
+							//TODO - optimize the appropriate MapFromDB methods
 							entity = new ThisEntity();
-							ToMap(item.ConditionManifest, entity);
+							MapFromDB(item.ConditionManifest, entity);
 							//if ( forEditView )
-							//	ConditionManifestManager.ToMap( item.ConditionManifest, entity,
+							//	ConditionManifestManager.MapFromDB( item.ConditionManifest, entity,
 							//	true, 
 							//	forEditView
 							//	);
 							//else
-							//	ConditionManifestManager.ToMap( item.ConditionManifest, entity,
+							//	ConditionManifestManager.MapFromDB( item.ConditionManifest, entity,
 							//	true,
 							//	forEditView
 							//	);

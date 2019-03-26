@@ -30,5 +30,6 @@ namespace Data.Views
         public System.Guid RowId { get; set; }
         public string OrgMbrs { get; set; }
         public Nullable<System.DateTime> lastLogon { get; set; }
+        public string CEAccountIdentifier { get; set; }
     }
 }

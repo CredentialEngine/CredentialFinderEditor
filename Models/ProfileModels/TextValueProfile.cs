@@ -23,11 +23,11 @@ namespace Models.ProfileModels
 			get { return this.ParentId; }
 			set { this.ParentId = value; }
 		}
-
-		/// <summary>
-		/// Actually container primary key (as opposed to EntityId)
-		/// </summary>
-		public int EntityBaseId { get; set; } 
+        public string EntityType { get; set; } = "";
+        /// <summary>
+        /// Actually container primary key (as opposed to EntityId)
+        /// </summary>
+        public int EntityBaseId { get; set; } 
 
 		/// <summary>
 		/// Title of the category (e.g. "Reference Url")

@@ -8,22 +8,35 @@ using System.IO;
 
 namespace CTI.Directory.Controllers
 {
-    public class PageController : Controller
+    public class PageController : BaseController
     {
-        //
-        // GET: /Page/
-        public ActionResult Page( string name )
+        public ActionResult Index()
         {
-					var file = Server.MapPath( "~/Views/Page/" + name + ".cshtml" );
-					if ( System.IO.File.Exists( file ) )
-					{
-						return View( file );
-					}
-
-					return RedirectToAction( "Index", "Home" );
+            return Redirect( "~/" );
         }
 
-		public ActionResult Competencies()
+        //
+        // GET: /Page/
+        //     public ActionResult Page( string name )
+        //     {
+        //var file = Server.MapPath( "~/Views/Page/" + name + ".cshtml" );
+        //if ( System.IO.File.Exists( file ) )
+        //{
+        //	return View( file );
+        //}
+
+        //return RedirectToAction( "Index", "Home" );
+        //     }
+        public ActionResult Page( string page )
+        {
+            return RoutePage( "Page/" + page );
+        }
+
+        public ActionResult RoutePage( string routePage )
+        {
+            return ViewPage( "~/Views/" + routePage + ".cshtml", "Index" );
+        }
+        public ActionResult Competencies()
 		{
 			return View( "~/Views/Page/Competencies.cshtml" );
 		}

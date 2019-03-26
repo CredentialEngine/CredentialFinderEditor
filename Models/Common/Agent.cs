@@ -8,17 +8,20 @@ using Models.ProfileModels;
 
 namespace Models.Common
 {
-	/// <summary>
-	/// Agent could be an org or a person
-	/// This could just inherit from org?
-	/// </summary>
-	public class Agent : BaseObject
+    /// <summary>
+    /// Agent could be an org or a person
+    /// This could just inherit from org?
+    /// </summary>
+    [Serializable]
+    public class Agent : BaseObject
 	{
 		public Agent()
 		{
 			Address = new Address();
 			Addresses = new List<Address>();
 			IdentificationCodes = new List<TextValueProfile>();
+			AlternativeIdentifiers = new List<TextValueProfile>();
+			AlternateName = new List<TextValueProfile>();
 			PhoneNumbers = new List<TextValueProfile>();
 			Keyword = new List<TextValueProfile>();
 			//Subjects = new List<TextValueProfile>();
@@ -43,13 +46,7 @@ namespace Models.Common
 		
 		public string SubjectWebpage { get; set; }
 		public List<TextValueProfile> Auto_SubjectWebpage { get { return string.IsNullOrWhiteSpace( SubjectWebpage ) ? null : new List<TextValueProfile>() { new TextValueProfile() { TextValue = SubjectWebpage } }; } }
-		//[Obsolete]
-		//public string Url
-		//{
-		//	get { return SubjectWebpage; }
-		//	set { SubjectWebpage = value; }
-		//}
-		//public string UniqueURI { get; set; }
+
 		public string ImageUrl { get; set; }
 		public List<TextValueProfile> Auto_ImageUrl
 		{
@@ -63,8 +60,18 @@ namespace Models.Common
 				return result;
 			}
 		}
+
+		//approvals
+		public bool IsApproved { get; set; }
+		public int ContentApprovedById { get; set; }
+		public string ContentApprovedBy { get; set; }
+		public string LastApprovalDate { get; set; }
+
 		public string CredentialRegistryId { get; set; }
-		public string ctid { get; set; }
+        public string LastPublishDate { get; set; } = "";
+        public bool IsPublished { get; set; }
+        //public DateTime EntityLastUpdated { get; set; }
+        public string ctid { get; set; }
 		public string CTID { get { return ctid; } set { ctid = value; } } //Alias used for publishing
 
 		/// <summary>
@@ -122,19 +129,72 @@ namespace Models.Common
 		// -not anymore
 		//public List<TextValueProfile> SocialMedia { get; set; }
 		public List<TextValueProfile> SocialMediaPages { get; set; }
-		public List<TextValueProfile> Auto_SocialMedia { get { return SocialMediaPages; } set { SocialMediaPages = value; } } //Alias used for publishing
+		public List<TextValueProfile> Auto_SocialMedia
+		{
+			get { return SocialMediaPages; }
+			set { SocialMediaPages = value; }
+		} //Alias used for publishing
 
 		public List<TextValueProfile> SameAs { get; set; }
 		public List<TextValueProfile> Auto_SameAs { get { return SameAs; } set { SameAs = value; } } //Alias used for publishing
-		public List<TextValueProfile> IdentificationCodes { get; set; }
+		
 		public List<TextValueProfile> PhoneNumbers { get; set; }
 
+		/// <summary>
+		/// only for use in search results
+		/// </summary>
 		public string MainPhoneNumber { get; set; }
 		/// <summary>
-		/// Alias used for publishing
+		/// Alias used for publishing mapping
 		/// Starts by creating a ContactPoint for all the top level emails, etc
+		/// ===> Actually used by detail page as well!!!!!!!!!
+		/// so created Auto_TargetContactPointForDetail
+        /// 18-06-26 mparsons - need to change the handling, as contact point is no longer part of an org, only a place
 		/// </summary>
-		public List<ContactPoint> Auto_TargetContactPoint
+		//public List<ContactPoint> Auto_TargetContactPoint
+		//{
+		//	get
+		//	{
+		//		var results = new List<ContactPoint>();
+
+		//		//var autoContact = new ContactPoint()
+		//		//{
+		//		//	Name = "Organization Contact Information",
+		//		//	PhoneNumbers = PhoneNumbers,
+		//		//	Emails = Emails,
+		//		//	SocialMediaPages = SocialMediaPages
+		//		//};
+		//		//results.Add( autoContact );
+
+		//		if ( ContactPoint != null && ContactPoint.Count() > 0 )
+		//		{
+		//			results = results.Concat( ContactPoint ).ToList();
+		//		}
+		//		/*if( PhoneNumbers != null && PhoneNumbers.Count() > 0 )
+		//		{
+		//			results = results.Concat(
+		//				PhoneNumbers.ConvertAll( m => new Common.ContactPoint()
+		//				{
+		//					ContactType = (string.IsNullOrWhiteSpace( m.TextTitle ) ? m.CodeTitle : m.TextTitle),
+		//					Telephone = m.TextValue,
+		//					FaxNumber = (m.CodeTitle == "Fax" ? m.TextValue : "")
+		//				} ).ToList()
+		//			).ToList();
+		//		}
+		//		if( Emails != null && Emails.Count() > 0 )
+		//		{
+		//			results = results.Concat(
+		//				Emails.ConvertAll( m => new Common.ContactPoint()
+		//				{
+		//					ContactType = (string.IsNullOrWhiteSpace( m.TextTitle ) ? m.CodeTitle : m.TextTitle),
+		//					Email = m.TextValue
+		//				} )
+		//			).ToList();
+		//		}*/
+		//		return results;
+		//	} }
+
+		public List<ContactPoint> Auto_TargetContactPointForDetail
 		{
 			get
 			{
@@ -153,60 +213,45 @@ namespace Models.Common
 				{
 					results = results.Concat( ContactPoint ).ToList();
 				}
-				/*if( PhoneNumbers != null && PhoneNumbers.Count() > 0 )
-				{
-					results = results.Concat(
-						PhoneNumbers.ConvertAll( m => new Common.ContactPoint()
-						{
-							ContactType = (string.IsNullOrWhiteSpace( m.TextTitle ) ? m.CodeTitle : m.TextTitle),
-							Telephone = m.TextValue,
-							FaxNumber = (m.CodeTitle == "Fax" ? m.TextValue : "")
-						} ).ToList()
-					).ToList();
-				}
-				if( Emails != null && Emails.Count() > 0 )
-				{
-					results = results.Concat(
-						Emails.ConvertAll( m => new Common.ContactPoint()
-						{
-							ContactType = (string.IsNullOrWhiteSpace( m.TextTitle ) ? m.CodeTitle : m.TextTitle),
-							Email = m.TextValue
-						} )
-					).ToList();
-				}*/
+
 				return results;
-			} }
+			}
+		}
 		public List<TextValueProfile> Emails { get; set; }
-		public string Email { get; set; }
 
 		//public List<TextValueProfile> Subjects { get; set; }
 		public List<TextValueProfile> Keyword { get; set; }
-
+		public List<TextValueProfile> AlternateName { get; set; }
 
 		public List<ContactPoint> ContactPoint { get; set; }
 
+		public List<TextValueProfile> IdentificationCodes { get; set; }
+		public List<TextValueProfile> AlternativeIdentifiers { get; set; }
 		public string AlternativeIdentifier { get; set; }
-		public List<IdentifierValue> Auto_AlternativeIdentifier
-		{
-			get
-			{
-				var result = new List<IdentifierValue>();
-				if ( !string.IsNullOrWhiteSpace( AlternativeIdentifier ) )
-				{
-					result.Add( new IdentifierValue()
-					{
-						IdentifierValueCode = AlternativeIdentifier
-					} );
-				}
-				return result;
-			}
-		}
+
+		//public List<IdentifierValue> Auto_AlternativeIdentifier
+		//{
+		//	get
+		//	{
+		//		var result = new List<IdentifierValue>();
+		//		if ( !string.IsNullOrWhiteSpace( AlternativeIdentifier ) )
+		//		{
+		//			result.Add( new IdentifierValue()
+		//			{
+		//				IdentifierValueCode = AlternativeIdentifier
+		//			} );
+		//		}
+		//		return result;
+		//	}
+		//}
 		//Identifier Aliases used for publishing
 		public string ID_DUNS { get { return IdentificationCodes.FirstOrDefault( m => m.CodeSchema == "ceterms:duns" )?.TextValue; } }
 		public string ID_FEIN { get { return IdentificationCodes.FirstOrDefault( m => m.CodeSchema == "ceterms:fein" )?.TextValue; } }
 		public string ID_IPEDSID { get { return IdentificationCodes.FirstOrDefault( m => m.CodeSchema == "ceterms:ipedsID" )?.TextValue; } }
 		public string ID_OPEID { get { return IdentificationCodes.FirstOrDefault( m => m.CodeSchema == "ceterms:opeID" )?.TextValue; } }
-		public List<IdentifierValue> ID_AlternativeIdentifier {
+        public string ID_LEICode { get { return IdentificationCodes.FirstOrDefault( m => m.CodeSchema == "ceterms:leiCode" )?.TextValue; } }
+        //Used by detail page
+        public List<IdentifierValue> ID_AlternativeIdentifier {
 			get {
 				return IdentificationCodes.Where( m => m.CodeSchema == "ceterms:alternativeIdentifier" ).ToList().ConvertAll( m =>
 				new IdentifierValue()

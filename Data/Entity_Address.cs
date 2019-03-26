@@ -33,6 +33,9 @@ namespace Data
         public Nullable<int> LastUpdatedById { get; set; }
         public string Country { get; set; }
         public string PostOfficeBoxNumber { get; set; }
+        public string ExternalIdentifier { get; set; }
+        public Nullable<int> LocationId { get; set; }
+        public Nullable<bool> WasUsedForOrganization { get; set; }
     
         public virtual Entity Entity { get; set; }
         public virtual Codes_Countries Codes_Countries { get; set; }
